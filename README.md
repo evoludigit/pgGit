@@ -22,20 +22,20 @@ psql -c "SELECT * FROM pggit.get_version('users')"  # Version 1.0.0!
 
 ### 🎯 Get Started
 
-- **New to pgGit?** → [Getting Started Guide](docs/getting-started/GETTING_STARTED.md)
-- **Want details?** → [Architecture Overview](docs/architecture.md)
+- **New to pgGit?** → [Getting Started Guide](docs/getting-started/Getting_Started.md)
+- **Want details?** → [Architecture Overview](docs/Architecture_Decision.md)
 
 ### 📖 Comprehensive Guides
 
-- [Performance Guide](docs/guides/performance.md) - Optimize for large databases
-- [Security Guide](docs/guides/security.md) - Secure your installation
-- [Operations Guide](docs/guides/operations.md) - Production deployment
+- [Performance Guide](docs/guides/Performance.md) - Optimize for large databases
+- [Security Guide](docs/guides/Security.md) - Secure your installation
+- [Operations Guide](docs/guides/Operations.md) - Production deployment
 
 ### 🔧 Reference
 
 - [API Reference](docs/reference/README.md) - Complete function documentation
 - [Contributing Guide](docs/contributing/README.md) - Help improve pgGit
-- [Troubleshooting](docs/getting-started/TROUBLESHOOTING.md) - Fix common issues
+- [Troubleshooting](docs/getting-started/Troubleshooting.md) - Fix common issues
 
 ## ⚡ Instant Demo
 
@@ -244,12 +244,10 @@ Since everything is free, here's what you get:
 
 ## 📚 Documentation
 
-- [Getting Started Guide](docs/getting-started.md)
-- [Enterprise Features Guide](docs/ENTERPRISE_FEATURES.md)
-- [Architecture Overview](docs/architecture.md)
-- [API Reference](docs/api-reference.md)
-- [Performance Benchmarks](docs/benchmarks.md)
-- [Migration from Flyway/Liquibase](docs/migration-guide.md)
+- [Getting Started Guide](docs/Getting_Started.md)
+- [Enterprise Features Guide](docs/Enterprise_Features.md)
+- [Architecture Overview](docs/Architecture_Decision.md)
+- [API Reference](docs/API_Reference.md)
 
 ---
 
