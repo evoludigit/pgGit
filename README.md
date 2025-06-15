@@ -1,5 +1,12 @@
 # pgGit: Git for PostgreSQL Databases 🚀
 
+> [!CAUTION]
+> **⚠️ EXPERIMENTAL PROJECT - NOT PRODUCTION READY ⚠️**
+> 
+> This project is created by a self-taught database programmer experimenting with Claude AI and PostgreSQL internals. The code quality is waiting to be roasted by experienced developers. Please use this only for learning and experimentation - definitely NOT in production yet!
+> 
+> Contributions, code reviews, and constructive criticism are very welcome! 🙏
+
 **Git-like version control for PostgreSQL schemas. Track, branch, and manage database changes like code.**
 
 ---
