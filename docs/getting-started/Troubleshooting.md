@@ -20,6 +20,7 @@ SELECT * FROM pggit.diagnose_issues();
 **Error:** `ERROR: could not open extension control file "/usr/share/postgresql/17/extension/pggit.control": No such file or directory`
 
 **Causes:**
+
 1. Extension files not in PostgreSQL directory
 2. Missing PostgreSQL development packages
 3. Wrong PostgreSQL version
@@ -90,6 +91,7 @@ psql -c "CREATE EXTENSION pggit VERSION '1.0.0-compat';"
 **Error:** `ERROR: Parent branch 'main' not found`
 
 **Causes:**
+
 1. No main branch exists
 2. Typo in branch name
 3. Branch was deleted
@@ -112,6 +114,7 @@ CREATE SCHEMA IF NOT EXISTS main;
 **Error:** Branch creation takes forever on large databases
 
 **Causes:**
+
 1. Creating data branch on huge tables
 2. Insufficient memory
 3. Lock conflicts
@@ -161,6 +164,7 @@ SELECT pggit.checkout_branch('feature/mybranch');
 **Error:** Branches created but no compression benefit observed
 
 **Causes:**
+
 1. Not using PostgreSQL 17
 2. Compression not enabled
 3. Data not compressible
@@ -257,6 +261,7 @@ SELECT * FROM pggit.validate_branch_integrity('main');
 ### Slow Branch Operations
 
 **Symptoms:**
+
 - Branch creation takes > 5 minutes
 - Switching branches is slow
 - Queries perform poorly
@@ -448,6 +453,7 @@ ORDER BY performed_at DESC;
 ### Reporting Bugs
 
 Include:
+
 1. PostgreSQL version
 2. pggit version
 3. Operating system

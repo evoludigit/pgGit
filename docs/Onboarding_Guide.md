@@ -1,10 +1,11 @@
 # pggit Onboarding Guide
 
-*How to adopt pggit with your existing production database*
+How to adopt pggit with your existing production database
 
 ## 🚨 Breaking: AI-Powered Migration Now Available!
 
 **Traditional migration:** 12 weeks, complex planning, high risk
+
 **New AI migration:** 3 minutes, zero config, automatic
 
 ```bash
@@ -23,6 +24,7 @@ pggit-ai migrate
 "This looks amazing, but I have a 500GB production database with 5 years of history. How do I actually start using pggit?"
 
 We now have TWO answers:
+
 1. **The NEW way:** AI does it in 3 minutes
 2. **The traditional way:** Manual migration (1-12 weeks)
 
@@ -82,26 +84,38 @@ SELECT pggit.reconcile('feature/new', 'main');
 
 ## 🎯 Traditional Onboarding Strategies
 
-*If you prefer the manual approach or need more control:*
+If you prefer the manual approach or need more control:
 
 ### Strategy 1: Green Field (New Projects)
+
 **Best for:** New applications, microservices, isolated features
+
 **Risk:** Minimal
+
 **Time to value:** Immediate
 
 ### Strategy 2: Dev/Staging First
+
 **Best for:** Existing applications with separate environments
+
 **Risk:** Low
+
 **Time to value:** 1-2 weeks
 
 ### Strategy 3: Gradual Production Migration
+
 **Best for:** Large production systems
+
 **Risk:** Medium (with proper planning)
+
 **Time to value:** 1-3 months
 
 ### Strategy 4: Hybrid Approach
+
 **Best for:** Complex environments with mixed requirements
+
 **Risk:** Low to Medium
+
 **Time to value:** 2-4 weeks
 
 ---
@@ -146,6 +160,7 @@ SELECT pggit.create_data_branch('feature/user-profiles', 'main', true);
 ```
 
 **Benefits:**
+
 - Clean start with version control from day one
 - No migration complexity
 - Team learns pggit with lower stakes
@@ -414,12 +429,14 @@ SELECT pggit.migrate_table('orders');
 ### Example 1: SaaS Application Migration
 
 **Current State:**
+
 - 200GB production database
 - 50 tables, 500M records
 - Using Flyway for migrations
 - 10 developers, 3 environments
 
 **Migration Plan:**
+
 
 ```sql
 -- Week 1: Development environment
@@ -463,12 +480,14 @@ SELECT pggit.create_branch('reports/daily', 'public');
 ### Example 2: E-commerce Platform
 
 **Current State:**
+
 - 1TB production database
 - PostgreSQL 14 (needs upgrade)
 - High transaction volume
 - Zero-downtime requirement
 
 **Migration Plan:**
+
 
 ```bash
 #!/bin/bash
@@ -499,6 +518,7 @@ EOF
 
 **Solution:** Start with read-only branches
 
+
 ```sql
 -- Create read-only branch for reports
 SELECT pggit.create_branch('reports/monthly', 'public');
@@ -514,6 +534,7 @@ GRANT SELECT ON ALL TABLES IN SCHEMA reports_monthly TO analyst_role;
 
 **Solution:** pggit tracks functions too
 
+
 ```sql
 -- Your functions are versioned
 CREATE OR REPLACE FUNCTION calculate_total(order_id INT)
@@ -527,6 +548,7 @@ SELECT * FROM pggit.get_history('public.calculate_total');
 
 **Solution:** Use PostgreSQL 17 compression
 
+
 ```sql
 -- Upgrade to PostgreSQL 17
 -- Create compressed branches
@@ -539,6 +561,7 @@ SELECT pggit.create_compressed_data_branch('feature/test', 'main', true);
 ### Challenge 4: "We use database-specific features"
 
 **Solution:** pggit is PostgreSQL-native
+
 
 ```sql
 -- All PostgreSQL features work
@@ -658,7 +681,9 @@ Remember:
 - Iterate based on feedback
 - Celebrate wins (first successful merge!)
 
-The journey from "interesting technology" to "how did we live without this" typically takes 3-4 weeks. Your developers will thank you, your DBAs will sleep better, and your database will finally have the version control it deserves.
+The journey from "interesting technology" to "how did we live without this"
+typically takes 3-4 weeks. Your developers will thank you, your DBAs will sleep
+better, and your database will finally have the version control it deserves.
 
 **Next steps:**
 1. Choose your onboarding strategy

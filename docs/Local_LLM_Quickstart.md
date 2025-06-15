@@ -1,6 +1,6 @@
 # pggit Local LLM Quick Start
 
-*Get AI-powered migrations running in 15 minutes*
+Get AI-powered migrations running in 15 minutes
 
 ## 🚀 Zero to AI Migrations
 
@@ -30,7 +30,7 @@ SELECT * FROM pggit.test_llm_integration();
 -- Expected output:
 -- test_name          | status | details
 -- LLM Availability   | PASS   | Local LLM function exists
--- Embedding Generation| PASS   | MiniLM embeddings are 384-dimensional  
+-- Embedding Generation| PASS   | MiniLM embeddings are 384-dimensional
 -- Migration Analysis | PASS   | Analyzed simple CREATE TABLE, confidence: 0.95
 ```
 
@@ -45,7 +45,7 @@ SELECT * FROM pggit.analyze_migration_with_llm(
 );
 ```
 
-**Expected Result:**
+### Expected Result:
 ```
 intent          | Create users table with unique email constraint
 pattern_type    | CREATE_TABLE
@@ -57,6 +57,7 @@ risk_assessment | LOW - Standard table creation
 ```
 
 Done! You now have AI-powered migrations running locally.
+
 
 ---
 
@@ -123,7 +124,7 @@ SELECT * FROM pggit.ai_migrate_batch(
 );
 ```
 
-**Expected Output:**
+### Expected Output:
 ```
 migration_name | status  | confidence | message
 V1__init.sql   | SUCCESS | 0.98       | Migrated with 0.98 confidence
@@ -152,13 +153,14 @@ SELECT * FROM pggit.analyze_migration_with_llm(
 );
 ```
 
-**Expected Result:**
+### Expected Result:
 ```
 confidence      | 0.73
 risk_assessment | MEDIUM - Custom function with business logic
 ```
 
 Low confidence triggers manual review automatically.
+
 
 ---
 
@@ -257,8 +259,9 @@ INSERT INTO pggit.migration_patterns (
 ## 🔒 Privacy & Security
 
 Your migrations never leave your server:
+
 - **No cloud API calls**
-- **No data transmission** 
+- **No data transmission**
 - **Local model inference only**
 - **Full audit trail** in `pggit.ai_decisions`
 
@@ -282,4 +285,5 @@ Your migrations never leave your server:
 
 ---
 
-*From traditional 12-week migrations to 3-minute AI-powered ones. Welcome to the future!* 🤖
+*From traditional 12-week migrations to 3-minute AI-powered ones. Welcome to
+the future!* 🤖

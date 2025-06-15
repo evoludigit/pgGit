@@ -40,7 +40,7 @@ BEGIN
             ) INTO v_ddl
             FROM information_schema.columns
             WHERE table_schema || '.' || table_name = p_object_name;
-            
+
         WHEN 'INDEX' THEN
             -- Get normalized index definition
             SELECT pg_get_indexdef(indexrelid, 0, true)
@@ -49,7 +49,7 @@ BEGIN
             JOIN pg_class c ON c.oid = i.indexrelid
             JOIN pg_namespace n ON n.oid = c.relnamespace
             WHERE n.nspname || '.' || c.relname = p_object_name;
-            
+
         WHEN 'FUNCTION' THEN
             -- Get normalized function definition
             SELECT pg_get_functiondef(p.oid)
@@ -58,7 +58,7 @@ BEGIN
             JOIN pg_namespace n ON n.oid = p.pronamespace
             WHERE n.nspname || '.' || p.proname = p_object_name;
     END CASE;
-    
+
     -- Normalize the DDL:
     -- - Remove excess whitespace
     -- - Lowercase keywords
@@ -66,7 +66,7 @@ BEGIN
     -- - Remove schema qualifiers for portability
     v_normalized := regexp_replace(v_ddl, '\s+', ' ', 'g');
     v_normalized := lower(v_normalized);
-    
+
     RETURN v_normalized;
 END;
 $$ LANGUAGE plpgsql;
@@ -90,16 +90,16 @@ DECLARE
 BEGIN
     -- Get normalized DDL
     v_normalized_ddl := gitversion.get_normalized_ddl(p_object_type, p_object_name);
-    
+
     -- For tables, include column order and constraints
     IF p_object_type = 'TABLE' AND p_metadata IS NOT NULL THEN
-        v_hash_input := v_normalized_ddl || '|' || 
+        v_hash_input := v_normalized_ddl || '|' ||
                        jsonb_pretty(p_metadata->'columns') || '|' ||
                        jsonb_pretty(p_metadata->'constraints');
     ELSE
         v_hash_input := v_normalized_ddl;
     END IF;
-    
+
     -- Compute SHA-256 hash
     RETURN encode(digest(v_hash_input, 'sha256'), 'hex');
 END;
@@ -122,10 +122,10 @@ BEGIN
     SELECT object_type INTO v_object_type
     FROM gitversion.objects
     WHERE full_name = p_object_name AND is_active = true;
-    
+
     -- Compute current hash
     v_current_hash := gitversion.compute_ddl_hash(v_object_type::TEXT, p_object_name);
-    
+
     -- Compare hashes
     RETURN v_current_hash != p_stored_hash;
 END;
@@ -142,7 +142,7 @@ RETURNS TABLE(
 ) AS $$
 BEGIN
     RETURN QUERY
-    SELECT 
+    SELECT
         o.full_name,
         o.object_type,
         o.ddl_hash,
@@ -184,7 +184,7 @@ BEGIN
         v_result.object_type := split_part(v_key, '.', 1);
         v_result.source_hash := p_source_hashes->>v_key;
         v_result.target_hash := p_target_hashes->>v_key;
-        
+
         IF p_target_hashes ? v_key THEN
             IF p_source_hashes->>v_key = p_target_hashes->>v_key THEN
                 v_result.status := 'identical';
@@ -194,10 +194,10 @@ BEGIN
         ELSE
             v_result.status := 'source_only';
         END IF;
-        
+
         RETURN NEXT v_result;
     END LOOP;
-    
+
     -- Find objects only in target
     FOR v_key IN SELECT jsonb_object_keys(p_target_hashes) LOOP
         IF NOT (p_source_hashes ? v_key) THEN
@@ -231,23 +231,23 @@ DECLARE
 BEGIN
     -- Get object details
     SELECT * INTO v_object FROM gitversion.objects WHERE id = p_object_id;
-    
+
     -- Compute new hash
     v_new_hash := gitversion.compute_ddl_hash(
-        v_object.object_type::TEXT, 
+        v_object.object_type::TEXT,
         v_object.full_name,
         v_object.metadata
     );
-    
+
     -- Only record change if hash actually changed
     IF v_object.ddl_hash IS NULL OR v_object.ddl_hash != v_new_hash THEN
         -- Update object with new hash
-        UPDATE gitversion.objects 
+        UPDATE gitversion.objects
         SET ddl_hash = v_new_hash,
             version = version + 1,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = p_object_id;
-        
+
         -- Record in history
         INSERT INTO gitversion.history (
             object_id, change_type, change_severity,
@@ -268,13 +268,13 @@ $$ LANGUAGE plpgsql;
 ```sql
 -- Quick check if schema has changed
 WITH current_hashes AS (
-    SELECT 
+    SELECT
         full_name,
         gitversion.compute_ddl_hash(object_type::TEXT, full_name) as current_hash
     FROM gitversion.objects
     WHERE is_active = true
 )
-SELECT 
+SELECT
     o.full_name,
     o.ddl_hash != ch.current_hash as has_changed
 FROM gitversion.objects o
@@ -288,7 +288,7 @@ WHERE o.ddl_hash != ch.current_hash;
 -- On source database: Export hashes
 COPY (
     SELECT json_object_agg(
-        full_name, 
+        full_name,
         ddl_hash
     )
     FROM gitversion.objects
@@ -328,7 +328,7 @@ CREATE TABLE gitversion.hash_baselines (
 
 -- Save current state
 INSERT INTO gitversion.hash_baselines (baseline_name, object_hashes)
-SELECT 
+SELECT
     'production_' || to_char(CURRENT_DATE, 'YYYYMMDD'),
     jsonb_object_agg(full_name, ddl_hash)
 FROM gitversion.objects

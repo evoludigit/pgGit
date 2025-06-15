@@ -2,7 +2,11 @@
 
 ## Executive Summary
 
-This document presents a technically sound architecture for implementing actual Git semantics in PostgreSQL, enabling true schema branching, merging, and version control at the database level. Unlike the current pg_gitversion which is primarily an audit log, this design enables multiple concurrent schema versions to coexist and be manipulated independently.
+This document presents a technically sound architecture for implementing
+actual Git semantics in PostgreSQL, enabling true schema branching, merging,
+and version control at the database level. Unlike the current pg_gitversion
+which is primarily an audit log, this design enables multiple concurrent
+schema versions to coexist and be manipulated independently.
 
 ## Core Architecture Components
 
@@ -12,7 +16,8 @@ This document presents a technically sound architecture for implementing actual 
 
 **Approach: Schema-Based Branch Isolation**
 
-Each branch lives in its own PostgreSQL schema, providing complete isolation while sharing the same database instance:
+Each branch lives in its own PostgreSQL schema, providing complete isolation
+while sharing the same database instance:
 
 ```sql
 -- Branch naming convention: branch_<branch_name>
@@ -623,7 +628,7 @@ $$ LANGUAGE plpgsql;
 ### Performance Impact
 
 1. **Branch Creation**: O(n) where n is number of objects in schema
-2. **Commit Operation**: O(m) where m is number of changed objects  
+2. **Commit Operation**: O(m) where m is number of changed objects
 3. **Merge Operation**: O(n log n) for diff computation
 4. **Storage Overhead**: ~2-3x base schema size for active branches
 
@@ -637,10 +642,14 @@ $$ LANGUAGE plpgsql;
 ### Migration Path
 
 1. Start with single-schema prototype
-2. Add branch isolation incrementally  
+2. Add branch isolation incrementally
 3. Implement merge algorithms iteratively
 4. Optimize storage with COW as needed
 
 ## Conclusion
 
-This architecture provides a technically feasible path to implementing Git-like semantics in PostgreSQL. While complex, it leverages PostgreSQL's native features (schemas, event triggers, JSONB) to create a powerful schema versioning system that goes beyond simple audit logging to enable true concurrent development workflows at the database level.
+This architecture provides a technically feasible path to implementing
+Git-like semantics in PostgreSQL. While complex, it leverages PostgreSQL's
+native features (schemas, event triggers, JSONB) to create a powerful schema
+versioning system that goes beyond simple audit logging to enable true
+concurrent development workflows at the database level.

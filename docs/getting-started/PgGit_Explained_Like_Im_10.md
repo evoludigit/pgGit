@@ -15,6 +15,7 @@ You know Git from coding class? It lets you save different versions of your code
 Imagine your school kept EVERY student record, all grades, all schedules, everything in one giant digital filing cabinet. That's a database.
 
 **The problem:**
+
 - When they need to change something (like add a new field for "favorite pizza"), they have to be SUPER careful
 - If they mess up → Everyone's grades could disappear 😱
 - Right now, they basically just cross their fingers and hope nothing breaks
@@ -22,6 +23,7 @@ Imagine your school kept EVERY student record, all grades, all schedules, everyt
 ### **Why Current Tools Suck**
 
 **Flyway and Liquibase** (the current tools) are like having a notepad where you write down what changes you made. But:
+
 - ❌ No "undo" button
 - ❌ Can't test changes safely
 - ❌ If two people make changes, they fight
@@ -35,7 +37,7 @@ Imagine your school kept EVERY student record, all grades, all schedules, everyt
 ```
 Database v1.0: Original student records
 Database v1.1: + Added "favorite pizza" field
-Database v1.2: + Added "lunch preferences" 
+Database v1.2: + Added "lunch preferences"
 Database v1.3: Oops, this version broke everything!
 ```
 
@@ -54,12 +56,14 @@ pizza-feature:   [Student Records + Pizza Field] ← Test safely here
 
 ### **3. Smart AI Helper**
 The AI looks at your changes and says:
+
 - 🟢 "This looks safe, go ahead!"
 - 🟡 "This might be slow, consider doing it at night"
 - 🔴 "STOP! This will delete everyone's data!"
 
 ### **4. Automatic Conflict Resolution**
 When two people change the database:
+
 - **Old way:** Everything breaks, call the IT guy, panic for hours
 - **pgGit way:** "Hey, Alice added a field and Bob added a table. I'll merge them automatically!"
 
@@ -77,11 +81,13 @@ When two people change the database:
 ### **Key Capabilities**
 
 **For IT Teams:**
+
 - Zero-downtime deployments (changes with no website downtime)
 - Cost optimization (saves 30-50% on storage)
 - Compliance reporting (automatic SOX/HIPAA/GDPR reports)
 
 **For Managers:**
+
 - See exactly what changed and when
 - Know who approved what changes
 - Get alerts before disasters happen
@@ -140,7 +146,7 @@ The goal is simple: make pgGit the standard tool for PostgreSQL database version
 
 ## 🎯 **The Bottom Line**
 
-**pgGit is Git for databases.** 
+**pgGit is Git for databases.**
 
 Git became essential for code. pgGit aims to become essential for databases.
 

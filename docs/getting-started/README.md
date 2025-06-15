@@ -35,7 +35,8 @@ psql -c "SELECT * FROM pggit.get_version('users')"  # Version 1.0.0!
 ### Beginners (5 minutes)
 → [Explained Like You're 5](PgGit_Explained_Like_Im_5.md)
 
-### Developers (15 minutes)  
+### Developers (15 minutes)
+
 → [Explained Like You're 10](PgGit_Explained_Like_Im_10.md)
 → [Getting Started Guide](Getting_Started.md)
 
@@ -54,7 +55,7 @@ psql -c "SELECT * FROM pggit.get_version('users')"  # Version 1.0.0!
 
 Once you're comfortable with the basics:
 1. Explore [Enterprise Features](../guides/enterprise-features.md)
-2. Set up [CI/CD Integration](../guides/cicd-integration.md)  
+2. Set up [CI/CD Integration](../guides/cicd-integration.md)
 3. Try [AI-Powered Analysis](../guides/ai-features.md)
 
 ---

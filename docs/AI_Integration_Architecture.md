@@ -1,10 +1,11 @@
 # AI Integration Architecture for pgGit
 
-*Built-in AI-powered features using GPT-2 neural network*
+**Built-in AI-powered features using GPT-2 neural network**
 
 ## Overview
 
-pgGit includes real AI-powered migration analysis using an embedded GPT-2 neural network. The AI features are fully implemented and operational.
+pgGit includes real AI-powered migration analysis using an embedded GPT-2
+neural network. The AI features are fully implemented and operational.
 
 ---
 
@@ -13,17 +14,20 @@ pgGit includes real AI-powered migration analysis using an embedded GPT-2 neural
 ### 1. Specialized Database Schema LLMs
 
 **CodeLlama-SQL** (7B-13B parameters)
+
 - Fine-tuned on SQL and database schemas
 - Runs on consumer GPUs (RTX 3060+)
 - Good at understanding DDL patterns
 - Can run fully offline
 
 **SQLCoder** (7B-15B parameters)
+
 - Specifically trained for SQL generation
 - Excellent at understanding schema relationships
 - Lightweight enough for edge deployment
 
 **StarCoder** (7B-15B parameters)
+
 - Strong on code migration patterns
 - Good context understanding
 - Can be fine-tuned on migration datasets
@@ -32,17 +36,16 @@ pgGit includes real AI-powered migration analysis using an embedded GPT-2 neural
 
 ```yaml
 pggit AI Stack:
-  
   1. Model Layer:
     - Local LLM: CodeLlama-SQL-7B
     - Inference: llama.cpp (CPU/GPU)
     - Embeddings: all-MiniLM-L6-v2
-    
+
   2. Vector Store:
     - PostgreSQL pgvector extension
     - Migration pattern embeddings
     - Schema similarity search
-    
+
   3. Processing Pipeline:
     - Migration Parser → Embeddings → LLM → Validation
     - Confidence scoring based on similarity
@@ -61,7 +64,8 @@ git clone https://github.com/ggerganov/llama.cpp
 cd llama.cpp && make
 
 # Download quantized model (4-bit for efficiency)
-wget https://huggingface.co/TheBloke/CodeLlama-7B-SQL-GGUF/resolve/main/codellama-7b-sql.Q4_K_M.gguf
+wget https://huggingface.co/TheBloke/CodeLlama-7B-SQL-GGUF/resolve/main/\
+    codellama-7b-sql.Q4_K_M.gguf
 
 # Install pgvector for embeddings
 CREATE EXTENSION vector;
@@ -128,7 +132,7 @@ migration_embedding = model.encode(p_migration_content)
 
 # Find similar patterns in database
 similar_patterns = plpy.execute("""
-    SELECT 
+    SELECT
         pattern_type,
         semantic_meaning,
         confidence_threshold
@@ -138,7 +142,8 @@ similar_patterns = plpy.execute("""
 """, [migration_embedding.tolist()])
 
 # Construct prompt for LLM
-prompt = f"""You are a database migration expert. Analyze this {p_source_tool} migration:
+prompt = f"""You are a database migration expert. Analyze this
+{p_source_tool} migration:
 
 {p_migration_content}
 
@@ -156,7 +161,7 @@ Output JSON:
 
 # Call local LLM
 llm_response = plpy.execute(
-    "SELECT pggit.call_local_llm(%s) as response", 
+    "SELECT pggit.call_local_llm(%s) as response",
     [prompt]
 )[0]['response']
 
@@ -183,7 +188,8 @@ $$ LANGUAGE plpython3u;
 training_data = {
     "flyway_to_pggit": [
         {
-            "input": "V1__Create_users_table.sql:\nCREATE TABLE users (id INT);",
+            "input": "V1__Create_users_table.sql:\n" +
+                     "CREATE TABLE users (id INT);",
             "output": {
                 "intent": "Create users table with ID",
                 "version": "1.0.0",
@@ -202,10 +208,12 @@ training_data = {
 
 ```sql
 -- Pre-compute embeddings for common patterns
-INSERT INTO pggit.migration_patterns (pattern_type, pattern_embedding, semantic_meaning)
-VALUES 
-    ('add_column', 
-     ai_embed('ALTER TABLE x ADD COLUMN y TYPE'), 
+INSERT INTO pggit.migration_patterns (
+    pattern_type, pattern_embedding, semantic_meaning
+)
+VALUES
+    ('add_column',
+     ai_embed('ALTER TABLE x ADD COLUMN y TYPE'),
      'Adding new column to existing table'),
     ('create_index',
      ai_embed('CREATE INDEX ON table(column)'),
@@ -230,7 +238,7 @@ DECLARE
     v_total_confidence DECIMAL := 0;
 BEGIN
     -- Parse migrations from source
-    FOR v_migration IN 
+    FOR v_migration IN
         SELECT * FROM pggit.parse_migrations(p_source_path, p_source_type)
     LOOP
         -- Analyze each with local LLM
@@ -239,7 +247,7 @@ BEGIN
             v_migration.content,
             p_source_type
         );
-        
+
         -- Store results
         INSERT INTO pggit.ai_migration_plan (
             original_migration,
@@ -254,10 +262,10 @@ BEGIN
             v_ai_analysis.pggit_equivalent,
             v_ai_analysis.rollback_sql
         );
-        
+
         v_total_confidence := v_total_confidence + v_ai_analysis.confidence;
     END LOOP;
-    
+
     RETURN format('Analyzed %s migrations, average confidence: %s%%',
         COUNT(*), ROUND(v_total_confidence / COUNT(*), 1));
 END;
@@ -281,21 +289,21 @@ BEGIN
         Analyze these schema differences:
         Source branch: %s
         Target branch: %s
-        
+
         Differences:
         %s
-        
+
         For each difference:
         1. Assess risk level (LOW/MEDIUM/HIGH)
         2. Suggest resolution (TAKE_SOURCE/TAKE_TARGET/MERGE)
         3. Explain reasoning
         4. Flag if human review needed
-    $$, p_source, p_target, 
+    $$, p_source, p_target,
         pggit.get_schema_diff_json(p_source, p_target));
-    
+
     -- Call local LLM
     v_ai_response := pggit.call_local_llm(v_prompt);
-    
+
     -- Parse and create suggestions
     RETURN pggit.create_reconciliation_from_ai(v_ai_response);
 END;
@@ -307,54 +315,57 @@ $$ LANGUAGE plpgsql;
 ## 🏗️ Deployment Options
 
 ### Option 1: Embedded in PostgreSQL
+
 ```yaml
 Architecture:
   - PostgreSQL with plpython3u
   - llama.cpp as shared library
   - Model loaded on startup
   - 8-16GB RAM overhead
-  
+
 Pros:
   - Fully integrated
   - No external services
   - Low latency
-  
+
 Cons:
   - Memory intensive
   - Requires plpython3u
 ```
 
 ### Option 2: Sidecar Service
+
 ```yaml
 Architecture:
   - Separate AI service (FastAPI)
   - PostgreSQL calls via HTTP
   - Model in dedicated container
   - GPU optional
-  
+
 Pros:
   - Scalable
   - GPU acceleration
   - Multiple models
-  
+
 Cons:
   - Network latency
   - Additional infrastructure
 ```
 
 ### Option 3: Edge Deployment
+
 ```yaml
 Architecture:
   - AI runs on client machine
   - Results sent to PostgreSQL
   - Progressive Web App
   - WebAssembly inference
-  
+
 Pros:
   - Zero server load
   - Privacy preserved
   - Offline capable
-  
+
 Cons:
   - Client requirements
   - Slower on weak hardware
@@ -398,6 +409,7 @@ Cons:
    - Reproducible migrations
 
 3. **Audit Trail**
+
    ```sql
    CREATE TABLE pggit.ai_audit_log (
        id SERIAL PRIMARY KEY,
@@ -415,6 +427,7 @@ Cons:
 ## 🎯 Current Implementation
 
 ### Implemented Features
+
 - ✅ GPT-2 neural network embedded in PostgreSQL
 - ✅ Real-time migration analysis
 - ✅ Pattern recognition and risk assessment
@@ -423,6 +436,7 @@ Cons:
 - ✅ Batch migration processing
 
 ### AI Functions Available
+
 - `pggit.analyze_migration_with_llm()` - Analyze single migration
 - `pggit.ai_migrate_batch()` - Process multiple migrations
 - `pggit.run_edge_case_tests()` - Test edge case detection
@@ -433,16 +447,19 @@ Cons:
 ## 💡 Alternative Approaches
 
 ### 1. Rule-Based + AI Hybrid
+
 - Use rules for common patterns (90%)
 - AI for complex cases (10%)
 - Faster and more predictable
 
 ### 2. Embedding-Only Approach
+
 - No LLM needed
 - Just similarity search
 - Extremely fast but less flexible
 
 ### 3. Cloud API with Local Fallback
+
 - Use GPT-4 when available
 - Fall back to local model
 - Best of both worlds
@@ -451,7 +468,8 @@ Cons:
 
 ## Conclusion
 
-pgGit's AI features are fully implemented using an embedded GPT-2 neural network, delivering:
+pgGit's AI features are fully implemented using an embedded GPT-2 neural
+network, delivering:
 
 - Real-time migration analysis with neural network insights
 - Sub-second processing time for most migrations
@@ -459,4 +477,6 @@ pgGit's AI features are fully implemented using an embedded GPT-2 neural network
 - No additional hardware requirements
 - Pattern recognition across Flyway, Liquibase, Rails, and manual migrations
 
-The AI system combines pattern matching, neural network analysis, and risk assessment to provide intelligent migration insights directly within PostgreSQL.
+The AI system combines pattern matching, neural network analysis, and risk
+assessment to provide intelligent migration insights directly within
+PostgreSQL.

@@ -1,0 +1,17 @@
+AI_Integration_Architecture.md
+API_Reference.md
+Architecture_Decision.md
+DDL_Hashing_Design.md
+Enterprise_Features.md
+Getting_Started.md
+getting-started/PgGit_Explained_Like_Im_10.md
+getting-started/README.md
+getting-started/Troubleshooting.md
+Git_Branching_Architecture.md
+guides/Operations.md
+guides/Security.md
+Local_LLM_Quickstart.md
+Onboarding_Guide.md
+Pattern_Examples.md
+Performance_Analysis.md
+Schema_Reconciliation.md

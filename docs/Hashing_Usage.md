@@ -4,7 +4,8 @@ How to use the new hash-based change detection features in pggit.
 
 ## Overview
 
-DDL hashing adds efficient change detection to pggit by computing SHA-256 hashes of normalized database object definitions. This enables:
+DDL hashing adds efficient change detection to pggit by computing SHA-256
+hashes of normalized database object definitions. This enables:
 
 - **Fast change detection**: O(1) hash comparison vs. O(n) DDL comparison
 - **Efficient storage**: Store 64-character hashes instead of full DDL
@@ -357,6 +358,7 @@ SELECT * FROM pggit.objects WHERE ddl_hash = 'some_hash_value';
 ## Migration from Non-Hash Version
 
 If upgrading from a version without hashing:
+
 
 ```sql
 -- 1. Add hashing functionality

@@ -1,18 +1,24 @@
 # Getting Started with pggit
 
-*Your complete guide to database branching with PostgreSQL 17*
+Your complete guide to database branching with PostgreSQL 17
 
 ## Welcome to the Future of Database Development
 
-You know that feeling when you push code changes to a feature branch, test safely, then merge with confidence? **What if your database could work the same way?**
 
-That's exactly what pggit does. Let's get you set up and branching databases like a pro.
+You know that feeling when you push code changes to a feature branch, test
+safely, then merge with confidence? **What if your database could work the
+same way?**
+
+That's exactly what pggit does. Let's get you set up and branching databases
+like a pro.
 
 ---
 
 ## ⚡ Quick Setup (5 Minutes)
 
+
 ### Prerequisites Check
+
 
 First, let's make sure you have what you need:
 
@@ -26,7 +32,9 @@ which make gcc
 # Should show paths to both
 ```
 
-**Don't have PostgreSQL 17?** No worries:
+### Don't have PostgreSQL 17?
+
+No worries:
 
 ```bash
 # Option 1: Use our Podman container (easiest)
@@ -42,6 +50,7 @@ podman run --name pggit-db \
 
 ### Install pggit
 
+
 ```bash
 # Clone the revolutionary database technology
 git clone https://github.com/evoludigit/pggit
@@ -54,7 +63,8 @@ make clean && make && sudo make install
 psql -d your_database -c "CREATE EXTENSION pggit;"
 ```
 
-**Success looks like:**
+### Success looks like:
+
 ```
 CREATE EXTENSION
 NOTICE: 🚀 pggit extension installed successfully!
@@ -66,9 +76,11 @@ NOTICE: 🌿 Ready for database branching
 
 ## 🎬 Your First Database Branch (The Magic Moment)
 
+
 Let's create your first branch with actual data. This is where it gets exciting:
 
 ### 1. Set Up Some Test Data
+
 
 ```sql
 -- Connect to your database
@@ -97,6 +109,7 @@ SELECT COUNT(*) FROM main.users;
 
 ### 2. Create Your First Branch (The Revolutionary Part)
 
+
 ```sql
 -- 🌟 The moment of truth: create a branch with REAL DATA
 SELECT pggit.create_data_branch('feature/user-profiles', 'main', true);
@@ -108,13 +121,17 @@ SELECT pggit.create_data_branch('feature/user-profiles', 'main', true);
 -- NOTICE: ✅ PostgreSQL 17 compressed branch feature/user-profiles created with ID 2 in 45ms
 ```
 
-**What just happened?** You created an isolated copy of your entire database that:
+### What just happened?
+
+You created an isolated copy of your entire database that:
+
 - Shares unchanged data with the parent (copy-on-write)
 - Uses PostgreSQL 17 compression (efficient storage)
 - Allows independent changes without affecting main
 - Can be merged back automatically
 
 ### 3. Switch to Your Branch and Make Changes
+
 
 ```sql
 -- Switch to your new branch
@@ -138,6 +155,7 @@ SELECT id, name, avatar_url, preferences FROM users;
 
 ### 4. See the Magic in Action
 
+
 ```sql
 -- Check storage efficiency
 SELECT * FROM pggit.get_branch_storage_stats();
@@ -150,6 +168,7 @@ SELECT COUNT(*) FROM users;
 ```
 
 ### 5. Merge Your Changes Back
+
 
 ```sql
 -- Merge your feature branch back to main
@@ -169,18 +188,21 @@ SELECT COUNT(*) FROM users;
 
 ## 🎯 Core Concepts (What You Just Learned)
 
+
 ### Branches Are Real Database Isolation
 
-Unlike traditional migration tools that just track schema changes, pggit branches create **actual isolated environments**:
+Unlike traditional migration tools that just track schema changes, pggit
+branches create **actual isolated environments**:
 
 - **Schema Isolation**: Each branch has its own PostgreSQL schema
-- **Data Inheritance**: Copy-on-write using PostgreSQL table inheritance  
+- **Data Inheritance**: Copy-on-write using PostgreSQL table inheritance
 - **Compression**: Efficient storage with PostgreSQL 17
 - **Performance**: Branch operations complete in seconds, not minutes
 
 ### Copy-on-Write = Storage Efficiency
 
 When you create a branch:
+
 1. **Unchanged data** is shared between branches (zero duplication)
 2. **New data** is stored only in the branch that created it
 3. **PostgreSQL 17 compression** provides efficient storage
@@ -189,14 +211,16 @@ When you create a branch:
 ### Three-Way Merging
 
 When merging branches, pggit uses Git-style three-way merge:
+
 - **Base**: Common ancestor state
-- **Source**: Your branch changes  
+- **Source**: Your branch changes
 - **Target**: Destination branch changes
 - **Result**: Automatic merge or conflict detection
 
 ---
 
 ## 📊 Understanding Performance
+
 
 ### Storage Efficiency Demo
 
@@ -212,9 +236,9 @@ SELECT pggit.create_compressed_data_branch('feature/performance-test', 'main', t
 SELECT * FROM pggit.get_branch_storage_stats();
 -- Typical results:
 -- branch_name: feature/performance-test
--- table_count: 1  
+-- table_count: 1
 -- total_size: 2048 kB
--- compressed_size: 656 kB  
+-- compressed_size: 656 kB
 -- compression_ratio: 67.97%
 -- space_saved: 1392 kB
 ```
@@ -226,19 +250,25 @@ SELECT * FROM pggit.get_branch_storage_stats();
 SELECT * FROM pggit.demo_postgresql17_compression();
 
 -- Results:
--- Native Compression: Basic TOAST → Advanced LZ4/ZSTD (much more efficient)
--- Column-level Compression: Table-level → Per-column control (Granular optimization)
--- Data Branching: Not possible → Copy-on-write with compression (Revolutionary)
--- Storage Efficiency: 100% baseline → Significantly reduced with compression
+-- Native Compression: Basic TOAST → Advanced LZ4/ZSTD
+--   (much more efficient)
+-- Column-level Compression: Table-level → Per-column control
+--   (Granular optimization)
+-- Data Branching: Not possible → Copy-on-write with compression
+--   (Revolutionary)
+-- Storage Efficiency: 100% baseline → Significantly reduced with
+--   compression
 ```
 
 ---
 
 ## 🚨 Common Gotchas (And How to Avoid Them)
 
+
 ### PostgreSQL Version Compatibility
 
 **Problem:** Trying to use advanced compression on PostgreSQL < 17
+
 ```sql
 -- This might not work on older versions:
 SELECT pggit.create_compressed_data_branch('test', 'main', true);
@@ -246,6 +276,7 @@ SELECT pggit.create_compressed_data_branch('test', 'main', true);
 ```
 
 **Solution:** Either upgrade to PostgreSQL 17 or use basic branching:
+
 ```sql
 -- Works on all PostgreSQL versions:
 SELECT pggit.create_data_branch('test', 'main', false);  -- Schema only
@@ -254,12 +285,15 @@ SELECT pggit.create_data_branch('test', 'main', false);  -- Schema only
 ### Large Dataset Performance
 
 **Problem:** Creating branches with massive tables takes forever
+
 ```sql
 -- This might be slow with 100GB+ tables:
 SELECT pggit.create_data_branch('feature/huge', 'main', true);
 ```
 
-**Solution:** Use schema-only branches for CI/CD, data branches for development:
+**Solution:** Use schema-only branches for CI/CD, data branches for
+development:
+
 ```sql
 -- Fast for CI/CD (schema only):
 SELECT pggit.create_data_branch('ci/build-123', 'main', false);
@@ -271,12 +305,14 @@ SELECT pggit.create_data_branch('feature/new-feature', 'main', true);
 ### Merge Conflicts
 
 **Problem:** Automatic merge fails due to conflicts
+
 ```sql
 SELECT pggit.merge_compressed_branches('feature/a', 'main');
 -- Returns: 'CONFLICTS_DETECTED:merge_abc123'
 ```
 
 **Solution:** Resolve conflicts systematically:
+
 ```sql
 -- Option 1: Auto-resolve using compression optimization
 SELECT pggit.auto_resolve_compressed_conflicts(
@@ -291,6 +327,7 @@ SELECT pggit.resolve_conflict('merge_abc123', conflict_id, 'TAKE_SOURCE');
 ---
 
 ## 🔥 Advanced Workflows
+
 
 ### CI/CD Integration
 
@@ -334,9 +371,11 @@ SELECT pggit.merge_branches('hotfix/critical-bug', 'production');
 
 ## 🔍 Troubleshooting
 
+
 ### Extension Won't Install
 
 **Error:** `could not open extension control file`
+
 ```bash
 # Check if PostgreSQL dev packages are installed
 # Ubuntu/Debian:
@@ -352,6 +391,7 @@ make clean && make && sudo make install
 ### Permission Denied
 
 **Error:** `permission denied to create extension`
+
 ```sql
 -- Connect as superuser:
 sudo -u postgres psql -d your_database
@@ -363,6 +403,7 @@ GRANT USAGE ON SCHEMA pggit TO your_username;
 ### Compression Not Working
 
 **Error:** Branches created but no compression benefits
+
 ```sql
 -- Check PostgreSQL version:
 SELECT version();
@@ -376,6 +417,7 @@ SHOW default_toast_compression;
 ### Performance Issues
 
 **Slow branch creation:**
+
 - Start with schema-only branches (`copy_data = false`)
 - Use JSONB data types for better compression
 - Ensure adequate disk space (compression requires temp space)
@@ -384,7 +426,9 @@ SHOW default_toast_compression;
 
 ## 🎓 Next Steps
 
+
 Congratulations! You've successfully:
+
 - ✅ Installed pggit with PostgreSQL 17
 - ✅ Created your first data branch with compression
 - ✅ Made isolated changes safely
@@ -393,7 +437,7 @@ Congratulations! You've successfully:
 
 ### Ready for More?
 
-- **[Onboarding Guide →](ONBOARDING_GUIDE.md)** - Migrate existing databases to pggit
+- **[Onboarding Guide →](Onboarding_Guide.md)** - Migrate existing databases to pggit
 - **[API Reference →](API_REFERENCE.md)** - Complete function documentation
 - **[Examples →](../examples/)** - Real-world use cases and patterns
 - **[Troubleshooting →](../TROUBLESHOOTING.md)** - Solutions to common issues
@@ -401,7 +445,9 @@ Congratulations! You've successfully:
 
 ### Have an Existing Database?
 
-If you're looking to adopt pggit with an existing production database, check out our comprehensive **[Onboarding Guide](ONBOARDING_GUIDE.md)**. It covers:
+If you're looking to adopt pggit with an existing production database, check
+out our comprehensive **[Onboarding Guide](Onboarding_Guide.md)**. It covers:
+
 - Multiple migration strategies (dev-first, shadow mode, hybrid)
 - Step-by-step migration plans
 - Automated onboarding script
@@ -416,6 +462,9 @@ If you're looking to adopt pggit with an existing production database, check out
 
 ---
 
-**Ready to revolutionize your database workflows?** You've got the foundation. Now go branch with confidence! 🚀
+**Ready to revolutionize your database workflows?** You've got the foundation.
+Now go branch with confidence! 🚀
 
-*Built with ❤️ for PostgreSQL developers who want their databases to be as sophisticated as their applications.*
+*Built with ❤️ for PostgreSQL developers who want their databases to be as
+sophisticated as their applications.*
+

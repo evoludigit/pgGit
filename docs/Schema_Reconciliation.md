@@ -5,6 +5,7 @@ How to reconcile database schemas between production and development/staging whe
 ## Overview
 
 This guide provides a systematic approach to:
+
 1. Analyze differences between two database schemas
 2. Install pg_gitversion safely
 3. Generate migrations to sync environments
@@ -130,14 +131,14 @@ AND table_name NOT IN (
 );
 
 -- Find tables only in development
-SELECT 
+SELECT
     'Table only in DEVELOPMENT' as difference,
     table_name
 FROM information_schema.tables
 WHERE table_schema = 'dev_snapshot'
 AND table_name NOT IN (
-    SELECT table_name 
-    FROM information_schema.tables 
+    SELECT table_name
+    FROM information_schema.tables
     WHERE table_schema = 'prod_snapshot'
 );
 
@@ -233,9 +234,9 @@ CREATE EXTENSION pg_gitversion;
 SELECT extname, extversion FROM pg_extension WHERE extname = 'pg_gitversion';
 
 -- Check what was captured
-SELECT object_type, COUNT(*) 
-FROM gitversion.objects 
-WHERE is_active = true 
+SELECT object_type, COUNT(*)
+FROM gitversion.objects
+WHERE is_active = true
 GROUP BY object_type;
 
 -- If looks good, commit

@@ -6,11 +6,11 @@ After implementing DDL hashing, the synergies between versioning and schema sync
 
 ## Architecture Overview
 
-```
+```text
 pg_gitversion
 ├── Core Module (always loaded)
 │   ├── Event triggers & tracking
-│   ├── DDL hashing infrastructure  
+│   ├── DDL hashing infrastructure
 │   ├── Version management
 │   └── Local dependency tracking
 ├── Sync Module (optional)
@@ -78,12 +78,14 @@ SELECT gitversion.advanced_tenant_sync('tenant_123', 'template_schema');
 ## Benefits of This Approach
 
 ### 1. **Unified Data Model**
+
 - Single source of truth for object tracking
 - Shared hash infrastructure
 - Consistent dependency modeling
 - No data duplication between extensions
 
 ### 2. **Seamless Integration**
+
 ```sql
 -- Version tracking feeds directly into sync
 SELECT gitversion.sync_from_version(
@@ -100,19 +102,21 @@ SELECT gitversion.sync_with_conflict_resolution(
 ```
 
 ### 3. **Performance Optimization**
+
 ```sql
 -- Shared hash computation
 -- No need to recompute hashes for sync operations
-SELECT 
+SELECT
     local.ddl_hash,
     remote.ddl_hash,
     local.ddl_hash = remote.ddl_hash as objects_match
 FROM gitversion.objects local
-JOIN gitversion.remote_objects('prod_db') remote 
+JOIN gitversion.remote_objects('prod_db') remote
     ON local.full_name = remote.full_name;
 ```
 
 ### 4. **Simplified Installation**
+
 ```bash
 # Single extension handles everything
 make install
@@ -125,12 +129,14 @@ psql -c "SELECT gitversion.enable_module('sync')"
 ### Core Module (Always Loaded)
 
 **Files:**
+
 - `pg_gitversion--1.1.0.sql` (enhanced with hashing)
 - `sql/001_schema.sql`
-- `sql/002_event_triggers.sql` 
+- `sql/002_event_triggers.sql`
 - `sql/009_ddl_hashing.sql`
 
 **Capabilities:**
+
 - Event trigger-based tracking
 - DDL hashing infrastructure
 - Version management
@@ -156,7 +162,7 @@ CREATE TABLE gitversion.remote_databases (
 CREATE FUNCTION gitversion.sync_add_remote(name TEXT, connection TEXT);
 CREATE FUNCTION gitversion.sync_test_connection(remote_name TEXT);
 
--- Comparison functions  
+-- Comparison functions
 CREATE FUNCTION gitversion.sync_compare_schemas(
     remote_name TEXT,
     local_schema TEXT DEFAULT 'public'
@@ -224,24 +230,24 @@ BEGIN
     IF module_name NOT IN ('sync', 'advanced') THEN
         RAISE EXCEPTION 'Unknown module: %', module_name;
     END IF;
-    
+
     -- Check if already enabled
     IF EXISTS (SELECT 1 FROM gitversion.modules WHERE name = module_name AND enabled = true) THEN
         RETURN false; -- Already enabled
     END IF;
-    
+
     -- Load module SQL
-    module_file := format('sql/%s_%s_module.sql', 
+    module_file := format('sql/%s_%s_module.sql',
         CASE module_name
             WHEN 'sync' THEN '010'
             WHEN 'advanced' THEN '011'
         END,
         module_name
     );
-    
+
     -- Execute module installation
     EXECUTE format('SELECT gitversion.load_module_file(%L)', module_file);
-    
+
     -- Record as enabled
     INSERT INTO gitversion.modules (name, enabled, enabled_at, enabled_by, version)
     VALUES (module_name, true, CURRENT_TIMESTAMP, CURRENT_USER, '1.1.0')
@@ -249,7 +255,7 @@ BEGIN
         enabled = true,
         enabled_at = CURRENT_TIMESTAMP,
         enabled_by = CURRENT_USER;
-    
+
     RETURN true;
 END;
 $$ LANGUAGE plpgsql;

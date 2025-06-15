@@ -12,17 +12,19 @@ Thank you for your interest in contributing to pgGit! This guide will help you g
 ## 📋 Development Setup
 
 ### Prerequisites
+
 - PostgreSQL 17+
 - Make and PGXS
 - Podman or Docker (for containerized testing)
 - Python 3.8+ (for AI features)
 
 ### Build Commands
+
 ```bash
 # Build the extension
 make
 
-# Install to PostgreSQL  
+# Install to PostgreSQL
 sudo make install
 
 # Clean build artifacts
@@ -33,13 +35,14 @@ make clean && make && sudo make install
 ```
 
 ### Test Commands
+
 ```bash
 # Create the extension
 psql -c "CREATE EXTENSION pggit"
 
 # Or use makefile targets
 make test-core      # Core functionality
-make test-ai        # AI features  
+make test-ai        # AI features
 make test-enterprise # Enterprise features
 make test-all       # All tests
 
@@ -141,18 +144,21 @@ The function collects **only** anonymous technical data:
 ## 🔧 Development Guidelines
 
 ### Code Style
+
 - Follow existing PostgreSQL extension patterns
 - Use consistent naming conventions
 - Comment complex logic
 - Keep functions focused and small
 
 ### Testing
+
 - Add pgTAP tests for new features
 - Ensure all tests pass (make test)
 - Test with different PostgreSQL versions
 - Consider performance impact
 
 ### Documentation
+
 - Update relevant guides in `/docs/`
 - Add examples for new features
 - Keep CLAUDE.md updated for development instructions
@@ -160,18 +166,21 @@ The function collects **only** anonymous technical data:
 ## 🎯 Contribution Areas
 
 ### High Priority
+
 - **Performance optimizations**: Event trigger efficiency
 - **AI improvements**: Better migration analysis
 - **Cross-platform support**: Windows, macOS testing
 - **Documentation**: User guides and examples
 
-### Medium Priority  
+### Medium Priority
+
 - **Enterprise features**: Advanced monitoring, reporting
 - **Integration**: CI/CD platform support
 - **Visualization**: Web dashboard, migration flowcharts
 - **Testing**: More edge cases, stress testing
 
 ### Nice to Have
+
 - **Multi-database support**: MySQL, SQL Server adapters
 - **Cloud integrations**: AWS RDS, Google Cloud SQL
 - **Advanced AI**: GPT-4 integration, custom models
@@ -194,12 +203,12 @@ When contributing performance improvements:
 ### Problem
 Event triggers taking 500μs on large schemas
 
-### Solution  
+### Solution
 Optimized object lookup with better indexing
 
 ### Results
 - Before: 500μs average
-- After: 156μs average  
+- After: 156μs average
 - Improvement: 69% faster
 
 ### Test Environment
@@ -212,11 +221,13 @@ Optimized object lookup with better indexing
 ## 🤝 Community
 
 ### Communication
+
 - **GitHub Discussions**: General questions, ideas
-- **GitHub Issues**: Bug reports, feature requests  
+- **GitHub Issues**: Bug reports, feature requests
 - **Email**: contact@pggit.dev (for sensitive issues)
 
 ### Code of Conduct
+
 - Be respectful and inclusive
 - Help others learn and contribute
 - Focus on technical merit

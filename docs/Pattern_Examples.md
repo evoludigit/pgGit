@@ -1,6 +1,6 @@
-# pg_gitversion Pattern Examples
+# pgGit Pattern Examples
 
-Real-world patterns and best practices for using pg_gitversion in your PostgreSQL database.
+Real-world patterns and best practices for using pgGit in your PostgreSQL database.
 
 ## Table of Contents
 

@@ -515,16 +515,19 @@ ORDER BY hour DESC, operation_type;
 ## Recommendations
 
 ### For Small Schemas (<100 tables)
+
 - Full schema cloning is acceptable
 - Simple hash comparison for change detection
 - No need for COW optimization
 
 ### For Medium Schemas (100-1000 tables)
+
 - Implement lazy cloning
 - Use incremental commits
 - Enable hash-based deduplication
 
 ### For Large Schemas (>1000 tables)
+
 - Mandatory COW implementation
 - Parallel merge processing
 - Connection pooling per branch

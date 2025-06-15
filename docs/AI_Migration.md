@@ -1,6 +1,6 @@
 # pggit AI-Powered Migration
 
-*The 3-minute migration that makes DBAs nervous*
+**The 3-minute migration that makes DBAs nervous**
 
 ## ⚡ The Impossible Made Simple
 
@@ -17,14 +17,15 @@ That's it. That's the migration guide.
 
 ## 🤖 How It Actually Works
 
-Our AI doesn't just copy your migrations - it understands them, improves them, and completes in minutes what traditionally takes weeks.
+Our AI doesn't just copy your migrations - it understands them, improves
+them, and completes in minutes what traditionally takes weeks.
 
 ### Step 1: Run the Command (30 seconds)
 
 ```bash
 # Migrate from ANY tool
 pggit migrate --ai --source=flyway
-pggit migrate --ai --source=liquibase  
+pggit migrate --ai --source=liquibase
 pggit migrate --ai --source=sqitch
 pggit migrate --ai --source=rails
 pggit migrate --ai --source=alembic
@@ -35,7 +36,7 @@ pggit migrate --ai --auto-detect
 
 ### Step 2: Watch the Magic (2 minutes)
 
-```
+```text
 🤖 pggit AI Migration Engine v2.0
 ================================
 
@@ -73,6 +74,7 @@ Ready to use pggit! Try: pggit checkout main
 ### Step 3: That's It (0 seconds)
 
 You're done. Your entire migration history is now in pggit with:
+
 - Semantic versioning
 - Full rollback capability
 - Optimized execution order
@@ -145,17 +147,17 @@ The AI flags complex scenarios for human review:
 
 ```yaml
 Edge Cases Detected:
-  
+
 1. Migration V47: Custom Java Callback
    Confidence: 73%
    Suggestion: "Convert to PL/pgSQL function"
    Action Required: Review converted function
-   
-2. Migration V89: Environment-specific logic  
+
+2. Migration V89: Environment-specific logic
    Confidence: 61%
    Suggestion: "Use pggit environment branches"
    Action Required: Verify environment mapping
-   
+
 3. Migration V234: Circular dependencies
    Confidence: 85%
    Suggestion: "Reorder for linear execution"
@@ -168,7 +170,7 @@ Edge Cases Detected:
 
 ### Before pggit AI
 
-```
+```text
 Week 1-2: Analyze existing migrations
 Week 3-4: Map to new system
 Week 5-6: Write conversion scripts
@@ -181,9 +183,9 @@ Total: 12 weeks, high risk, expensive
 
 ### With pggit AI
 
-```
+```text
 Minute 1: Run command
-Minute 2: AI analyzes everything  
+Minute 2: AI analyzes everything
 Minute 3: Migration complete
 
 Total: 3 minutes, low risk, free
@@ -196,22 +198,30 @@ Total: 3 minutes, low risk, free
 ### Common Skepticism
 
 **"AI can't understand my complex migrations"**
+
 - It can. It's trained on migrations far worse than yours.
 
 **"What about my custom scripts?"**
+
 - AI converts them to PostgreSQL functions or flags for review.
 
 **"This will break production"**
-- Dry run mode shows exactly what changes. Nothing touches your database until you approve.
+
+- Dry run mode shows exactly what changes. Nothing touches your database
+  until you approve.
 
 **"It's too good to be true"**
+
 - That's what they said about Git replacing CVS.
 
 ### The Viktor Test™
 
-Dr. Viktor Steinberg, our harshest critic, rates this 7/10 on his skepticism scale. His review:
+Dr. Viktor Steinberg, our harshest critic, rates this 7/10 on his skepticism
+scale. His review:
 
-> "I hate that this might actually work. The AI angle is clever enough that desperate teams will try it. Just don't blame me when the AI hallucinates a DROP TABLE." - Viktor
+> "I hate that this might actually work. The AI angle is clever enough that
+> desperate teams will try it. Just don't blame me when the AI hallucinates a
+> DROP TABLE." - Viktor
 
 Coming from Viktor, that's basically a standing ovation.
 
@@ -265,26 +275,30 @@ pggit migrate --ai --shadow-mode --database=production
 ### Open Source
 
 The entire AI pipeline is open source:
+
 - Training data: `pggit/ai/training/migrations/`
 - Model fine-tuning: `pggit/ai/models/`
 - Inference engine: `pggit/ai/inference/`
 
 ### Privacy
 
-Your migrations never leave your infrastructure. The AI runs locally using our pre-trained models.
+Your migrations never leave your infrastructure. The AI runs locally using
+our pre-trained models.
 
 ---
 
 ## 🚀 Migration Patterns Supported
 
 ### Flyway
+
 ✅ SQL migrations
-✅ Java callbacks  
+✅ Java callbacks
 ✅ Repeatable migrations
 ✅ Baseline migrations
 ✅ Undo migrations
 
 ### Liquibase
+
 ✅ XML changesets
 ✅ YAML changesets
 ✅ SQL changesets
@@ -292,12 +306,14 @@ Your migrations never leave your infrastructure. The AI runs locally using our p
 ✅ Preconditions
 
 ### Rails
+
 ✅ ActiveRecord migrations
 ✅ Schema.rb
 ✅ Structure.sql
 ✅ Data migrations
 
 ### Others
+
 ✅ Alembic (SQLAlchemy)
 ✅ Sqitch
 ✅ Django migrations
@@ -328,7 +344,7 @@ pggit migrate --manual-mode
 Based on our testing with synthetic datasets:
 
 - **Small project**: ~500 migrations → ~3 minutes
-- **Medium project**: ~1,500 migrations → ~5 minutes  
+- **Medium project**: ~1,500 migrations → ~5 minutes
 - **Large project**: ~4,000 migrations → ~10 minutes
 - **Legacy chaos**: Unknown migrations → 10-20 minutes (with edge cases)
 
@@ -349,7 +365,8 @@ Expected DBA reaction: Extreme skepticism
 
 ### The Ultimate Goal
 
-Make database migrations so simple that junior developers do them on Fridays at 4:59 PM.
+Make database migrations so simple that junior developers do them on Fridays
+at 4:59 PM.
 
 (Please don't actually do that)
 
@@ -361,12 +378,16 @@ Make database migrations so simple that junior developers do them on Fridays at 
 pggit migrate --ai --yolo
 ```
 
-*Warning: --yolo mode skips all confirmations. Viktor strongly disapproves.*
+**Warning: --yolo mode skips all confirmations. Viktor strongly disapproves.**
 
 ---
 
-*"We made database migration so simple, even we don't believe it works."* - Harper Quinn-Davidson
+**"We made database migration so simple, even we don't believe it works."**
 
-*"This is the most irresponsible thing I've ever partially endorsed."* - Dr. Viktor Steinberg
+- Harper Quinn-Davidson
 
-*"Patent pending."* - Jean-Pierre Beaumont
+**"This is the most irresponsible thing I've ever partially endorsed."**
+
+- Dr. Viktor Steinberg
+
+**"Patent pending."** - Jean-Pierre Beaumont

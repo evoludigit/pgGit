@@ -20,6 +20,7 @@ This is exactly the problem pggit solves. Let's walk through Sarah's journey fro
 ## Chapter 2: The Five-Minute Setup
 
 **What you'll need:**
+
 - A PostgreSQL database (9.5 or later)
 - PostgreSQL development headers installed
 - About 5 minutes of your time
@@ -64,6 +65,7 @@ CREATE TABLE users (
 ```
 
 Behind the scenes, pggit just:
+
 1. Captured the exact DDL command
 2. Assigned it version 1.0.0 (major version for new table)
 3. Stored the timestamp and user information
@@ -177,6 +179,7 @@ SELECT pggit.generate_migration(
 This creates both "up" and "down" migration scripts that Sarah can review, test, and apply to other environments.
 
 **What the migration script contains:**
+
 - All the DDL changes in the correct order
 - Dependency information to avoid conflicts
 - Rollback instructions (where possible)
@@ -215,18 +218,21 @@ This gives the new developer a complete timeline of how the schema evolved, who 
 Now that you've seen Sarah's journey from schema chaos to clarity, here are some next steps:
 
 ### Immediate Next Steps
+
 1. **Install pggit** in your development environment
 2. **Create a test table** and watch it get tracked automatically
 3. **Make some changes** and explore the history functions
 4. **Try the impact analysis** before dropping something
 
 ### Advanced Features to Explore
+
 - **Custom dependencies** for logical relationships pggit can't detect
 - **Version reports** for comprehensive schema documentation
 - **Circular dependency detection** for complex schemas
 - **Cross-schema tracking** for multi-schema applications
 
 ### Integration Ideas
+
 - **CI/CD pipelines** that use migration scripts
 - **Database documentation** generated from version history
 - **Change approval workflows** based on impact analysis

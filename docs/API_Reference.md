@@ -1,12 +1,15 @@
 # pgGit API Reference
 
-*Complete function reference for PostgreSQL database branching*
+**Complete function reference for PostgreSQL database branching**
 
 ## Overview
 
-pgGit provides a comprehensive SQL API for database version control. All functions are available in the `pggit` schema and work directly within PostgreSQL.
+pgGit provides a comprehensive SQL API for database version control. All
+functions are available in the `pggit` schema and work directly within
+PostgreSQL.
 
-**Core Philosophy:** If you know Git, you know pgGit. The API mirrors Git workflows with database-specific enhancements.
+**Core Philosophy:** If you know Git, you know pgGit. The API mirrors Git
+workflows with database-specific enhancements.
 
 ---
 
@@ -31,6 +34,7 @@ pggit.create_branch(
 **Returns:** Branch ID
 
 **Example:**
+
 ```sql
 -- Create a feature branch from main
 SELECT pggit.create_branch('feature/user-auth', 'main');
@@ -62,6 +66,7 @@ pggit.create_data_branch(
 **Returns:** Branch ID
 
 **Example:**
+
 ```sql
 -- Create branch with data isolation
 SELECT pggit.create_data_branch('feature/profile-redesign', 'main', true);
@@ -89,6 +94,7 @@ pggit.create_compressed_data_branch(
 - Performance monitoring
 
 **Example:**
+
 ```sql
 -- Create compressed branch (PostgreSQL 17)
 SELECT pggit.create_compressed_data_branch('feature/pg17-optimized', 'main', true);
@@ -110,6 +116,7 @@ pggit.checkout_branch(p_branch_name TEXT) RETURNS TEXT
 **Returns:** Success message
 
 **Example:**
+
 ```sql
 -- Switch to feature branch
 SELECT pggit.checkout_branch('feature/user-auth');
@@ -128,6 +135,7 @@ pggit.get_current_branch() RETURNS TEXT
 ```
 
 **Example:**
+
 ```sql
 SELECT pggit.get_current_branch();
 -- Returns: 'feature/user-auth'
@@ -149,6 +157,7 @@ pggit.list_branches() RETURNS TABLE (
 ```
 
 **Example:**
+
 ```sql
 SELECT * FROM pggit.list_branches();
 -- branch_name        | parent_branch | status | total_objects | storage_efficiency | created_at
@@ -179,13 +188,14 @@ pggit.merge_branches(
 **Returns:** Merge result ('MERGE_SUCCESS' or 'CONFLICTS_DETECTED')
 
 **Example:**
+
 ```sql
 -- Merge feature branch to main
 SELECT pggit.merge_branches('feature/user-auth', 'main');
 -- Returns: 'MERGE_SUCCESS:commit_hash_here'
 
 -- Merge with conflicts
-SELECT pggit.merge_branches('feature/conflicting', 'main');  
+SELECT pggit.merge_branches('feature/conflicting', 'main');
 -- Returns: 'CONFLICTS_DETECTED:merge_id_abc123'
 ```
 
@@ -207,6 +217,7 @@ pggit.merge_compressed_branches(
 - Performance monitoring
 
 **Example:**
+
 ```sql
 SELECT pggit.merge_compressed_branches('feature/pg17-branch', 'main');
 -- NOTICE: 🔀 Merging with compression optimization
@@ -232,10 +243,11 @@ pggit.auto_resolve_compressed_conflicts(
 - `TAKE_TARGET`: Always take target branch version
 
 **Example:**
+
 ```sql
 -- Auto-resolve using compression optimization
 SELECT pggit.auto_resolve_compressed_conflicts(
-    'merge_abc123', 
+    'merge_abc123',
     'COMPRESSION_OPTIMIZED'
 );
 -- Returns: 'CONFLICTS_RESOLVED:5_auto_3_manual'
@@ -263,6 +275,7 @@ pggit.get_branch_storage_stats(
 ```
 
 **Example:**
+
 ```sql
 -- All branches
 SELECT * FROM pggit.get_branch_storage_stats();
@@ -271,7 +284,7 @@ SELECT * FROM pggit.get_branch_storage_stats();
 SELECT * FROM pggit.get_branch_storage_stats('feature/user-auth');
 -- branch_name: feature/user-auth
 -- table_count: 3
--- total_size: 1024 kB  
+-- total_size: 1024 kB
 -- compressed_size: 307 kB
 -- compression_ratio: 70.02%
 -- space_saved: 717 kB
@@ -305,6 +318,7 @@ pggit.get_performance_stats() RETURNS TABLE (
 ```
 
 **Example:**
+
 ```sql
 SELECT * FROM pggit.get_performance_stats();
 -- metric_name: total_branches | metric_value: 12 | description: Active branches
@@ -325,11 +339,12 @@ pggit.get_version(p_object_name TEXT) RETURNS TEXT
 ```
 
 **Example:**
+
 ```sql
 SELECT pggit.get_version('users');
 -- Returns: '2.1.3'
 
-SELECT pggit.get_version('user_profiles');  
+SELECT pggit.get_version('user_profiles');
 -- Returns: '1.0.0'
 ```
 
@@ -348,11 +363,12 @@ pggit.get_history(p_object_name TEXT) RETURNS TABLE (
 ```
 
 **Example:**
+
 ```sql
 SELECT * FROM pggit.get_history('users');
 -- version | change_type | change_description           | author | timestamp
 -- 1.0.0   | CREATE      | Initial table creation       | alice  | 2024-01-01 10:00:00
--- 2.0.0   | ALTER       | Added email column (NOT NULL)| bob    | 2024-01-02 14:00:00  
+-- 2.0.0   | ALTER       | Added email column (NOT NULL)| bob    | 2024-01-02 14:00:00
 -- 2.1.0   | ALTER       | Added preferences JSONB      | carol  | 2024-01-03 09:30:00
 ```
 
@@ -370,6 +386,7 @@ pggit.get_impact_analysis(p_object_name TEXT) RETURNS TABLE (
 ```
 
 **Example:**
+
 ```sql
 SELECT * FROM pggit.get_impact_analysis('users');
 -- dependent_object | dependency_type | impact_level | suggested_action
@@ -411,6 +428,7 @@ pggit.analyze_migration_with_llm(
 **Returns:** Comprehensive AI analysis with neural network insights
 
 **Example:**
+
 ```sql
 -- Analyze a CREATE TABLE migration
 SELECT * FROM pggit.analyze_migration_with_llm(
@@ -452,6 +470,7 @@ pggit.ai_migrate_batch(
 - `p_source_tool`: Source migration tool
 
 **Example:**
+
 ```sql
 -- Batch analyze multiple migrations
 SELECT * FROM pggit.ai_migrate_batch(
@@ -465,7 +484,7 @@ SELECT * FROM pggit.ai_migrate_batch(
 
 -- Results show individual analysis for each migration:
 -- migration_name: V1__create_users.sql | status: SUCCESS | confidence: 0.90 | risk_level: LOW
--- migration_name: V2__add_email.sql   | status: SUCCESS | confidence: 0.80 | risk_level: LOW  
+-- migration_name: V2__add_email.sql   | status: SUCCESS | confidence: 0.80 | risk_level: LOW
 -- migration_name: V3__risky_drop.sql  | status: REVIEW_NEEDED | confidence: 0.60 | risk_level: HIGH
 ```
 
@@ -488,6 +507,7 @@ pggit.run_edge_case_tests() RETURNS TABLE (
 ```
 
 **Example:**
+
 ```sql
 -- Run all edge case tests
 SELECT * FROM pggit.run_edge_case_tests();
@@ -511,14 +531,14 @@ SELECT * FROM pggit.run_edge_case_tests();
 
 ```sql
 -- View recent AI analyses
-SELECT 
+SELECT
     migration_id,
     confidence,
     model_version,
     inference_time_ms,
     created_at
-FROM pggit.ai_decisions 
-ORDER BY created_at DESC 
+FROM pggit.ai_decisions
+ORDER BY created_at DESC
 LIMIT 10;
 ```
 
@@ -526,7 +546,7 @@ LIMIT 10;
 
 ```sql
 -- View detected edge cases and risks
-SELECT 
+SELECT
     migration_id,
     case_type,
     risk_level,
@@ -541,13 +561,13 @@ ORDER BY risk_level DESC;
 
 ```sql
 -- Get AI performance metrics
-SELECT 
+SELECT
     COUNT(*) as total_analyses,
     ROUND(AVG(confidence * 100), 1) as avg_confidence_pct,
     ROUND(AVG(inference_time_ms), 0) as avg_time_ms,
     COUNT(*) FILTER (WHERE confidence >= 0.8) as high_confidence_count,
     COUNT(*) FILTER (WHERE confidence < 0.8) as needs_review_count
-FROM pggit.ai_decisions 
+FROM pggit.ai_decisions
 WHERE created_at > NOW() - INTERVAL '1 hour';
 ```
 
@@ -570,14 +590,15 @@ pggit.generate_migration(
 **Parameters:**
 
 - `p_from_version`: Source version or branch
-- `p_to_version`: Target version or branch  
+- `p_to_version`: Target version or branch
 - `p_object_name`: Specific object (NULL for all objects)
 
 **Example:**
+
 ```sql
 -- Generate migration from v1.0 to v2.0
 SELECT pggit.generate_migration('1.0.0', '2.0.0', 'users');
--- Returns: 
+-- Returns:
 -- -- Migration: users 1.0.0 → 2.0.0
 -- ALTER TABLE users ADD COLUMN email TEXT NOT NULL;
 -- CREATE INDEX idx_users_email ON users(email);
@@ -598,6 +619,7 @@ pggit.apply_migration(
 ```
 
 **Example:**
+
 ```sql
 -- Dry run first (recommended)
 SELECT pggit.apply_migration('ALTER TABLE users ADD COLUMN email TEXT;', true);
@@ -625,10 +647,11 @@ pggit.validate_branch_integrity(p_branch_name TEXT) RETURNS TABLE (
 ```
 
 **Example:**
+
 ```sql
 SELECT * FROM pggit.validate_branch_integrity('feature/user-auth');
 -- check_type: SCHEMA_CONSISTENCY | status: PASS | details: All objects valid
--- check_type: DATA_INTEGRITY     | status: PASS | details: 0 orphaned rows  
+-- check_type: DATA_INTEGRITY     | status: PASS | details: 0 orphaned rows
 -- check_type: COMPRESSION        | status: PASS | details: 68.5% efficiency
 ```
 
@@ -650,6 +673,7 @@ pggit.benchmark_compression_performance(
 **Dataset sizes:** 'SMALL' (1K), 'MEDIUM' (10K), 'LARGE' (100K), 'ENTERPRISE' (1M+)
 
 **Example:**
+
 ```sql
 SELECT * FROM pggit.benchmark_compression_performance('LARGE');
 -- metric: Storage Space | without_compression: 180 MB | with_compression: 54 MB | improvement: 70% reduction
@@ -666,8 +690,9 @@ pggit.generate_test_dataset(p_size TEXT DEFAULT 'MEDIUM') RETURNS TEXT
 ```
 
 **Example:**
+
 ```sql
--- Generate test data  
+-- Generate test data
 SELECT pggit.generate_test_dataset('LARGE');
 -- Returns: 'Generated 100,000 test records across 5 tables. Total size: 180 MB'
 
@@ -694,6 +719,7 @@ pggit.grant_branch_access(
 **Permissions:** 'READ', 'WRITE', 'ADMIN'
 
 **Example:**
+
 ```sql
 -- Grant read access
 SELECT pggit.grant_branch_access('developer_user', 'feature/user-auth', 'READ');
@@ -732,6 +758,7 @@ pggit.cleanup_merged_branches(p_dry_run BOOLEAN DEFAULT true) RETURNS TEXT
 ```
 
 **Example:**
+
 ```sql
 -- See what would be cleaned up
 SELECT pggit.cleanup_merged_branches(true);
@@ -751,6 +778,7 @@ pggit.optimize_storage() RETURNS TEXT
 ```
 
 **Example:**
+
 ```sql
 SELECT pggit.optimize_storage();
 -- Returns: 'OPTIMIZATION_COMPLETE: Reclaimed 890 MB across 7 branches'
@@ -839,11 +867,12 @@ SELECT pggit.merge_branches('conflicting-branch', 'main');
 ### Function Usage Patterns
 
 **Branch Creation:**
+
 ```sql
 -- Development: Use data branches
 SELECT pggit.create_data_branch('feature/new-feature', 'main', true);
 
--- CI/CD: Use schema-only for speed  
+-- CI/CD: Use schema-only for speed
 SELECT pggit.create_branch('ci/build-123', 'main');
 
 -- PostgreSQL 17: Use compressed branches
@@ -851,6 +880,7 @@ SELECT pggit.create_compressed_data_branch('feature/pg17', 'main', true);
 ```
 
 **Merge Workflow:**
+
 ```sql
 -- 1. Always validate before merging
 SELECT * FROM pggit.validate_branch_integrity('feature/ready-to-merge');
@@ -863,6 +893,7 @@ SELECT pggit.auto_resolve_compressed_conflicts('merge_id', 'COMPRESSION_OPTIMIZE
 ```
 
 **AI-Powered Analysis:**
+
 ```sql
 -- Analyze migrations before applying
 SELECT * FROM pggit.analyze_migration_with_llm(
@@ -879,17 +910,18 @@ SELECT * FROM pggit.run_edge_case_tests();
 ```
 
 **Performance Monitoring:**
+
 ```sql
 -- Regular monitoring (including AI performance)
 SELECT * FROM pggit.get_performance_stats();
 SELECT * FROM pggit.get_branch_storage_stats();
 
 -- Monitor AI analysis performance
-SELECT 
+SELECT
     COUNT(*) as analyses_last_hour,
     ROUND(AVG(confidence * 100), 1) as avg_confidence,
     ROUND(AVG(inference_time_ms), 0) as avg_ai_time_ms
-FROM pggit.ai_decisions 
+FROM pggit.ai_decisions
 WHERE created_at > NOW() - INTERVAL '1 hour';
 
 -- Periodic cleanup
@@ -933,23 +965,23 @@ import psycopg2
 def deploy_feature(feature_name, migration_sql):
     conn = psycopg2.connect("postgresql://...")
     cur = conn.cursor()
-    
+
     try:
         # Create feature branch
         cur.execute("SELECT pggit.create_data_branch(%s, 'main', true)", (feature_name,))
-        
+
         # Apply migrations
         cur.execute("SELECT pggit.apply_migration(%s, false)", (migration_sql,))
-        
+
         # Validate
         cur.execute("SELECT * FROM pggit.validate_branch_integrity(%s)", (feature_name,))
-        
+
         # Merge to main
         cur.execute("SELECT pggit.merge_branches(%s, 'main')", (feature_name,))
-        
+
         conn.commit()
         return "SUCCESS"
-        
+
     except Exception as e:
         conn.rollback()
         return f"ERROR: {e}"
@@ -960,10 +992,11 @@ def deploy_feature(feature_name, migration_sql):
 ## 📚 See Also
 
 - **[Getting Started Guide →](GETTING_STARTED.md)** - Step-by-step setup
-- **[Examples →](../examples/)** - Real-world usage patterns  
+- **[Examples →](../examples/)** - Real-world usage patterns
 - **[Architecture →](git_branching_architecture.md)** - How it works
 - **[Troubleshooting →](../TROUBLESHOOTING.md)** - Common issues
 
 ---
 
-*This API reference covers pgGit v0.1.0+. For the latest updates, see our [GitHub repository](https://github.com/evoludigit/pggit).*
+*This API reference covers pgGit v0.1.0+. For the latest updates, see our
+[GitHub repository](https://github.com/evoludigit/pggit).*

@@ -396,9 +396,9 @@ SELECT * FROM pggit.generate_cost_optimization_report();
 
 ## 📞 API Support
 
-- **Documentation Issues**: contact@pggit.dev
-- **Function Bugs**: [GitHub Issues](https://github.com/evoludigit/pggit/issues)
-- **Feature Requests**: [GitHub Discussions](https://github.com/evoludigit/pggit/discussions)
+- **Documentation Issues**: <contact@pggit.dev>
+- **Function Bugs**: [GitHub Issues](<https://github.com/evoludigit/pggit/issues>)
+- **Feature Requests**: [GitHub Discussions](<https://github.com/evoludigit/pggit/discussions>)
 
 ---
 
