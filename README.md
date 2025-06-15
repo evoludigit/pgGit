@@ -22,9 +22,8 @@ psql -c "SELECT * FROM pggit.get_version('users')"  # Version 1.0.0!
 
 ### 🎯 Get Started
 
-- **New to pgGit?** → [Explained Like You're 5](docs/getting-started/PGGIT_EXPLAINED_LIKE_IM_5.md)
-- **Want details?** → [Explained Like You're 10](docs/getting-started/PGGIT_EXPLAINED_LIKE_IM_10.md)  
-- **Ready to install?** → [Getting Started Guide](docs/getting-started/GETTING_STARTED.md)
+- **New to pgGit?** → [Getting Started Guide](docs/getting-started/GETTING_STARTED.md)
+- **Want details?** → [Architecture Overview](docs/architecture.md)
 
 ### 📖 Comprehensive Guides
 
