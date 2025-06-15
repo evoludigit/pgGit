@@ -1,0 +1,22 @@
+# Compiled files
+*.o
+*.so
+*.a
+
+# PostgreSQL extension build files
+results/
+regression.diffs
+regression.out
+
+# Editor files
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test databases
+/test_db/

@@ -1,0 +1,33 @@
+FROM postgres:17
+
+# Install required packages
+RUN apt-get update && apt-get install -y \
+    postgresql-server-dev-17 \
+    build-essential \
+    python3 \
+    python3-pip \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python packages for AI features
+RUN pip3 install transformers torch numpy psycopg2-binary
+
+# Create demo user
+RUN useradd -m -s /bin/bash pggit
+
+# Copy pggit files
+COPY . /home/pggit/pggit
+WORKDIR /home/pggit/pggit
+
+# Make scripts executable
+RUN find scripts/ -name "*.sh" -exec chmod +x {} \;
+RUN find scripts/ -name "*.py" -exec chmod +x {} \;
+
+# Set ownership
+RUN chown -R pggit:pggit /home/pggit
+
+USER pggit
+WORKDIR /home/pggit/pggit
+
+# Default command
+CMD ["bash"]

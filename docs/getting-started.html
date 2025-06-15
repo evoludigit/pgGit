@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Get started with pgGit - Learn how to version control your PostgreSQL schemas">
+    <title>Getting Started - pgGit</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='24' font-size='24'>🐘</text></svg>">
+</head>
+<body>
+    <nav class="nav" role="navigation" aria-label="Main navigation">
+        <div class="nav-inner">
+            <a href="/" class="nav-logo">pgGit</a>
+            <ul class="nav-links">
+                <li><a href="getting-started.html" aria-current="page">Getting Started</a></li>
+                <li><a href="api.html">API Reference</a></li>
+                <li><a href="examples.html">Examples</a></li>
+                <li><a href="troubleshooting.html">Troubleshooting</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <h1>Getting Started with pgGit</h1>
+        
+        <section>
+            <h2>The Story of Sarah and Schema Chaos</h2>
+            <p>Meet Sarah. She's been managing PostgreSQL databases for five years, and every deployment feels like defusing a bomb. Sound familiar?</p>
+            
+            <p>Last Tuesday, her team deployed a "simple" schema change. By Wednesday morning, production was on fire. The migration? It ran twice on one server, not at all on another. The rollback script? It was for last month's schema.</p>
+            
+            <p>Sarah discovered pgGit, and her life changed. Here's how you can follow her journey.</p>
+        </section>
+
+        <section>
+            <h2>Chapter 1: Installation</h2>
+            <p>First, Sarah installed pgGit. It's just a PostgreSQL extension:</p>
+            
+            <pre><code>-- Connect to your database
+psql -U postgres -d your_database
+
+-- Install the extension
+CREATE EXTENSION pggit;
+
+-- Verify it worked
+SELECT * FROM pggit.status();</code></pre>
+
+            <p>You should see something like:</p>
+            <pre><code> branch | changes_staged | current_commit | commit_message 
+--------+----------------+----------------+----------------
+ main   |              0 | [null]         | [null]</code></pre>
+        </section>
+
+        <section>
+            <h2>Chapter 2: Your First Commit</h2>
+            <p>Sarah's database already had tables. pgGit automatically tracked them:</p>
+            
+            <pre><code>-- See what pggit found
+SELECT * FROM pggit.stage_changes();
+
+-- Commit the current state
+SELECT pggit.commit('Initial schema snapshot');</code></pre>
+            
+            <p>Now your database has its first commit! Think of it as <code>git init</code> but for your schema.</p>
+        </section>
+
+        <section>
+            <h2>Chapter 3: Making Changes Safely</h2>
+            <p>Monday morning. The product team wants a new feature. Sarah creates a branch:</p>
+            
+            <pre><code>-- Create and switch to a new branch
+SELECT pggit.checkout_b('feature/user-profiles');
+
+-- Now make your changes
+CREATE TABLE user_profiles (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    bio TEXT,
+    avatar_url TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- See what changed
+SELECT * FROM pggit.status();</code></pre>
+        </section>
+
+        <section>
+            <h2>Chapter 4: Reviewing Changes</h2>
+            <p>Before committing, Sarah always reviews her changes:</p>
+            
+            <pre><code>-- See what's different
+SELECT * FROM pggit.diff();
+
+-- Everything looks good? Commit it!
+SELECT pggit.commit('Add user profiles table');</code></pre>
+        </section>
+
+        <section>
+            <h2>Chapter 5: The Plot Twist</h2>
+            <p>Tuesday: Emergency request! Another team needs to add an audit table to production RIGHT NOW. But Sarah's feature isn't ready...</p>
+            
+            <pre><code>-- No problem! Switch back to main
+SELECT pggit.checkout('main');
+
+-- Create a hotfix branch
+SELECT pggit.checkout_b('hotfix/audit-table');
+
+-- Add the urgent change
+CREATE TABLE audit_log (
+    id SERIAL PRIMARY KEY,
+    table_name TEXT NOT NULL,
+    action TEXT NOT NULL,
+    user_id INTEGER,
+    timestamp TIMESTAMP DEFAULT NOW(),
+    old_data JSONB,
+    new_data JSONB
+);
+
+-- Commit and merge to main
+SELECT pggit.commit('Add audit log table for compliance');
+SELECT pggit.checkout('main');
+SELECT pggit.merge('hotfix/audit-table');</code></pre>
+        </section>
+
+        <section>
+            <h2>Chapter 6: Merging Without Fear</h2>
+            <p>Back to the feature branch. Will it still work after the hotfix?</p>
+            
+            <pre><code>-- Switch back to feature branch
+SELECT pggit.checkout('feature/user-profiles');
+
+-- Merge main into feature to get the audit table
+SELECT pggit.merge('main');
+
+-- Continue working...
+ALTER TABLE user_profiles ADD COLUMN preferences JSONB DEFAULT '{}';
+
+-- Commit the enhancement
+SELECT pggit.commit('Add preferences to user profiles');</code></pre>
+        </section>
+
+        <section>
+            <h2>Chapter 7: Ship It!</h2>
+            <p>Feature complete! Time to deploy:</p>
+            
+            <pre><code>-- Final testing done, merge to main
+SELECT pggit.checkout('main');
+SELECT pggit.merge('feature/user-profiles');
+
+-- View the complete history
+SELECT * FROM pggit.log(10);</code></pre>
+        </section>
+
+        <section>
+            <h2>Chapter 8: When Things Go Wrong</h2>
+            <p>A week later: "The user profiles table is causing issues!" No problem:</p>
+            
+            <pre><code>-- Option 1: Revert the specific commit
+SELECT pggit.revert_commit(
+    (SELECT commit_id FROM pggit.log(10) 
+     WHERE message LIKE '%user profiles%' LIMIT 1)
+);
+
+-- Option 2: Reset to before the merge
+SELECT pggit.reset_hard(
+    (SELECT commit_id FROM pggit.log(10) 
+     WHERE message LIKE '%before user profiles%' LIMIT 1)
+);</code></pre>
+        </section>
+
+        <section>
+            <h2>Chapter 9: The Happy Ending</h2>
+            <p>Sarah's team now:</p>
+            <ul>
+                <li>Never loses track of schema changes</li>
+                <li>Can work on features in isolation</li>
+                <li>Merges changes without fear</li>
+                <li>Rolls back problematic deployments instantly</li>
+                <li>Sleeps better at night</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Quick Reference</h2>
+            <p>Sarah printed this and stuck it on her monitor:</p>
+            
+            <pre><code>-- Daily commands
+pggit.status()           -- Where am I?
+pggit.checkout_b('name') -- New branch
+pggit.commit('message')  -- Save changes
+pggit.merge('branch')    -- Combine work
+pggit.log(10)           -- Recent history
+
+-- Emergency commands
+pggit.diff()            -- What changed?
+pggit.reset_hard(id)    -- Go back in time
+pggit.revert_commit(id) -- Undo specific change</code></pre>
+        </section>
+
+        <section class="cta">
+            <h2>Your Turn!</h2>
+            <p>Ready to bring pgGit version control to your PostgreSQL schemas? Sarah's journey can be yours too.</p>
+            <p><a href="api.html" class="btn btn-primary">Explore the Full API</a></p>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Évolution digitale — pgGit pggit. Making DBAs happier, one commit at a time.</p>
+        </div>
+    </footer>
+</body>
+</html>

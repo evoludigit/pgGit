@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://pggit.dev/sitemap.xml

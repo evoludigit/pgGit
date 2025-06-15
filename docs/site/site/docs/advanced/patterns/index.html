@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="pgGit Documentation">
+    <title>Pattern Examples - pgGit</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .doc-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .doc-content h1:first-child {
+            margin-top: 0;
+        }
+        .toc {
+            background: var(--bg-light);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .toc h2 {
+            margin-top: 0;
+            font-size: 1.25rem;
+        }
+        .toc ul {
+            list-style: none;
+            padding-left: 1rem;
+        }
+        .toc li {
+            margin: 0.5rem 0;
+        }
+        .breadcrumb {
+            margin-bottom: 2rem;
+            color: var(--text-light);
+        }
+        .breadcrumb a {
+            color: var(--text-light);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="/" class="logo">pgGit</a>
+            <ul>
+                <li><a href="/#quick-start">Quick Start</a></li>
+                <li><a href="/docs/">Documentation</a></li>
+                <li><a href="/api/">API Reference</a></li>
+                <li><a href="https://github.com/evoludigit/pggit">GitHub</a></li>
+            </ul>
+        </nav>
+    </header>
+    
+    <main class="doc-content">
+        <div class="breadcrumb">
+            <a href="/">Home</a> / <a href="/docs/">Docs</a> / Pattern
+Examples - pgGit
+        </div>
+        
+                <div class="toc">
+            <h2>Table of Contents</h2>
+            <ul>
+            <li><a href="#pg_gitversion-pattern-examples"
+            id="toc-pg_gitversion-pattern-examples">pg_gitversion
+            Pattern Examples</a>
+            <ul>
+            <li><a href="#table-of-contents"
+            id="toc-table-of-contents">Table of Contents</a></li>
+            <li><a href="#basic-usage-patterns"
+            id="toc-basic-usage-patterns">Basic Usage Patterns</a>
+            <ul>
+            <li><a href="#installing-and-verifying"
+            id="toc-installing-and-verifying">Installing and
+            Verifying</a></li>
+            <li><a href="#understanding-automatic-tracking"
+            id="toc-understanding-automatic-tracking">Understanding
+            Automatic Tracking</a></li>
+            </ul></li>
+            <li><a href="#development-workflow"
+            id="toc-development-workflow">Development Workflow</a>
+            <ul>
+            <li><a href="#feature-branch-simulation"
+            id="toc-feature-branch-simulation">Feature Branch
+            Simulation</a></li>
+            <li><a href="#development-vs-production-sync"
+            id="toc-development-vs-production-sync">Development vs
+            Production Sync</a></li>
+            </ul></li>
+            <li><a href="#migration-strategies"
+            id="toc-migration-strategies">Migration Strategies</a>
+            <ul>
+            <li><a href="#incremental-migrations"
+            id="toc-incremental-migrations">Incremental
+            Migrations</a></li>
+            <li><a href="#batch-migrations"
+            id="toc-batch-migrations">Batch Migrations</a></li>
+            <li><a href="#migration-validation"
+            id="toc-migration-validation">Migration Validation</a></li>
+            </ul></li>
+            <li><a href="#dependency-management"
+            id="toc-dependency-management">Dependency Management</a>
+            <ul>
+            <li><a href="#detecting-dependencies"
+            id="toc-detecting-dependencies">Detecting
+            Dependencies</a></li>
+            <li><a href="#safe-schema-changes"
+            id="toc-safe-schema-changes">Safe Schema Changes</a></li>
+            <li><a href="#circular-dependency-detection"
+            id="toc-circular-dependency-detection">Circular Dependency
+            Detection</a></li>
+            </ul></li>
+            <li><a href="#monitoring-and-auditing"
+            id="toc-monitoring-and-auditing">Monitoring and Auditing</a>
+            <ul>
+            <li><a href="#schema-change-dashboard"
+            id="toc-schema-change-dashboard">Schema Change
+            Dashboard</a></li>
+            <li><a href="#user-activity-tracking"
+            id="toc-user-activity-tracking">User Activity
+            Tracking</a></li>
+            <li><a href="#version-drift-detection"
+            id="toc-version-drift-detection">Version Drift
+            Detection</a></li>
+            </ul></li>
+            <li><a href="#advanced-patterns"
+            id="toc-advanced-patterns">Advanced Patterns</a>
+            <ul>
+            <li><a href="#schema-comparison"
+            id="toc-schema-comparison">Schema Comparison</a></li>
+            <li><a href="#metadata-analysis"
+            id="toc-metadata-analysis">Metadata Analysis</a></li>
+            <li><a href="#rollback-strategies"
+            id="toc-rollback-strategies">Rollback Strategies</a></li>
+            <li><a href="#performance-optimization-patterns"
+            id="toc-performance-optimization-patterns">Performance
+            Optimization Patterns</a></li>
+            <li><a href="#emergency-procedures"
+            id="toc-emergency-procedures">Emergency Procedures</a></li>
+            </ul></li>
+            <li><a href="#best-practices" id="toc-best-practices">Best
+            Practices</a></li>
+            </ul></li>
+            </ul>
+        </div>
+                
+        <article class="markdown-body">
+            <h1 id="pg_gitversion-pattern-examples">pg_gitversion
+            Pattern Examples</h1>
+            <p>Real-world patterns and best practices for using
+            pg_gitversion in your PostgreSQL database.</p>
+            <h2 id="table-of-contents">Table of Contents</h2>
+            <ol type="1">
+            <li><a href="#basic-usage-patterns">Basic Usage
+            Patterns</a></li>
+            <li><a href="#development-workflow">Development
+            Workflow</a></li>
+            <li><a href="#migration-strategies">Migration
+            Strategies</a></li>
+            <li><a href="#dependency-management">Dependency
+            Management</a></li>
+            <li><a href="#monitoring-and-auditing">Monitoring and
+            Auditing</a></li>
+            <li><a href="#advanced-patterns">Advanced Patterns</a></li>
+            </ol>
+            <h2 id="basic-usage-patterns">Basic Usage Patterns</h2>
+            <h3 id="installing-and-verifying">Installing and
+            Verifying</h3>
+            <div class="sourceCode" id="cb1"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Install the extension</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> EXTENSION pg_gitversion;</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Verify it&#39;s working</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> extname, extversion <span class="kw">FROM</span> pg_extension <span class="kw">WHERE</span> extname <span class="op">=</span> <span class="st">&#39;pg_gitversion&#39;</span>;</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Check what&#39;s being tracked</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="fu">COUNT</span>(<span class="op">*</span>) <span class="kw">as</span> tracked_objects <span class="kw">FROM</span> gitversion.objects <span class="kw">WHERE</span> is_active <span class="op">=</span> <span class="kw">true</span>;</span></code></pre></div>
+            <h3 id="understanding-automatic-tracking">Understanding
+            Automatic Tracking</h3>
+            <div class="sourceCode" id="cb2"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Everything is tracked automatically!</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> users (</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">id</span> SERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    email <span class="dt">VARCHAR</span>(<span class="dv">255</span>) <span class="kw">UNIQUE</span> <span class="kw">NOT</span> <span class="kw">NULL</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>);</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Immediately check the version</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> gitversion.get_version(<span class="st">&#39;public.users&#39;</span>);</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: version 1 (1.0.0)</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">-- Make changes - still automatic</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="kw">ALTER</span> <span class="kw">TABLE</span> users <span class="kw">ADD</span> <span class="kw">COLUMN</span> created_at <span class="dt">TIMESTAMP</span> <span class="kw">DEFAULT</span> <span class="fu">CURRENT_TIMESTAMP</span>;</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co">-- Version bumped automatically</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> gitversion.get_version(<span class="st">&#39;public.users&#39;</span>);</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="co">-- Result: version 2 (1.1.0) - minor bump for new column</span></span></code></pre></div>
+            <h2 id="development-workflow">Development Workflow</h2>
+            <h3 id="feature-branch-simulation">Feature Branch
+            Simulation</h3>
+            <div class="sourceCode" id="cb3"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Save current state before feature development</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> gitversion.feature_checkpoint <span class="kw">AS</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> gitversion.objects <span class="kw">WHERE</span> is_active <span class="op">=</span> <span class="kw">true</span>;</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Develop your feature</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> user_preferences (</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    user_id <span class="dt">INTEGER</span> <span class="kw">PRIMARY</span> <span class="kw">KEY</span> <span class="kw">REFERENCES</span> users(<span class="kw">id</span>),</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    theme <span class="dt">VARCHAR</span>(<span class="dv">20</span>) <span class="kw">DEFAULT</span> <span class="st">&#39;light&#39;</span>,</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    notifications <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">true</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>);</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="kw">ALTER</span> <span class="kw">TABLE</span> users <span class="kw">ADD</span> <span class="kw">COLUMN</span> last_login <span class="dt">TIMESTAMP</span>;</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="co">-- Review changes made during feature development</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    h.change_type,</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    o.full_name,</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    h.change_description,</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    h.created_at</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> gitversion.history h</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a><span class="kw">JOIN</span> gitversion.objects o <span class="kw">ON</span> o.<span class="kw">id</span> <span class="op">=</span> h.object_id</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> h.created_at <span class="op">&gt;</span> (<span class="kw">SELECT</span> <span class="fu">MAX</span>(updated_at) <span class="kw">FROM</span> gitversion.feature_checkpoint)</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> h.created_at;</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a><span class="co">-- If happy, clean up checkpoint</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a><span class="kw">DROP</span> <span class="kw">TABLE</span> gitversion.feature_checkpoint;</span></code></pre></div>
+            <h3 id="development-vs-production-sync">Development vs
+            Production Sync</h3>
+            <div class="sourceCode" id="cb4"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Generate migration after development changes</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> gitversion.generate_migration(</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;feature_user_preferences&#39;</span>,</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;Added user preferences and last login tracking&#39;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>);</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- View the generated SQL</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> up_script <span class="kw">FROM</span> gitversion.migrations </span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> version <span class="op">=</span> <span class="st">&#39;feature_user_preferences&#39;</span>;</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="co">-- In production, apply the migration</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> gitversion.apply_migration(<span class="st">&#39;feature_user_preferences&#39;</span>);</span></code></pre></div>
+            <h2 id="migration-strategies">Migration Strategies</h2>
+            <h3 id="incremental-migrations">Incremental Migrations</h3>
+            <div class="sourceCode" id="cb5"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Strategy: Generate small, focused migrations</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- After each feature is complete:</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Feature 1: Add user profiles</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> user_profiles (</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    user_id <span class="dt">INTEGER</span> <span class="kw">PRIMARY</span> <span class="kw">KEY</span> <span class="kw">REFERENCES</span> users(<span class="kw">id</span>),</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    bio TEXT,</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    avatar_url <span class="dt">VARCHAR</span>(<span class="dv">500</span>)</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>);</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> gitversion.generate_migration(<span class="st">&#39;add_user_profiles&#39;</span>, <span class="st">&#39;User profile support&#39;</span>);</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="co">-- Feature 2: Add messaging</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> messages (</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">id</span> SERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>,</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>    from_user_id <span class="dt">INTEGER</span> <span class="kw">NOT</span> <span class="kw">NULL</span> <span class="kw">REFERENCES</span> users(<span class="kw">id</span>),</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    to_user_id <span class="dt">INTEGER</span> <span class="kw">NOT</span> <span class="kw">NULL</span> <span class="kw">REFERENCES</span> users(<span class="kw">id</span>),</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>    message TEXT <span class="kw">NOT</span> <span class="kw">NULL</span>,</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>    sent_at <span class="dt">TIMESTAMP</span> <span class="kw">DEFAULT</span> <span class="fu">CURRENT_TIMESTAMP</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>);</span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> gitversion.generate_migration(<span class="st">&#39;add_messaging&#39;</span>, <span class="st">&#39;Direct messaging feature&#39;</span>);</span></code></pre></div>
+            <h3 id="batch-migrations">Batch Migrations</h3>
+            <div class="sourceCode" id="cb6"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Strategy: Accumulate changes, then generate one migration</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Make multiple changes...</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> products (<span class="kw">id</span> SERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>, name <span class="dt">VARCHAR</span>(<span class="dv">200</span>));</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> categories (<span class="kw">id</span> SERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>, name <span class="dt">VARCHAR</span>(<span class="dv">100</span>));</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="kw">ALTER</span> <span class="kw">TABLE</span> products <span class="kw">ADD</span> <span class="kw">COLUMN</span> category_id <span class="dt">INTEGER</span> <span class="kw">REFERENCES</span> categories(<span class="kw">id</span>);</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_products_category <span class="kw">ON</span> products(category_id);</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- Generate single migration for all changes</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> gitversion.generate_migration(</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;ecommerce_foundation&#39;</span>,</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;Complete e-commerce schema: products, categories, and relationships&#39;</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>);</span></code></pre></div>
+            <h3 id="migration-validation">Migration Validation</h3>
+            <div class="sourceCode" id="cb7"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Before applying a migration in production</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- Review what objects will be affected</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Get migration details</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    version,</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    description,</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    created_at,</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    checksum,</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">length</span>(up_script) <span class="kw">as</span> script_size</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> gitversion.migrations</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> applied_at <span class="kw">IS</span> <span class="kw">NULL</span>;</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a><span class="co">-- Preview impact of changes</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a><span class="kw">WITH</span> migration_objects <span class="kw">AS</span> (</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span> <span class="kw">DISTINCT</span> full_name</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">FROM</span> gitversion.objects</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">WHERE</span> updated_at <span class="op">&gt;</span> (</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>        <span class="kw">SELECT</span> <span class="fu">MAX</span>(created_at) </span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>        <span class="kw">FROM</span> gitversion.migrations </span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>        <span class="kw">WHERE</span> applied_at <span class="kw">IS</span> <span class="kw">NOT</span> <span class="kw">NULL</span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>    mo.full_name <span class="kw">as</span> changed_object,</span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>    array_agg(d.full_name) <span class="kw">as</span> dependent_objects</span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> migration_objects mo</span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a><span class="kw">LEFT</span> <span class="kw">JOIN</span> gitversion.get_impact_analysis(mo.full_name) d <span class="kw">ON</span> <span class="kw">true</span></span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a><span class="kw">GROUP</span> <span class="kw">BY</span> mo.full_name;</span></code></pre></div>
+            <h2 id="dependency-management">Dependency Management</h2>
+            <h3 id="detecting-dependencies">Detecting Dependencies</h3>
+            <div class="sourceCode" id="cb8"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Auto-detect all foreign keys</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> gitversion.detect_foreign_keys();</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Add custom logical dependencies</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> gitversion.add_dependency(</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;public.user_reports_view&#39;</span>,    <span class="co">-- dependent</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;public.users&#39;</span>,                 <span class="co">-- depends on</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;view_dependency&#39;</span>               <span class="co">-- type</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>);</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="co">-- Find all dependencies for a table</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> gitversion.get_impact_analysis(<span class="st">&#39;public.users&#39;</span>);</span></code></pre></div>
+            <h3 id="safe-schema-changes">Safe Schema Changes</h3>
+            <div class="sourceCode" id="cb9"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Before dropping or modifying a table, check impact</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> gitversion.get_impact_analysis(<span class="st">&#39;public.orders&#39;</span>);</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Get the dependency chain</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="kw">WITH</span> RECURSIVE dep_chain <span class="kw">AS</span> (</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Start with the target object</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span> </span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>        d.dependent_id,</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>        d.depends_on_id,</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>        o1.full_name <span class="kw">as</span> dependent_name,</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>        o2.full_name <span class="kw">as</span> depends_on_name,</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>        <span class="dv">0</span> <span class="kw">as</span> <span class="kw">level</span></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">FROM</span> gitversion.dependencies d</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">JOIN</span> gitversion.objects o1 <span class="kw">ON</span> o1.<span class="kw">id</span> <span class="op">=</span> d.dependent_id</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">JOIN</span> gitversion.objects o2 <span class="kw">ON</span> o2.<span class="kw">id</span> <span class="op">=</span> d.depends_on_id</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">WHERE</span> o2.full_name <span class="op">=</span> <span class="st">&#39;public.users&#39;</span></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">UNION</span> <span class="kw">ALL</span></span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Recursively find dependents</span></span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span> </span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>        d.dependent_id,</span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>        d.depends_on_id,</span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>        o1.full_name,</span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>        o2.full_name,</span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>        dc.<span class="kw">level</span> <span class="op">+</span> <span class="dv">1</span></span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>    <span class="kw">FROM</span> gitversion.dependencies d</span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>    <span class="kw">JOIN</span> gitversion.objects o1 <span class="kw">ON</span> o1.<span class="kw">id</span> <span class="op">=</span> d.dependent_id</span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>    <span class="kw">JOIN</span> gitversion.objects o2 <span class="kw">ON</span> o2.<span class="kw">id</span> <span class="op">=</span> d.depends_on_id</span>
+<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a>    <span class="kw">JOIN</span> dep_chain dc <span class="kw">ON</span> dc.dependent_id <span class="op">=</span> d.depends_on_id</span>
+<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb9-32"><a href="#cb9-32" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="kw">DISTINCT</span> dependent_name, <span class="kw">level</span></span>
+<span id="cb9-33"><a href="#cb9-33" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> dep_chain</span>
+<span id="cb9-34"><a href="#cb9-34" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> <span class="kw">level</span>, dependent_name;</span></code></pre></div>
+            <h3 id="circular-dependency-detection">Circular Dependency
+            Detection</h3>
+            <div class="sourceCode" id="cb10"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Check all tables for circular dependencies</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    o.full_name,</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">CASE</span> </span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">WHEN</span> gitversion.has_circular_dependency(o.<span class="kw">id</span>) </span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">THEN</span> <span class="st">&#39;CIRCULAR DEPENDENCY DETECTED!&#39;</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">ELSE</span> <span class="st">&#39;OK&#39;</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">END</span> <span class="kw">as</span> status</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> gitversion.objects o</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> o.object_type <span class="op">=</span> <span class="st">&#39;TABLE&#39;</span> </span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="kw">AND</span> o.is_active <span class="op">=</span> <span class="kw">true</span>;</span></code></pre></div>
+            <h2 id="monitoring-and-auditing">Monitoring and
+            Auditing</h2>
+            <h3 id="schema-change-dashboard">Schema Change
+            Dashboard</h3>
+            <div class="sourceCode" id="cb11"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Recent activity summary</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="kw">WITH</span> daily_stats <span class="kw">AS</span> (</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span> </span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>        <span class="dt">DATE</span>(created_at) <span class="kw">as</span> change_date,</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>        <span class="fu">COUNT</span>(<span class="op">*</span>) <span class="kw">as</span> changes,</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>        <span class="fu">COUNT</span>(<span class="kw">DISTINCT</span> object_id) <span class="kw">as</span> objects_changed,</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>        <span class="fu">COUNT</span>(<span class="kw">DISTINCT</span> created_by) <span class="kw">as</span> users_active,</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>        array_agg(<span class="kw">DISTINCT</span> change_type:<span class="ch">:text</span>) <span class="kw">as</span> change_types</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">FROM</span> gitversion.history</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">WHERE</span> created_at <span class="op">&gt;</span> <span class="fu">CURRENT_DATE</span> <span class="op">-</span> <span class="dt">INTERVAL</span> <span class="st">&#39;30 days&#39;</span></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">GROUP</span> <span class="kw">BY</span> <span class="dt">DATE</span>(created_at)</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> daily_stats <span class="kw">ORDER</span> <span class="kw">BY</span> change_date <span class="kw">DESC</span>;</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a><span class="co">-- Most active objects</span></span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>    o.full_name,</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>    o.version,</span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">COUNT</span>(h.<span class="kw">id</span>) <span class="kw">as</span> total_changes,</span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">MAX</span>(h.created_at) <span class="kw">as</span> last_changed</span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> gitversion.objects o</span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a><span class="kw">JOIN</span> gitversion.history h <span class="kw">ON</span> h.object_id <span class="op">=</span> o.<span class="kw">id</span></span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> o.is_active <span class="op">=</span> <span class="kw">true</span></span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a><span class="kw">GROUP</span> <span class="kw">BY</span> o.<span class="kw">id</span>, o.full_name, o.version</span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> total_changes <span class="kw">DESC</span></span>
+<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a><span class="kw">LIMIT</span> <span class="dv">10</span>;</span></code></pre></div>
+            <h3 id="user-activity-tracking">User Activity Tracking</h3>
+            <div class="sourceCode" id="cb12"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Who&#39;s making changes?</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    h.created_by <span class="kw">as</span> user_name,</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">COUNT</span>(<span class="op">*</span>) <span class="kw">as</span> total_changes,</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">COUNT</span>(<span class="kw">DISTINCT</span> <span class="dt">DATE</span>(h.created_at)) <span class="kw">as</span> active_days,</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">COUNT</span>(<span class="kw">DISTINCT</span> h.object_id) <span class="kw">as</span> objects_modified,</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>    array_agg(<span class="kw">DISTINCT</span> o.object_type:<span class="ch">:text</span>) <span class="kw">as</span> object_types,</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">MIN</span>(h.created_at):<span class="ch">:date</span> <span class="kw">as</span> first_change,</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">MAX</span>(h.created_at):<span class="ch">:date</span> <span class="kw">as</span> last_change</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> gitversion.history h</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a><span class="kw">JOIN</span> gitversion.objects o <span class="kw">ON</span> o.<span class="kw">id</span> <span class="op">=</span> h.object_id</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a><span class="kw">GROUP</span> <span class="kw">BY</span> h.created_by</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> total_changes <span class="kw">DESC</span>;</span></code></pre></div>
+            <h3 id="version-drift-detection">Version Drift
+            Detection</h3>
+            <div class="sourceCode" id="cb13"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Find objects with many versions (might need consolidation)</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    object_type,</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    full_name,</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>    version,</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>    version_string,</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">CASE</span> </span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">WHEN</span> version <span class="op">&gt;</span> <span class="dv">20</span> <span class="cf">THEN</span> <span class="st">&#39;High - Consider refactoring&#39;</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">WHEN</span> version <span class="op">&gt;</span> <span class="dv">10</span> <span class="cf">THEN</span> <span class="st">&#39;Medium - Monitor closely&#39;</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">ELSE</span> <span class="st">&#39;Low - Normal evolution&#39;</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">END</span> <span class="kw">as</span> attention_level</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> gitversion.objects</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> is_active <span class="op">=</span> <span class="kw">true</span></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a><span class="kw">AND</span> object_type <span class="op">=</span> <span class="st">&#39;TABLE&#39;</span></span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> version <span class="kw">DESC</span>;</span></code></pre></div>
+            <h2 id="advanced-patterns">Advanced Patterns</h2>
+            <h3 id="schema-comparison">Schema Comparison</h3>
+            <div class="sourceCode" id="cb14"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Compare two schemas</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="kw">WITH</span> schema_a <span class="kw">AS</span> (</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span> object_type, object_name, version</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">FROM</span> gitversion.objects</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">WHERE</span> schema_name <span class="op">=</span> <span class="st">&#39;public&#39;</span> <span class="kw">AND</span> is_active <span class="op">=</span> <span class="kw">true</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>),</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>schema_b <span class="kw">AS</span> (</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span> object_type, object_name, version</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">FROM</span> gitversion.objects</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">WHERE</span> schema_name <span class="op">=</span> <span class="st">&#39;archive&#39;</span> <span class="kw">AND</span> is_active <span class="op">=</span> <span class="kw">true</span></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">COALESCE</span>(a.object_type, b.object_type) <span class="kw">as</span> object_type,</span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">COALESCE</span>(a.object_name, b.object_name) <span class="kw">as</span> object_name,</span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>    a.version <span class="kw">as</span> public_version,</span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>    b.version <span class="kw">as</span> archive_version,</span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">CASE</span></span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">WHEN</span> a.object_name <span class="kw">IS</span> <span class="kw">NULL</span> <span class="cf">THEN</span> <span class="st">&#39;Only in archive&#39;</span></span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">WHEN</span> b.object_name <span class="kw">IS</span> <span class="kw">NULL</span> <span class="cf">THEN</span> <span class="st">&#39;Only in public&#39;</span></span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">WHEN</span> a.version <span class="op">=</span> b.version <span class="cf">THEN</span> <span class="st">&#39;Same version&#39;</span></span>
+<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">WHEN</span> a.version <span class="op">&gt;</span> b.version <span class="cf">THEN</span> <span class="st">&#39;Public is newer&#39;</span></span>
+<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a>        <span class="cf">ELSE</span> <span class="st">&#39;Archive is newer&#39;</span></span>
+<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">END</span> <span class="kw">as</span> status</span>
+<span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> schema_a a</span>
+<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a><span class="kw">FULL</span> <span class="kw">OUTER</span> <span class="kw">JOIN</span> schema_b b </span>
+<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a>    <span class="kw">ON</span> a.object_type <span class="op">=</span> b.object_type </span>
+<span id="cb14-27"><a href="#cb14-27" aria-hidden="true" tabindex="-1"></a>    <span class="kw">AND</span> a.object_name <span class="op">=</span> b.object_name</span>
+<span id="cb14-28"><a href="#cb14-28" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> object_type, object_name;</span></code></pre></div>
+            <h3 id="metadata-analysis">Metadata Analysis</h3>
+            <div class="sourceCode" id="cb15"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Analyze column changes across tables</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>    o.full_name <span class="kw">as</span> table_name,</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>    o.metadata<span class="op">-&gt;</span><span class="st">&#39;columns&#39;</span> <span class="kw">as</span> <span class="kw">columns</span>,</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>    jsonb_object_keys(o.metadata<span class="op">-&gt;</span><span class="st">&#39;columns&#39;</span>) <span class="kw">as</span> column_name</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> gitversion.objects o</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> o.object_type <span class="op">=</span> <span class="st">&#39;TABLE&#39;</span> </span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a><span class="kw">AND</span> o.is_active <span class="op">=</span> <span class="kw">true</span></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a><span class="kw">AND</span> o.schema_name <span class="op">=</span> <span class="st">&#39;public&#39;</span>;</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a><span class="co">-- Find all nullable columns that could be NOT NULL</span></span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>    o.full_name <span class="kw">as</span> table_name,</span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>    col.<span class="kw">key</span> <span class="kw">as</span> column_name,</span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>    col.<span class="fu">value</span><span class="op">-&gt;&gt;</span><span class="st">&#39;type&#39;</span> <span class="kw">as</span> data_type</span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> gitversion.objects o,</span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>    jsonb_each(o.metadata<span class="op">-&gt;</span><span class="st">&#39;columns&#39;</span>) <span class="kw">as</span> col</span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> o.object_type <span class="op">=</span> <span class="st">&#39;TABLE&#39;</span> </span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a><span class="kw">AND</span> o.is_active <span class="op">=</span> <span class="kw">true</span></span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a><span class="kw">AND</span> (col.<span class="fu">value</span><span class="op">-&gt;&gt;</span><span class="st">&#39;nullable&#39;</span>):<span class="ch">:boolean</span> <span class="op">=</span> <span class="kw">true</span></span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a><span class="kw">AND</span> col.<span class="kw">key</span> <span class="kw">NOT</span> <span class="kw">LIKE</span> <span class="st">&#39;%_at&#39;</span>  <span class="co">-- Exclude timestamp fields</span></span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a><span class="kw">AND</span> col.<span class="kw">key</span> <span class="kw">NOT</span> <span class="kw">LIKE</span> <span class="st">&#39;%_date&#39;</span>;</span></code></pre></div>
+            <h3 id="rollback-strategies">Rollback Strategies</h3>
+            <div class="sourceCode" id="cb16"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Create a restore point</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> gitversion.restore_point_20240614 <span class="kw">AS</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> gitversion.objects <span class="kw">WHERE</span> is_active <span class="op">=</span> <span class="kw">true</span>;</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Make changes...</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a><span class="kw">ALTER</span> <span class="kw">TABLE</span> users <span class="kw">DROP</span> <span class="kw">COLUMN</span> last_login;</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- Realize you need to rollback</span></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- Option 1: Use migration history</span></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> down_script <span class="kw">FROM</span> gitversion.migrations</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> version <span class="op">=</span> <span class="st">&#39;remove_last_login&#39;</span>;</span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a><span class="co">-- Option 2: Manual restore from point</span></span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a><span class="co">-- Compare current state with restore point</span></span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>    r.full_name,</span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>    r.version <span class="kw">as</span> restore_version,</span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>    o.version <span class="kw">as</span> current_version,</span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>    r.metadata <span class="kw">as</span> restore_metadata,</span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>    o.metadata <span class="kw">as</span> current_metadata</span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> gitversion.restore_point_20240614 r</span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a><span class="kw">JOIN</span> gitversion.objects o <span class="kw">ON</span> o.<span class="kw">id</span> <span class="op">=</span> r.<span class="kw">id</span></span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> r.metadata <span class="op">!=</span> o.metadata;</span></code></pre></div>
+            <h3 id="performance-optimization-patterns">Performance
+            Optimization Patterns</h3>
+            <div class="sourceCode" id="cb17"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Find unused indexes (candidates for removal)</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="kw">WITH</span> index_usage <span class="kw">AS</span> (</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span> </span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>        schemaname,</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>        tablename,</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>        indexname,</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>        idx_scan,</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>        idx_tup_read,</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>        idx_tup_fetch</span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">FROM</span> pg_stat_user_indexes</span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">WHERE</span> schemaname <span class="op">=</span> <span class="st">&#39;public&#39;</span></span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>    o.full_name <span class="kw">as</span> index_name,</span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>    o.version,</span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>    o.created_at:<span class="ch">:date</span> <span class="kw">as</span> created_date,</span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">COALESCE</span>(iu.idx_scan, <span class="dv">0</span>) <span class="kw">as</span> times_used,</span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">CASE</span> </span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">WHEN</span> <span class="fu">COALESCE</span>(iu.idx_scan, <span class="dv">0</span>) <span class="op">=</span> <span class="dv">0</span> <span class="cf">THEN</span> <span class="st">&#39;UNUSED - Consider dropping&#39;</span></span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">WHEN</span> <span class="fu">COALESCE</span>(iu.idx_scan, <span class="dv">0</span>) <span class="op">&lt;</span> <span class="dv">100</span> <span class="cf">THEN</span> <span class="st">&#39;Rarely used&#39;</span></span>
+<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">ELSE</span> <span class="st">&#39;Active&#39;</span></span>
+<span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">END</span> <span class="kw">as</span> status</span>
+<span id="cb17-23"><a href="#cb17-23" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> gitversion.objects o</span>
+<span id="cb17-24"><a href="#cb17-24" aria-hidden="true" tabindex="-1"></a><span class="kw">LEFT</span> <span class="kw">JOIN</span> index_usage iu </span>
+<span id="cb17-25"><a href="#cb17-25" aria-hidden="true" tabindex="-1"></a>    <span class="kw">ON</span> o.full_name <span class="op">=</span> iu.schemaname <span class="op">||</span> <span class="st">&#39;.&#39;</span> <span class="op">||</span> iu.indexname</span>
+<span id="cb17-26"><a href="#cb17-26" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> o.object_type <span class="op">=</span> <span class="st">&#39;INDEX&#39;</span></span>
+<span id="cb17-27"><a href="#cb17-27" aria-hidden="true" tabindex="-1"></a><span class="kw">AND</span> o.is_active <span class="op">=</span> <span class="kw">true</span></span>
+<span id="cb17-28"><a href="#cb17-28" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> <span class="fu">COALESCE</span>(iu.idx_scan, <span class="dv">0</span>), o.created_at;</span></code></pre></div>
+            <h3 id="emergency-procedures">Emergency Procedures</h3>
+            <div class="sourceCode" id="cb18"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Disable tracking temporarily (use with caution!)</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="kw">ALTER</span> EVENT <span class="kw">TRIGGER</span> gitversion_ddl_trigger <span class="kw">DISABLE</span>;</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="kw">ALTER</span> EVENT <span class="kw">TRIGGER</span> gitversion_drop_trigger <span class="kw">DISABLE</span>;</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Make emergency changes...</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Re-enable tracking</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a><span class="kw">ALTER</span> EVENT <span class="kw">TRIGGER</span> gitversion_ddl_trigger <span class="kw">ENABLE</span>;</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a><span class="kw">ALTER</span> EVENT <span class="kw">TRIGGER</span> gitversion_drop_trigger <span class="kw">ENABLE</span>;</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a><span class="co">-- Manually record what was done</span></span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a><span class="kw">INSERT</span> <span class="kw">INTO</span> gitversion.history (</span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>    object_id,</span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>    change_type,</span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>    change_severity,</span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>    old_version,</span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a>    new_version,</span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a>    change_description,</span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a>    sql_executed,</span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a>    created_by</span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb18-22"><a href="#cb18-22" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb18-23"><a href="#cb18-23" aria-hidden="true" tabindex="-1"></a>    <span class="kw">id</span>,</span>
+<span id="cb18-24"><a href="#cb18-24" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;ALTER&#39;</span>:<span class="ch">:gitversion</span>.change_type,</span>
+<span id="cb18-25"><a href="#cb18-25" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;MAJOR&#39;</span>:<span class="ch">:gitversion</span>.change_severity,</span>
+<span id="cb18-26"><a href="#cb18-26" aria-hidden="true" tabindex="-1"></a>    version,</span>
+<span id="cb18-27"><a href="#cb18-27" aria-hidden="true" tabindex="-1"></a>    version <span class="op">+</span> <span class="dv">1</span>,</span>
+<span id="cb18-28"><a href="#cb18-28" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;Emergency maintenance - manual tracking&#39;</span>,</span>
+<span id="cb18-29"><a href="#cb18-29" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;See DBA notes&#39;</span>,</span>
+<span id="cb18-30"><a href="#cb18-30" aria-hidden="true" tabindex="-1"></a>    CURRENT_USER</span>
+<span id="cb18-31"><a href="#cb18-31" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> gitversion.objects</span>
+<span id="cb18-32"><a href="#cb18-32" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> full_name <span class="op">=</span> <span class="st">&#39;public.critical_table&#39;</span>;</span></code></pre></div>
+            <h2 id="best-practices">Best Practices</h2>
+            <ol type="1">
+            <li><strong>Regular Dependency Checks</strong>: Run
+            <code>detect_foreign_keys()</code> after schema changes</li>
+            <li><strong>Migration Testing</strong>: Always review
+            migration scripts before applying</li>
+            <li><strong>Version Monitoring</strong>: Set up alerts for
+            objects with high version numbers</li>
+            <li><strong>Impact Analysis</strong>: Always check
+            dependencies before dropping objects</li>
+            <li><strong>Checkpoint Strategy</strong>: Create restore
+            points before major changes</li>
+            <li><strong>Documentation</strong>: Use COMMENT commands -
+            they’re tracked as patches</li>
+            <li><strong>Cleanup</strong>: Periodically archive old
+            history entries if needed</li>
+            </ol>
+        </article>
+    </main>
+    
+    <footer>
+        <p>pgGit is open source software under the MIT License</p>
+        <p>Built with ❤️ by <a href="https://github.com/evoludigit">@evoludigit</a></p>
+    </footer>
+</body>
+</html>

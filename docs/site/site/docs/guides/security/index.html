@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="pgGit Documentation">
+    <title>Security Guide - pgGit</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .doc-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .doc-content h1:first-child {
+            margin-top: 0;
+        }
+        .toc {
+            background: var(--bg-light);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .toc h2 {
+            margin-top: 0;
+            font-size: 1.25rem;
+        }
+        .toc ul {
+            list-style: none;
+            padding-left: 1rem;
+        }
+        .toc li {
+            margin: 0.5rem 0;
+        }
+        .breadcrumb {
+            margin-bottom: 2rem;
+            color: var(--text-light);
+        }
+        .breadcrumb a {
+            color: var(--text-light);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="/" class="logo">pgGit</a>
+            <ul>
+                <li><a href="/#quick-start">Quick Start</a></li>
+                <li><a href="/docs/">Documentation</a></li>
+                <li><a href="/api/">API Reference</a></li>
+                <li><a href="https://github.com/evoludigit/pggit">GitHub</a></li>
+            </ul>
+        </nav>
+    </header>
+    
+    <main class="doc-content">
+        <div class="breadcrumb">
+            <a href="/">Home</a> / <a href="/docs/">Docs</a> / Security
+Guide - pgGit
+        </div>
+        
+                <div class="toc">
+            <h2>Table of Contents</h2>
+            <ul>
+            <li><a href="#security-guide"
+            id="toc-security-guide">Security Guide</a>
+            <ul>
+            <li><a href="#security-overview"
+            id="toc-security-overview">🔒 Security Overview</a></li>
+            <li><a href="#security-features"
+            id="toc-security-features">🛡️ Security Features</a>
+            <ul>
+            <li><a href="#built-in-authentication-rbac"
+            id="toc-built-in-authentication-rbac">1. Built-in
+            Authentication &amp; RBAC</a></li>
+            <li><a href="#audit-trail" id="toc-audit-trail">2. Audit
+            Trail</a></li>
+            <li><a href="#data-classification"
+            id="toc-data-classification">3. Data Classification</a></li>
+            </ul></li>
+            <li><a href="#security-best-practices"
+            id="toc-security-best-practices">🎯 Security Best
+            Practices</a>
+            <ul>
+            <li><a href="#access-control" id="toc-access-control">1.
+            Access Control</a></li>
+            <li><a href="#password-security"
+            id="toc-password-security">2. Password Security</a></li>
+            <li><a href="#connection-security"
+            id="toc-connection-security">3. Connection Security</a></li>
+            </ul></li>
+            <li><a href="#compliance-features"
+            id="toc-compliance-features">🔍 Compliance Features</a>
+            <ul>
+            <li><a href="#gdpr-compliance" id="toc-gdpr-compliance">1.
+            GDPR Compliance</a></li>
+            <li><a href="#sox-compliance" id="toc-sox-compliance">2. SOX
+            Compliance</a></li>
+            <li><a href="#hipaa-compliance" id="toc-hipaa-compliance">3.
+            HIPAA Compliance</a></li>
+            </ul></li>
+            <li><a href="#security-monitoring"
+            id="toc-security-monitoring">🚨 Security Monitoring</a>
+            <ul>
+            <li><a href="#suspicious-activity-detection"
+            id="toc-suspicious-activity-detection">1. Suspicious
+            Activity Detection</a></li>
+            <li><a href="#privileged-operations-audit"
+            id="toc-privileged-operations-audit">2. Privileged
+            Operations Audit</a></li>
+            <li><a href="#failed-authentication-monitoring"
+            id="toc-failed-authentication-monitoring">3. Failed
+            Authentication Monitoring</a></li>
+            </ul></li>
+            <li><a href="#security-configuration"
+            id="toc-security-configuration">🔧 Security
+            Configuration</a>
+            <ul>
+            <li><a href="#enable-security-features"
+            id="toc-enable-security-features">1. Enable Security
+            Features</a></li>
+            <li><a href="#network-security" id="toc-network-security">2.
+            Network Security</a></li>
+            <li><a href="#encryption-at-rest"
+            id="toc-encryption-at-rest">3. Encryption at Rest</a></li>
+            </ul></li>
+            <li><a href="#incident-response"
+            id="toc-incident-response">🚨 Incident Response</a>
+            <ul>
+            <li><a href="#security-breach-detection"
+            id="toc-security-breach-detection">1. Security Breach
+            Detection</a></li>
+            <li><a href="#emergency-procedures"
+            id="toc-emergency-procedures">2. Emergency
+            Procedures</a></li>
+            <li><a href="#recovery-procedures"
+            id="toc-recovery-procedures">3. Recovery Procedures</a></li>
+            </ul></li>
+            <li><a href="#security-checklist"
+            id="toc-security-checklist">📋 Security Checklist</a>
+            <ul>
+            <li><a href="#installation-security"
+            id="toc-installation-security">Installation
+            Security</a></li>
+            <li><a href="#operational-security"
+            id="toc-operational-security">Operational Security</a></li>
+            <li><a href="#incident-preparedness"
+            id="toc-incident-preparedness">Incident
+            Preparedness</a></li>
+            </ul></li>
+            <li><a href="#advanced-security"
+            id="toc-advanced-security">🔐 Advanced Security</a>
+            <ul>
+            <li><a href="#row-level-security-rls"
+            id="toc-row-level-security-rls">1. Row-Level Security
+            (RLS)</a></li>
+            <li><a href="#encrypted-columns"
+            id="toc-encrypted-columns">2. Encrypted Columns</a></li>
+            <li><a href="#security-hardening"
+            id="toc-security-hardening">3. Security Hardening</a></li>
+            </ul></li>
+            <li><a href="#security-support" id="toc-security-support">📞
+            Security Support</a></li>
+            <li><a href="#remember" id="toc-remember">🛡️
+            Remember</a></li>
+            </ul></li>
+            </ul>
+        </div>
+                
+        <article class="markdown-body">
+            <h1 id="security-guide">Security Guide</h1>
+            <p>This guide covers security considerations for pggit
+            installations.</p>
+            <h2 id="security-overview">🔒 Security Overview</h2>
+            <p>pggit is designed with security in mind: - <strong>No
+            external dependencies</strong>: Everything runs within
+            PostgreSQL - <strong>Minimal permissions</strong>: Only
+            tracks DDL changes - <strong>Local AI processing</strong>:
+            No data sent to external services - <strong>Standard
+            PostgreSQL security</strong>: Leverages existing database
+            security</p>
+            <h2 id="security-features">🛡️ Security Features</h2>
+            <h3 id="built-in-authentication-rbac">1. Built-in
+            Authentication &amp; RBAC</h3>
+            <div class="sourceCode" id="cb1"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Create users with specific roles</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.create_user(<span class="st">&#39;dev_user&#39;</span>, <span class="st">&#39;dev@company.com&#39;</span>, <span class="st">&#39;SecurePass123!&#39;</span>, <span class="st">&#39;Developer&#39;</span>);</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Grant specific permissions</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.grant_role(</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    (<span class="kw">SELECT</span> user_id <span class="kw">FROM</span> pggit.users <span class="kw">WHERE</span> username <span class="op">=</span> <span class="st">&#39;dev_user&#39;</span>),</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;developer&#39;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>);</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">-- Check permissions before operations</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.check_permission(user_id, <span class="st">&#39;branch.create&#39;</span>);</span></code></pre></div>
+            <h3 id="audit-trail">2. Audit Trail</h3>
+            <div class="sourceCode" id="cb2"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- View all changes with user attribution</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    h.object_name,</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    h.change_type,</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    h.changed_by,</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    h.change_timestamp,</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    h.change_description</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> pggit.history h</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> h.change_timestamp <span class="kw">DESC</span>;</span></code></pre></div>
+            <h3 id="data-classification">3. Data Classification</h3>
+            <div class="sourceCode" id="cb3"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Automatic PII/PHI detection</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.auto_classify_data();</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Check for sensitive data exposure</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    table_name,</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    column_name,</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    classification,</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    contains_pii,</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    contains_phi</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> pggit.data_classifications</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> contains_pii <span class="op">=</span> <span class="kw">true</span> <span class="kw">OR</span> contains_phi <span class="op">=</span> <span class="kw">true</span>;</span></code></pre></div>
+            <h2 id="security-best-practices">🎯 Security Best
+            Practices</h2>
+            <h3 id="access-control">1. Access Control</h3>
+            <div class="sourceCode" id="cb4"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Principle of least privilege</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">REVOKE</span> <span class="kw">ALL</span> <span class="kw">ON</span> <span class="kw">SCHEMA</span> pggit <span class="kw">FROM</span> <span class="kw">PUBLIC</span>;</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">GRANT</span> <span class="kw">USAGE</span> <span class="kw">ON</span> <span class="kw">SCHEMA</span> pggit <span class="kw">TO</span> pggit_users;</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="kw">GRANT</span> <span class="kw">SELECT</span> <span class="kw">ON</span> pggit.objects <span class="kw">TO</span> pggit_readonly;</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">GRANT</span> <span class="kw">INSERT</span>, <span class="kw">UPDATE</span> <span class="kw">ON</span> pggit.history <span class="kw">TO</span> pggit_developers;</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Restrict sensitive functions</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="kw">REVOKE</span> <span class="kw">EXECUTE</span> <span class="kw">ON</span> <span class="kw">FUNCTION</span> pggit.generate_migration() <span class="kw">FROM</span> <span class="kw">PUBLIC</span>;</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="kw">GRANT</span> <span class="kw">EXECUTE</span> <span class="kw">ON</span> <span class="kw">FUNCTION</span> pggit.generate_migration() <span class="kw">TO</span> pggit_admins;</span></code></pre></div>
+            <h3 id="password-security">2. Password Security</h3>
+            <div class="sourceCode" id="cb5"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Strong password requirements are enforced</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- Minimum 8 characters, uppercase, lowercase, number, special character</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.create_user(<span class="st">&#39;user&#39;</span>, <span class="st">&#39;email@domain.com&#39;</span>, <span class="st">&#39;WeakPass&#39;</span>, <span class="st">&#39;User&#39;</span>); <span class="co">-- Will fail</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Password hashing with bcrypt</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> password_hash <span class="kw">FROM</span> pggit.users <span class="kw">WHERE</span> username <span class="op">=</span> <span class="st">&#39;test_user&#39;</span>;</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Returns: $2b$12$... (bcrypt hash)</span></span></code></pre></div>
+            <h3 id="connection-security">3. Connection Security</h3>
+            <pre class="postgresql"><code># postgresql.conf security settings
+ssl = on
+ssl_cert_file = &#39;/path/to/server.crt&#39;
+ssl_key_file = &#39;/path/to/server.key&#39;
+
+# Require SSL for pggit users
+# pg_hba.conf
+hostssl all pggit_users 0.0.0.0/0 md5</code></pre>
+            <h2 id="compliance-features">🔍 Compliance Features</h2>
+            <h3 id="gdpr-compliance">1. GDPR Compliance</h3>
+            <div class="sourceCode" id="cb7"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Check GDPR compliance status</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.check_gdpr_compliance();</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Results show:</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- - Right to be forgotten capabilities</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- - Data processing lawfulness</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- - Consent management</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- - Data breach detection</span></span></code></pre></div>
+            <h3 id="sox-compliance">2. SOX Compliance</h3>
+            <div class="sourceCode" id="cb8"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Audit trail for financial data</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.check_sox_compliance();</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Ensures:</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- - Complete change tracking</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- - User accountability</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- - Immutable audit logs</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- - Segregation of duties</span></span></code></pre></div>
+            <h3 id="hipaa-compliance">3. HIPAA Compliance</h3>
+            <div class="sourceCode" id="cb9"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Healthcare data protection</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.check_hipaa_compliance();</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Validates:</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- - PHI encryption requirements</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- - Access logging</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- - Data minimization</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- - Business associate compliance</span></span></code></pre></div>
+            <h2 id="security-monitoring">🚨 Security Monitoring</h2>
+            <h3 id="suspicious-activity-detection">1. Suspicious
+            Activity Detection</h3>
+            <div class="sourceCode" id="cb10"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Monitor for unusual patterns</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    changed_by,</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">COUNT</span>(<span class="op">*</span>) <span class="kw">as</span> change_count,</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">MIN</span>(change_timestamp) <span class="kw">as</span> first_change,</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">MAX</span>(change_timestamp) <span class="kw">as</span> last_change</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> pggit.history </span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> change_timestamp <span class="op">&gt;</span> NOW() <span class="op">-</span> <span class="dt">INTERVAL</span> <span class="st">&#39;1 hour&#39;</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="kw">GROUP</span> <span class="kw">BY</span> changed_by</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="kw">HAVING</span> <span class="fu">COUNT</span>(<span class="op">*</span>) <span class="op">&gt;</span> <span class="dv">10</span>;  <span class="co">-- More than 10 changes in an hour</span></span></code></pre></div>
+            <h3 id="privileged-operations-audit">2. Privileged
+            Operations Audit</h3>
+            <div class="sourceCode" id="cb11"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Track high-risk operations</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>    object_name,</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>    change_type,</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    changed_by,</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>    change_timestamp</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> pggit.history </span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> change_type <span class="kw">IN</span> (<span class="st">&#39;DROP&#39;</span>, <span class="st">&#39;ALTER&#39;</span>) </span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">AND</span> object_name <span class="kw">LIKE</span> <span class="st">&#39;%_sensitive_%&#39;</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> change_timestamp <span class="kw">DESC</span>;</span></code></pre></div>
+            <h3 id="failed-authentication-monitoring">3. Failed
+            Authentication Monitoring</h3>
+            <div class="sourceCode" id="cb12"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Monitor failed login attempts (if auth module loaded)</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    username,</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">COUNT</span>(<span class="op">*</span>) <span class="kw">as</span> failed_attempts,</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">MAX</span>(attempt_timestamp) <span class="kw">as</span> last_attempt</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> pggit.auth_log </span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> success <span class="op">=</span> <span class="kw">false</span> </span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">AND</span> attempt_timestamp <span class="op">&gt;</span> NOW() <span class="op">-</span> <span class="dt">INTERVAL</span> <span class="st">&#39;24 hours&#39;</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="kw">GROUP</span> <span class="kw">BY</span> username</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a><span class="kw">HAVING</span> <span class="fu">COUNT</span>(<span class="op">*</span>) <span class="op">&gt;</span> <span class="dv">5</span>;</span></code></pre></div>
+            <h2 id="security-configuration">🔧 Security
+            Configuration</h2>
+            <h3 id="enable-security-features">1. Enable Security
+            Features</h3>
+            <div class="sourceCode" id="cb13"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Load enterprise security modules</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>\i sql<span class="op">/</span><span class="dv">051</span>_enterprise_auth_rbac.sql</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>\i sql<span class="op">/</span><span class="dv">052</span>_compliance_reporting.sql</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Configure security settings</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.configure_security(</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;password_policy&#39;</span> <span class="op">=&gt;</span> <span class="st">&#39;strict&#39;</span>,</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;session_timeout_minutes&#39;</span> <span class="op">=&gt;</span> <span class="dv">60</span>,</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;max_failed_attempts&#39;</span> <span class="op">=&gt;</span> <span class="dv">5</span>,</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;audit_level&#39;</span> <span class="op">=&gt;</span> <span class="st">&#39;full&#39;</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>);</span></code></pre></div>
+            <h3 id="network-security">2. Network Security</h3>
+            <div class="sourceCode" id="cb14"><pre
+            class="sourceCode bash"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Firewall configuration</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> ufw allow from 10.0.0.0/8 to any port 5432</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> ufw deny from any to any port 5432</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="co"># VPN-only access</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Configure PostgreSQL to only accept connections from VPN subnet</span></span></code></pre></div>
+            <h3 id="encryption-at-rest">3. Encryption at Rest</h3>
+            <pre class="postgresql"><code># Enable data encryption (PostgreSQL 15+)
+ALTER SYSTEM SET cluster_encryption = on;
+SELECT pg_reload_conf();
+
+# Or use filesystem encryption
+# LUKS, BitLocker, or cloud provider encryption</code></pre>
+            <h2 id="incident-response">🚨 Incident Response</h2>
+            <h3 id="security-breach-detection">1. Security Breach
+            Detection</h3>
+            <div class="sourceCode" id="cb16"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Check for unauthorized schema changes</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>    object_name,</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>    change_type,</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>    changed_by,</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>    change_description</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> pggit.history </span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> changed_by <span class="kw">NOT</span> <span class="kw">IN</span> (<span class="kw">SELECT</span> username <span class="kw">FROM</span> pggit.authorized_users)</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">AND</span> change_timestamp <span class="op">&gt;</span> NOW() <span class="op">-</span> <span class="dt">INTERVAL</span> <span class="st">&#39;24 hours&#39;</span>;</span></code></pre></div>
+            <h3 id="emergency-procedures">2. Emergency Procedures</h3>
+            <div class="sourceCode" id="cb17"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Disable all pggit triggers in emergency</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.disable_tracking(<span class="st">&#39;emergency&#39;</span>);</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Re-enable after investigation</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.enable_tracking();</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Generate incident report</span></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.generate_security_report(</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;incident_start&#39;</span> <span class="op">=&gt;</span> <span class="st">&#39;2024-06-15 10:00:00&#39;</span>,</span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;incident_end&#39;</span> <span class="op">=&gt;</span> <span class="st">&#39;2024-06-15 12:00:00&#39;</span></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>);</span></code></pre></div>
+            <h3 id="recovery-procedures">3. Recovery Procedures</h3>
+            <div class="sourceCode" id="cb18"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Rollback to known good state</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.rollback_to_timestamp(<span class="st">&#39;2024-06-15 09:30:00&#39;</span>);</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Verify system integrity</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.verify_database_integrity();</span></code></pre></div>
+            <h2 id="security-checklist">📋 Security Checklist</h2>
+            <h3 id="installation-security">Installation Security</h3>
+            <ul class="task-list">
+            <li><label><input type="checkbox" />Run pggit with minimal
+            required permissions</label></li>
+            <li><label><input type="checkbox" />Enable SSL/TLS for all
+            connections</label></li>
+            <li><label><input type="checkbox" />Configure strong
+            authentication (certificates, LDAP, etc.)</label></li>
+            <li><label><input type="checkbox" />Set up network firewalls
+            and access controls</label></li>
+            <li><label><input type="checkbox" />Enable audit logging in
+            PostgreSQL</label></li>
+            </ul>
+            <h3 id="operational-security">Operational Security</h3>
+            <ul class="task-list">
+            <li><label><input type="checkbox" />Regular security updates
+            for PostgreSQL</label></li>
+            <li><label><input type="checkbox" />Monitor pggit audit logs
+            daily</label></li>
+            <li><label><input type="checkbox" />Review user permissions
+            quarterly</label></li>
+            <li><label><input type="checkbox" />Test backup and recovery
+            procedures</label></li>
+            <li><label><input type="checkbox" />Validate compliance
+            requirements</label></li>
+            </ul>
+            <h3 id="incident-preparedness">Incident Preparedness</h3>
+            <ul class="task-list">
+            <li><label><input type="checkbox" />Document emergency
+            procedures</label></li>
+            <li><label><input type="checkbox" />Test rollback
+            capabilities</label></li>
+            <li><label><input type="checkbox" />Establish communication
+            protocols</label></li>
+            <li><label><input type="checkbox" />Define escalation
+            procedures</label></li>
+            <li><label><input type="checkbox" />Regular security
+            training for team</label></li>
+            </ul>
+            <h2 id="advanced-security">🔐 Advanced Security</h2>
+            <h3 id="row-level-security-rls">1. Row-Level Security
+            (RLS)</h3>
+            <div class="sourceCode" id="cb19"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Enable RLS on pggit tables</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="kw">ALTER</span> <span class="kw">TABLE</span> pggit.history <span class="kw">ENABLE</span> <span class="kw">ROW</span> <span class="kw">LEVEL</span> SECURITY;</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Policy: Users can only see their own changes</span></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> POLICY user_history_policy <span class="kw">ON</span> pggit.history</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a><span class="cf">FOR</span> <span class="kw">SELECT</span> <span class="kw">TO</span> pggit_users</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a><span class="kw">USING</span> (changed_by <span class="op">=</span> current_user);</span></code></pre></div>
+            <h3 id="encrypted-columns">2. Encrypted Columns</h3>
+            <div class="sourceCode" id="cb20"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Encrypt sensitive migration data</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="kw">ALTER</span> <span class="kw">TABLE</span> pggit.history </span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="kw">ADD</span> <span class="kw">COLUMN</span> encrypted_details BYTEA;</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Store encrypted change descriptions</span></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a><span class="kw">UPDATE</span> pggit.history </span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a><span class="kw">SET</span> encrypted_details <span class="op">=</span> pgp_sym_encrypt(change_description, <span class="st">&#39;secret_key&#39;</span>)</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> contains_sensitive_data <span class="op">=</span> <span class="kw">true</span>;</span></code></pre></div>
+            <h3 id="security-hardening">3. Security Hardening</h3>
+            <div class="sourceCode" id="cb21"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Remove default permissions</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="kw">REVOKE</span> <span class="kw">ALL</span> <span class="kw">ON</span> <span class="kw">DATABASE</span> postgres <span class="kw">FROM</span> <span class="kw">PUBLIC</span>;</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="kw">REVOKE</span> <span class="kw">ALL</span> <span class="kw">ON</span> <span class="kw">SCHEMA</span> <span class="kw">public</span> <span class="kw">FROM</span> <span class="kw">PUBLIC</span>;</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Create security-focused roles</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">ROLE</span> pggit_security_admin;</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="kw">GRANT</span> <span class="kw">ALL</span> <span class="kw">ON</span> <span class="kw">SCHEMA</span> pggit <span class="kw">TO</span> pggit_security_admin;</span></code></pre></div>
+            <h2 id="security-support">📞 Security Support</h2>
+            <p>Security concerns or questions?</p>
+            <ul>
+            <li><strong>Security Issues</strong>:
+            security@pggit.dev</li>
+            <li><strong>Vulnerability Reports</strong>: Use responsible
+            disclosure</li>
+            <li><strong>Compliance Questions</strong>:
+            compliance@pggit.dev</li>
+            <li><strong>Community</strong>: GitHub Security
+            Advisories</li>
+            </ul>
+            <hr />
+            <h2 id="remember">🛡️ Remember</h2>
+            <ul>
+            <li><strong>Defense in depth</strong>: Layer multiple
+            security controls</li>
+            <li><strong>Least privilege</strong>: Grant minimum required
+            permissions</li>
+            <li><strong>Regular monitoring</strong>: Audit logs and
+            access patterns</li>
+            <li><strong>Stay updated</strong>: Apply security patches
+            promptly</li>
+            <li><strong>Test regularly</strong>: Verify security
+            controls work as expected</li>
+            </ul>
+            <hr />
+            <p><em>Security is a shared responsibility. pggit provides
+            the tools - you provide the operational security.</em></p>
+        </article>
+    </main>
+    
+    <footer>
+        <p>pgGit is open source software under the MIT License</p>
+        <p>Built with ❤️ by <a href="https://github.com/evoludigit">@evoludigit</a></p>
+    </footer>
+</body>
+</html>

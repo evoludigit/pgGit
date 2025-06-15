@@ -1,0 +1,7 @@
+# pggit extension
+comment = 'Git-like version control for PostgreSQL schemas'
+default_version = '0.1.0'
+module_pathname = '$libdir/pggit'
+relocatable = false
+# schema = pggit
+requires = 'pgcrypto'

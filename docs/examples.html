@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="pgGit Examples - Real-world scenarios and use cases">
+    <title>Examples - pgGit</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='24' font-size='24'>🐘</text></svg>">
+</head>
+<body>
+    <nav class="nav" role="navigation" aria-label="Main navigation">
+        <div class="nav-inner">
+            <a href="/" class="nav-logo">pgGit</a>
+            <ul class="nav-links">
+                <li><a href="getting-started.html">Getting Started</a></li>
+                <li><a href="api.html">API Reference</a></li>
+                <li><a href="examples.html" aria-current="page">Examples</a></li>
+                <li><a href="troubleshooting.html">Troubleshooting</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <h1>pgGit Real-World Examples</h1>
+        
+        <section>
+            <h2>Scenario 1: Multiple Developers, One Database</h2>
+            <p>Your team has 5 developers all working on different features. Here's how to keep everyone sane:</p>
+            
+            <h3>Developer Alice: Adding User Authentication</h3>
+            <pre><code>-- Alice creates her branch
+SELECT pggit.checkout_b('feature/user-auth');
+
+-- She adds authentication tables
+CREATE TABLE auth_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    token TEXT UNIQUE NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_auth_tokens_user ON auth_tokens(user_id);
+CREATE INDEX idx_auth_tokens_expires ON auth_tokens(expires_at);
+
+SELECT pggit.commit('Add authentication token system');</code></pre>
+
+            <h3>Developer Bob: Optimizing Performance</h3>
+            <pre><code>-- Bob works on performance improvements
+SELECT pggit.checkout_b('feature/performance');
+
+-- He adds missing indexes
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_orders_created ON orders(created_at);
+CREATE INDEX idx_products_category ON products(category_id);
+
+SELECT pggit.commit('Add performance indexes');</code></pre>
+
+            <h3>The Integration Dance</h3>
+            <pre><code>-- Both features are tested, time to integrate
+-- First, Bob's performance improvements (simpler)
+SELECT pggit.checkout('main');
+SELECT pggit.merge('feature/performance');
+
+-- Then Alice's auth system
+SELECT pggit.merge('feature/user-auth');
+-- Success! No conflicts because they touched different areas</code></pre>
+        </section>
+
+        <section>
+            <h2>Scenario 2: The Breaking Schema Change</h2>
+            <p>You deployed a schema change that's causing issues in production. Time to roll back!</p>
+            
+            <pre><code>-- Check recent commits
+SELECT * FROM pggit.log(5);
+
+-- commit_id                            | message                    | committed_at
+-- ------------------------------------+----------------------------+-------------------
+-- a5f3e2b7-1234-5678-9abc-def012345678 | Add complex constraints    | 2024-01-15 14:30:00
+-- b6g4f3c8-2345-6789-abcd-ef0123456789 | Optimize user queries      | 2024-01-15 13:00:00
+-- c7h5g4d9-3456-789a-bcde-f01234567890 | Add reporting tables       | 2024-01-15 11:00:00
+
+-- The constraints are causing issues! Revert just that commit
+SELECT pggit.revert_commit('a5f3e2b7-1234-5678-9abc-def012345678',
+    'Revert complex constraints - causing production issues');
+
+-- Verify the constraints are gone
+\d+ your_table_name</code></pre>
+        </section>
+
+        <section>
+            <h2>Scenario 3: The Long-Running Feature Branch</h2>
+            <p>You've been working on a major feature for 2 weeks. Meanwhile, main has changed significantly.</p>
+            
+            <pre><code>-- On your feature branch for 2 weeks
+SELECT pggit.checkout('feature/major-refactor');
+
+-- Lots of changes have been made...
+-- Time to sync with main
+
+-- First, see what's different
+SELECT pggit.find_merge_base('feature/major-refactor', 'main');
+
+-- Merge main into your feature branch
+SELECT pggit.merge('main');
+-- ERROR: Merge conflicts detected: 3 conflicts
+
+-- Analyze the conflicts
+SELECT * FROM pggit.three_way_merge(
+    (SELECT pggit.find_merge_base('feature/major-refactor', 'main')),
+    (SELECT target_commit_id FROM pggit.refs WHERE ref_name = 'main'),
+    (SELECT current_commit_id FROM pggit.HEAD)
+);
+
+-- Resolve conflicts one by one
+SELECT pggit.resolve_conflict('public.users', 'theirs'); -- Keep main's version
+SELECT pggit.resolve_conflict('public.orders', 'ours');  -- Keep our version
+SELECT pggit.resolve_conflict('public.inventory', 
+    'CREATE TABLE inventory (
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER REFERENCES products(id),
+        quantity INTEGER NOT NULL DEFAULT 0,
+        warehouse_id INTEGER NOT NULL,
+        last_updated TIMESTAMP DEFAULT NOW()
+    )'
+); -- Custom resolution
+
+-- Try merge again
+SELECT pggit.merge('main');
+-- Success!</code></pre>
+        </section>
+
+        <section>
+            <h2>Scenario 4: Database Migrations Across Environments</h2>
+            <p>You need to deploy the same changes to dev, staging, and production databases.</p>
+            
+            <pre><code>-- Export schema changes as a migration
+-- On development database:
+SELECT pggit.checkout('release/v2.0');
+
+-- Get all changes since last release
+SELECT string_agg(sql_command, E';\n') AS migration_script
+FROM pggit.get_changes_since('release/v1.9');
+
+-- Copy this script and run on staging
+-- After testing, run on production
+
+-- Tag the release in each environment
+SELECT pggit.tag('v2.0-deployed', 'Production deployment completed');</code></pre>
+        </section>
+
+        <section>
+            <h2>Scenario 5: Debugging Production Issues</h2>
+            <p>Something broke in production. When did it break? What changed?</p>
+            
+            <pre><code>-- Find when a table was modified
+SELECT 
+    commit_id,
+    message,
+    committed_at,
+    author
+FROM pggit.log(50) l
+WHERE EXISTS (
+    SELECT 1 FROM pggit.stage_changes_at(l.commit_id)
+    WHERE object_name = 'public.orders'
+);
+
+-- See exactly what changed in that commit
+SELECT * FROM pggit.diff(
+    'previous-commit-id',
+    'suspicious-commit-id'
+);
+
+-- Check who made related changes
+SELECT DISTINCT author, COUNT(*) as changes
+FROM pggit.log(100)
+WHERE message LIKE '%order%'
+GROUP BY author;</code></pre>
+        </section>
+
+        <section>
+            <h2>Scenario 6: The Hotfix Workflow</h2>
+            <p>Critical bug in production. Need to fix NOW without deploying half-finished features.</p>
+            
+            <pre><code>-- Currently on feature branch with unfinished work
+SELECT * FROM pggit.status();
+-- branch: feature/new-dashboard
+
+-- Create hotfix from main
+SELECT pggit.checkout('main');
+SELECT pggit.checkout_b('hotfix/critical-bug');
+
+-- Fix the issue
+ALTER TABLE orders ADD CONSTRAINT check_positive_amount 
+    CHECK (total_amount >= 0);
+
+-- Add defensive index
+CREATE INDEX idx_orders_amount_check ON orders(total_amount) 
+    WHERE total_amount < 0;
+
+-- Commit and deploy
+SELECT pggit.commit('Fix negative order amounts - critical bug');
+
+-- Merge to main
+SELECT pggit.checkout('main');
+SELECT pggit.merge('hotfix/critical-bug');
+
+-- Also merge to your feature branch to avoid conflicts later
+SELECT pggit.checkout('feature/new-dashboard');
+SELECT pggit.merge('hotfix/critical-bug');</code></pre>
+        </section>
+
+        <section>
+            <h2>Best Practices</h2>
+            
+            <h3>1. Commit Messages That Don't Suck</h3>
+            <pre><code>-- Bad
+SELECT pggit.commit('changes');
+SELECT pggit.commit('fix');
+
+-- Good
+SELECT pggit.commit('Add indexes for order query performance');
+SELECT pggit.commit('Fix: Prevent duplicate email constraint violation');</code></pre>
+
+            <h3>2. Branch Naming Conventions</h3>
+            <pre><code>-- Features
+feature/user-authentication
+feature/reporting-dashboard
+
+-- Fixes
+fix/duplicate-orders
+fix/performance-issues
+
+-- Hotfixes
+hotfix/critical-security-patch
+
+-- Releases
+release/v2.0
+release/2024-q1</code></pre>
+
+            <h3>3. Regular Synchronization</h3>
+            <pre><code>-- Every morning on your feature branch
+SELECT pggit.merge('main');
+
+-- Before merging back to main
+SELECT pggit.checkout('main');
+SELECT pggit.merge('feature/your-feature');</code></pre>
+        </section>
+
+        <section class="cta">
+            <h2>Hit a Snag?</h2>
+            <p>Check out our troubleshooting guide for common issues and solutions.</p>
+            <p><a href="troubleshooting.html" class="btn btn-primary">Troubleshooting Guide</a></p>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Évolution digitale — pgGit pggit. Real examples from real developers.</p>
+        </div>
+    </footer>
+</body>
+</html>

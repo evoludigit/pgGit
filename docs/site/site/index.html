@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="pgGit - Git-like version control for PostgreSQL databases. Track, branch, and manage database changes like code.">
+    <title>pgGit - Git for PostgreSQL Databases</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="/" class="logo">pgGit</a>
+            <ul>
+                <li><a href="#quick-start">Quick Start</a></li>
+                <li><a href="/docs/">Documentation</a></li>
+                <li><a href="/api/">API Reference</a></li>
+                <li><a href="https://github.com/evoludigit/pggit">GitHub</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <h1>Git for PostgreSQL Databases</h1>
+            <p class="tagline">Track, branch, and manage database changes like code.</p>
+            <div class="cta">
+                <a href="#quick-start" class="button primary">Get Started</a>
+                <a href="/docs/" class="button secondary">Read Docs</a>
+            </div>
+        </section>
+
+        <section id="quick-start" class="quick-start">
+            <h2>Quick Start</h2>
+            <div class="code-block">
+                <pre><code># Install pggit
+git clone https://github.com/evoludigit/pggit.git
+cd pggit
+make && sudo make install
+
+# Use it
+psql -c "CREATE EXTENSION pggit"
+psql -c "CREATE TABLE users (id SERIAL PRIMARY KEY, name TEXT)"
+psql -c "SELECT * FROM pggit.get_version('users')"  # Version 1.0.0!</code></pre>
+            </div>
+        </section>
+
+        <section class="features">
+            <h2>Revolutionary Features</h2>
+            <div class="feature-grid">
+                <div class="feature">
+                    <h3>Native Branching</h3>
+                    <p>Create isolated database branches with real data, just like Git.</p>
+                </div>
+                <div class="feature">
+                    <h3>Three-Way Merging</h3>
+                    <p>Intelligent conflict resolution for schema and data changes.</p>
+                </div>
+                <div class="feature">
+                    <h3>Efficient Storage</h3>
+                    <p>PostgreSQL 17 compression enables practical data branching.</p>
+                </div>
+                <div class="feature">
+                    <h3>100% Open Source</h3>
+                    <p>MIT licensed. No premium gates. Everything included.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="demo">
+            <h2>See It In Action</h2>
+            <div class="code-block">
+                <pre><code>-- Create a feature branch with actual data
+SELECT pggit.create_data_branch('feature/user-profiles', 'main', true);
+
+-- Make breaking changes safely
+ALTER TABLE users ADD COLUMN avatar_url TEXT;
+INSERT INTO users (name, avatar_url) VALUES ('Test User', 'test.jpg');
+
+-- Merge back to main with zero conflicts
+SELECT pggit.merge_compressed_branches('feature/user-profiles', 'main');
+-- Result: 'MERGE_SUCCESS'</code></pre>
+            </div>
+        </section>
+
+        <section class="docs-nav">
+            <h2>Documentation</h2>
+            <nav class="docs-grid">
+                <a href="/docs/getting-started/" class="doc-card">
+                    <h3>Getting Started</h3>
+                    <p>New to pgGit? Start here with our friendly guides.</p>
+                </a>
+                <a href="/docs/guides/" class="doc-card">
+                    <h3>Guides</h3>
+                    <p>Performance, security, and operations best practices.</p>
+                </a>
+                <a href="/api/" class="doc-card">
+                    <h3>API Reference</h3>
+                    <p>Complete function documentation and examples.</p>
+                </a>
+                <a href="/docs/examples/" class="doc-card">
+                    <h3>Examples</h3>
+                    <p>Real-world usage patterns and workflows.</p>
+                </a>
+            </nav>
+        </section>
+    </main>
+
+    <footer>
+        <p>pgGit is open source software under the MIT License</p>
+        <p>Built with ❤️ by <a href="https://github.com/evoludigit">@evoludigit</a></p>
+    </footer>
+</body>
+</html>

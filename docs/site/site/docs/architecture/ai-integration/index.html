@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="pgGit Documentation">
+    <title>AI Integration Architecture - pgGit</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .doc-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .doc-content h1:first-child {
+            margin-top: 0;
+        }
+        .toc {
+            background: var(--bg-light);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .toc h2 {
+            margin-top: 0;
+            font-size: 1.25rem;
+        }
+        .toc ul {
+            list-style: none;
+            padding-left: 1rem;
+        }
+        .toc li {
+            margin: 0.5rem 0;
+        }
+        .breadcrumb {
+            margin-bottom: 2rem;
+            color: var(--text-light);
+        }
+        .breadcrumb a {
+            color: var(--text-light);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="/" class="logo">pgGit</a>
+            <ul>
+                <li><a href="/#quick-start">Quick Start</a></li>
+                <li><a href="/docs/">Documentation</a></li>
+                <li><a href="/api/">API Reference</a></li>
+                <li><a href="https://github.com/evoludigit/pggit">GitHub</a></li>
+            </ul>
+        </nav>
+    </header>
+    
+    <main class="doc-content">
+        <div class="breadcrumb">
+            <a href="/">Home</a> / <a href="/docs/">Docs</a> / AI
+Integration Architecture - pgGit
+        </div>
+        
+                <div class="toc">
+            <h2>Table of Contents</h2>
+            <ul>
+            <li><a href="#ai-integration-architecture-for-pggit"
+            id="toc-ai-integration-architecture-for-pggit">AI
+            Integration Architecture for pggit</a>
+            <ul>
+            <li><a href="#overview" id="toc-overview">Overview</a></li>
+            <li><a href="#local-llm-options"
+            id="toc-local-llm-options">🧠 Local LLM Options</a>
+            <ul>
+            <li><a href="#specialized-database-schema-llms"
+            id="toc-specialized-database-schema-llms">1. Specialized
+            Database Schema LLMs</a></li>
+            <li><a href="#implementation-architecture"
+            id="toc-implementation-architecture">2. Implementation
+            Architecture</a></li>
+            </ul></li>
+            <li><a href="#technical-implementation"
+            id="toc-technical-implementation">🔧 Technical
+            Implementation</a>
+            <ul>
+            <li><a href="#step-1-install-local-llm-infrastructure"
+            id="toc-step-1-install-local-llm-infrastructure">Step 1:
+            Install Local LLM Infrastructure</a></li>
+            <li><a href="#step-2-create-ai-processing-functions"
+            id="toc-step-2-create-ai-processing-functions">Step 2:
+            Create AI Processing Functions</a></li>
+            <li><a href="#step-3-migration-understanding-pipeline"
+            id="toc-step-3-migration-understanding-pipeline">Step 3:
+            Migration Understanding Pipeline</a></li>
+            </ul></li>
+            <li><a href="#optimized-local-models"
+            id="toc-optimized-local-models">🚀 Optimized Local
+            Models</a>
+            <ul>
+            <li><a href="#fine-tuning-for-database-migrations"
+            id="toc-fine-tuning-for-database-migrations">Fine-tuning for
+            Database Migrations</a></li>
+            <li><a href="#embedding-strategy"
+            id="toc-embedding-strategy">Embedding Strategy</a></li>
+            </ul></li>
+            <li><a href="#integration-points"
+            id="toc-integration-points">🔌 Integration Points</a>
+            <ul>
+            <li><a href="#real-time-migration-analysis"
+            id="toc-real-time-migration-analysis">1. Real-time Migration
+            Analysis</a></li>
+            <li><a href="#reconciliation-with-ai"
+            id="toc-reconciliation-with-ai">2. Reconciliation with
+            AI</a></li>
+            </ul></li>
+            <li><a href="#deployment-options"
+            id="toc-deployment-options">🏗️ Deployment Options</a>
+            <ul>
+            <li><a href="#option-1-embedded-in-postgresql"
+            id="toc-option-1-embedded-in-postgresql">Option 1: Embedded
+            in PostgreSQL</a></li>
+            <li><a href="#option-2-sidecar-service"
+            id="toc-option-2-sidecar-service">Option 2: Sidecar
+            Service</a></li>
+            <li><a href="#option-3-edge-deployment"
+            id="toc-option-3-edge-deployment">Option 3: Edge
+            Deployment</a></li>
+            </ul></li>
+            <li><a href="#performance-considerations"
+            id="toc-performance-considerations">📊 Performance
+            Considerations</a>
+            <ul>
+            <li><a href="#model-size-vs-quality-tradeoffs"
+            id="toc-model-size-vs-quality-tradeoffs">Model Size vs
+            Quality Tradeoffs</a></li>
+            <li><a href="#optimization-strategies"
+            id="toc-optimization-strategies">Optimization
+            Strategies</a></li>
+            </ul></li>
+            <li><a href="#security-privacy" id="toc-security-privacy">🔐
+            Security &amp; Privacy</a>
+            <ul>
+            <li><a href="#local-llm-advantages"
+            id="toc-local-llm-advantages">Local LLM Advantages</a></li>
+            </ul></li>
+            <li><a href="#implementation-roadmap"
+            id="toc-implementation-roadmap">🎯 Implementation
+            Roadmap</a>
+            <ul>
+            <li><a href="#phase-1-proof-of-concept-2-4-weeks"
+            id="toc-phase-1-proof-of-concept-2-4-weeks">Phase 1: Proof
+            of Concept (2-4 weeks)</a></li>
+            <li><a href="#phase-2-integration-4-6-weeks"
+            id="toc-phase-2-integration-4-6-weeks">Phase 2: Integration
+            (4-6 weeks)</a></li>
+            <li><a href="#phase-3-fine-tuning-6-8-weeks"
+            id="toc-phase-3-fine-tuning-6-8-weeks">Phase 3: Fine-tuning
+            (6-8 weeks)</a></li>
+            <li><a href="#phase-4-production-8-12-weeks"
+            id="toc-phase-4-production-8-12-weeks">Phase 4: Production
+            (8-12 weeks)</a></li>
+            </ul></li>
+            <li><a href="#alternative-approaches"
+            id="toc-alternative-approaches">💡 Alternative
+            Approaches</a>
+            <ul>
+            <li><a href="#rule-based-ai-hybrid"
+            id="toc-rule-based-ai-hybrid">1. Rule-Based + AI
+            Hybrid</a></li>
+            <li><a href="#embedding-only-approach"
+            id="toc-embedding-only-approach">2. Embedding-Only
+            Approach</a></li>
+            <li><a href="#cloud-api-with-local-fallback"
+            id="toc-cloud-api-with-local-fallback">3. Cloud API with
+            Local Fallback</a></li>
+            </ul></li>
+            <li><a href="#conclusion"
+            id="toc-conclusion">Conclusion</a></li>
+            </ul></li>
+            </ul>
+        </div>
+                
+        <article class="markdown-body">
+            <h1 id="ai-integration-architecture-for-pggit">AI
+            Integration Architecture for pggit</h1>
+            <p><em>How to make the AI-powered features real using local
+            LLMs</em></p>
+            <h2 id="overview">Overview</h2>
+            <p>The current pggit AI features are conceptual. Here’s how
+            to implement them using real, local AI models.</p>
+            <hr />
+            <h2 id="local-llm-options">🧠 Local LLM Options</h2>
+            <h3 id="specialized-database-schema-llms">1. Specialized
+            Database Schema LLMs</h3>
+            <p><strong>CodeLlama-SQL</strong> (7B-13B parameters) -
+            Fine-tuned on SQL and database schemas - Runs on consumer
+            GPUs (RTX 3060+) - Good at understanding DDL patterns - Can
+            run fully offline</p>
+            <p><strong>SQLCoder</strong> (7B-15B parameters) -
+            Specifically trained for SQL generation - Excellent at
+            understanding schema relationships - Lightweight enough for
+            edge deployment</p>
+            <p><strong>StarCoder</strong> (7B-15B parameters) - Strong
+            on code migration patterns - Good context understanding -
+            Can be fine-tuned on migration datasets</p>
+            <h3 id="implementation-architecture">2. Implementation
+            Architecture</h3>
+            <div class="sourceCode" id="cb1"><pre
+            class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">pggit AI Stack</span><span class="kw">:</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">1. Model Layer</span><span class="kw">:</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="fu">Local LLM</span><span class="kw">:</span><span class="at"> CodeLlama-SQL-7B</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="fu">Inference</span><span class="kw">:</span><span class="at"> llama.cpp (CPU/GPU)</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="fu">Embeddings</span><span class="kw">:</span><span class="at"> all-MiniLM-L6-v2</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="at">    </span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">2. Vector Store</span><span class="kw">:</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> PostgreSQL pgvector extension</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> Migration pattern embeddings</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> Schema similarity search</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="at">    </span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">3. Processing Pipeline</span><span class="kw">:</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> Migration Parser → Embeddings → LLM → Validation</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> Confidence scoring based on similarity</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> Human review for low confidence</span></span></code></pre></div>
+            <hr />
+            <h2 id="technical-implementation">🔧 Technical
+            Implementation</h2>
+            <h3 id="step-1-install-local-llm-infrastructure">Step 1:
+            Install Local LLM Infrastructure</h3>
+            <div class="sourceCode" id="cb2"><pre
+            class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Install llama.cpp for inference</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/ggerganov/llama.cpp</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> llama.cpp <span class="kw">&amp;&amp;</span> <span class="fu">make</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Download quantized model (4-bit for efficiency)</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="fu">wget</span> https://huggingface.co/TheBloke/CodeLlama-7B-SQL-GGUF/resolve/main/codellama-7b-sql.Q4_K_M.gguf</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Install pgvector for embeddings</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="ex">CREATE</span> EXTENSION vector<span class="kw">;</span></span></code></pre></div>
+            <h3 id="step-2-create-ai-processing-functions">Step 2:
+            Create AI Processing Functions</h3>
+            <div class="sourceCode" id="cb3"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Store migration patterns as embeddings</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> pggit.migration_patterns (</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">id</span> SERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>,</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    pattern_type TEXT, <span class="co">-- &#39;add_column&#39;, &#39;create_table&#39;, etc.</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    source_tool TEXT, <span class="co">-- &#39;flyway&#39;, &#39;liquibase&#39;, etc.</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    pattern_sql TEXT,</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    pattern_embedding vector(<span class="dv">384</span>), <span class="co">-- Sentence transformer embeddings</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    semantic_meaning TEXT,</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    confidence_threshold <span class="dt">DECIMAL</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>);</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="co">-- Function to call local LLM</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">OR</span> <span class="kw">REPLACE</span> <span class="kw">FUNCTION</span> pggit.call_local_llm(</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    p_prompt TEXT,</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    p_model_path TEXT <span class="kw">DEFAULT</span> <span class="st">&#39;/models/codellama-7b-sql.gguf&#39;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>) RETURNS TEXT <span class="kw">AS</span> $$</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>import subprocess</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>import json</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a># <span class="kw">Call</span> llama.cpp <span class="kw">with</span> prompt</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>cmd <span class="op">=</span> [</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;/usr/local/bin/llama&#39;</span>,</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;-m&#39;</span>, p_model_path,</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;-p&#39;</span>, p_prompt,</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;--temp&#39;</span>, <span class="st">&#39;0.1&#39;</span>,  # Low temperature <span class="cf">for</span> consistency</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;-n&#39;</span>, <span class="st">&#39;512&#39;</span>,       # <span class="fu">Max</span> tokens</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;--json&#39;</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> subprocess.run(cmd, capture_output<span class="op">=</span><span class="kw">True</span>, text<span class="op">=</span><span class="kw">True</span>)</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a><span class="kw">return</span> result.stdout</span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>$$ LANGUAGE plpython3u;</span></code></pre></div>
+            <h3 id="step-3-migration-understanding-pipeline">Step 3:
+            Migration Understanding Pipeline</h3>
+            <div class="sourceCode" id="cb4"><pre
+            class="sourceCode python"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Python function for migration analysis</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>CREATE OR REPLACE FUNCTION pggit.analyze_migration_with_ai(</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    p_migration_content TEXT,</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    p_source_tool TEXT</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>) RETURNS TABLE (</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    intent TEXT,</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    confidence DECIMAL,</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    pggit_equivalent TEXT,</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    rollback_sql TEXT</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>) AS $$</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sentence_transformers <span class="im">import</span> SentenceTransformer</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Load embedding model</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> SentenceTransformer(<span class="st">&#39;all-MiniLM-L6-v2&#39;</span>)</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate embedding for input migration</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>migration_embedding <span class="op">=</span> model.encode(p_migration_content)</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Find similar patterns in database</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>similar_patterns <span class="op">=</span> plpy.execute(<span class="st">&quot;&quot;&quot;</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="st">    SELECT </span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a><span class="st">        pattern_type,</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a><span class="st">        semantic_meaning,</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a><span class="st">        confidence_threshold</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a><span class="st">    FROM pggit.migration_patterns</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a><span class="st">    ORDER BY pattern_embedding &lt;-&gt; </span><span class="sc">%s</span><span class="st">::vector</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a><span class="st">    LIMIT 5</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;&quot;&quot;</span>, [migration_embedding.tolist()])</span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a><span class="co"># Construct prompt for LLM</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> <span class="ss">f&quot;&quot;&quot;You are a database migration expert. Analyze this </span><span class="sc">{</span>p_source_tool<span class="sc">}</span><span class="ss"> migration:</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a><span class="sc">{</span>p_migration_content<span class="sc">}</span></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a><span class="ss">Similar patterns found:</span></span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a><span class="sc">{</span>[p[<span class="st">&#39;pattern_type&#39;</span>] <span class="cf">for</span> p <span class="kw">in</span> similar_patterns]<span class="sc">}</span></span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a><span class="ss">Task:</span></span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a><span class="ss">1. Identify the intent of this migration</span></span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a><span class="ss">2. Convert to pggit semantic versioning</span></span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a><span class="ss">3. Generate a safe rollback</span></span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a><span class="ss">Output JSON:</span></span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a><span class="ch">{{</span><span class="ss">&quot;intent&quot;: &quot;&quot;, &quot;confidence&quot;: 0.0, &quot;pggit_sql&quot;: &quot;&quot;, &quot;rollback_sql&quot;: &quot;&quot;</span><span class="ch">}}</span></span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a><span class="ss">&quot;&quot;&quot;</span></span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a><span class="co"># Call local LLM</span></span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a>llm_response <span class="op">=</span> plpy.execute(</span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;SELECT pggit.call_local_llm(</span><span class="sc">%s</span><span class="st">) as response&quot;</span>, </span>
+<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a>    [prompt]</span>
+<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a>)[<span class="dv">0</span>][<span class="st">&#39;response&#39;</span>]</span>
+<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a><span class="co"># Parse and return</span></span>
+<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> json.loads(llm_response)</span>
+<span id="cb4-56"><a href="#cb4-56" aria-hidden="true" tabindex="-1"></a><span class="cf">yield</span> (</span>
+<span id="cb4-57"><a href="#cb4-57" aria-hidden="true" tabindex="-1"></a>    result[<span class="st">&#39;intent&#39;</span>],</span>
+<span id="cb4-58"><a href="#cb4-58" aria-hidden="true" tabindex="-1"></a>    result[<span class="st">&#39;confidence&#39;</span>],</span>
+<span id="cb4-59"><a href="#cb4-59" aria-hidden="true" tabindex="-1"></a>    result[<span class="st">&#39;pggit_sql&#39;</span>],</span>
+<span id="cb4-60"><a href="#cb4-60" aria-hidden="true" tabindex="-1"></a>    result[<span class="st">&#39;rollback_sql&#39;</span>]</span>
+<span id="cb4-61"><a href="#cb4-61" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb4-62"><a href="#cb4-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-63"><a href="#cb4-63" aria-hidden="true" tabindex="-1"></a>$$ LANGUAGE plpython3u<span class="op">;</span></span></code></pre></div>
+            <hr />
+            <h2 id="optimized-local-models">🚀 Optimized Local
+            Models</h2>
+            <h3 id="fine-tuning-for-database-migrations">Fine-tuning for
+            Database Migrations</h3>
+            <div class="sourceCode" id="cb5"><pre
+            class="sourceCode python"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Fine-tuning dataset structure</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>training_data <span class="op">=</span> {</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;flyway_to_pggit&quot;</span>: [</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>        {</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>            <span class="st">&quot;input&quot;</span>: <span class="st">&quot;V1__Create_users_table.sql:</span><span class="ch">\n</span><span class="st">CREATE TABLE users (id INT);&quot;</span>,</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>            <span class="st">&quot;output&quot;</span>: {</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>                <span class="st">&quot;intent&quot;</span>: <span class="st">&quot;Create users table with ID&quot;</span>,</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>                <span class="st">&quot;version&quot;</span>: <span class="st">&quot;1.0.0&quot;</span>,</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>                <span class="st">&quot;rollback&quot;</span>: <span class="st">&quot;DROP TABLE users;&quot;</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>        },</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>        <span class="co"># ... thousands more examples</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Fine-tune using LoRA (Low-Rank Adaptation)</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Requires only 8GB VRAM for 7B model</span></span></code></pre></div>
+            <h3 id="embedding-strategy">Embedding Strategy</h3>
+            <div class="sourceCode" id="cb6"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Pre-compute embeddings for common patterns</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">INSERT</span> <span class="kw">INTO</span> pggit.migration_patterns (pattern_type, pattern_embedding, semantic_meaning)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="kw">VALUES</span> </span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;add_column&#39;</span>, </span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>     ai_embed(<span class="st">&#39;ALTER TABLE x ADD COLUMN y TYPE&#39;</span>), </span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>     <span class="st">&#39;Adding new column to existing table&#39;</span>),</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    (<span class="st">&#39;create_index&#39;</span>,</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>     ai_embed(<span class="st">&#39;CREATE INDEX ON table(column)&#39;</span>),</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>     <span class="st">&#39;Creating index for performance&#39;</span>),</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- ... hundreds of patterns</span></span></code></pre></div>
+            <hr />
+            <h2 id="integration-points">🔌 Integration Points</h2>
+            <h3 id="real-time-migration-analysis">1. Real-time Migration
+            Analysis</h3>
+            <div class="sourceCode" id="cb7"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">OR</span> <span class="kw">REPLACE</span> <span class="kw">FUNCTION</span> pggit.migrate_with_ai(</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    p_source_path TEXT,</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    p_source_type TEXT <span class="kw">DEFAULT</span> <span class="st">&#39;auto&#39;</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>) RETURNS TEXT <span class="kw">AS</span> $$</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="kw">DECLARE</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    v_migration <span class="dt">RECORD</span>;</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    v_ai_analysis <span class="dt">RECORD</span>;</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    v_total_confidence <span class="dt">DECIMAL</span> <span class="op">:=</span> <span class="dv">0</span>;</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="cf">BEGIN</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Parse migrations from source</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">FOR</span> v_migration <span class="kw">IN</span> </span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>        <span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.parse_migrations(p_source_path, p_source_type)</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">LOOP</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>        <span class="co">-- Analyze each with local LLM</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>        <span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">INTO</span> v_ai_analysis</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>        <span class="kw">FROM</span> pggit.analyze_migration_with_ai(</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>            v_migration.content,</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>            p_source_type</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>        );</span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>        <span class="co">-- Store results</span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>        <span class="kw">INSERT</span> <span class="kw">INTO</span> pggit.ai_migration_plan (</span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>            original_migration,</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>            ai_intent,</span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>            confidence,</span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>            suggested_sql,</span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>            rollback_sql</span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>        ) <span class="kw">VALUES</span> (</span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>            v_migration.filename,</span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>            v_ai_analysis.intent,</span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>            v_ai_analysis.confidence,</span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>            v_ai_analysis.pggit_equivalent,</span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>            v_ai_analysis.rollback_sql</span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>        );</span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>        v_total_confidence <span class="op">:=</span> v_total_confidence <span class="op">+</span> v_ai_analysis.confidence;</span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>    <span class="cf">END</span> <span class="cf">LOOP</span>;</span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>    <span class="kw">RETURN</span> format(<span class="st">&#39;Analyzed %s migrations, average confidence: %s%%&#39;</span>,</span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a>        <span class="fu">COUNT</span>(<span class="op">*</span>), <span class="fu">ROUND</span>(v_total_confidence <span class="op">/</span> <span class="fu">COUNT</span>(<span class="op">*</span>), <span class="dv">1</span>));</span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a><span class="cf">END</span>;</span>
+<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a>$$ LANGUAGE plpgsql;</span></code></pre></div>
+            <h3 id="reconciliation-with-ai">2. Reconciliation with
+            AI</h3>
+            <div class="sourceCode" id="cb8"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Real AI-powered reconciliation</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">OR</span> <span class="kw">REPLACE</span> <span class="kw">FUNCTION</span> pggit.ai_reconcile_branches(</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    p_source TEXT,</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    p_target TEXT</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>) RETURNS UUID <span class="kw">AS</span> $$</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="kw">DECLARE</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    v_prompt TEXT;</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    v_ai_response TEXT;</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="cf">BEGIN</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Build prompt with actual schema differences</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>    v_prompt <span class="op">:=</span> format($$</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>        <span class="kw">Analyze</span> these <span class="kw">schema</span> differences:</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">Source</span> branch: %s</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>        Target branch: %s</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>        Differences:</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>        %s</span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">For</span> <span class="kw">each</span> difference:</span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>        <span class="fl">1.</span> Assess risk <span class="kw">level</span> (LOW<span class="op">/</span>MEDIUM<span class="op">/</span>HIGH)</span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>        <span class="fl">2.</span> Suggest resolution (TAKE_SOURCE<span class="op">/</span>TAKE_TARGET<span class="op">/</span><span class="kw">MERGE</span>)</span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>        <span class="fl">3.</span> <span class="kw">Explain</span> reasoning</span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>        <span class="fl">4.</span> Flag <span class="cf">if</span> human review <span class="kw">needed</span></span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>    $$, p_source, p_target, </span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>        pggit.get_schema_diff_json(p_source, p_target));</span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Call local LLM</span></span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>    v_ai_response <span class="op">:=</span> pggit.call_local_llm(v_prompt);</span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Parse and create suggestions</span></span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>    <span class="kw">RETURN</span> pggit.create_reconciliation_from_ai(v_ai_response);</span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a><span class="cf">END</span>;</span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a>$$ LANGUAGE plpgsql;</span></code></pre></div>
+            <hr />
+            <h2 id="deployment-options">🏗️ Deployment Options</h2>
+            <h3 id="option-1-embedded-in-postgresql">Option 1: Embedded
+            in PostgreSQL</h3>
+            <div class="sourceCode" id="cb9"><pre
+            class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Architecture</span><span class="kw">:</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> PostgreSQL with plpython3u</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> llama.cpp as shared library</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Model loaded on startup</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> 8-16GB RAM overhead</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="at">  </span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="fu">Pros</span><span class="kw">:</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Fully integrated</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> No external services</span></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Low latency</span></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a><span class="at">  </span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a><span class="fu">Cons</span><span class="kw">:</span></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Memory intensive</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Requires plpython3u</span></span></code></pre></div>
+            <h3 id="option-2-sidecar-service">Option 2: Sidecar
+            Service</h3>
+            <div class="sourceCode" id="cb10"><pre
+            class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Architecture</span><span class="kw">:</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Separate AI service (FastAPI)</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> PostgreSQL calls via HTTP</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Model in dedicated container</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> GPU optional</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="at">  </span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="fu">Pros</span><span class="kw">:</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Scalable</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> GPU acceleration</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Multiple models</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="at">  </span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a><span class="fu">Cons</span><span class="kw">:</span></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Network latency</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Additional infrastructure</span></span></code></pre></div>
+            <h3 id="option-3-edge-deployment">Option 3: Edge
+            Deployment</h3>
+            <div class="sourceCode" id="cb11"><pre
+            class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Architecture</span><span class="kw">:</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> AI runs on client machine</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Results sent to PostgreSQL</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Progressive Web App</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> WebAssembly inference</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="at">  </span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="fu">Pros</span><span class="kw">:</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Zero server load</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Privacy preserved</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Offline capable</span></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a><span class="at">  </span></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a><span class="fu">Cons</span><span class="kw">:</span></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Client requirements</span></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Slower on weak hardware</span></span></code></pre></div>
+            <hr />
+            <h2 id="performance-considerations">📊 Performance
+            Considerations</h2>
+            <h3 id="model-size-vs-quality-tradeoffs">Model Size vs
+            Quality Tradeoffs</h3>
+            <table>
+            <thead>
+            <tr class="header">
+            <th>Model</th>
+            <th>Size</th>
+            <th>RAM</th>
+            <th>Quality</th>
+            <th>Speed</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr class="odd">
+            <td>3B quantized</td>
+            <td>1.5GB</td>
+            <td>4GB</td>
+            <td>Good for simple patterns</td>
+            <td>50ms/query</td>
+            </tr>
+            <tr class="even">
+            <td>7B quantized</td>
+            <td>4GB</td>
+            <td>8GB</td>
+            <td>Excellent for most cases</td>
+            <td>200ms/query</td>
+            </tr>
+            <tr class="odd">
+            <td>13B quantized</td>
+            <td>8GB</td>
+            <td>16GB</td>
+            <td>Best quality</td>
+            <td>500ms/query</td>
+            </tr>
+            <tr class="even">
+            <td>70B quantized</td>
+            <td>40GB</td>
+            <td>64GB</td>
+            <td>Overkill</td>
+            <td>5s/query</td>
+            </tr>
+            </tbody>
+            </table>
+            <h3 id="optimization-strategies">Optimization
+            Strategies</h3>
+            <ol type="1">
+            <li><strong>Caching</strong>: Store AI results for common
+            patterns</li>
+            <li><strong>Batching</strong>: Process multiple migrations
+            together</li>
+            <li><strong>Quantization</strong>: Use 4-bit models for 4x
+            memory savings</li>
+            <li><strong>Pruning</strong>: Remove unnecessary model
+            layers</li>
+            <li><strong>Distillation</strong>: Train smaller models from
+            larger ones</li>
+            </ol>
+            <hr />
+            <h2 id="security-privacy">🔐 Security &amp; Privacy</h2>
+            <h3 id="local-llm-advantages">Local LLM Advantages</h3>
+            <ol type="1">
+            <li><p><strong>No Data Leaves Infrastructure</strong></p>
+            <ul>
+            <li>Migrations stay private</li>
+            <li>No cloud API calls</li>
+            <li>Compliance friendly</li>
+            </ul></li>
+            <li><p><strong>Deterministic Results</strong></p>
+            <ul>
+            <li>Same input → same output</li>
+            <li>Version control models</li>
+            <li>Reproducible migrations</li>
+            </ul></li>
+            <li><p><strong>Audit Trail</strong></p>
+            <div class="sourceCode" id="cb12"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> pggit.ai_audit_log (</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">id</span> SERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>,</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    prompt_hash TEXT,</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    model_version TEXT,</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>    response_hash TEXT,</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    confidence <span class="dt">DECIMAL</span>,</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>    human_override <span class="dt">BOOLEAN</span>,</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>    created_at <span class="dt">TIMESTAMP</span> <span class="kw">DEFAULT</span> NOW()</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>);</span></code></pre></div></li>
+            </ol>
+            <hr />
+            <h2 id="implementation-roadmap">🎯 Implementation
+            Roadmap</h2>
+            <h3 id="phase-1-proof-of-concept-2-4-weeks">Phase 1: Proof
+            of Concept (2-4 weeks)</h3>
+            <ul>
+            <li>Set up CodeLlama-SQL 7B locally</li>
+            <li>Implement basic migration analysis</li>
+            <li>Test on 100 real migrations</li>
+            </ul>
+            <h3 id="phase-2-integration-4-6-weeks">Phase 2: Integration
+            (4-6 weeks)</h3>
+            <ul>
+            <li>Build plpython3u functions</li>
+            <li>Create embedding pipeline</li>
+            <li>Implement confidence scoring</li>
+            </ul>
+            <h3 id="phase-3-fine-tuning-6-8-weeks">Phase 3: Fine-tuning
+            (6-8 weeks)</h3>
+            <ul>
+            <li>Collect migration dataset</li>
+            <li>Fine-tune model on patterns</li>
+            <li>Optimize for speed/quality</li>
+            </ul>
+            <h3 id="phase-4-production-8-12-weeks">Phase 4: Production
+            (8-12 weeks)</h3>
+            <ul>
+            <li>Deployment options</li>
+            <li>Monitoring &amp; metrics</li>
+            <li>User feedback loop</li>
+            </ul>
+            <hr />
+            <h2 id="alternative-approaches">💡 Alternative
+            Approaches</h2>
+            <h3 id="rule-based-ai-hybrid">1. Rule-Based + AI Hybrid</h3>
+            <ul>
+            <li>Use rules for common patterns (90%)</li>
+            <li>AI for complex cases (10%)</li>
+            <li>Faster and more predictable</li>
+            </ul>
+            <h3 id="embedding-only-approach">2. Embedding-Only
+            Approach</h3>
+            <ul>
+            <li>No LLM needed</li>
+            <li>Just similarity search</li>
+            <li>Extremely fast but less flexible</li>
+            </ul>
+            <h3 id="cloud-api-with-local-fallback">3. Cloud API with
+            Local Fallback</h3>
+            <ul>
+            <li>Use GPT-4 when available</li>
+            <li>Fall back to local model</li>
+            <li>Best of both worlds</li>
+            </ul>
+            <hr />
+            <h2 id="conclusion">Conclusion</h2>
+            <p>Local LLMs make pggit’s AI features achievable without
+            cloud dependencies. A 7B parameter model fine-tuned on
+            migration patterns could deliver:</p>
+            <ul>
+            <li>95%+ accuracy on common migrations</li>
+            <li>200ms average processing time</li>
+            <li>Complete privacy and control</li>
+            <li>Reasonable hardware requirements</li>
+            </ul>
+            <p>The key is starting simple with pattern matching and
+            embeddings, then gradually adding LLM intelligence where it
+            provides the most value.</p>
+        </article>
+    </main>
+    
+    <footer>
+        <p>pgGit is open source software under the MIT License</p>
+        <p>Built with ❤️ by <a href="https://github.com/evoludigit">@evoludigit</a></p>
+    </footer>
+</body>
+</html>

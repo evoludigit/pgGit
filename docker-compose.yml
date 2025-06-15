@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: pggit_demo
+      POSTGRES_USER: pggit_user
+      POSTGRES_PASSWORD: pggit_demo_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./pggit--1.0.0.sql:/docker-entrypoint-initdb.d/01-pggit.sql
+      - ./sql/030_ai_migration_analysis.sql:/docker-entrypoint-initdb.d/02-ai.sql
+      - ./sql/040_enterprise_impact_analysis.sql:/docker-entrypoint-initdb.d/03-enterprise.sql
+      - ./sql/041_zero_downtime_deployment.sql:/docker-entrypoint-initdb.d/04-zero-downtime.sql
+      - ./sql/042_cost_optimization_dashboard.sql:/docker-entrypoint-initdb.d/05-cost-optimization.sql
+      - ./sql/050_cicd_integration.sql:/docker-entrypoint-initdb.d/06-cicd.sql
+      - ./sql/051_enterprise_auth_rbac.sql:/docker-entrypoint-initdb.d/07-auth.sql
+      - ./sql/052_compliance_reporting.sql:/docker-entrypoint-initdb.d/08-compliance.sql
+      - ./demo/demo_data.sql:/docker-entrypoint-initdb.d/99-demo-data.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pggit_user -d pggit_demo"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  pggit-demo:
+    build:
+      context: .
+      dockerfile: Dockerfile.demo
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: pggit_user
+      PGPASSWORD: pggit_demo_password
+      PGDATABASE: pggit_demo
+    volumes:
+      - ./scripts:/scripts
+      - ./examples:/examples
+    command: |
+      bash -c "
+        echo '🚀 pggit Demo Environment Ready!'
+        echo ''
+        echo '📊 Available Commands:'
+        echo '  /scripts/testing/viktor-comprehensive-test.sh  # Run full test suite'
+        echo '  /scripts/ai/test-real-gpt2.py                  # Test AI features'
+        echo '  /examples/complete_workflow.sql                # Demo workflow'
+        echo ''
+        echo '🔗 Connect to database:'
+        echo '  psql -h postgres -U pggit_user -d pggit_demo'
+        echo ''
+        echo '📚 Quick Demo:'
+        echo '  psql -h postgres -U pggit_user -d pggit_demo -c \"SELECT pggit.generate_contribution_metrics();\"'
+        echo ''
+        tail -f /dev/null
+      "
+
+volumes:
+  postgres_data:

@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="pgGit Documentation">
+    <title>API Reference - pgGit</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .doc-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .doc-content h1:first-child {
+            margin-top: 0;
+        }
+        .toc {
+            background: var(--bg-light);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .toc h2 {
+            margin-top: 0;
+            font-size: 1.25rem;
+        }
+        .toc ul {
+            list-style: none;
+            padding-left: 1rem;
+        }
+        .toc li {
+            margin: 0.5rem 0;
+        }
+        .breadcrumb {
+            margin-bottom: 2rem;
+            color: var(--text-light);
+        }
+        .breadcrumb a {
+            color: var(--text-light);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="/" class="logo">pgGit</a>
+            <ul>
+                <li><a href="/#quick-start">Quick Start</a></li>
+                <li><a href="/docs/">Documentation</a></li>
+                <li><a href="/api/">API Reference</a></li>
+                <li><a href="https://github.com/evoludigit/pggit">GitHub</a></li>
+            </ul>
+        </nav>
+    </header>
+    
+    <main class="doc-content">
+        <div class="breadcrumb">
+            <a href="/">Home</a> / <a href="/docs/">Docs</a> / API
+Reference - pgGit
+        </div>
+        
+                <div class="toc">
+            <h2>Table of Contents</h2>
+            <ul>
+            <li><a href="#pggit-api-reference"
+            id="toc-pggit-api-reference">pggit API Reference</a>
+            <ul>
+            <li><a href="#overview" id="toc-overview">Overview</a></li>
+            <li><a href="#branch-management"
+            id="toc-branch-management">🌿 Branch Management</a>
+            <ul>
+            <li><a href="#create_branch"
+            id="toc-create_branch"><code>create_branch()</code></a></li>
+            <li><a href="#create_data_branch"
+            id="toc-create_data_branch"><code>create_data_branch()</code></a></li>
+            <li><a href="#create_compressed_data_branch"
+            id="toc-create_compressed_data_branch"><code>create_compressed_data_branch()</code>
+            ⭐</a></li>
+            <li><a href="#checkout_branch"
+            id="toc-checkout_branch"><code>checkout_branch()</code></a></li>
+            <li><a href="#get_current_branch"
+            id="toc-get_current_branch"><code>get_current_branch()</code></a></li>
+            <li><a href="#list_branches"
+            id="toc-list_branches"><code>list_branches()</code></a></li>
+            </ul></li>
+            <li><a href="#merge-operations" id="toc-merge-operations">🔀
+            Merge Operations</a>
+            <ul>
+            <li><a href="#merge_branches"
+            id="toc-merge_branches"><code>merge_branches()</code></a></li>
+            <li><a href="#merge_compressed_branches"
+            id="toc-merge_compressed_branches"><code>merge_compressed_branches()</code>
+            ⭐</a></li>
+            <li><a href="#auto_resolve_compressed_conflicts"
+            id="toc-auto_resolve_compressed_conflicts"><code>auto_resolve_compressed_conflicts()</code></a></li>
+            </ul></li>
+            <li><a href="#monitoring-statistics"
+            id="toc-monitoring-statistics">📊 Monitoring &amp;
+            Statistics</a>
+            <ul>
+            <li><a href="#get_branch_storage_stats"
+            id="toc-get_branch_storage_stats"><code>get_branch_storage_stats()</code></a></li>
+            <li><a href="#get_compression_stats"
+            id="toc-get_compression_stats"><code>get_compression_stats()</code></a></li>
+            <li><a href="#get_performance_stats"
+            id="toc-get_performance_stats"><code>get_performance_stats()</code></a></li>
+            </ul></li>
+            <li><a href="#object-tracking" id="toc-object-tracking">📋
+            Object Tracking</a>
+            <ul>
+            <li><a href="#get_version"
+            id="toc-get_version"><code>get_version()</code></a></li>
+            <li><a href="#get_history"
+            id="toc-get_history"><code>get_history()</code></a></li>
+            <li><a href="#get_impact_analysis"
+            id="toc-get_impact_analysis"><code>get_impact_analysis()</code></a></li>
+            </ul></li>
+            <li><a href="#ai-powered-migration-analysis"
+            id="toc-ai-powered-migration-analysis">🤖 AI-Powered
+            Migration Analysis</a>
+            <ul>
+            <li><a href="#analyze_migration_with_llm"
+            id="toc-analyze_migration_with_llm"><code>analyze_migration_with_llm()</code>
+            ⭐</a></li>
+            <li><a href="#ai_migrate_batch"
+            id="toc-ai_migrate_batch"><code>ai_migrate_batch()</code></a></li>
+            <li><a href="#run_edge_case_tests"
+            id="toc-run_edge_case_tests"><code>run_edge_case_tests()</code></a></li>
+            </ul></li>
+            <li><a href="#ai-performance-monitoring"
+            id="toc-ai-performance-monitoring">📊 AI Performance
+            Monitoring</a>
+            <ul>
+            <li><a href="#ai-decision-history"
+            id="toc-ai-decision-history">AI Decision History</a></li>
+            <li><a href="#ai-edge-cases" id="toc-ai-edge-cases">AI Edge
+            Cases</a></li>
+            <li><a href="#ai-performance-stats"
+            id="toc-ai-performance-stats">AI Performance Stats</a></li>
+            </ul></li>
+            <li><a href="#migration-functions"
+            id="toc-migration-functions">🔄 Migration Functions</a>
+            <ul>
+            <li><a href="#generate_migration"
+            id="toc-generate_migration"><code>generate_migration()</code></a></li>
+            <li><a href="#apply_migration"
+            id="toc-apply_migration"><code>apply_migration()</code></a></li>
+            </ul></li>
+            <li><a href="#testing-validation"
+            id="toc-testing-validation">🧪 Testing &amp; Validation</a>
+            <ul>
+            <li><a href="#validate_branch_integrity"
+            id="toc-validate_branch_integrity"><code>validate_branch_integrity()</code></a></li>
+            <li><a href="#benchmark_compression_performance"
+            id="toc-benchmark_compression_performance"><code>benchmark_compression_performance()</code></a></li>
+            <li><a href="#generate_test_dataset"
+            id="toc-generate_test_dataset"><code>generate_test_dataset()</code></a></li>
+            </ul></li>
+            <li><a href="#security-permissions"
+            id="toc-security-permissions">🔐 Security &amp;
+            Permissions</a>
+            <ul>
+            <li><a href="#grant_branch_access"
+            id="toc-grant_branch_access"><code>grant_branch_access()</code></a></li>
+            <li><a href="#audit_branch_changes"
+            id="toc-audit_branch_changes"><code>audit_branch_changes()</code></a></li>
+            </ul></li>
+            <li><a href="#utility-functions"
+            id="toc-utility-functions">🛠️ Utility Functions</a>
+            <ul>
+            <li><a href="#cleanup_merged_branches"
+            id="toc-cleanup_merged_branches"><code>cleanup_merged_branches()</code></a></li>
+            <li><a href="#optimize_storage"
+            id="toc-optimize_storage"><code>optimize_storage()</code></a></li>
+            <li><a href="#export_branch_config"
+            id="toc-export_branch_config"><code>export_branch_config()</code></a></li>
+            <li><a href="#import_branch_config"
+            id="toc-import_branch_config"><code>import_branch_config()</code></a></li>
+            </ul></li>
+            <li><a href="#demo-functions" id="toc-demo-functions">📈
+            Demo Functions</a>
+            <ul>
+            <li><a href="#demo_compression_efficiency"
+            id="toc-demo_compression_efficiency"><code>demo_compression_efficiency()</code></a></li>
+            <li><a href="#demo_postgresql17_compression"
+            id="toc-demo_postgresql17_compression"><code>demo_postgresql17_compression()</code></a></li>
+            </ul></li>
+            <li><a href="#error-handling" id="toc-error-handling">🚨
+            Error Handling</a>
+            <ul>
+            <li><a href="#common-return-codes"
+            id="toc-common-return-codes">Common Return Codes</a></li>
+            <li><a href="#error-examples" id="toc-error-examples">Error
+            Examples</a></li>
+            </ul></li>
+            <li><a href="#best-practices" id="toc-best-practices">🎯
+            Best Practices</a>
+            <ul>
+            <li><a href="#function-usage-patterns"
+            id="toc-function-usage-patterns">Function Usage
+            Patterns</a></li>
+            </ul></li>
+            <li><a href="#integration-examples"
+            id="toc-integration-examples">🔗 Integration Examples</a>
+            <ul>
+            <li><a href="#cicd-pipeline-integration"
+            id="toc-cicd-pipeline-integration">CI/CD Pipeline
+            Integration</a></li>
+            <li><a href="#application-integration"
+            id="toc-application-integration">Application
+            Integration</a></li>
+            </ul></li>
+            <li><a href="#see-also" id="toc-see-also">📚 See
+            Also</a></li>
+            </ul></li>
+            </ul>
+        </div>
+                
+        <article class="markdown-body">
+            <h1 id="pggit-api-reference">pggit API Reference</h1>
+            <p><em>Complete function reference for PostgreSQL database
+            branching</em></p>
+            <h2 id="overview">Overview</h2>
+            <p>pggit provides a comprehensive SQL API for database
+            version control. All functions are available in the
+            <code>pggit</code> schema and work directly within
+            PostgreSQL.</p>
+            <p><strong>Core Philosophy:</strong> If you know Git, you
+            know pggit. The API mirrors Git workflows with
+            database-specific enhancements.</p>
+            <hr />
+            <h2 id="branch-management">🌿 Branch Management</h2>
+            <h3 id="create_branch"><code>create_branch()</code></h3>
+            <p>Creates a new schema-only branch.</p>
+            <div class="sourceCode" id="cb1"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>pggit.create_branch(</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    p_branch_name TEXT,</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    p_parent_branch TEXT <span class="kw">DEFAULT</span> <span class="st">&#39;main&#39;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>) RETURNS <span class="dt">INTEGER</span></span></code></pre></div>
+            <p><strong>Parameters:</strong> -
+            <code>p_branch_name</code>: Name of the new branch (must be
+            unique) - <code>p_parent_branch</code>: Parent branch to
+            branch from (default: ‘main’)</p>
+            <p><strong>Returns:</strong> Branch ID</p>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb2"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Create a feature branch from main</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.create_branch(<span class="st">&#39;feature/user-auth&#39;</span>, <span class="st">&#39;main&#39;</span>);</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Returns: 5</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Create a hotfix branch from production</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.create_branch(<span class="st">&#39;hotfix/login-bug&#39;</span>, <span class="st">&#39;production&#39;</span>);</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Returns: 6</span></span></code></pre></div>
+            <h3
+            id="create_data_branch"><code>create_data_branch()</code></h3>
+            <p>Creates a branch with actual data isolation using
+            copy-on-write.</p>
+            <div class="sourceCode" id="cb3"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>pggit.create_data_branch(</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    p_branch_name TEXT,</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    p_parent_branch TEXT <span class="kw">DEFAULT</span> <span class="st">&#39;main&#39;</span>,</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    p_copy_data <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">true</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>) RETURNS <span class="dt">INTEGER</span></span></code></pre></div>
+            <p><strong>Parameters:</strong> -
+            <code>p_branch_name</code>: Name of the new branch -
+            <code>p_parent_branch</code>: Parent branch to branch from -
+            <code>p_copy_data</code>: Whether to enable data
+            copy-on-write (recommended: true)</p>
+            <p><strong>Returns:</strong> Branch ID</p>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb4"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Create branch with data isolation</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.create_data_branch(<span class="st">&#39;feature/profile-redesign&#39;</span>, <span class="st">&#39;main&#39;</span>, <span class="kw">true</span>);</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Create schema-only branch (faster)</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.create_data_branch(<span class="st">&#39;ci/build-123&#39;</span>, <span class="st">&#39;main&#39;</span>, <span class="kw">false</span>);</span></code></pre></div>
+            <h3
+            id="create_compressed_data_branch"><code>create_compressed_data_branch()</code>
+            ⭐</h3>
+            <p><strong>PostgreSQL 17+ only</strong> - Creates branch
+            with advanced compression.</p>
+            <div class="sourceCode" id="cb5"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>pggit.create_compressed_data_branch(</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    p_branch_name TEXT,</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    p_parent_branch TEXT <span class="kw">DEFAULT</span> <span class="st">&#39;main&#39;</span>,</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    p_copy_data <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">true</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>) RETURNS <span class="dt">INTEGER</span></span></code></pre></div>
+            <p><strong>Features:</strong> - LZ4/ZSTD compression (70%
+            storage reduction) - Column-level compression optimization -
+            Performance monitoring</p>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb6"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Create compressed branch (PostgreSQL 17)</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.create_compressed_data_branch(<span class="st">&#39;feature/pg17-optimized&#39;</span>, <span class="st">&#39;main&#39;</span>, <span class="kw">true</span>);</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- </span><span class="al">NOTICE</span><span class="co">: 📊 Compression achieved: 1024 kB → 307 kB (70.02% reduction)</span></span></code></pre></div>
+            <h3 id="checkout_branch"><code>checkout_branch()</code></h3>
+            <p>Switches current session to specified branch.</p>
+            <div class="sourceCode" id="cb7"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>pggit.checkout_branch(p_branch_name TEXT) RETURNS TEXT</span></code></pre></div>
+            <p><strong>Parameters:</strong> -
+            <code>p_branch_name</code>: Target branch name</p>
+            <p><strong>Returns:</strong> Success message</p>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb8"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Switch to feature branch</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.checkout_branch(<span class="st">&#39;feature/user-auth&#39;</span>);</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Returns: &#39;Switched to branch: feature/user-auth&#39;</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- All subsequent operations now affect this branch</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> users (<span class="kw">id</span> SERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>, name TEXT);</span></code></pre></div>
+            <h3
+            id="get_current_branch"><code>get_current_branch()</code></h3>
+            <p>Returns the currently active branch.</p>
+            <div class="sourceCode" id="cb9"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>pggit.get_current_branch() RETURNS TEXT</span></code></pre></div>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb10"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.get_current_branch();</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- Returns: &#39;feature/user-auth&#39;</span></span></code></pre></div>
+            <h3 id="list_branches"><code>list_branches()</code></h3>
+            <p>Lists all branches with metadata.</p>
+            <div class="sourceCode" id="cb11"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>pggit.list_branches() RETURNS <span class="kw">TABLE</span> (</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>    branch_name TEXT,</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>    parent_branch TEXT,</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>    status TEXT,</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    total_objects <span class="dt">INTEGER</span>,</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>    storage_efficiency <span class="dt">DECIMAL</span>,</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>    created_at <span class="dt">TIMESTAMP</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb12"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.list_branches();</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- branch_name        | parent_branch | status | total_objects | storage_efficiency | created_at</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- main               | NULL          | ACTIVE | 15           | 100.00            | 2024-01-01 10:00:00</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- feature/user-auth  | main          | ACTIVE | 18           | 67.85             | 2024-01-02 14:30:00</span></span></code></pre></div>
+            <hr />
+            <h2 id="merge-operations">🔀 Merge Operations</h2>
+            <h3 id="merge_branches"><code>merge_branches()</code></h3>
+            <p>Merges schema changes between branches.</p>
+            <div class="sourceCode" id="cb13"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>pggit.merge_branches(</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>    p_source_branch TEXT,</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    p_target_branch TEXT</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>) RETURNS TEXT</span></code></pre></div>
+            <p><strong>Parameters:</strong> -
+            <code>p_source_branch</code>: Branch to merge from -
+            <code>p_target_branch</code>: Branch to merge into</p>
+            <p><strong>Returns:</strong> Merge result (‘MERGE_SUCCESS’
+            or ‘CONFLICTS_DETECTED’)</p>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb14"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Merge feature branch to main</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.merge_branches(<span class="st">&#39;feature/user-auth&#39;</span>, <span class="st">&#39;main&#39;</span>);</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Returns: &#39;MERGE_SUCCESS:commit_hash_here&#39;</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Merge with conflicts</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.merge_branches(<span class="st">&#39;feature/conflicting&#39;</span>, <span class="st">&#39;main&#39;</span>);  </span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Returns: &#39;CONFLICTS_DETECTED:merge_id_abc123&#39;</span></span></code></pre></div>
+            <h3
+            id="merge_compressed_branches"><code>merge_compressed_branches()</code>
+            ⭐</h3>
+            <p><strong>PostgreSQL 17+ only</strong> - Advanced merge
+            with compression optimization.</p>
+            <div class="sourceCode" id="cb15"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>pggit.merge_compressed_branches(</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>    p_source_branch TEXT,</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>    p_target_branch TEXT</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>) RETURNS TEXT</span></code></pre></div>
+            <p><strong>Features:</strong> - Compression-aware conflict
+            resolution - Storage optimization during merge - Performance
+            monitoring</p>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb16"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.merge_compressed_branches(<span class="st">&#39;feature/pg17-branch&#39;</span>, <span class="st">&#39;main&#39;</span>);</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- </span><span class="al">NOTICE</span><span class="co">: 🔀 Merging with compression optimization</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- </span><span class="al">NOTICE</span><span class="co">: 📊 Storage optimized: 1.2GB → 360MB (70% efficiency maintained)</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Returns: &#39;MERGE_SUCCESS:abcd1234...&#39;</span></span></code></pre></div>
+            <h3
+            id="auto_resolve_compressed_conflicts"><code>auto_resolve_compressed_conflicts()</code></h3>
+            <p>Automatically resolves merge conflicts using compression
+            heuristics.</p>
+            <div class="sourceCode" id="cb17"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>pggit.auto_resolve_compressed_conflicts(</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>    p_merge_id TEXT,</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>    p_strategy TEXT <span class="kw">DEFAULT</span> <span class="st">&#39;COMPRESSION_OPTIMIZED&#39;</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>) RETURNS TEXT</span></code></pre></div>
+            <p><strong>Strategies:</strong> -
+            <code>COMPRESSION_OPTIMIZED</code>: Choose version with
+            better compression - <code>TAKE_SOURCE</code>: Always take
+            source branch version - <code>TAKE_TARGET</code>: Always
+            take target branch version</p>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb18"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Auto-resolve using compression optimization</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.auto_resolve_compressed_conflicts(</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;merge_abc123&#39;</span>, </span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;COMPRESSION_OPTIMIZED&#39;</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>);</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- Returns: &#39;CONFLICTS_RESOLVED:5_auto_3_manual&#39;</span></span></code></pre></div>
+            <hr />
+            <h2 id="monitoring-statistics">📊 Monitoring &amp;
+            Statistics</h2>
+            <h3
+            id="get_branch_storage_stats"><code>get_branch_storage_stats()</code></h3>
+            <p>Returns storage statistics for branches.</p>
+            <div class="sourceCode" id="cb19"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>pggit.get_branch_storage_stats(</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>    p_branch_name TEXT <span class="kw">DEFAULT</span> <span class="kw">NULL</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>) RETURNS <span class="kw">TABLE</span> (</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>    branch_name TEXT,</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>    table_count <span class="dt">INTEGER</span>,</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>    total_size TEXT,</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>    compressed_size TEXT,</span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>    compression_ratio <span class="dt">DECIMAL</span>,</span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>    space_saved TEXT</span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb20"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- All branches</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.get_branch_storage_stats();</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Specific branch</span></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.get_branch_storage_stats(<span class="st">&#39;feature/user-auth&#39;</span>);</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- branch_name: feature/user-auth</span></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- table_count: 3</span></span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- total_size: 1024 kB  </span></span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- compressed_size: 307 kB</span></span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a><span class="co">-- compression_ratio: 70.02%</span></span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a><span class="co">-- space_saved: 717 kB</span></span></code></pre></div>
+            <h3
+            id="get_compression_stats"><code>get_compression_stats()</code></h3>
+            <p>Returns detailed compression statistics.</p>
+            <div class="sourceCode" id="cb21"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>pggit.get_compression_stats() RETURNS <span class="kw">TABLE</span> (</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>    table_name TEXT,</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>    branch_name TEXT,</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>    original_size TEXT,</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>    compressed_size TEXT,</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>    compression_ratio <span class="dt">DECIMAL</span>,</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>    space_saved TEXT</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+            <h3
+            id="get_performance_stats"><code>get_performance_stats()</code></h3>
+            <p>Returns overall system performance metrics.</p>
+            <div class="sourceCode" id="cb22"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>pggit.get_performance_stats() RETURNS <span class="kw">TABLE</span> (</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>    metric_name TEXT,</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>    metric_value TEXT,</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>    description TEXT</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb23"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.get_performance_stats();</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- metric_name: total_branches | metric_value: 12 | description: Active branches</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- metric_name: avg_compression | metric_value: 68.5% | description: Average compression ratio</span></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- metric_name: storage_saved | metric_value: 15.2 GB | description: Total space saved</span></span></code></pre></div>
+            <hr />
+            <h2 id="object-tracking">📋 Object Tracking</h2>
+            <h3 id="get_version"><code>get_version()</code></h3>
+            <p>Gets current version of a database object.</p>
+            <div class="sourceCode" id="cb24"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>pggit.get_version(p_object_name TEXT) RETURNS TEXT</span></code></pre></div>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb25"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.get_version(<span class="st">&#39;users&#39;</span>);</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- Returns: &#39;2.1.3&#39;</span></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.get_version(<span class="st">&#39;user_profiles&#39;</span>);  </span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Returns: &#39;1.0.0&#39;</span></span></code></pre></div>
+            <h3 id="get_history"><code>get_history()</code></h3>
+            <p>Returns complete change history for an object.</p>
+            <div class="sourceCode" id="cb26"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>pggit.get_history(p_object_name TEXT) RETURNS <span class="kw">TABLE</span> (</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>    version TEXT,</span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>    change_type TEXT,</span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>    change_description TEXT,</span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>    author TEXT,</span>
+<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">timestamp</span> <span class="dt">TIMESTAMP</span></span>
+<span id="cb26-7"><a href="#cb26-7" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb27"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.get_history(<span class="st">&#39;users&#39;</span>);</span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- version | change_type | change_description           | author | timestamp</span></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- 1.0.0   | CREATE      | Initial table creation       | alice  | 2024-01-01 10:00:00</span></span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- 2.0.0   | ALTER       | Added email column (NOT NULL)| bob    | 2024-01-02 14:00:00  </span></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- 2.1.0   | ALTER       | Added preferences JSONB      | carol  | 2024-01-03 09:30:00</span></span></code></pre></div>
+            <h3
+            id="get_impact_analysis"><code>get_impact_analysis()</code></h3>
+            <p>Analyzes dependencies before making changes.</p>
+            <div class="sourceCode" id="cb28"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>pggit.get_impact_analysis(p_object_name TEXT) RETURNS <span class="kw">TABLE</span> (</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>    dependent_object TEXT,</span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>    dependency_type TEXT,</span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>    impact_level TEXT,</span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>    suggested_action TEXT</span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb29"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.get_impact_analysis(<span class="st">&#39;users&#39;</span>);</span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- dependent_object | dependency_type | impact_level | suggested_action</span></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- user_profiles    | FOREIGN_KEY     | HIGH        | Update FK constraint</span></span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- user_sessions    | VIEW           | MEDIUM      | Recreate view</span></span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- user_index       | INDEX          | LOW         | Automatic rebuild</span></span></code></pre></div>
+            <hr />
+            <h2 id="ai-powered-migration-analysis">🤖 AI-Powered
+            Migration Analysis</h2>
+            <h3
+            id="analyze_migration_with_llm"><code>analyze_migration_with_llm()</code>
+            ⭐</h3>
+            <p><strong>NEW:</strong> Analyzes SQL migrations using real
+            GPT-2 neural network.</p>
+            <div class="sourceCode" id="cb30"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>pggit.analyze_migration_with_llm(</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>    p_migration_content TEXT,</span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>    p_source_tool TEXT <span class="kw">DEFAULT</span> <span class="st">&#39;manual&#39;</span>,</span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>    p_migration_name TEXT <span class="kw">DEFAULT</span> <span class="st">&#39;migration.sql&#39;</span></span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a>) RETURNS <span class="kw">TABLE</span> (</span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>    intent TEXT,</span>
+<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a>    pattern_type TEXT,</span>
+<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a>    confidence <span class="dt">DECIMAL</span>(<span class="dv">3</span>,<span class="dv">2</span>),</span>
+<span id="cb30-9"><a href="#cb30-9" aria-hidden="true" tabindex="-1"></a>    pggit_template TEXT,</span>
+<span id="cb30-10"><a href="#cb30-10" aria-hidden="true" tabindex="-1"></a>    semantic_meaning TEXT,</span>
+<span id="cb30-11"><a href="#cb30-11" aria-hidden="true" tabindex="-1"></a>    ai_insight TEXT,</span>
+<span id="cb30-12"><a href="#cb30-12" aria-hidden="true" tabindex="-1"></a>    risk_assessment TEXT</span>
+<span id="cb30-13"><a href="#cb30-13" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+            <p><strong>Parameters:</strong> -
+            <code>p_migration_content</code>: SQL migration content to
+            analyze - <code>p_source_tool</code>: Source tool (‘flyway’,
+            ‘liquibase’, ‘rails’, ‘manual’) -
+            <code>p_migration_name</code>: Migration filename for
+            reference</p>
+            <p><strong>Returns:</strong> Comprehensive AI analysis with
+            neural network insights</p>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb31"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Analyze a CREATE TABLE migration</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.analyze_migration_with_llm(</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255), price DECIMAL(10,2));&#39;</span>,</span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;flyway&#39;</span>,</span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;V1__create_products.sql&#39;</span></span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>);</span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- Results:</span></span>
+<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- intent: Create new table (AI: create new table for storing product)</span></span>
+<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a><span class="co">-- pattern_type: CREATE_TABLE</span></span>
+<span id="cb31-11"><a href="#cb31-11" aria-hidden="true" tabindex="-1"></a><span class="co">-- confidence: 0.90</span></span>
+<span id="cb31-12"><a href="#cb31-12" aria-hidden="true" tabindex="-1"></a><span class="co">-- pggit_template: CREATE TABLE {{schema}}.{{table}} ({{columns}})</span></span>
+<span id="cb31-13"><a href="#cb31-13" aria-hidden="true" tabindex="-1"></a><span class="co">-- semantic_meaning: Standard table creation pattern</span></span>
+<span id="cb31-14"><a href="#cb31-14" aria-hidden="true" tabindex="-1"></a><span class="co">-- ai_insight: create new table for storing product information with pricing</span></span>
+<span id="cb31-15"><a href="#cb31-15" aria-hidden="true" tabindex="-1"></a><span class="co">-- risk_assessment: LOW</span></span></code></pre></div>
+            <h3
+            id="ai_migrate_batch"><code>ai_migrate_batch()</code></h3>
+            <p>Batch processes multiple migrations with AI analysis.</p>
+            <div class="sourceCode" id="cb32"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>pggit.ai_migrate_batch(</span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>    p_migrations JSONB,</span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>    p_source_tool TEXT <span class="kw">DEFAULT</span> <span class="st">&#39;manual&#39;</span></span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>) RETURNS <span class="kw">TABLE</span> (</span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a>    migration_name TEXT,</span>
+<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a>    status TEXT,</span>
+<span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a>    confidence <span class="dt">DECIMAL</span>(<span class="dv">3</span>,<span class="dv">2</span>),</span>
+<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a>    risk_level TEXT,</span>
+<span id="cb32-9"><a href="#cb32-9" aria-hidden="true" tabindex="-1"></a>    processing_time_ms <span class="dt">INTEGER</span></span>
+<span id="cb32-10"><a href="#cb32-10" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+            <p><strong>Parameters:</strong> - <code>p_migrations</code>:
+            JSON array of migration objects with ‘name’ and ‘content’ -
+            <code>p_source_tool</code>: Source migration tool</p>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb33"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Batch analyze multiple migrations</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.ai_migrate_batch(</span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;[</span></span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a><span class="st">        {&quot;name&quot;: &quot;V1__create_users.sql&quot;, &quot;content&quot;: &quot;CREATE TABLE users (id SERIAL PRIMARY KEY);&quot;},</span></span>
+<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a><span class="st">        {&quot;name&quot;: &quot;V2__add_email.sql&quot;, &quot;content&quot;: &quot;ALTER TABLE users ADD COLUMN email VARCHAR(255);&quot;},</span></span>
+<span id="cb33-6"><a href="#cb33-6" aria-hidden="true" tabindex="-1"></a><span class="st">        {&quot;name&quot;: &quot;V3__risky_drop.sql&quot;, &quot;content&quot;: &quot;DROP TABLE old_users;&quot;}</span></span>
+<span id="cb33-7"><a href="#cb33-7" aria-hidden="true" tabindex="-1"></a><span class="st">    ]&#39;</span>:<span class="ch">:jsonb</span>,</span>
+<span id="cb33-8"><a href="#cb33-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;flyway&#39;</span></span>
+<span id="cb33-9"><a href="#cb33-9" aria-hidden="true" tabindex="-1"></a>);</span>
+<span id="cb33-10"><a href="#cb33-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-11"><a href="#cb33-11" aria-hidden="true" tabindex="-1"></a><span class="co">-- Results show individual analysis for each migration:</span></span>
+<span id="cb33-12"><a href="#cb33-12" aria-hidden="true" tabindex="-1"></a><span class="co">-- migration_name: V1__create_users.sql | status: SUCCESS | confidence: 0.90 | risk_level: LOW</span></span>
+<span id="cb33-13"><a href="#cb33-13" aria-hidden="true" tabindex="-1"></a><span class="co">-- migration_name: V2__add_email.sql   | status: SUCCESS | confidence: 0.80 | risk_level: LOW  </span></span>
+<span id="cb33-14"><a href="#cb33-14" aria-hidden="true" tabindex="-1"></a><span class="co">-- migration_name: V3__risky_drop.sql  | status: REVIEW_NEEDED | confidence: 0.60 | risk_level: HIGH</span></span></code></pre></div>
+            <h3
+            id="run_edge_case_tests"><code>run_edge_case_tests()</code></h3>
+            <p>Runs comprehensive AI edge case detection tests.</p>
+            <div class="sourceCode" id="cb34"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a>pggit.run_edge_case_tests() RETURNS <span class="kw">TABLE</span> (</span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>    test_name TEXT,</span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>    migration_name TEXT,</span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a>    confidence <span class="dt">DECIMAL</span>(<span class="dv">3</span>,<span class="dv">2</span>),</span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a>    risk_level TEXT,</span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a>    processing_time_ms <span class="dt">INTEGER</span>,</span>
+<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a>    expected_outcome TEXT,</span>
+<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a>    actual_outcome TEXT,</span>
+<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a>    passed <span class="dt">BOOLEAN</span>,</span>
+<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a>    notes TEXT</span>
+<span id="cb34-11"><a href="#cb34-11" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb35"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Run all edge case tests</span></span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.run_edge_case_tests();</span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Sample results:</span></span>
+<span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- test_name: SQL Injection Detection</span></span>
+<span id="cb35-6"><a href="#cb35-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- migration_name: malicious_update.sql</span></span>
+<span id="cb35-7"><a href="#cb35-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- confidence: 0.45</span></span>
+<span id="cb35-8"><a href="#cb35-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- risk_level: HIGH</span></span>
+<span id="cb35-9"><a href="#cb35-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- expected_outcome: HIGH_RISK_DETECTED</span></span>
+<span id="cb35-10"><a href="#cb35-10" aria-hidden="true" tabindex="-1"></a><span class="co">-- actual_outcome: HIGH_RISK_DETECTED</span></span>
+<span id="cb35-11"><a href="#cb35-11" aria-hidden="true" tabindex="-1"></a><span class="co">-- passed: true</span></span>
+<span id="cb35-12"><a href="#cb35-12" aria-hidden="true" tabindex="-1"></a><span class="co">-- notes: Correctly flagged potential SQL injection pattern</span></span></code></pre></div>
+            <hr />
+            <h2 id="ai-performance-monitoring">📊 AI Performance
+            Monitoring</h2>
+            <h3 id="ai-decision-history">AI Decision History</h3>
+            <div class="sourceCode" id="cb36"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- View recent AI analyses</span></span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>    migration_id,</span>
+<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a>    confidence,</span>
+<span id="cb36-5"><a href="#cb36-5" aria-hidden="true" tabindex="-1"></a>    model_version,</span>
+<span id="cb36-6"><a href="#cb36-6" aria-hidden="true" tabindex="-1"></a>    inference_time_ms,</span>
+<span id="cb36-7"><a href="#cb36-7" aria-hidden="true" tabindex="-1"></a>    created_at</span>
+<span id="cb36-8"><a href="#cb36-8" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> pggit.ai_decisions </span>
+<span id="cb36-9"><a href="#cb36-9" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> created_at <span class="kw">DESC</span> </span>
+<span id="cb36-10"><a href="#cb36-10" aria-hidden="true" tabindex="-1"></a><span class="kw">LIMIT</span> <span class="dv">10</span>;</span></code></pre></div>
+            <h3 id="ai-edge-cases">AI Edge Cases</h3>
+            <div class="sourceCode" id="cb37"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- View detected edge cases and risks</span></span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a>    migration_id,</span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a>    case_type,</span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a>    risk_level,</span>
+<span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a>    confidence,</span>
+<span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a>    created_at</span>
+<span id="cb37-8"><a href="#cb37-8" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> pggit.ai_edge_cases</span>
+<span id="cb37-9"><a href="#cb37-9" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> created_at <span class="op">&gt;</span> NOW() <span class="op">-</span> <span class="dt">INTERVAL</span> <span class="st">&#39;24 hours&#39;</span></span>
+<span id="cb37-10"><a href="#cb37-10" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> risk_level <span class="kw">DESC</span>;</span></code></pre></div>
+            <h3 id="ai-performance-stats">AI Performance Stats</h3>
+            <div class="sourceCode" id="cb38"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Get AI performance metrics</span></span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">COUNT</span>(<span class="op">*</span>) <span class="kw">as</span> total_analyses,</span>
+<span id="cb38-4"><a href="#cb38-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(<span class="fu">AVG</span>(confidence <span class="op">*</span> <span class="dv">100</span>), <span class="dv">1</span>) <span class="kw">as</span> avg_confidence_pct,</span>
+<span id="cb38-5"><a href="#cb38-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(<span class="fu">AVG</span>(inference_time_ms), <span class="dv">0</span>) <span class="kw">as</span> avg_time_ms,</span>
+<span id="cb38-6"><a href="#cb38-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">COUNT</span>(<span class="op">*</span>) <span class="kw">FILTER</span> (<span class="kw">WHERE</span> confidence <span class="op">&gt;=</span> <span class="fl">0.8</span>) <span class="kw">as</span> high_confidence_count,</span>
+<span id="cb38-7"><a href="#cb38-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">COUNT</span>(<span class="op">*</span>) <span class="kw">FILTER</span> (<span class="kw">WHERE</span> confidence <span class="op">&lt;</span> <span class="fl">0.8</span>) <span class="kw">as</span> needs_review_count</span>
+<span id="cb38-8"><a href="#cb38-8" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> pggit.ai_decisions </span>
+<span id="cb38-9"><a href="#cb38-9" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> created_at <span class="op">&gt;</span> NOW() <span class="op">-</span> <span class="dt">INTERVAL</span> <span class="st">&#39;1 hour&#39;</span>;</span></code></pre></div>
+            <hr />
+            <h2 id="migration-functions">🔄 Migration Functions</h2>
+            <h3
+            id="generate_migration"><code>generate_migration()</code></h3>
+            <p>Generates migration scripts between versions.</p>
+            <div class="sourceCode" id="cb39"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a>pggit.generate_migration(</span>
+<span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a>    p_from_version TEXT,</span>
+<span id="cb39-3"><a href="#cb39-3" aria-hidden="true" tabindex="-1"></a>    p_to_version TEXT,</span>
+<span id="cb39-4"><a href="#cb39-4" aria-hidden="true" tabindex="-1"></a>    p_object_name TEXT <span class="kw">DEFAULT</span> <span class="kw">NULL</span></span>
+<span id="cb39-5"><a href="#cb39-5" aria-hidden="true" tabindex="-1"></a>) RETURNS TEXT</span></code></pre></div>
+            <p><strong>Parameters:</strong> -
+            <code>p_from_version</code>: Source version or branch -
+            <code>p_to_version</code>: Target version or branch<br />
+            - <code>p_object_name</code>: Specific object (NULL for all
+            objects)</p>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb40"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Generate migration from v1.0 to v2.0</span></span>
+<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.generate_migration(<span class="st">&#39;1.0.0&#39;</span>, <span class="st">&#39;2.0.0&#39;</span>, <span class="st">&#39;users&#39;</span>);</span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Returns: </span></span>
+<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- -- Migration: users 1.0.0 → 2.0.0</span></span>
+<span id="cb40-5"><a href="#cb40-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- ALTER TABLE users ADD COLUMN email TEXT NOT NULL;</span></span>
+<span id="cb40-6"><a href="#cb40-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- CREATE INDEX idx_users_email ON users(email);</span></span>
+<span id="cb40-7"><a href="#cb40-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-8"><a href="#cb40-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- Generate migration between branches</span></span>
+<span id="cb40-9"><a href="#cb40-9" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.generate_migration(<span class="st">&#39;main&#39;</span>, <span class="st">&#39;feature/user-auth&#39;</span>);</span></code></pre></div>
+            <h3 id="apply_migration"><code>apply_migration()</code></h3>
+            <p>Applies a generated migration safely.</p>
+            <div class="sourceCode" id="cb41"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a>pggit.apply_migration(</span>
+<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a>    p_migration_sql TEXT,</span>
+<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a>    p_dry_run <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">true</span></span>
+<span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a>) RETURNS TEXT</span></code></pre></div>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb42"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Dry run first (recommended)</span></span>
+<span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.apply_migration(<span class="st">&#39;ALTER TABLE users ADD COLUMN email TEXT;&#39;</span>, <span class="kw">true</span>);</span>
+<span id="cb42-3"><a href="#cb42-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Returns: &#39;DRY_RUN_SUCCESS: Migration validated, 0 conflicts detected&#39;</span></span>
+<span id="cb42-4"><a href="#cb42-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb42-5"><a href="#cb42-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Apply for real</span></span>
+<span id="cb42-6"><a href="#cb42-6" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.apply_migration(<span class="st">&#39;ALTER TABLE users ADD COLUMN email TEXT;&#39;</span>, <span class="kw">false</span>);</span>
+<span id="cb42-7"><a href="#cb42-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Returns: &#39;MIGRATION_APPLIED: 1 statement executed successfully&#39;</span></span></code></pre></div>
+            <hr />
+            <h2 id="testing-validation">🧪 Testing &amp; Validation</h2>
+            <h3
+            id="validate_branch_integrity"><code>validate_branch_integrity()</code></h3>
+            <p>Validates branch consistency and data integrity.</p>
+            <div class="sourceCode" id="cb43"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a>pggit.validate_branch_integrity(p_branch_name TEXT) RETURNS <span class="kw">TABLE</span> (</span>
+<span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a>    check_type TEXT,</span>
+<span id="cb43-3"><a href="#cb43-3" aria-hidden="true" tabindex="-1"></a>    status TEXT,</span>
+<span id="cb43-4"><a href="#cb43-4" aria-hidden="true" tabindex="-1"></a>    details TEXT</span>
+<span id="cb43-5"><a href="#cb43-5" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb44"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.validate_branch_integrity(<span class="st">&#39;feature/user-auth&#39;</span>);</span>
+<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- check_type: SCHEMA_CONSISTENCY | status: PASS | details: All objects valid</span></span>
+<span id="cb44-3"><a href="#cb44-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- check_type: DATA_INTEGRITY     | status: PASS | details: 0 orphaned rows  </span></span>
+<span id="cb44-4"><a href="#cb44-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- check_type: COMPRESSION        | status: PASS | details: 68.5% efficiency</span></span></code></pre></div>
+            <h3
+            id="benchmark_compression_performance"><code>benchmark_compression_performance()</code></h3>
+            <p>Benchmarks compression performance with test data.</p>
+            <div class="sourceCode" id="cb45"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a>pggit.benchmark_compression_performance(</span>
+<span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a>    p_dataset_size TEXT <span class="kw">DEFAULT</span> <span class="st">&#39;MEDIUM&#39;</span></span>
+<span id="cb45-3"><a href="#cb45-3" aria-hidden="true" tabindex="-1"></a>) RETURNS <span class="kw">TABLE</span> (</span>
+<span id="cb45-4"><a href="#cb45-4" aria-hidden="true" tabindex="-1"></a>    metric TEXT,</span>
+<span id="cb45-5"><a href="#cb45-5" aria-hidden="true" tabindex="-1"></a>    without_compression TEXT,</span>
+<span id="cb45-6"><a href="#cb45-6" aria-hidden="true" tabindex="-1"></a>    with_compression TEXT,</span>
+<span id="cb45-7"><a href="#cb45-7" aria-hidden="true" tabindex="-1"></a>    improvement TEXT</span>
+<span id="cb45-8"><a href="#cb45-8" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+            <p><strong>Dataset sizes:</strong> ‘SMALL’ (1K), ‘MEDIUM’
+            (10K), ‘LARGE’ (100K), ‘ENTERPRISE’ (1M+)</p>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb46"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.benchmark_compression_performance(<span class="st">&#39;LARGE&#39;</span>);</span>
+<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- metric: Storage Space | without_compression: 180 MB | with_compression: 54 MB | improvement: 70% reduction</span></span>
+<span id="cb46-3"><a href="#cb46-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- metric: Query Speed   | without_compression: 245 ms | with_compression: 187 ms | improvement: 24% faster</span></span>
+<span id="cb46-4"><a href="#cb46-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- metric: Backup Time   | without_compression: 12 sec | with_compression: 4 sec  | improvement: 67% faster</span></span></code></pre></div>
+            <h3
+            id="generate_test_dataset"><code>generate_test_dataset()</code></h3>
+            <p>Generates realistic test data for benchmarking.</p>
+            <div class="sourceCode" id="cb47"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a>pggit.generate_test_dataset(p_size TEXT <span class="kw">DEFAULT</span> <span class="st">&#39;MEDIUM&#39;</span>) RETURNS TEXT</span></code></pre></div>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb48"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Generate test data  </span></span>
+<span id="cb48-2"><a href="#cb48-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.generate_test_dataset(<span class="st">&#39;LARGE&#39;</span>);</span>
+<span id="cb48-3"><a href="#cb48-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Returns: &#39;Generated 100,000 test records across 5 tables. Total size: 180 MB&#39;</span></span>
+<span id="cb48-4"><a href="#cb48-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb48-5"><a href="#cb48-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Create branch with test data</span></span>
+<span id="cb48-6"><a href="#cb48-6" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.create_compressed_data_branch(<span class="st">&#39;test/benchmark&#39;</span>, <span class="st">&#39;main&#39;</span>, <span class="kw">true</span>);</span></code></pre></div>
+            <hr />
+            <h2 id="security-permissions">🔐 Security &amp;
+            Permissions</h2>
+            <h3
+            id="grant_branch_access"><code>grant_branch_access()</code></h3>
+            <p>Grants user access to specific branches.</p>
+            <div class="sourceCode" id="cb49"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a>pggit.grant_branch_access(</span>
+<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a>    p_username TEXT,</span>
+<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a>    p_branch_name TEXT,</span>
+<span id="cb49-4"><a href="#cb49-4" aria-hidden="true" tabindex="-1"></a>    p_permissions TEXT <span class="kw">DEFAULT</span> <span class="st">&#39;READ&#39;</span></span>
+<span id="cb49-5"><a href="#cb49-5" aria-hidden="true" tabindex="-1"></a>) RETURNS TEXT</span></code></pre></div>
+            <p><strong>Permissions:</strong> ‘READ’, ‘WRITE’,
+            ‘ADMIN’</p>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb50"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Grant read access</span></span>
+<span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.grant_branch_access(<span class="st">&#39;developer_user&#39;</span>, <span class="st">&#39;feature/user-auth&#39;</span>, <span class="st">&#39;READ&#39;</span>);</span>
+<span id="cb50-3"><a href="#cb50-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb50-4"><a href="#cb50-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Grant write access for feature development</span></span>
+<span id="cb50-5"><a href="#cb50-5" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.grant_branch_access(<span class="st">&#39;senior_dev&#39;</span>, <span class="st">&#39;feature/user-auth&#39;</span>, <span class="st">&#39;WRITE&#39;</span>);</span></code></pre></div>
+            <h3
+            id="audit_branch_changes"><code>audit_branch_changes()</code></h3>
+            <p>Returns audit log of branch modifications.</p>
+            <div class="sourceCode" id="cb51"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a>pggit.audit_branch_changes(</span>
+<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a>    p_branch_name TEXT <span class="kw">DEFAULT</span> <span class="kw">NULL</span>,</span>
+<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a>    p_since <span class="dt">TIMESTAMP</span> <span class="kw">DEFAULT</span> <span class="kw">NULL</span></span>
+<span id="cb51-4"><a href="#cb51-4" aria-hidden="true" tabindex="-1"></a>) RETURNS <span class="kw">TABLE</span> (</span>
+<span id="cb51-5"><a href="#cb51-5" aria-hidden="true" tabindex="-1"></a>    username TEXT,</span>
+<span id="cb51-6"><a href="#cb51-6" aria-hidden="true" tabindex="-1"></a>    action TEXT,</span>
+<span id="cb51-7"><a href="#cb51-7" aria-hidden="true" tabindex="-1"></a>    object_name TEXT,</span>
+<span id="cb51-8"><a href="#cb51-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">timestamp</span> <span class="dt">TIMESTAMP</span>,</span>
+<span id="cb51-9"><a href="#cb51-9" aria-hidden="true" tabindex="-1"></a>    details JSONB</span>
+<span id="cb51-10"><a href="#cb51-10" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+            <hr />
+            <h2 id="utility-functions">🛠️ Utility Functions</h2>
+            <h3
+            id="cleanup_merged_branches"><code>cleanup_merged_branches()</code></h3>
+            <p>Cleans up branches that have been successfully
+            merged.</p>
+            <div class="sourceCode" id="cb52"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a>pggit.cleanup_merged_branches(p_dry_run <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">true</span>) RETURNS TEXT</span></code></pre></div>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb53"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- See what would be cleaned up</span></span>
+<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.cleanup_merged_branches(<span class="kw">true</span>);</span>
+<span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- Returns: &#39;DRY_RUN: Would remove 3 merged branches (saving 2.1 GB)&#39;</span></span>
+<span id="cb53-4"><a href="#cb53-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb53-5"><a href="#cb53-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Actually clean up</span></span>
+<span id="cb53-6"><a href="#cb53-6" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.cleanup_merged_branches(<span class="kw">false</span>);</span>
+<span id="cb53-7"><a href="#cb53-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Returns: &#39;CLEANUP_COMPLETE: Removed 3 branches, freed 2.1 GB storage&#39;</span></span></code></pre></div>
+            <h3
+            id="optimize_storage"><code>optimize_storage()</code></h3>
+            <p>Optimizes storage across all branches.</p>
+            <div class="sourceCode" id="cb54"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a>pggit.optimize_storage() RETURNS TEXT</span></code></pre></div>
+            <p><strong>Example:</strong></p>
+            <div class="sourceCode" id="cb55"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.optimize_storage();</span>
+<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a><span class="co">-- Returns: &#39;OPTIMIZATION_COMPLETE: Reclaimed 890 MB across 7 branches&#39;</span></span></code></pre></div>
+            <h3
+            id="export_branch_config"><code>export_branch_config()</code></h3>
+            <p>Exports branch configuration for backup/restore.</p>
+            <div class="sourceCode" id="cb56"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a>pggit.export_branch_config(p_branch_name TEXT) RETURNS JSONB</span></code></pre></div>
+            <h3
+            id="import_branch_config"><code>import_branch_config()</code></h3>
+            <p>Imports branch configuration from backup.</p>
+            <div class="sourceCode" id="cb57"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a>pggit.import_branch_config(p_config JSONB) RETURNS TEXT</span></code></pre></div>
+            <hr />
+            <h2 id="demo-functions">📈 Demo Functions</h2>
+            <h3
+            id="demo_compression_efficiency"><code>demo_compression_efficiency()</code></h3>
+            <p>Demonstrates compression capabilities.</p>
+            <div class="sourceCode" id="cb58"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb58-1"><a href="#cb58-1" aria-hidden="true" tabindex="-1"></a>pggit.demo_compression_efficiency() RETURNS <span class="kw">TABLE</span> (</span>
+<span id="cb58-2"><a href="#cb58-2" aria-hidden="true" tabindex="-1"></a>    feature TEXT,</span>
+<span id="cb58-3"><a href="#cb58-3" aria-hidden="true" tabindex="-1"></a>    without_compression TEXT,</span>
+<span id="cb58-4"><a href="#cb58-4" aria-hidden="true" tabindex="-1"></a>    with_zstd_compression TEXT,</span>
+<span id="cb58-5"><a href="#cb58-5" aria-hidden="true" tabindex="-1"></a>    improvement TEXT</span>
+<span id="cb58-6"><a href="#cb58-6" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+            <h3
+            id="demo_postgresql17_compression"><code>demo_postgresql17_compression()</code></h3>
+            <p><strong>PostgreSQL 17+ only</strong> - Shows advanced
+            compression features.</p>
+            <div class="sourceCode" id="cb59"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a>pggit.demo_postgresql17_compression() RETURNS <span class="kw">TABLE</span> (</span>
+<span id="cb59-2"><a href="#cb59-2" aria-hidden="true" tabindex="-1"></a>    feature TEXT,</span>
+<span id="cb59-3"><a href="#cb59-3" aria-hidden="true" tabindex="-1"></a>    postgresql_16_and_below TEXT,</span>
+<span id="cb59-4"><a href="#cb59-4" aria-hidden="true" tabindex="-1"></a>    postgresql_17_with_pggit TEXT,</span>
+<span id="cb59-5"><a href="#cb59-5" aria-hidden="true" tabindex="-1"></a>    improvement TEXT</span>
+<span id="cb59-6"><a href="#cb59-6" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+            <hr />
+            <h2 id="error-handling">🚨 Error Handling</h2>
+            <h3 id="common-return-codes">Common Return Codes</h3>
+            <table>
+            <colgroup>
+            <col style="width: 26%" />
+            <col style="width: 39%" />
+            <col style="width: 34%" />
+            </colgroup>
+            <thead>
+            <tr class="header">
+            <th>Code</th>
+            <th>Meaning</th>
+            <th>Action</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr class="odd">
+            <td><code>MERGE_SUCCESS:hash</code></td>
+            <td>Clean merge completed</td>
+            <td>Continue normally</td>
+            </tr>
+            <tr class="even">
+            <td><code>CONFLICTS_DETECTED:merge_id</code></td>
+            <td>Manual resolution needed</td>
+            <td>Use conflict resolution functions</td>
+            </tr>
+            <tr class="odd">
+            <td><code>BRANCH_NOT_FOUND</code></td>
+            <td>Invalid branch name</td>
+            <td>Check branch name with <code>list_branches()</code></td>
+            </tr>
+            <tr class="even">
+            <td><code>COMPRESSION_UNAVAILABLE</code></td>
+            <td>PostgreSQL &lt; 17</td>
+            <td>Upgrade or use basic functions</td>
+            </tr>
+            <tr class="odd">
+            <td><code>PERMISSION_DENIED</code></td>
+            <td>Insufficient privileges</td>
+            <td>Check user permissions</td>
+            </tr>
+            </tbody>
+            </table>
+            <h3 id="error-examples">Error Examples</h3>
+            <div class="sourceCode" id="cb60"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb60-1"><a href="#cb60-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Branch doesn&#39;t exist</span></span>
+<span id="cb60-2"><a href="#cb60-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.checkout_branch(<span class="st">&#39;nonexistent&#39;</span>);</span>
+<span id="cb60-3"><a href="#cb60-3" aria-hidden="true" tabindex="-1"></a><span class="co">-- ERROR: BRANCH_NOT_FOUND: Branch &#39;nonexistent&#39; does not exist</span></span>
+<span id="cb60-4"><a href="#cb60-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb60-5"><a href="#cb60-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Compression not available</span></span>
+<span id="cb60-6"><a href="#cb60-6" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.create_compressed_data_branch(<span class="st">&#39;test&#39;</span>, <span class="st">&#39;main&#39;</span>, <span class="kw">true</span>);</span>
+<span id="cb60-7"><a href="#cb60-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- ERROR: COMPRESSION_UNAVAILABLE: PostgreSQL 17+ required for advanced compression</span></span>
+<span id="cb60-8"><a href="#cb60-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb60-9"><a href="#cb60-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- Merge conflicts</span></span>
+<span id="cb60-10"><a href="#cb60-10" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.merge_branches(<span class="st">&#39;conflicting-branch&#39;</span>, <span class="st">&#39;main&#39;</span>);</span>
+<span id="cb60-11"><a href="#cb60-11" aria-hidden="true" tabindex="-1"></a><span class="co">-- Returns: &#39;CONFLICTS_DETECTED:merge_abc123&#39; (use auto_resolve_conflicts)</span></span></code></pre></div>
+            <hr />
+            <h2 id="best-practices">🎯 Best Practices</h2>
+            <h3 id="function-usage-patterns">Function Usage
+            Patterns</h3>
+            <p><strong>Branch Creation:</strong></p>
+            <div class="sourceCode" id="cb61"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb61-1"><a href="#cb61-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Development: Use data branches</span></span>
+<span id="cb61-2"><a href="#cb61-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.create_data_branch(<span class="st">&#39;feature/new-feature&#39;</span>, <span class="st">&#39;main&#39;</span>, <span class="kw">true</span>);</span>
+<span id="cb61-3"><a href="#cb61-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb61-4"><a href="#cb61-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- CI/CD: Use schema-only for speed  </span></span>
+<span id="cb61-5"><a href="#cb61-5" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.create_branch(<span class="st">&#39;ci/build-123&#39;</span>, <span class="st">&#39;main&#39;</span>);</span>
+<span id="cb61-6"><a href="#cb61-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb61-7"><a href="#cb61-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- PostgreSQL 17: Use compressed branches</span></span>
+<span id="cb61-8"><a href="#cb61-8" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.create_compressed_data_branch(<span class="st">&#39;feature/pg17&#39;</span>, <span class="st">&#39;main&#39;</span>, <span class="kw">true</span>);</span></code></pre></div>
+            <p><strong>Merge Workflow:</strong></p>
+            <div class="sourceCode" id="cb62"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb62-1"><a href="#cb62-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- 1. Always validate before merging</span></span>
+<span id="cb62-2"><a href="#cb62-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.validate_branch_integrity(<span class="st">&#39;feature/ready-to-merge&#39;</span>);</span>
+<span id="cb62-3"><a href="#cb62-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb62-4"><a href="#cb62-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- 2. Merge with appropriate function</span></span>
+<span id="cb62-5"><a href="#cb62-5" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.merge_compressed_branches(<span class="st">&#39;feature/ready-to-merge&#39;</span>, <span class="st">&#39;main&#39;</span>);</span>
+<span id="cb62-6"><a href="#cb62-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb62-7"><a href="#cb62-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- 3. Handle conflicts if needed</span></span>
+<span id="cb62-8"><a href="#cb62-8" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.auto_resolve_compressed_conflicts(<span class="st">&#39;merge_id&#39;</span>, <span class="st">&#39;COMPRESSION_OPTIMIZED&#39;</span>);</span></code></pre></div>
+            <p><strong>AI-Powered Analysis:</strong></p>
+            <div class="sourceCode" id="cb63"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb63-1"><a href="#cb63-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Analyze migrations before applying</span></span>
+<span id="cb63-2"><a href="#cb63-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.analyze_migration_with_llm(</span>
+<span id="cb63-3"><a href="#cb63-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;ALTER TABLE users ADD COLUMN email VARCHAR(255);&#39;</span>,</span>
+<span id="cb63-4"><a href="#cb63-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;flyway&#39;</span>,</span>
+<span id="cb63-5"><a href="#cb63-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;V2__add_email.sql&#39;</span></span>
+<span id="cb63-6"><a href="#cb63-6" aria-hidden="true" tabindex="-1"></a>);</span>
+<span id="cb63-7"><a href="#cb63-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb63-8"><a href="#cb63-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- Batch analyze multiple migrations</span></span>
+<span id="cb63-9"><a href="#cb63-9" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.ai_migrate_batch(migration_batch_json, <span class="st">&#39;flyway&#39;</span>);</span>
+<span id="cb63-10"><a href="#cb63-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb63-11"><a href="#cb63-11" aria-hidden="true" tabindex="-1"></a><span class="co">-- Run edge case detection tests</span></span>
+<span id="cb63-12"><a href="#cb63-12" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.run_edge_case_tests();</span></code></pre></div>
+            <p><strong>Performance Monitoring:</strong></p>
+            <div class="sourceCode" id="cb64"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb64-1"><a href="#cb64-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Regular monitoring (including AI performance)</span></span>
+<span id="cb64-2"><a href="#cb64-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.get_performance_stats();</span>
+<span id="cb64-3"><a href="#cb64-3" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.get_branch_storage_stats();</span>
+<span id="cb64-4"><a href="#cb64-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb64-5"><a href="#cb64-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Monitor AI analysis performance</span></span>
+<span id="cb64-6"><a href="#cb64-6" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb64-7"><a href="#cb64-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">COUNT</span>(<span class="op">*</span>) <span class="kw">as</span> analyses_last_hour,</span>
+<span id="cb64-8"><a href="#cb64-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(<span class="fu">AVG</span>(confidence <span class="op">*</span> <span class="dv">100</span>), <span class="dv">1</span>) <span class="kw">as</span> avg_confidence,</span>
+<span id="cb64-9"><a href="#cb64-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>(<span class="fu">AVG</span>(inference_time_ms), <span class="dv">0</span>) <span class="kw">as</span> avg_ai_time_ms</span>
+<span id="cb64-10"><a href="#cb64-10" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> pggit.ai_decisions </span>
+<span id="cb64-11"><a href="#cb64-11" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> created_at <span class="op">&gt;</span> NOW() <span class="op">-</span> <span class="dt">INTERVAL</span> <span class="st">&#39;1 hour&#39;</span>;</span>
+<span id="cb64-12"><a href="#cb64-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb64-13"><a href="#cb64-13" aria-hidden="true" tabindex="-1"></a><span class="co">-- Periodic cleanup</span></span>
+<span id="cb64-14"><a href="#cb64-14" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.cleanup_merged_branches(<span class="kw">false</span>);</span>
+<span id="cb64-15"><a href="#cb64-15" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.optimize_storage();</span></code></pre></div>
+            <hr />
+            <h2 id="integration-examples">🔗 Integration Examples</h2>
+            <h3 id="cicd-pipeline-integration">CI/CD Pipeline
+            Integration</h3>
+            <div class="sourceCode" id="cb65"><pre
+            class="sourceCode bash"><code class="sourceCode bash"><span id="cb65-1"><a href="#cb65-1" aria-hidden="true" tabindex="-1"></a><span class="co">#!/bin/bash</span></span>
+<span id="cb65-2"><a href="#cb65-2" aria-hidden="true" tabindex="-1"></a><span class="co"># In your CI pipeline</span></span>
+<span id="cb65-3"><a href="#cb65-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb65-4"><a href="#cb65-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Create test branch</span></span>
+<span id="cb65-5"><a href="#cb65-5" aria-hidden="true" tabindex="-1"></a><span class="ex">psql</span> <span class="at">-c</span> <span class="st">&quot;SELECT pggit.create_branch(&#39;ci/build-</span><span class="va">${BUILD_ID}</span><span class="st">&#39;, &#39;main&#39;);&quot;</span></span>
+<span id="cb65-6"><a href="#cb65-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb65-7"><a href="#cb65-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Run migrations</span></span>
+<span id="cb65-8"><a href="#cb65-8" aria-hidden="true" tabindex="-1"></a><span class="ex">psql</span> <span class="at">-f</span> migrations.sql</span>
+<span id="cb65-9"><a href="#cb65-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb65-10"><a href="#cb65-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Run tests</span></span>
+<span id="cb65-11"><a href="#cb65-11" aria-hidden="true" tabindex="-1"></a><span class="ex">./run_tests.sh</span></span>
+<span id="cb65-12"><a href="#cb65-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb65-13"><a href="#cb65-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Merge on success, cleanup on failure</span></span>
+<span id="cb65-14"><a href="#cb65-14" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="bu">[</span> <span class="va">$?</span> <span class="ot">-eq</span> 0 <span class="bu">]</span><span class="kw">;</span> <span class="cf">then</span></span>
+<span id="cb65-15"><a href="#cb65-15" aria-hidden="true" tabindex="-1"></a>    <span class="ex">psql</span> <span class="at">-c</span> <span class="st">&quot;SELECT pggit.merge_branches(&#39;ci/build-</span><span class="va">${BUILD_ID}</span><span class="st">&#39;, &#39;main&#39;);&quot;</span></span>
+<span id="cb65-16"><a href="#cb65-16" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
+<span id="cb65-17"><a href="#cb65-17" aria-hidden="true" tabindex="-1"></a>    <span class="ex">psql</span> <span class="at">-c</span> <span class="st">&quot;SELECT pggit.cleanup_merged_branches(false);&quot;</span></span>
+<span id="cb65-18"><a href="#cb65-18" aria-hidden="true" tabindex="-1"></a><span class="cf">fi</span></span></code></pre></div>
+            <h3 id="application-integration">Application
+            Integration</h3>
+            <div class="sourceCode" id="cb66"><pre
+            class="sourceCode python"><code class="sourceCode python"><span id="cb66-1"><a href="#cb66-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Python example</span></span>
+<span id="cb66-2"><a href="#cb66-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> psycopg2</span>
+<span id="cb66-3"><a href="#cb66-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb66-4"><a href="#cb66-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> deploy_feature(feature_name, migration_sql):</span>
+<span id="cb66-5"><a href="#cb66-5" aria-hidden="true" tabindex="-1"></a>    conn <span class="op">=</span> psycopg2.<span class="ex">connect</span>(<span class="st">&quot;postgresql://...&quot;</span>)</span>
+<span id="cb66-6"><a href="#cb66-6" aria-hidden="true" tabindex="-1"></a>    cur <span class="op">=</span> conn.cursor()</span>
+<span id="cb66-7"><a href="#cb66-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb66-8"><a href="#cb66-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span>:</span>
+<span id="cb66-9"><a href="#cb66-9" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Create feature branch</span></span>
+<span id="cb66-10"><a href="#cb66-10" aria-hidden="true" tabindex="-1"></a>        cur.execute(<span class="st">&quot;SELECT pggit.create_data_branch(</span><span class="sc">%s</span><span class="st">, &#39;main&#39;, true)&quot;</span>, (feature_name,))</span>
+<span id="cb66-11"><a href="#cb66-11" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb66-12"><a href="#cb66-12" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Apply migrations</span></span>
+<span id="cb66-13"><a href="#cb66-13" aria-hidden="true" tabindex="-1"></a>        cur.execute(<span class="st">&quot;SELECT pggit.apply_migration(</span><span class="sc">%s</span><span class="st">, false)&quot;</span>, (migration_sql,))</span>
+<span id="cb66-14"><a href="#cb66-14" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb66-15"><a href="#cb66-15" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Validate</span></span>
+<span id="cb66-16"><a href="#cb66-16" aria-hidden="true" tabindex="-1"></a>        cur.execute(<span class="st">&quot;SELECT * FROM pggit.validate_branch_integrity(</span><span class="sc">%s</span><span class="st">)&quot;</span>, (feature_name,))</span>
+<span id="cb66-17"><a href="#cb66-17" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb66-18"><a href="#cb66-18" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Merge to main</span></span>
+<span id="cb66-19"><a href="#cb66-19" aria-hidden="true" tabindex="-1"></a>        cur.execute(<span class="st">&quot;SELECT pggit.merge_branches(</span><span class="sc">%s</span><span class="st">, &#39;main&#39;)&quot;</span>, (feature_name,))</span>
+<span id="cb66-20"><a href="#cb66-20" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb66-21"><a href="#cb66-21" aria-hidden="true" tabindex="-1"></a>        conn.commit()</span>
+<span id="cb66-22"><a href="#cb66-22" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="st">&quot;SUCCESS&quot;</span></span>
+<span id="cb66-23"><a href="#cb66-23" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb66-24"><a href="#cb66-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e:</span>
+<span id="cb66-25"><a href="#cb66-25" aria-hidden="true" tabindex="-1"></a>        conn.rollback()</span>
+<span id="cb66-26"><a href="#cb66-26" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="ss">f&quot;ERROR: </span><span class="sc">{</span>e<span class="sc">}</span><span class="ss">&quot;</span></span></code></pre></div>
+            <hr />
+            <h2 id="see-also">📚 See Also</h2>
+            <ul>
+            <li><strong><a href="GETTING_STARTED.md">Getting Started
+            Guide →</a></strong> - Step-by-step setup</li>
+            <li><strong><a href="../examples/">Examples →</a></strong> -
+            Real-world usage patterns<br />
+            </li>
+            <li><strong><a
+            href="git_branching_architecture.md">Architecture
+            →</a></strong> - How it works</li>
+            <li><strong><a href="../TROUBLESHOOTING.md">Troubleshooting
+            →</a></strong> - Common issues</li>
+            </ul>
+            <hr />
+            <p><em>This API reference covers pggit v1.0.0+. For the
+            latest updates, see our <a
+            href="https://github.com/evoludigit/pggit">GitHub
+            repository</a>.</em></p>
+        </article>
+    </main>
+    
+    <footer>
+        <p>pgGit is open source software under the MIT License</p>
+        <p>Built with ❤️ by <a href="https://github.com/evoludigit">@evoludigit</a></p>
+    </footer>
+</body>
+</html>

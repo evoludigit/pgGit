@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="pgGit Documentation">
+    <title>pgGit Explained Like You're 10 - pgGit</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .doc-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .doc-content h1:first-child {
+            margin-top: 0;
+        }
+        .toc {
+            background: var(--bg-light);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .toc h2 {
+            margin-top: 0;
+            font-size: 1.25rem;
+        }
+        .toc ul {
+            list-style: none;
+            padding-left: 1rem;
+        }
+        .toc li {
+            margin: 0.5rem 0;
+        }
+        .breadcrumb {
+            margin-bottom: 2rem;
+            color: var(--text-light);
+        }
+        .breadcrumb a {
+            color: var(--text-light);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="/" class="logo">pgGit</a>
+            <ul>
+                <li><a href="/#quick-start">Quick Start</a></li>
+                <li><a href="/docs/">Documentation</a></li>
+                <li><a href="/api/">API Reference</a></li>
+                <li><a href="https://github.com/evoludigit/pggit">GitHub</a></li>
+            </ul>
+        </nav>
+    </header>
+    
+    <main class="doc-content">
+        <div class="breadcrumb">
+            <a href="/">Home</a> / <a href="/docs/">Docs</a> / pgGit
+Explained Like You're 10 - pgGit
+        </div>
+        
+                <div class="toc">
+            <h2>Table of Contents</h2>
+            <ul>
+            <li><a href="#pggit-explained-like-youre-10"
+            id="toc-pggit-explained-like-youre-10">pggit Explained Like
+            You’re 10</a>
+            <ul>
+            <li><a href="#its-like-git-but-for-databases"
+            id="toc-its-like-git-but-for-databases">🎮 <strong>It’s Like
+            Git, But for Databases</strong></a></li>
+            <li><a href="#the-real-problem-companies-have"
+            id="toc-the-real-problem-companies-have">🏢 <strong>The Real
+            Problem Companies Have</strong></a>
+            <ul>
+            <li><a href="#databases-are-scary"
+            id="toc-databases-are-scary"><strong>Databases Are
+            Scary</strong></a></li>
+            <li><a href="#why-current-tools-suck"
+            id="toc-why-current-tools-suck"><strong>Why Current Tools
+            Suck</strong></a></li>
+            </ul></li>
+            <li><a href="#how-pggit-fixes-everything"
+            id="toc-how-pggit-fixes-everything">🚀 <strong>How pggit
+            Fixes Everything</strong></a>
+            <ul>
+            <li><a href="#real-version-control"
+            id="toc-real-version-control"><strong>1. Real Version
+            Control</strong></a></li>
+            <li><a href="#safe-branching"
+            id="toc-safe-branching"><strong>2. Safe
+            Branching</strong></a></li>
+            <li><a href="#smart-ai-helper"
+            id="toc-smart-ai-helper"><strong>3. Smart AI
+            Helper</strong></a></li>
+            <li><a href="#automatic-conflict-resolution"
+            id="toc-automatic-conflict-resolution"><strong>4. Automatic
+            Conflict Resolution</strong></a></li>
+            </ul></li>
+            <li><a href="#why-companies-will-pay-big-money-for-this"
+            id="toc-why-companies-will-pay-big-money-for-this">💰
+            <strong>Why Companies Will Pay Big Money For
+            This</strong></a>
+            <ul>
+            <li><a href="#the-numbers-are-insane"
+            id="toc-the-numbers-are-insane"><strong>The Numbers Are
+            Insane</strong></a></li>
+            <li><a href="#enterprise-features-that-make-it-valuable"
+            id="toc-enterprise-features-that-make-it-valuable"><strong>Enterprise
+            Features That Make It Valuable</strong></a></li>
+            </ul></li>
+            <li><a href="#the-post-ai-development-story"
+            id="toc-the-post-ai-development-story">🤖 <strong>The
+            Post-AI Development Story</strong></a>
+            <ul>
+            <li><a href="#how-this-got-built-so-fast"
+            id="toc-how-this-got-built-so-fast"><strong>How This Got
+            Built So Fast</strong></a></li>
+            <li><a href="#why-this-changes-everything"
+            id="toc-why-this-changes-everything"><strong>Why This
+            Changes Everything</strong></a></li>
+            </ul></li>
+            <li><a href="#the-business-model-pretty-smart"
+            id="toc-the-business-model-pretty-smart">🎯 <strong>The
+            Business Model (Pretty Smart)</strong></a>
+            <ul>
+            <li><a href="#why-its-all-free"
+            id="toc-why-its-all-free"><strong>Why It’s All
+            Free</strong></a></li>
+            <li><a href="#potential-business-models"
+            id="toc-potential-business-models"><strong>Potential
+            Business Models</strong></a></li>
+            </ul></li>
+            <li><a href="#why-pggit-matters"
+            id="toc-why-pggit-matters">📊 <strong>Why pggit
+            Matters</strong></a>
+            <ul>
+            <li><a href="#postgresql-is-growing"
+            id="toc-postgresql-is-growing"><strong>PostgreSQL Is
+            Growing</strong></a></li>
+            <li><a href="#real-problems-need-real-solutions"
+            id="toc-real-problems-need-real-solutions"><strong>Real
+            Problems Need Real Solutions</strong></a></li>
+            </ul></li>
+            <li><a href="#why-this-will-win"
+            id="toc-why-this-will-win">🎮 <strong>Why This Will
+            Win</strong></a>
+            <ul>
+            <li><a href="#technical-advantages"
+            id="toc-technical-advantages"><strong>Technical
+            Advantages</strong></a></li>
+            <li><a href="#business-advantages"
+            id="toc-business-advantages"><strong>Business
+            Advantages</strong></a></li>
+            <li><a href="#timing-advantages"
+            id="toc-timing-advantages"><strong>Timing
+            Advantages</strong></a></li>
+            </ul></li>
+            <li><a href="#what-happens-next"
+            id="toc-what-happens-next">🚀 <strong>What Happens
+            Next</strong></a>
+            <ul>
+            <li><a href="#path-to-becoming-the-standard"
+            id="toc-path-to-becoming-the-standard"><strong>Path to
+            Becoming the Standard</strong></a></li>
+            </ul></li>
+            <li><a href="#the-bottom-line" id="toc-the-bottom-line">🎯
+            <strong>The Bottom Line</strong></a></li>
+            </ul></li>
+            </ul>
+        </div>
+                
+        <article class="markdown-body">
+            <h1 id="pggit-explained-like-youre-10">pggit Explained Like
+            You’re 10</h1>
+            <h2 id="its-like-git-but-for-databases">🎮 <strong>It’s Like
+            Git, But for Databases</strong></h2>
+            <p>You know Git from coding class? It lets you save
+            different versions of your code, go back to old versions,
+            and work with friends without messing things up.</p>
+            <p><strong>pggit does the same thing, but for
+            databases.</strong></p>
+            <hr />
+            <h2 id="the-real-problem-companies-have">🏢 <strong>The Real
+            Problem Companies Have</strong></h2>
+            <h3 id="databases-are-scary"><strong>Databases Are
+            Scary</strong></h3>
+            <p>Imagine your school kept EVERY student record, all
+            grades, all schedules, everything in one giant digital
+            filing cabinet. That’s a database.</p>
+            <p><strong>The problem:</strong> - When they need to change
+            something (like add a new field for “favorite pizza”), they
+            have to be SUPER careful - If they mess up → Everyone’s
+            grades could disappear 😱 - Right now, they basically just
+            cross their fingers and hope nothing breaks</p>
+            <h3 id="why-current-tools-suck"><strong>Why Current Tools
+            Suck</strong></h3>
+            <p><strong>Flyway and Liquibase</strong> (the current tools)
+            are like having a notepad where you write down what changes
+            you made. But: - ❌ No “undo” button - ❌ Can’t test changes
+            safely - ❌ If two people make changes, they fight - ❌ Cost
+            thousands of dollars per year</p>
+            <hr />
+            <h2 id="how-pggit-fixes-everything">🚀 <strong>How pggit
+            Fixes Everything</strong></h2>
+            <h3 id="real-version-control"><strong>1. Real Version
+            Control</strong></h3>
+            <pre><code>Database v1.0: Original student records
+Database v1.1: + Added &quot;favorite pizza&quot; field
+Database v1.2: + Added &quot;lunch preferences&quot; 
+Database v1.3: Oops, this version broke everything!</code></pre>
+            <p><strong>With pggit:</strong> Just type
+            <code>pggit checkout v1.2</code> and you’re back to the
+            working version!</p>
+            <h3 id="safe-branching"><strong>2. Safe
+            Branching</strong></h3>
+            <pre><code>main branch:     [Student Records] ← Production (real data)
+                        |
+pizza-feature:   [Student Records + Pizza Field] ← Test safely here
+                        |
+                 [Test with fake data]
+                        |
+                 [If it works, merge back to main]</code></pre>
+            <h3 id="smart-ai-helper"><strong>3. Smart AI
+            Helper</strong></h3>
+            <p>The AI looks at your changes and says: - 🟢 “This looks
+            safe, go ahead!” - 🟡 “This might be slow, consider doing it
+            at night” - 🔴 “STOP! This will delete everyone’s data!”</p>
+            <h3 id="automatic-conflict-resolution"><strong>4. Automatic
+            Conflict Resolution</strong></h3>
+            <p>When two people change the database: - <strong>Old
+            way:</strong> Everything breaks, call the IT guy, panic for
+            hours - <strong>pggit way:</strong> “Hey, Alice added a
+            field and Bob added a table. I’ll merge them
+            automatically!”</p>
+            <hr />
+            <h2 id="why-companies-will-pay-big-money-for-this">💰
+            <strong>Why Companies Will Pay Big Money For
+            This</strong></h2>
+            <h3 id="the-numbers-are-insane"><strong>The Numbers Are
+            Insane</strong></h3>
+            <p><strong>Database problems are expensive and
+            common</strong> <strong>Current solutions:</strong> Often
+            incomplete or difficult to use</p>
+            <p><strong>What pggit provides:</strong> - 💰 Reduced
+            disaster recovery costs - ⏰ Saved developer time through
+            automation - 😴 Increased confidence in database changes -
+            🚀 Faster, safer database evolution</p>
+            <h3
+            id="enterprise-features-that-make-it-valuable"><strong>Enterprise
+            Features That Make It Valuable</strong></h3>
+            <p><strong>For IT Teams:</strong> - Zero-downtime
+            deployments (changes with no website downtime) - Cost
+            optimization (saves 30-50% on storage) - Compliance
+            reporting (automatic SOX/HIPAA/GDPR reports)</p>
+            <p><strong>For Managers:</strong> - See exactly what changed
+            and when - Know who approved what changes - Get alerts
+            before disasters happen</p>
+            <hr />
+            <h2 id="the-post-ai-development-story">🤖 <strong>The
+            Post-AI Development Story</strong></h2>
+            <h3 id="how-this-got-built-so-fast"><strong>How This Got
+            Built So Fast</strong></h3>
+            <p><strong>Traditional approach:</strong> - Large teams
+            working for extended periods - Significant time and resource
+            investment - Complex development processes - Uncertain
+            outcomes</p>
+            <p><strong>Modern approach:</strong> - Focused development
+            with AI assistance - Efficient development cycles - Targeted
+            feature development - Rapid iteration and improvement</p>
+            <h3 id="why-this-changes-everything"><strong>Why This
+            Changes Everything</strong></h3>
+            <p>In 2024, AI can help one person build what used to take
+            giant teams. This means: - Way lower costs - Way faster
+            development - Way better products - Can give it away free
+            and still make money</p>
+            <hr />
+            <h2 id="the-business-model-pretty-smart">🎯 <strong>The
+            Business Model (Pretty Smart)</strong></h2>
+            <h3 id="why-its-all-free"><strong>Why It’s All
+            Free</strong></h3>
+            <p><strong>The Logic:</strong> - Make the best database tool
+            ever - Give it away completely free - Everyone starts using
+            it - When they need help or advanced features → They pay for
+            services</p>
+            <p><strong>Examples:</strong> - <strong>Red Hat:</strong>
+            Successful open source business model -
+            <strong>MongoDB:</strong> Free core with paid services -
+            <strong>Elastic:</strong> Open source with enterprise
+            support</p>
+            <h3 id="potential-business-models"><strong>Potential
+            Business Models</strong></h3>
+            <ol type="1">
+            <li><strong>Emergency support:</strong> Professional
+            services</li>
+            <li><strong>Migration consulting:</strong> Help moving from
+            legacy tools</li>
+            <li><strong>Enterprise support:</strong> Guaranteed support
+            contracts</li>
+            <li><strong>Advanced features:</strong> Management and
+            monitoring tools</li>
+            </ol>
+            <hr />
+            <h2 id="why-pggit-matters">📊 <strong>Why pggit
+            Matters</strong></h2>
+            <h3 id="postgresql-is-growing"><strong>PostgreSQL Is
+            Growing</strong></h3>
+            <ul>
+            <li>PostgreSQL adoption is increasing rapidly</li>
+            <li>More companies need better migration tools</li>
+            <li>Current solutions have significant limitations</li>
+            </ul>
+            <h3 id="real-problems-need-real-solutions"><strong>Real
+            Problems Need Real Solutions</strong></h3>
+            <ul>
+            <li>Every company with a database faces migration
+            challenges</li>
+            <li>Manual processes are error-prone and time-consuming</li>
+            <li>There’s strong demand for Git-like workflows in
+            databases</li>
+            </ul>
+            <hr />
+            <h2 id="why-this-will-win">🎮 <strong>Why This Will
+            Win</strong></h2>
+            <h3 id="technical-advantages"><strong>Technical
+            Advantages</strong></h3>
+            <ul>
+            <li><strong>High performance</strong> optimized design</li>
+            <li><strong>Efficient storage</strong> with compression</li>
+            <li><strong>AI-powered</strong> analysis capabilities</li>
+            <li><strong>Thoroughly tested</strong> (32/32 tests
+            pass)</li>
+            </ul>
+            <h3 id="business-advantages"><strong>Business
+            Advantages</strong></h3>
+            <ul>
+            <li><strong>Free</strong> (no budget approval needed)</li>
+            <li><strong>Better</strong> (solves real problems)</li>
+            <li><strong>Proven</strong> (works right now, not “coming
+            soon”)</li>
+            <li><strong>No competition</strong> (18-month head start
+            minimum)</li>
+            </ul>
+            <h3 id="timing-advantages"><strong>Timing
+            Advantages</strong></h3>
+            <ul>
+            <li><strong>PostgreSQL adoption exploding</strong>
+            (+35%/year)</li>
+            <li><strong>AI development just became possible</strong>
+            (2024)</li>
+            <li><strong>Remote work = more deployments = more
+            problems</strong></li>
+            <li><strong>Everyone wants Git-like tools</strong>
+            (developers are used to Git)</li>
+            </ul>
+            <hr />
+            <h2 id="what-happens-next">🚀 <strong>What Happens
+            Next</strong></h2>
+            <h3 id="path-to-becoming-the-standard"><strong>Path to
+            Becoming the Standard</strong></h3>
+            <p>The goal is simple: make pggit the standard tool for
+            PostgreSQL database version control.</p>
+            <p><strong>How we get there:</strong> - Focus on developer
+            experience and real-world problems - Build a strong
+            community of contributors - Integrate with popular
+            development workflows - Continuous improvement based on user
+            feedback</p>
+            <hr />
+            <h2 id="the-bottom-line">🎯 <strong>The Bottom
+            Line</strong></h2>
+            <p><strong>pggit is Git for databases.</strong></p>
+            <p>Git became essential for code. pggit aims to become
+            essential for databases.</p>
+            <p>It’s open source, it works today, and it solves real
+            problems that developers face every day.</p>
+            <hr />
+            <p><em>“Making database changes as safe and manageable as
+            code changes.”</em></p>
+        </article>
+    </main>
+    
+    <footer>
+        <p>pgGit is open source software under the MIT License</p>
+        <p>Built with ❤️ by <a href="https://github.com/evoludigit">@evoludigit</a></p>
+    </footer>
+</body>
+</html>

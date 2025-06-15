@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="pgGit Documentation">
+    <title>Operations Guide - pgGit</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .doc-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .doc-content h1:first-child {
+            margin-top: 0;
+        }
+        .toc {
+            background: var(--bg-light);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .toc h2 {
+            margin-top: 0;
+            font-size: 1.25rem;
+        }
+        .toc ul {
+            list-style: none;
+            padding-left: 1rem;
+        }
+        .toc li {
+            margin: 0.5rem 0;
+        }
+        .breadcrumb {
+            margin-bottom: 2rem;
+            color: var(--text-light);
+        }
+        .breadcrumb a {
+            color: var(--text-light);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="/" class="logo">pgGit</a>
+            <ul>
+                <li><a href="/#quick-start">Quick Start</a></li>
+                <li><a href="/docs/">Documentation</a></li>
+                <li><a href="/api/">API Reference</a></li>
+                <li><a href="https://github.com/evoludigit/pggit">GitHub</a></li>
+            </ul>
+        </nav>
+    </header>
+    
+    <main class="doc-content">
+        <div class="breadcrumb">
+            <a href="/">Home</a> / <a href="/docs/">Docs</a> / Operations
+Guide - pgGit
+        </div>
+        
+                <div class="toc">
+            <h2>Table of Contents</h2>
+            <ul>
+            <li><a href="#operations-guide"
+            id="toc-operations-guide">Operations Guide</a>
+            <ul>
+            <li><a href="#production-deployment"
+            id="toc-production-deployment">🚀 Production Deployment</a>
+            <ul>
+            <li><a href="#installation-steps"
+            id="toc-installation-steps">1. Installation Steps</a></li>
+            <li><a href="#initial-configuration"
+            id="toc-initial-configuration">2. Initial
+            Configuration</a></li>
+            <li><a href="#enterprise-features-setup"
+            id="toc-enterprise-features-setup">3. Enterprise Features
+            Setup</a></li>
+            </ul></li>
+            <li><a href="#monitoring-alerting"
+            id="toc-monitoring-alerting">📊 Monitoring &amp;
+            Alerting</a>
+            <ul>
+            <li><a href="#key-metrics-to-monitor"
+            id="toc-key-metrics-to-monitor">1. Key Metrics to
+            Monitor</a></li>
+            <li><a href="#performance-monitoring"
+            id="toc-performance-monitoring">2. Performance
+            Monitoring</a></li>
+            <li><a href="#automated-alerts" id="toc-automated-alerts">3.
+            Automated Alerts</a></li>
+            </ul></li>
+            <li><a href="#maintenance-tasks"
+            id="toc-maintenance-tasks">🔧 Maintenance Tasks</a>
+            <ul>
+            <li><a href="#regular-cleanup" id="toc-regular-cleanup">1.
+            Regular Cleanup</a></li>
+            <li><a href="#index-maintenance"
+            id="toc-index-maintenance">2. Index Maintenance</a></li>
+            <li><a href="#statistics-updates"
+            id="toc-statistics-updates">3. Statistics Updates</a></li>
+            </ul></li>
+            <li><a href="#capacity-planning"
+            id="toc-capacity-planning">📈 Capacity Planning</a>
+            <ul>
+            <li><a href="#growth-projections"
+            id="toc-growth-projections">1. Growth Projections</a></li>
+            <li><a href="#storage-projections"
+            id="toc-storage-projections">2. Storage Projections</a></li>
+            <li><a href="#performance-scaling"
+            id="toc-performance-scaling">3. Performance Scaling</a></li>
+            </ul></li>
+            <li><a href="#disaster-recovery"
+            id="toc-disaster-recovery">🚨 Disaster Recovery</a>
+            <ul>
+            <li><a href="#backup-strategy" id="toc-backup-strategy">1.
+            Backup Strategy</a></li>
+            <li><a href="#recovery-procedures"
+            id="toc-recovery-procedures">2. Recovery Procedures</a></li>
+            <li><a href="#rollback-capabilities"
+            id="toc-rollback-capabilities">3. Rollback
+            Capabilities</a></li>
+            </ul></li>
+            <li><a href="#cicd-integration" id="toc-cicd-integration">🔄
+            CI/CD Integration</a>
+            <ul>
+            <li><a href="#jenkins-pipeline" id="toc-jenkins-pipeline">1.
+            Jenkins Pipeline</a></li>
+            <li><a href="#github-actions" id="toc-github-actions">2.
+            GitHub Actions</a></li>
+            <li><a href="#monitoring-integration"
+            id="toc-monitoring-integration">3. Monitoring
+            Integration</a></li>
+            </ul></li>
+            <li><a href="#operations-checklist"
+            id="toc-operations-checklist">📋 Operations Checklist</a>
+            <ul>
+            <li><a href="#daily-tasks" id="toc-daily-tasks">Daily
+            Tasks</a></li>
+            <li><a href="#weekly-tasks" id="toc-weekly-tasks">Weekly
+            Tasks</a></li>
+            <li><a href="#monthly-tasks" id="toc-monthly-tasks">Monthly
+            Tasks</a></li>
+            <li><a href="#quarterly-tasks"
+            id="toc-quarterly-tasks">Quarterly Tasks</a></li>
+            </ul></li>
+            <li><a href="#operations-support"
+            id="toc-operations-support">📞 Operations Support</a></li>
+            <li><a href="#key-operations-principles"
+            id="toc-key-operations-principles">🎯 Key Operations
+            Principles</a></li>
+            </ul></li>
+            </ul>
+        </div>
+                
+        <article class="markdown-body">
+            <h1 id="operations-guide">Operations Guide</h1>
+            <p>This guide covers production deployment, monitoring, and
+            maintenance of pggit.</p>
+            <h2 id="production-deployment">🚀 Production Deployment</h2>
+            <h3 id="installation-steps">1. Installation Steps</h3>
+            <div class="sourceCode" id="cb1"><pre
+            class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Download and build</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/evoludigit/pggit.git</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> pggit</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> clean <span class="kw">&amp;&amp;</span> <span class="fu">make</span> <span class="kw">&amp;&amp;</span> <span class="fu">sudo</span> make install</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Verify installation</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="ex">psql</span> <span class="at">-c</span> <span class="st">&quot;CREATE EXTENSION pggit&quot;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="ex">psql</span> <span class="at">-c</span> <span class="st">&quot;SELECT pggit.get_version(&#39;pg_class&#39;)&quot;</span></span></code></pre></div>
+            <h3 id="initial-configuration">2. Initial Configuration</h3>
+            <div class="sourceCode" id="cb2"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Configure tracking for production schemas</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.configure_tracking(</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;schemas&#39;</span> <span class="op">=&gt;</span> <span class="dt">ARRAY</span>[<span class="st">&#39;public&#39;</span>, <span class="st">&#39;orders&#39;</span>, <span class="st">&#39;users&#39;</span>, <span class="st">&#39;inventory&#39;</span>],</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;exclude_temp_tables&#39;</span> <span class="op">=&gt;</span> <span class="kw">true</span>,</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;track_system_objects&#39;</span> <span class="op">=&gt;</span> <span class="kw">false</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>);</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">-- Set up performance monitoring</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.configure_monitoring(</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;alert_threshold_ms&#39;</span> <span class="op">=&gt;</span> <span class="dv">1000</span>,</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;batch_size&#39;</span> <span class="op">=&gt;</span> <span class="dv">100</span>,</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;cleanup_interval_hours&#39;</span> <span class="op">=&gt;</span> <span class="dv">24</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>);</span></code></pre></div>
+            <h3 id="enterprise-features-setup">3. Enterprise Features
+            Setup</h3>
+            <div class="sourceCode" id="cb3"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Load enterprise modules</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>\i sql<span class="op">/</span><span class="dv">040</span>_enterprise_impact_analysis.sql</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>\i sql<span class="op">/</span><span class="dv">041</span>_zero_downtime_deployment.sql</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>\i sql<span class="op">/</span><span class="dv">042</span>_cost_optimization_dashboard.sql</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>\i sql<span class="op">/</span><span class="dv">050</span>_cicd_integration.sql</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>\i sql<span class="op">/</span><span class="dv">051</span>_enterprise_auth_rbac.sql</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>\i sql<span class="op">/</span><span class="dv">052</span>_compliance_reporting.sql</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">-- Verify all features are working</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.enterprise_health_check();</span></code></pre></div>
+            <h2 id="monitoring-alerting">📊 Monitoring &amp;
+            Alerting</h2>
+            <h3 id="key-metrics-to-monitor">1. Key Metrics to
+            Monitor</h3>
+            <div class="sourceCode" id="cb4"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- pggit health dashboard</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;Objects Tracked&#39;</span> <span class="kw">as</span> metric,</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">COUNT</span>(<span class="op">*</span>):<span class="ch">:TEXT</span> <span class="kw">as</span> <span class="fu">value</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> pggit.objects</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="kw">UNION</span> <span class="kw">ALL</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;History Records&#39;</span>,</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">COUNT</span>(<span class="op">*</span>):<span class="ch">:TEXT</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> pggit.history</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="kw">UNION</span> <span class="kw">ALL</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;Storage Overhead %&#39;</span>,</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ROUND</span>((</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        (<span class="kw">SELECT</span> <span class="fu">SUM</span>(pg_total_relation_size(schemaname<span class="op">||</span><span class="st">&#39;.&#39;</span><span class="op">||</span>tablename)) </span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>         <span class="kw">FROM</span> pg_tables <span class="kw">WHERE</span> schemaname <span class="op">=</span> <span class="st">&#39;pggit&#39;</span>):<span class="ch">:FLOAT</span> <span class="op">/</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        pg_database_size(current_database()):<span class="ch">:FLOAT</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    ) <span class="op">*</span> <span class="dv">100</span>, <span class="dv">2</span>):<span class="ch">:TEXT</span>;</span></code></pre></div>
+            <h3 id="performance-monitoring">2. Performance
+            Monitoring</h3>
+            <div class="sourceCode" id="cb5"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Monitor function performance</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    funcname,</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    calls,</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    total_time,</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    mean_time,</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    self_time</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> pg_stat_user_functions </span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> schemaname <span class="op">=</span> <span class="st">&#39;pggit&#39;</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> total_time <span class="kw">DESC</span>;</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="co">-- Event trigger overhead</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    tgname,</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    schemaname,</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>    tablename</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> pg_trigger t</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a><span class="kw">JOIN</span> pg_class c <span class="kw">ON</span> t.tgrelid <span class="op">=</span> c.<span class="kw">oid</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a><span class="kw">JOIN</span> pg_namespace n <span class="kw">ON</span> c.relnamespace <span class="op">=</span> n.<span class="kw">oid</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> tgname <span class="kw">LIKE</span> <span class="st">&#39;pggit%&#39;</span>;</span></code></pre></div>
+            <h3 id="automated-alerts">3. Automated Alerts</h3>
+            <div class="sourceCode" id="cb6"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Set up performance alerts</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">OR</span> <span class="kw">REPLACE</span> <span class="kw">FUNCTION</span> pggit.check_performance_alerts()</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>RETURNS <span class="kw">TABLE</span>(alert_type TEXT, message TEXT, severity TEXT) <span class="kw">AS</span> $$</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="cf">BEGIN</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Check for slow operations</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">RETURN</span> <span class="kw">QUERY</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span> </span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;PERFORMANCE&#39;</span>:<span class="ch">:TEXT</span>,</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;Function &#39;</span> <span class="op">||</span> funcname <span class="op">||</span> <span class="st">&#39; averaging &#39;</span> <span class="op">||</span> mean_time <span class="op">||</span> <span class="st">&#39;ms&#39;</span>:<span class="ch">:TEXT</span>,</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">CASE</span> <span class="cf">WHEN</span> mean_time <span class="op">&gt;</span> <span class="dv">1000</span> <span class="cf">THEN</span> <span class="st">&#39;CRITICAL&#39;</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>             <span class="cf">WHEN</span> mean_time <span class="op">&gt;</span> <span class="dv">500</span> <span class="cf">THEN</span> <span class="st">&#39;WARNING&#39;</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>             <span class="cf">ELSE</span> <span class="st">&#39;INFO&#39;</span> <span class="cf">END</span>:<span class="ch">:TEXT</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">FROM</span> pg_stat_user_functions </span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">WHERE</span> schemaname <span class="op">=</span> <span class="st">&#39;pggit&#39;</span> <span class="kw">AND</span> mean_time <span class="op">&gt;</span> <span class="dv">100</span>;</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">-- Check storage growth</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">RETURN</span> <span class="kw">QUERY</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span> </span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;STORAGE&#39;</span>:<span class="ch">:TEXT</span>,</span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;pggit using &#39;</span> <span class="op">||</span> </span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>        <span class="fu">ROUND</span>((</span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>            (<span class="kw">SELECT</span> <span class="fu">SUM</span>(pg_total_relation_size(schemaname<span class="op">||</span><span class="st">&#39;.&#39;</span><span class="op">||</span>tablename)) </span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>             <span class="kw">FROM</span> pg_tables <span class="kw">WHERE</span> schemaname <span class="op">=</span> <span class="st">&#39;pggit&#39;</span>):<span class="ch">:FLOAT</span> <span class="op">/</span></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>            pg_database_size(current_database()):<span class="ch">:FLOAT</span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>        ) <span class="op">*</span> <span class="dv">100</span>, <span class="dv">2</span>):<span class="ch">:TEXT</span> <span class="op">||</span> <span class="st">&#39;% of database&#39;</span>,</span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>        <span class="cf">CASE</span> <span class="cf">WHEN</span> (</span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>            (<span class="kw">SELECT</span> <span class="fu">SUM</span>(pg_total_relation_size(schemaname<span class="op">||</span><span class="st">&#39;.&#39;</span><span class="op">||</span>tablename)) </span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>             <span class="kw">FROM</span> pg_tables <span class="kw">WHERE</span> schemaname <span class="op">=</span> <span class="st">&#39;pggit&#39;</span>):<span class="ch">:FLOAT</span> <span class="op">/</span></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>            pg_database_size(current_database()):<span class="ch">:FLOAT</span></span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>        ) <span class="op">*</span> <span class="dv">100</span> <span class="op">&gt;</span> <span class="dv">10</span> <span class="cf">THEN</span> <span class="st">&#39;WARNING&#39;</span></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">ELSE</span> <span class="st">&#39;INFO&#39;</span> <span class="cf">END</span>:<span class="ch">:TEXT</span>;</span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a><span class="cf">END</span>;</span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a>$$ LANGUAGE plpgsql;</span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a><span class="co">-- Run alerts check</span></span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> pggit.check_performance_alerts();</span></code></pre></div>
+            <h2 id="maintenance-tasks">🔧 Maintenance Tasks</h2>
+            <h3 id="regular-cleanup">1. Regular Cleanup</h3>
+            <div class="sourceCode" id="cb7"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Clean old history records (keep last 90 days)</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="kw">DELETE</span> <span class="kw">FROM</span> pggit.history </span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> change_timestamp <span class="op">&lt;</span> NOW() <span class="op">-</span> <span class="dt">INTERVAL</span> <span class="st">&#39;90 days&#39;</span>;</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="co">-- Vacuum pggit tables</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>VACUUM <span class="kw">ANALYZE</span> pggit.objects;</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>VACUUM <span class="kw">ANALYZE</span> pggit.history;</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>VACUUM <span class="kw">ANALYZE</span> pggit.dependencies;</span></code></pre></div>
+            <h3 id="index-maintenance">2. Index Maintenance</h3>
+            <div class="sourceCode" id="cb8"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Check index usage</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    schemaname,</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    tablename,</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    indexname,</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    idx_scan,</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    idx_tup_read,</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    idx_tup_fetch</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> pg_stat_user_indexes </span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> schemaname <span class="op">=</span> <span class="st">&#39;pggit&#39;</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> idx_scan <span class="kw">DESC</span>;</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="co">-- Rebuild indexes if needed</span></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>REINDEX <span class="kw">SCHEMA</span> pggit;</span></code></pre></div>
+            <h3 id="statistics-updates">3. Statistics Updates</h3>
+            <div class="sourceCode" id="cb9"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Update table statistics</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="kw">ANALYZE</span> pggit.objects;</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="kw">ANALYZE</span> pggit.history;</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="kw">ANALYZE</span> pggit.dependencies;</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="co">-- Check for missing statistics</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>    schemaname,</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>    tablename,</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>    n_dead_tup,</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>    n_live_tup,</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>    last_analyze</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> pg_stat_user_tables </span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> schemaname <span class="op">=</span> <span class="st">&#39;pggit&#39;</span>;</span></code></pre></div>
+            <h2 id="capacity-planning">📈 Capacity Planning</h2>
+            <h3 id="growth-projections">1. Growth Projections</h3>
+            <div class="sourceCode" id="cb10"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Analyze growth trends</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="kw">WITH</span> growth_data <span class="kw">AS</span> (</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span> </span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>        DATE_TRUNC(<span class="st">&#39;day&#39;</span>, change_timestamp) <span class="kw">as</span> <span class="dt">day</span>,</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>        <span class="fu">COUNT</span>(<span class="op">*</span>) <span class="kw">as</span> daily_changes</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">FROM</span> pggit.history </span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">WHERE</span> change_timestamp <span class="op">&gt;</span> NOW() <span class="op">-</span> <span class="dt">INTERVAL</span> <span class="st">&#39;30 days&#39;</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">GROUP</span> <span class="kw">BY</span> DATE_TRUNC(<span class="st">&#39;day&#39;</span>, change_timestamp)</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">AVG</span>(daily_changes) <span class="kw">as</span> avg_daily_changes,</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">MAX</span>(daily_changes) <span class="kw">as</span> peak_daily_changes,</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">STDDEV</span>(daily_changes) <span class="kw">as</span> change_variability</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> growth_data;</span></code></pre></div>
+            <h3 id="storage-projections">2. Storage Projections</h3>
+            <div class="sourceCode" id="cb11"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Project storage needs</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="kw">WITH</span> storage_trend <span class="kw">AS</span> (</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span> </span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>        pg_size_pretty(<span class="fu">SUM</span>(pg_total_relation_size(schemaname<span class="op">||</span><span class="st">&#39;.&#39;</span><span class="op">||</span>tablename))) <span class="kw">as</span> current_size,</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>        <span class="fu">SUM</span>(pg_total_relation_size(schemaname<span class="op">||</span><span class="st">&#39;.&#39;</span><span class="op">||</span>tablename)) <span class="kw">as</span> size_bytes</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">FROM</span> pg_tables </span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">WHERE</span> schemaname <span class="op">=</span> <span class="st">&#39;pggit&#39;</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>    current_size,</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>    pg_size_pretty(size_bytes <span class="op">*</span> <span class="dv">2</span>) <span class="kw">as</span> projected_6_months,</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>    pg_size_pretty(size_bytes <span class="op">*</span> <span class="dv">4</span>) <span class="kw">as</span> projected_1_year</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> storage_trend;</span></code></pre></div>
+            <h3 id="performance-scaling">3. Performance Scaling</h3>
+            <div class="sourceCode" id="cb12"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Identify scaling bottlenecks</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;Event Triggers&#39;</span> <span class="kw">as</span> component,</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">COUNT</span>(<span class="op">*</span>) <span class="kw">as</span> current_load,</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">CASE</span> <span class="cf">WHEN</span> <span class="fu">COUNT</span>(<span class="op">*</span>) <span class="op">&gt;</span> <span class="dv">1000</span> <span class="cf">THEN</span> <span class="st">&#39;Consider selective tracking&#39;</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>         <span class="cf">WHEN</span> <span class="fu">COUNT</span>(<span class="op">*</span>) <span class="op">&gt;</span> <span class="dv">500</span> <span class="cf">THEN</span> <span class="st">&#39;Monitor performance&#39;</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>         <span class="cf">ELSE</span> <span class="st">&#39;OK&#39;</span> <span class="cf">END</span> <span class="kw">as</span> recommendation</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> pg_trigger </span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> tgname <span class="kw">LIKE</span> <span class="st">&#39;pggit%&#39;</span></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a><span class="kw">UNION</span> <span class="kw">ALL</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;History Table&#39;</span>,</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">COUNT</span>(<span class="op">*</span>),</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">CASE</span> <span class="cf">WHEN</span> <span class="fu">COUNT</span>(<span class="op">*</span>) <span class="op">&gt;</span> <span class="dv">100000</span> <span class="cf">THEN</span> <span class="st">&#39;Implement partitioning&#39;</span></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>         <span class="cf">WHEN</span> <span class="fu">COUNT</span>(<span class="op">*</span>) <span class="op">&gt;</span> <span class="dv">50000</span> <span class="cf">THEN</span> <span class="st">&#39;Schedule regular cleanup&#39;</span></span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>         <span class="cf">ELSE</span> <span class="st">&#39;OK&#39;</span> <span class="cf">END</span></span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> pggit.history;</span></code></pre></div>
+            <h2 id="disaster-recovery">🚨 Disaster Recovery</h2>
+            <h3 id="backup-strategy">1. Backup Strategy</h3>
+            <div class="sourceCode" id="cb13"><pre
+            class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Full database backup including pggit</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="ex">pg_dump</span> <span class="at">-Fc</span> <span class="at">-f</span> backup_<span class="va">$(</span><span class="fu">date</span> +%Y%m%d<span class="va">)</span>.dump database_name</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="co"># pggit schema only backup</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="ex">pg_dump</span> <span class="at">-Fc</span> <span class="at">-n</span> pggit <span class="at">-f</span> pggit_backup_<span class="va">$(</span><span class="fu">date</span> +%Y%m%d<span class="va">)</span>.dump database_name</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Point-in-time recovery setup</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Ensure WAL archiving is enabled</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a><span class="co"># archive_mode = on</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a><span class="co"># archive_command = &#39;cp %p /backup/wal/%f&#39;</span></span></code></pre></div>
+            <h3 id="recovery-procedures">2. Recovery Procedures</h3>
+            <div class="sourceCode" id="cb14"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Verify pggit integrity after restore</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.verify_database_integrity();</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Check for missing dependencies</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> </span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    d.dependent_object,</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>    d.dependency_object,</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">CASE</span> <span class="cf">WHEN</span> o1.<span class="kw">id</span> <span class="kw">IS</span> <span class="kw">NULL</span> <span class="cf">THEN</span> <span class="st">&#39;MISSING DEPENDENT&#39;</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>         <span class="cf">WHEN</span> o2.<span class="kw">id</span> <span class="kw">IS</span> <span class="kw">NULL</span> <span class="cf">THEN</span> <span class="st">&#39;MISSING DEPENDENCY&#39;</span></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>         <span class="cf">ELSE</span> <span class="st">&#39;OK&#39;</span> <span class="cf">END</span> <span class="kw">as</span> status</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> pggit.dependencies d</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a><span class="kw">LEFT</span> <span class="kw">JOIN</span> pggit.objects o1 <span class="kw">ON</span> d.dependent_object <span class="op">=</span> o1.full_name</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a><span class="kw">LEFT</span> <span class="kw">JOIN</span> pggit.objects o2 <span class="kw">ON</span> d.dependency_object <span class="op">=</span> o2.full_name</span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> o1.<span class="kw">id</span> <span class="kw">IS</span> <span class="kw">NULL</span> <span class="kw">OR</span> o2.<span class="kw">id</span> <span class="kw">IS</span> <span class="kw">NULL</span>;</span></code></pre></div>
+            <h3 id="rollback-capabilities">3. Rollback Capabilities</h3>
+            <div class="sourceCode" id="cb15"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Emergency rollback to specific point</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.rollback_to_timestamp(<span class="st">&#39;2024-06-15 10:00:00&#39;</span>);</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="co">-- Selective rollback of specific object</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.rollback_object(<span class="st">&#39;public.users&#39;</span>, <span class="st">&#39;1.2.0&#39;</span>);</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a><span class="co">-- Preview rollback impact</span></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> pggit.preview_rollback(<span class="st">&#39;2024-06-15 10:00:00&#39;</span>);</span></code></pre></div>
+            <h2 id="cicd-integration">🔄 CI/CD Integration</h2>
+            <h3 id="jenkins-pipeline">1. Jenkins Pipeline</h3>
+            <div class="sourceCode" id="cb16"><pre
+            class="sourceCode groovy"><code class="sourceCode groovy"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Generated by pggit.generate_cicd_config(&#39;jenkins&#39;)</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>pipeline <span class="op">{</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>    agent any</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>    stages <span class="op">{</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>        <span class="fu">stage</span><span class="op">(</span><span class="st">&#39;Database Migration&#39;</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>            steps <span class="op">{</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>                script <span class="op">{</span></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>                    <span class="co">// Run pggit migration analysis</span></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>                    sh <span class="st">&#39;psql -c &quot;SELECT pggit.analyze_migration_with_ai(</span><span class="sc">\&#39;</span><span class="st">${BUILD_ID}</span><span class="sc">\&#39;</span><span class="st">, </span><span class="sc">\&#39;</span><span class="st">${MIGRATION_SQL}</span><span class="sc">\&#39;</span><span class="st">, </span><span class="sc">\&#39;</span><span class="st">jenkins</span><span class="sc">\&#39;</span><span class="st">)&quot;&#39;</span></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>                    </span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>                    <span class="co">// Check for breaking changes</span></span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>                    <span class="dt">def</span> risks <span class="op">=</span> <span class="fu">sh</span><span class="op">(</span></span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>                        script<span class="op">:</span> <span class="st">&#39;psql -t -c &quot;SELECT risk_score FROM pggit.assess_migration_risk(</span><span class="sc">\&#39;</span><span class="st">${MIGRATION_SQL}</span><span class="sc">\&#39;</span><span class="st">)&quot;&#39;</span><span class="op">,</span></span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>                        returnStdout<span class="op">:</span> <span class="kw">true</span></span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>                    <span class="op">).</span><span class="fu">trim</span><span class="op">()</span></span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>                    </span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">if</span> <span class="op">(</span>risks<span class="op">.</span><span class="fu">toInteger</span><span class="op">()</span> <span class="op">&gt;</span> <span class="dv">50</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>                        error <span class="st">&quot;High risk migration detected: </span><span class="ss">${</span>risks<span class="ss">}</span><span class="st">&quot;</span></span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>                    <span class="op">}</span></span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>                <span class="op">}</span></span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+            <h3 id="github-actions">2. GitHub Actions</h3>
+            <div class="sourceCode" id="cb17"><pre
+            class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Generated by pggit.generate_cicd_config(&#39;github&#39;)</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">name</span><span class="kw">:</span><span class="at"> Database Migration</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="fu">on</span><span class="kw">:</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">push</span><span class="kw">:</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">paths</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">&#39;migrations/**&#39;</span><span class="kw">]</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a><span class="fu">jobs</span><span class="kw">:</span></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">migrate</span><span class="kw">:</span></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">runs-on</span><span class="kw">:</span><span class="at"> ubuntu-latest</span></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">steps</span><span class="kw">:</span></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">uses</span><span class="kw">:</span><span class="at"> actions/checkout@v3</span></span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Setup PostgreSQL</span></span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">uses</span><span class="kw">:</span><span class="at"> harmon758/postgresql-action@v1</span></span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">with</span><span class="kw">:</span></span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a><span class="at">          </span><span class="fu">postgresql version</span><span class="kw">:</span><span class="at"> </span><span class="st">&#39;17&#39;</span></span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Install pggit</span></span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a><span class="fu">        run</span><span class="kw">: </span><span class="ch">|</span></span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>          make &amp;&amp; sudo make install</span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a>          psql -c &quot;CREATE EXTENSION pggit&quot;</span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Analyze Migration</span></span>
+<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a><span class="fu">        run</span><span class="kw">: </span><span class="ch">|</span></span>
+<span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a>          RISK=$(psql -t -c &quot;SELECT risk_score FROM pggit.assess_migration_risk(&#39;${{ github.event.head_commit.message }}&#39;)&quot;)</span>
+<span id="cb17-23"><a href="#cb17-23" aria-hidden="true" tabindex="-1"></a>          echo &quot;Migration risk score: $RISK&quot;</span>
+<span id="cb17-24"><a href="#cb17-24" aria-hidden="true" tabindex="-1"></a>          [ &quot;$RISK&quot; -lt 50 ] || (echo &quot;High risk migration!&quot; &amp;&amp; exit 1)</span></code></pre></div>
+            <h3 id="monitoring-integration">3. Monitoring
+            Integration</h3>
+            <div class="sourceCode" id="cb18"><pre
+            class="sourceCode sql"><code class="sourceCode sql"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co">-- Grafana metrics endpoint</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">OR</span> <span class="kw">REPLACE</span> <span class="kw">FUNCTION</span> pggit.metrics_for_grafana()</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>RETURNS <span class="kw">TABLE</span>(</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>    metric_name TEXT,</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>    metric_value <span class="dt">NUMERIC</span>,</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">timestamp</span> <span class="dt">TIMESTAMP</span></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> $$</span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a><span class="cf">BEGIN</span></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">RETURN</span> <span class="kw">QUERY</span></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span> </span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;pggit_objects_tracked&#39;</span>:<span class="ch">:TEXT</span>,</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>        <span class="fu">COUNT</span>(<span class="op">*</span>):<span class="ch">:NUMERIC</span>,</span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>        NOW()</span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">FROM</span> pggit.objects</span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">UNION</span> <span class="kw">ALL</span></span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span> </span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;pggit_history_records&#39;</span>,</span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a>        <span class="fu">COUNT</span>(<span class="op">*</span>):<span class="ch">:NUMERIC</span>,</span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a>        NOW()</span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">FROM</span> pggit.history</span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a>    <span class="kw">UNION</span> <span class="kw">ALL</span></span>
+<span id="cb18-22"><a href="#cb18-22" aria-hidden="true" tabindex="-1"></a>    <span class="kw">SELECT</span> </span>
+<span id="cb18-23"><a href="#cb18-23" aria-hidden="true" tabindex="-1"></a>        <span class="st">&#39;pggit_storage_mb&#39;</span>,</span>
+<span id="cb18-24"><a href="#cb18-24" aria-hidden="true" tabindex="-1"></a>        <span class="fu">ROUND</span>((<span class="fu">SUM</span>(pg_total_relation_size(schemaname<span class="op">||</span><span class="st">&#39;.&#39;</span><span class="op">||</span>tablename)) <span class="op">/</span> <span class="fl">1024.0</span> <span class="op">/</span> <span class="fl">1024.0</span>):<span class="ch">:NUMERIC</span>, <span class="dv">2</span>),</span>
+<span id="cb18-25"><a href="#cb18-25" aria-hidden="true" tabindex="-1"></a>        NOW()</span>
+<span id="cb18-26"><a href="#cb18-26" aria-hidden="true" tabindex="-1"></a>    <span class="kw">FROM</span> pg_tables </span>
+<span id="cb18-27"><a href="#cb18-27" aria-hidden="true" tabindex="-1"></a>    <span class="kw">WHERE</span> schemaname <span class="op">=</span> <span class="st">&#39;pggit&#39;</span>;</span>
+<span id="cb18-28"><a href="#cb18-28" aria-hidden="true" tabindex="-1"></a><span class="cf">END</span>;</span>
+<span id="cb18-29"><a href="#cb18-29" aria-hidden="true" tabindex="-1"></a>$$ LANGUAGE plpgsql;</span></code></pre></div>
+            <h2 id="operations-checklist">📋 Operations Checklist</h2>
+            <h3 id="daily-tasks">Daily Tasks</h3>
+            <ul class="task-list">
+            <li><label><input type="checkbox" />Check pggit performance
+            alerts</label></li>
+            <li><label><input type="checkbox" />Review recent migration
+            activity</label></li>
+            <li><label><input type="checkbox" />Monitor storage
+            growth</label></li>
+            <li><label><input type="checkbox" />Verify backup
+            completion</label></li>
+            </ul>
+            <h3 id="weekly-tasks">Weekly Tasks</h3>
+            <ul class="task-list">
+            <li><label><input type="checkbox" />Analyze performance
+            trends</label></li>
+            <li><label><input type="checkbox" />Review security audit
+            logs</label></li>
+            <li><label><input type="checkbox" />Check for schema
+            drift</label></li>
+            <li><label><input type="checkbox" />Update capacity
+            projections</label></li>
+            </ul>
+            <h3 id="monthly-tasks">Monthly Tasks</h3>
+            <ul class="task-list">
+            <li><label><input type="checkbox" />Clean old history
+            records</label></li>
+            <li><label><input type="checkbox" />Rebuild indexes if
+            needed</label></li>
+            <li><label><input type="checkbox" />Review user
+            permissions</label></li>
+            <li><label><input type="checkbox" />Test disaster recovery
+            procedures</label></li>
+            </ul>
+            <h3 id="quarterly-tasks">Quarterly Tasks</h3>
+            <ul class="task-list">
+            <li><label><input type="checkbox" />Performance tuning
+            review</label></li>
+            <li><label><input type="checkbox" />Security
+            assessment</label></li>
+            <li><label><input type="checkbox" />Compliance
+            audit</label></li>
+            <li><label><input type="checkbox" />Technology stack
+            updates</label></li>
+            </ul>
+            <h2 id="operations-support">📞 Operations Support</h2>
+            <p>Need operational help?</p>
+            <ul>
+            <li><strong>24/7 Support</strong>: ops@pggit.dev
+            (Enterprise)</li>
+            <li><strong>Community</strong>: GitHub Discussions</li>
+            <li><strong>Documentation</strong>: <a
+            href="../getting-started/TROUBLESHOOTING.md">Troubleshooting
+            Guide</a></li>
+            <li><strong>Metrics</strong>: Use
+            <code>pggit.generate_contribution_metrics()</code> for
+            support cases</li>
+            </ul>
+            <hr />
+            <h2 id="key-operations-principles">🎯 Key Operations
+            Principles</h2>
+            <ol type="1">
+            <li><strong>Monitor proactively</strong>: Set up alerts
+            before problems occur</li>
+            <li><strong>Automate routine tasks</strong>: Use scripts and
+            CI/CD for consistency</li>
+            <li><strong>Plan for growth</strong>: Monitor trends and
+            scale proactively<br />
+            </li>
+            <li><strong>Test regularly</strong>: Verify backups,
+            recovery, and rollback procedures</li>
+            <li><strong>Document everything</strong>: Keep runbooks and
+            procedures updated</li>
+            </ol>
+            <hr />
+            <p><em>Successful pggit operations require planning,
+            monitoring, and regular maintenance. Follow these guidelines
+            for a stable production environment.</em></p>
+        </article>
+    </main>
+    
+    <footer>
+        <p>pgGit is open source software under the MIT License</p>
+        <p>Built with ❤️ by <a href="https://github.com/evoludigit">@evoludigit</a></p>
+    </footer>
+</body>
+</html>

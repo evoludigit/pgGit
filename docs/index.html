@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="pgGit - Git-like version control for PostgreSQL schemas. Track, branch, and merge database changes.">
+    <title>pgGit - PostgreSQL Schema Version Control</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='24' font-size='24'>🐘</text></svg>">
+</head>
+<body>
+    <nav class="nav" role="navigation" aria-label="Main navigation">
+        <div class="nav-inner">
+            <a href="/" class="nav-logo">pgGit</a>
+            <ul class="nav-links">
+                <li><a href="getting-started.html">Getting Started</a></li>
+                <li><a href="api.html">API Reference</a></li>
+                <li><a href="examples.html">Examples</a></li>
+                <li><a href="troubleshooting.html">Troubleshooting</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <header class="hero">
+        <div class="container">
+            <h1>pgGit: Version Control for PostgreSQL Schemas</h1>
+            <p class="hero-subtitle">Branch, merge, and track your database changes like you do with code.</p>
+            <div class="hero-actions">
+                <a href="getting-started.html" class="btn btn-primary">Get Started</a>
+                <a href="#quick-start" class="btn btn-secondary">Quick Start</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="intro">
+            <h2>The Problem</h2>
+            <p>Have you ever stared at a database after a late-night deployment wondering what changed? Lost track of which migration ran where? Wished you could just <code>git checkout</code> your database schema?</p>
+            
+            <h2>The Solution</h2>
+            <p>pgGit brings Git-like version control directly into PostgreSQL. No external tools, no migration files to manage, just pure SQL functions that track every schema change automatically.</p>
+        </section>
+
+        <section id="quick-start" class="quick-start">
+            <h2>Quick Start</h2>
+            <pre><code>-- Install the extension
+CREATE EXTENSION pggit;
+
+-- Check your current status
+SELECT * FROM pggit.status();
+
+-- Create a new feature branch
+SELECT pggit.checkout_b('feature/new-tables');
+
+-- Make your schema changes
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL
+);
+
+-- Commit your changes
+SELECT pggit.commit('Add users table');
+
+-- Merge back to main
+SELECT pggit.checkout('main');
+SELECT pggit.merge('feature/new-tables');</code></pre>
+        </section>
+
+        <section class="features">
+            <h2>Key Features</h2>
+            <div class="feature-grid">
+                <div class="feature">
+                    <h3>Automatic Tracking</h3>
+                    <p>Every DDL operation is automatically captured. No manual migration files.</p>
+                </div>
+                <div class="feature">
+                    <h3>Branching & Merging</h3>
+                    <p>Create feature branches, work in isolation, merge when ready.</p>
+                </div>
+                <div class="feature">
+                    <h3>Time Travel</h3>
+                    <p>View your schema at any point in history. Rollback when needed.</p>
+                </div>
+                <div class="feature">
+                    <h3>Conflict Detection</h3>
+                    <p>Smart three-way merge with automatic conflict detection.</p>
+                </div>
+                <div class="feature">
+                    <h3>Pure PostgreSQL</h3>
+                    <p>No external dependencies. Just install and use.</p>
+                </div>
+                <div class="feature">
+                    <h3>Production Ready*</h3>
+                    <p>*Not yet, but we're working on it.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="why">
+            <h2>Why pgGit?</h2>
+            <table class="comparison">
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>pgGit</th>
+                        <th>Traditional Tools</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Automatic tracking</td>
+                        <td class="yes">✓</td>
+                        <td class="no">✗</td>
+                    </tr>
+                    <tr>
+                        <td>No migration files</td>
+                        <td class="yes">✓</td>
+                        <td class="no">✗</td>
+                    </tr>
+                    <tr>
+                        <td>True branching</td>
+                        <td class="yes">✓</td>
+                        <td class="no">✗</td>
+                    </tr>
+                    <tr>
+                        <td>Conflict resolution</td>
+                        <td class="yes">✓</td>
+                        <td class="no">✗</td>
+                    </tr>
+                    <tr>
+                        <td>PostgreSQL native</td>
+                        <td class="yes">✓</td>
+                        <td class="no">✗</td>
+                    </tr>
+                    <tr>
+                        <td>Production ready</td>
+                        <td class="no">Not yet</td>
+                        <td class="yes">✓</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="cta">
+            <h2>Ready to Try?</h2>
+            <p>pgGit is an early prototype, but it works. If you're brave enough to try something new and help shape the future of database version control, we'd love to have you.</p>
+            <a href="getting-started.html" class="btn btn-primary">Get Started with pgGit</a>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Évolution digitale — pgGit. Built with PostgreSQL and ambition.</p>
+            <p>Found a bug? <a href="https://github.com/evoludigit/pggit/issues">Let us know</a></p>
+        </div>
+    </footer>
+</body>
+</html>
