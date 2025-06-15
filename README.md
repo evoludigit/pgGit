@@ -1,4 +1,4 @@
-# pggit: Git for PostgreSQL Databases 🚀
+# pgGit: Git for PostgreSQL Databases 🚀
 
 **Git-like version control for PostgreSQL schemas. Track, branch, and manage database changes like code.**
 
@@ -7,9 +7,9 @@
 ## 🚀 Quick Start
 
 ```bash
-# Install pggit
-git clone https://github.com/evoludigit/pggit.git
-cd pggit
+# Install pgGit
+git clone https://github.com/evoludigit/pgGit.git
+cd pgGit
 make && sudo make install
 
 # Use it
@@ -22,7 +22,7 @@ psql -c "SELECT * FROM pggit.get_version('users')"  # Version 1.0.0!
 
 ### 🎯 Get Started
 
-- **New to pggit?** → [Explained Like You're 5](docs/getting-started/PGGIT_EXPLAINED_LIKE_IM_5.md)
+- **New to pgGit?** → [Explained Like You're 5](docs/getting-started/PGGIT_EXPLAINED_LIKE_IM_5.md)
 - **Want details?** → [Explained Like You're 10](docs/getting-started/PGGIT_EXPLAINED_LIKE_IM_10.md)  
 - **Ready to install?** → [Getting Started Guide](docs/getting-started/GETTING_STARTED.md)
 
@@ -35,13 +35,13 @@ psql -c "SELECT * FROM pggit.get_version('users')"  # Version 1.0.0!
 ### 🔧 Reference
 
 - [API Reference](docs/reference/README.md) - Complete function documentation
-- [Contributing Guide](docs/contributing/README.md) - Help improve pggit
+- [Contributing Guide](docs/contributing/README.md) - Help improve pgGit
 - [Troubleshooting](docs/getting-started/TROUBLESHOOTING.md) - Fix common issues
 
 ## ⚡ Instant Demo
 
 ```bash
-# Try pggit instantly with Docker
+# Try pgGit instantly with Docker
 docker-compose up -d
 docker-compose exec pggit-demo psql -h postgres -U pggit_user -d pggit_demo
 ```
@@ -50,7 +50,7 @@ docker-compose exec pggit-demo psql -h postgres -U pggit_user -d pggit_demo
 
 You know that moment when you're staring at a production database after a deployment, wondering "What changed? Who changed it? And please tell me there's a way back?" We've all been there.
 
-**pggit solves this by bringing Git-like version control to PostgreSQL databases.**
+**pgGit solves this by bringing Git-like version control to PostgreSQL databases.**
 
 ---
 
@@ -119,9 +119,9 @@ SELECT pggit.merge_compressed_branches('feature/user-profiles', 'main');
 
 ## 📊 Key Features
 
-### What pggit Provides
+### What pgGit Provides
 
-| Feature | Traditional Tools | **pggit** |
+| Feature | Traditional Tools | **pgGit** |
 |---------|-------------------|-----------|
 | Schema Tracking | ✅ | ✅ |
 | Database Branching | Limited | **✅ Real Git-like** |
@@ -134,11 +134,11 @@ SELECT pggit.merge_compressed_branches('feature/user-profiles', 'main');
 ### Performance Monitoring
 
 ```sql
--- Monitor your pggit installation
+-- Monitor your pgGit installation
 SELECT pggit.generate_contribution_metrics();
 ```
 
-| Operation | Traditional Approach | pggit Approach |
+| Operation | Traditional Approach | pgGit Approach |
 |-----------|---------------------|----------------|
 | Branch Creation | Complex setup process | Streamlined branch creation |
 | Change Management | Manual tracking | Automated event triggers |
@@ -149,12 +149,12 @@ SELECT pggit.generate_contribution_metrics();
 
 ## 🚀 Quick Start
 
-### 1. Install pggit (2 minutes)
+### 1. Install pgGit (2 minutes)
 
 ```bash
 # For PostgreSQL 17 (with compression support)
-git clone https://github.com/evoludigit/pggit.git
-cd pggit
+git clone https://github.com/evoludigit/pgGit.git
+cd pgGit
 sudo make install
 
 # Create extension
@@ -164,7 +164,7 @@ psql -d your_database -c "CREATE EXTENSION pggit CASCADE;"
 ### 2. Your First Database Branch (30 seconds)
 
 ```sql
--- Initialize pggit on your database
+-- Initialize pgGit on your database
 SELECT pggit.init();
 
 -- Create your first branch
