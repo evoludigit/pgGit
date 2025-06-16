@@ -412,7 +412,7 @@ Need operational help?
 
 - **24/7 Support**: ops@pggit.dev (Enterprise)
 - **Community**: GitHub Discussions
-- **Documentation**: [Troubleshooting Guide](../getting-started/TROUBLESHOOTING.md)
+- **Documentation**: [Troubleshooting Guide](../getting-started/Troubleshooting.md)
 - **Metrics**: Use `pggit.generate_contribution_metrics()` for support cases
 
 ---

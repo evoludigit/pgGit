@@ -991,10 +991,10 @@ def deploy_feature(feature_name, migration_sql):
 
 ## 📚 See Also
 
-- **[Getting Started Guide →](GETTING_STARTED.md)** - Step-by-step setup
+- **[Getting Started Guide →](Getting_Started.md)** - Step-by-step setup
 - **[Examples →](../examples/)** - Real-world usage patterns
-- **[Architecture →](git_branching_architecture.md)** - How it works
-- **[Troubleshooting →](../TROUBLESHOOTING.md)** - Common issues
+- **[Architecture →](Git_Branching_Architecture.md)** - How it works
+- **[Troubleshooting →](getting-started/Troubleshooting.md)** - Common issues
 
 ---
 

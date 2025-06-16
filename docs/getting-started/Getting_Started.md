@@ -41,7 +41,7 @@ sudo make install
 psql -d her_database -c "CREATE EXTENSION pggit;"
 ```
 
-If that worked without errors, congratulations! You now have a quiet assistant tracking every schema change. If it didn't work, don't panic - check our [Troubleshooting Guide](TROUBLESHOOTING.md).
+If that worked without errors, congratulations! You now have a quiet assistant tracking every schema change. If it didn't work, don't panic - check our [Troubleshooting Guide](Troubleshooting.md).
 
 **What just happened?**
 
@@ -263,7 +263,7 @@ Event triggers require superuser privileges to install. Make sure you're running
 
 ### "It's tracking too much/too little"
 
-By default, pggit tracks all schema changes. You can configure what gets tracked by modifying the event trigger conditions. See our [Configuration Guide](CONFIGURATION.md).
+By default, pggit tracks all schema changes. You can configure what gets tracked by modifying the event trigger conditions.
 
 ---
 
@@ -300,4 +300,4 @@ SELECT * FROM pggit.show_table_versions();
 
 *Remember: The best database version control system is the one you actually use. pggit works automatically, so you don't have to remember to use it.*
 
-**Need help?** Check our [API Documentation](API.md), [Troubleshooting Guide](TROUBLESHOOTING.md), or open an issue on GitHub. We're here to help!
+**Need help?** Check our [API Documentation](../API_Reference.md), [Troubleshooting Guide](Troubleshooting.md), or open an issue on GitHub. We're here to help!

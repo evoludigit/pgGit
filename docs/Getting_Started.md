@@ -438,10 +438,10 @@ Congratulations! You've successfully:
 ### Ready for More?
 
 - **[Onboarding Guide →](Onboarding_Guide.md)** - Migrate existing databases to pggit
-- **[API Reference →](API_REFERENCE.md)** - Complete function documentation
+- **[API Reference →](API_Reference.md)** - Complete function documentation
 - **[Examples →](../examples/)** - Real-world use cases and patterns
-- **[Troubleshooting →](../TROUBLESHOOTING.md)** - Solutions to common issues
-- **[Architecture →](git_branching_architecture.md)** - How it works under the hood
+- **[Troubleshooting →](getting-started/Troubleshooting.md)** - Solutions to common issues
+- **[Architecture →](Git_Branching_Architecture.md)** - How it works under the hood
 
 ### Have an Existing Database?
 

@@ -4,7 +4,7 @@ Welcome to pggit - Git-like version control for PostgreSQL databases! This guide
 
 ## 📋 Quick Navigation
 
-- **New to pggit?** → Start with [Explained Like You're 5](PgGit_Explained_Like_Im_5.md)
+- **New to pggit?** → Start with [Explained Like You're 10](PgGit_Explained_Like_Im_10.md)
 - **Want more details?** → Read [Explained Like You're 10](PgGit_Explained_Like_Im_10.md)
 - **Ready to install?** → Follow [Getting Started Guide](Getting_Started.md)
 - **Having issues?** → Check [Troubleshooting](Troubleshooting.md)
@@ -33,7 +33,7 @@ psql -c "SELECT * FROM pggit.get_version('users')"  # Version 1.0.0!
 ## 📖 Learning Path
 
 ### Beginners (5 minutes)
-→ [Explained Like You're 5](PgGit_Explained_Like_Im_5.md)
+→ [Explained Like You're 10](PgGit_Explained_Like_Im_10.md)
 
 ### Developers (15 minutes)
 
@@ -41,9 +41,9 @@ psql -c "SELECT * FROM pggit.get_version('users')"  # Version 1.0.0!
 → [Getting Started Guide](Getting_Started.md)
 
 ### Production Users (30 minutes)
-→ [Performance Guide](../guides/performance.md)
-→ [Security Guide](../guides/security.md)
-→ [Operations Guide](../guides/operations.md)
+→ [Performance Guide](../guides/Performance.md)
+→ [Security Guide](../guides/Security.md)
+→ [Operations Guide](../guides/Operations.md)
 
 ## 🆘 Need Help?
 
@@ -54,9 +54,7 @@ psql -c "SELECT * FROM pggit.get_version('users')"  # Version 1.0.0!
 ## ⚡ Next Steps
 
 Once you're comfortable with the basics:
-1. Explore [Enterprise Features](../guides/enterprise-features.md)
-2. Set up [CI/CD Integration](../guides/cicd-integration.md)
-3. Try [AI-Powered Analysis](../guides/ai-features.md)
+1. Explore [Enterprise Features](../Enterprise_Features.md)
 
 ---
 

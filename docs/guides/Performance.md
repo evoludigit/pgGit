@@ -120,7 +120,7 @@ FROM database_size, pggit_size;
 Having performance issues?
 
 - **Community**: [GitHub Issues](https://github.com/evoludigit/pggit/issues)
-- **Documentation**: Check [Troubleshooting Guide](../getting-started/TROUBLESHOOTING.md)
+- **Documentation**: Check [Troubleshooting Guide](../getting-started/Troubleshooting.md)
 - **Metrics**: Use the voluntary metrics collection function (see Contributing Guide)
 
 ---

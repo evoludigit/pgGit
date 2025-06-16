@@ -78,7 +78,7 @@ SELECT pggit.migrate('--ai');
 SELECT pggit.reconcile('feature/new', 'main');
 ```
 
-[Full AI Migration Guide →](AI_MIGRATION.md)
+[Full AI Migration Guide →](AI_Migration.md)
 
 ---
 
