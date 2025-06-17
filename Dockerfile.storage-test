@@ -1,0 +1,80 @@
+# pgGit Storage Test Container
+# Simulates limited hot storage with cold storage backend
+
+FROM postgres:17-alpine
+
+# Install required packages
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    py3-psycopg \
+    bash \
+    curl \
+    lz4 \
+    zstd
+
+# Create storage tiers with size limits
+RUN mkdir -p /var/lib/postgresql/storage/hot \
+             /var/lib/postgresql/storage/warm \
+             /var/lib/postgresql/storage/cold
+
+# Set storage limits using filesystem quotas (simulated)
+# In production, would use actual filesystem quotas or LVM
+ENV PGGIT_HOT_STORAGE_LIMIT="100MB"
+ENV PGGIT_WARM_STORAGE_LIMIT="1GB"
+ENV PGGIT_COLD_STORAGE_PATH="/var/lib/postgresql/storage/cold"
+
+# Copy pgGit with storage extensions
+COPY sql/ /docker-entrypoint-initdb.d/
+COPY tests/test-cold-hot-storage.sql /tests/
+
+# Storage monitoring script
+COPY scripts/storage-monitor.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/storage-monitor.sh
+
+# Configure PostgreSQL for tiered storage
+RUN echo "shared_preload_libraries = 'pg_stat_statements'" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "max_wal_size = 2GB" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "checkpoint_timeout = 30min" >> /usr/share/postgresql/postgresql.conf.sample && \
+    echo "effective_io_concurrency = 200" >> /usr/share/postgresql/postgresql.conf.sample
+
+# Create test script
+RUN cat > /test-storage.sh << 'EOF'
+#!/bin/bash
+set -e
+
+echo "🧊 Testing pgGit Cold/Hot Storage..."
+echo "=================================="
+echo "Hot Storage Limit: $PGGIT_HOT_STORAGE_LIMIT"
+echo "Warm Storage Limit: $PGGIT_WARM_STORAGE_LIMIT"
+echo ""
+
+# Wait for PostgreSQL
+sleep 5
+
+# Create test database
+psql -U postgres -c "CREATE DATABASE storage_test;"
+
+# Install pgGit with storage extensions
+psql -U postgres -d storage_test -f /docker-entrypoint-initdb.d/001_schema.sql
+psql -U postgres -d storage_test -f /docker-entrypoint-initdb.d/054_cold_hot_storage.sql
+
+# Run storage tests
+echo "Running cold/hot storage tests..."
+psql -U postgres -d storage_test -f /tests/test-cold-hot-storage.sql
+
+# Monitor storage usage
+/usr/local/bin/storage-monitor.sh
+
+echo "✅ Storage tests completed!"
+EOF
+
+RUN chmod +x /test-storage.sh
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
+    CMD pg_isready -U postgres || exit 1
+
+EXPOSE 5432
+
+CMD ["postgres"]
