@@ -18,10 +18,12 @@ BEGIN
         RAISE EXCEPTION 'FAIL: pgGit.branches table missing';
     END IF;
     
+    -- Cleanup any existing test branch first
+    DELETE FROM pggit.branches WHERE name = 'test-enterprise-branch';
+    
     -- Create a test branch
     INSERT INTO pggit.branches (name, parent_branch_id, created_by)
-    VALUES ('test-enterprise-branch', (SELECT id FROM pggit.branches WHERE name = 'main'), 'test-user')
-    ON CONFLICT (name) DO NOTHING;
+    VALUES ('test-enterprise-branch', (SELECT id FROM pggit.branches WHERE name = 'main'), 'test-user');
     
     -- Count branches
     SELECT COUNT(*) INTO v_branch_count FROM pggit.branches WHERE status = 'ACTIVE';

@@ -107,8 +107,8 @@ CREATE TABLE IF NOT EXISTS pggit.branches (
 );
 
 -- Insert default main branch
-INSERT INTO pggit.branches (id, name, head_commit_hash) 
-VALUES (1, 'main', NULL) ON CONFLICT (name) DO NOTHING;
+INSERT INTO pggit.branches (name, head_commit_hash) 
+VALUES ('main', NULL) ON CONFLICT (name) DO NOTHING;
 
 -- PATENT #5: Commit tracking with merkle tree structure
 CREATE TABLE IF NOT EXISTS pggit.commits (
@@ -225,6 +225,17 @@ CREATE TABLE IF NOT EXISTS pggit.migrations (
     applied_at TIMESTAMP,
     applied_by TEXT,
     execution_time_ms INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Git blobs (individual object definitions)
+CREATE TABLE IF NOT EXISTS pggit.blobs (
+    blob_hash TEXT PRIMARY KEY,
+    object_type pggit.object_type NOT NULL,
+    object_name TEXT NOT NULL,
+    object_schema TEXT NOT NULL,
+    object_definition TEXT NOT NULL,
+    dependencies JSONB,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

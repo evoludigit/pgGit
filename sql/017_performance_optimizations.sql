@@ -16,17 +16,47 @@ BEGIN
         AND c.relname = 'history'
         AND c.relkind = 'p'  -- partitioned table
     ) THEN
-        -- Create new partitioned table
+        -- Create new partitioned table without any constraints
         CREATE TABLE pggit.history_new (
-            LIKE pggit.history INCLUDING ALL
+            id INTEGER NOT NULL,
+            object_id INTEGER NOT NULL,
+            change_type pggit.change_type NOT NULL,
+            change_severity pggit.change_severity NOT NULL,
+            commit_hash TEXT,
+            branch_id INTEGER,
+            merge_base_hash TEXT,
+            merge_resolution pggit.merge_resolution,
+            old_version INTEGER,
+            new_version INTEGER,
+            old_metadata JSONB,
+            new_metadata JSONB,
+            change_description TEXT,
+            sql_executed TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_by TEXT DEFAULT CURRENT_USER,
+            PRIMARY KEY (id, created_at)
         ) PARTITION BY RANGE (created_at);
+        
+        -- Add foreign key constraints
+        ALTER TABLE pggit.history_new ADD CONSTRAINT fk_history_object 
+            FOREIGN KEY (object_id) REFERENCES pggit.objects(id) ON DELETE CASCADE;
+        ALTER TABLE pggit.history_new ADD CONSTRAINT fk_history_branch 
+            FOREIGN KEY (branch_id) REFERENCES pggit.branches(id);
+        
+        -- Create sequence for id column
+        CREATE SEQUENCE pggit.history_new_id_seq;
+        ALTER TABLE pggit.history_new ALTER COLUMN id SET DEFAULT nextval('pggit.history_new_id_seq');
         
         -- Copy data from old table
         INSERT INTO pggit.history_new SELECT * FROM pggit.history;
         
+        -- Update sequence to continue from last value
+        PERFORM setval('pggit.history_new_id_seq', COALESCE(MAX(id), 1)) FROM pggit.history_new;
+        
         -- Swap tables
         ALTER TABLE pggit.history RENAME TO history_old;
         ALTER TABLE pggit.history_new RENAME TO history;
+        ALTER SEQUENCE pggit.history_new_id_seq RENAME TO history_id_seq;
         
         -- Update foreign key constraints
         ALTER TABLE pggit.history 
@@ -582,14 +612,14 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE VIEW pggit.system_health AS
 SELECT 
     'Total Objects' as metric,
-    COUNT(*) as value,
+    COUNT(*)::text as value,
     'count' as unit
 FROM pggit.objects
 WHERE is_active = TRUE
 UNION ALL
 SELECT 
     'History Size',
-    pg_size_pretty(pg_total_relation_size('pggit.history')),
+    pg_size_pretty(pg_total_relation_size('pggit.history'))::text,
     'size'
 UNION ALL
 SELECT 
@@ -604,7 +634,7 @@ SELECT
     COALESCE(
         EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - 
             (SELECT MAX(updated_at) FROM pggit.object_versions_cached)
-        )) || ' seconds',
+        ))::text || ' seconds',
         'Never refreshed'
     ),
     'age';

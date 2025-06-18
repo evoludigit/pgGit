@@ -250,16 +250,16 @@ BEGIN
     
     -- Check for dropped tables
     FOR v_table IN
-        SELECT object_name, version
-        FROM pggit.objects
-        WHERE object_type = 'TABLE'
-        AND schema_name = p_schema_name
-        AND is_active = true
+        SELECT o.object_name, o.version
+        FROM pggit.objects o
+        WHERE o.object_type = 'TABLE'
+        AND o.schema_name = p_schema_name
+        AND o.is_active = true
         AND NOT EXISTS (
             SELECT 1 
             FROM information_schema.tables 
             WHERE table_schema = p_schema_name
-            AND table_name = object_name
+            AND table_name = o.object_name
         )
     LOOP
         RETURN QUERY

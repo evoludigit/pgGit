@@ -6,6 +6,29 @@
 -- Size Management Tables
 -- =====================================================
 
+-- Find unreferenced blobs (defined early as it's used by other functions)
+CREATE OR REPLACE FUNCTION pggit.find_unreferenced_blobs()
+RETURNS TABLE (
+    blob_hash TEXT,
+    object_name TEXT,
+    size_bytes INTEGER
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        b.blob_hash,
+        b.object_name,
+        LENGTH(b.object_definition::text)
+    FROM pggit.blobs b
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM pggit.commits c
+        WHERE c.tree_hash = b.blob_hash
+    )
+    AND b.created_at < CURRENT_TIMESTAMP - INTERVAL '30 days';
+END;
+$$ LANGUAGE plpgsql;
+
 -- Track size metrics for branches
 CREATE TABLE IF NOT EXISTS pggit.branch_size_metrics (
     id SERIAL PRIMARY KEY,
@@ -658,28 +681,6 @@ $$ LANGUAGE plpgsql;
 -- =====================================================
 -- Helper Functions
 -- =====================================================
-
--- Find unreferenced blobs
-CREATE OR REPLACE FUNCTION pggit.find_unreferenced_blobs()
-RETURNS TABLE (
-    blob_id INTEGER,
-    content_hash TEXT,
-    size_bytes INTEGER
-) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT 
-        b.id,
-        b.content_hash,
-        LENGTH(b.content::text)
-    FROM pggit.blobs b
-    WHERE NOT EXISTS (
-        SELECT 1
-        FROM pggit.trees t
-        WHERE b.tree_id = t.id
-    );
-END;
-$$ LANGUAGE plpgsql;
 
 -- Add indexes for performance
 CREATE INDEX IF NOT EXISTS idx_branch_size_metrics_branch_name 

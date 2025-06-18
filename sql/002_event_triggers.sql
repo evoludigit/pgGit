@@ -35,6 +35,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION pggit.handle_ddl_command() RETURNS event_trigger AS $$
 DECLARE
     v_object RECORD;
+    v_column RECORD;
     v_object_id INTEGER;
     v_parent_id INTEGER;
     v_change_type pggit.change_type;
