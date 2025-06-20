@@ -316,6 +316,9 @@ BEGIN
             format('Total issues: %s', issue_count)::text,
             NULL::boolean;
     END IF;
+    
+    -- Return empty result set if not verbose
+    RETURN;
 END;
 $$ LANGUAGE plpgsql;
 

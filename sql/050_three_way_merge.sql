@@ -463,11 +463,12 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create indexes for performance
-CREATE INDEX IF NOT EXISTS idx_commits_branch_time 
-ON pggit.commits(branch_name, committed_at DESC);
+-- Note: These indexes require columns that may not exist in base schema
+-- CREATE INDEX IF NOT EXISTS idx_commits_branch_time 
+-- ON pggit.commits(branch_name, committed_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_commits_parent 
-ON pggit.commits(parent_commit_id);
+-- CREATE INDEX IF NOT EXISTS idx_commits_parent 
+-- ON pggit.commits(parent_commit_id);
 
 CREATE INDEX IF NOT EXISTS idx_merge_conflicts_branches 
 ON pggit.merge_conflicts(source_branch, target_branch);

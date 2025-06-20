@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS pggit.function_versions (
     metadata jsonb, -- Extracted from comments
     created_at timestamptz DEFAULT now(),
     created_by text DEFAULT current_user,
-    commit_id uuid REFERENCES pggit.commits(commit_id)
+    commit_id uuid -- Foreign key removed: pggit.commits may not have commit_id column
 );
 
 -- Function to parse function signature

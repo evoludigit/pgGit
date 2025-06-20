@@ -47,8 +47,19 @@ BEGIN
         CREATE SEQUENCE pggit.history_new_id_seq;
         ALTER TABLE pggit.history_new ALTER COLUMN id SET DEFAULT nextval('pggit.history_new_id_seq');
         
-        -- Copy data from old table
-        INSERT INTO pggit.history_new SELECT * FROM pggit.history;
+        -- Copy data from old table (explicitly list columns to avoid mismatch)
+        INSERT INTO pggit.history_new (
+            id, object_id, change_type, change_severity, commit_hash, branch_id,
+            merge_base_hash, merge_resolution, old_version, new_version,
+            old_metadata, new_metadata, change_description, sql_executed,
+            created_at, created_by
+        )
+        SELECT 
+            id, object_id, change_type, change_severity, commit_hash, branch_id,
+            merge_base_hash, merge_resolution, old_version, new_version,
+            old_metadata, new_metadata, change_description, sql_executed,
+            created_at, created_by
+        FROM pggit.history;
         
         -- Update sequence to continue from last value
         PERFORM setval('pggit.history_new_id_seq', COALESCE(MAX(id), 1)) FROM pggit.history_new;

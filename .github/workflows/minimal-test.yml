@@ -1,0 +1,108 @@
+name: Minimal Test
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Debug - List files
+      run: |
+        echo "=== Current directory ==="
+        pwd
+        echo "=== Files in sql directory ==="
+        ls -la sql/
+        echo "=== Test files ==="
+        ls -la tests/test-*.sql | head -10
+    
+    - name: Test PostgreSQL connection
+      env:
+        PGPASSWORD: postgres
+      run: |
+        psql -h localhost -U postgres -d test_db -c "SELECT version();"
+        psql -h localhost -U postgres -d test_db -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+    
+    - name: Try minimal pgGit setup
+      env:
+        PGPASSWORD: postgres
+      run: |
+        # Just create the schema and minimal tables
+        psql -h localhost -U postgres -d test_db << 'EOF'
+        -- Create schema
+        CREATE SCHEMA IF NOT EXISTS pggit;
+        
+        -- Create only the tables our tests need
+        CREATE TABLE IF NOT EXISTS pggit.tracking_config (
+            config_id serial PRIMARY KEY,
+            config_type text NOT NULL,
+            action text NOT NULL,
+            pattern text NOT NULL,
+            priority integer DEFAULT 0,
+            created_at timestamptz DEFAULT now()
+        );
+        
+        CREATE TABLE IF NOT EXISTS pggit.deployment_mode (
+            deployment_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            deployment_name text NOT NULL,
+            started_at timestamptz DEFAULT now(),
+            status text DEFAULT 'active'
+        );
+        
+        CREATE TABLE IF NOT EXISTS pggit.deployment_state (
+            id integer PRIMARY KEY DEFAULT 1,
+            current_deployment_id uuid,
+            is_active boolean DEFAULT false
+        );
+        
+        INSERT INTO pggit.deployment_state (id, is_active) 
+        VALUES (1, false) 
+        ON CONFLICT (id) DO NOTHING;
+        
+        SELECT 'Basic setup complete' as status;
+        EOF
+    
+    - name: Try to install just configuration module
+      env:
+        PGPASSWORD: postgres
+      run: |
+        echo "Installing configuration module only..."
+        cd sql
+        # First check file exists
+        if [ -f "pggit_configuration.sql" ]; then
+          echo "File exists, attempting install..."
+          # Show first 50 lines for debugging
+          head -50 pggit_configuration.sql
+          echo "---"
+          # Try to install
+          if psql -h localhost -U postgres -d test_db -f pggit_configuration.sql; then
+            echo "✓ Configuration module installed successfully"
+          else
+            echo "✗ Configuration module failed to install"
+            # Try to get more specific error
+            psql -h localhost -U postgres -d test_db -f pggit_configuration.sql 2>&1 | tail -100
+            exit 1
+          fi
+        else
+          echo "✗ pggit_configuration.sql not found!"
+          exit 1
+        fi

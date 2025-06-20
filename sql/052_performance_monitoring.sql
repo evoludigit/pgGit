@@ -447,9 +447,9 @@ SELECT
     ROUND(MIN(duration_ms), 2) as min_duration_ms,
     ROUND(MAX(duration_ms), 2) as max_duration_ms,
     ROUND(STDDEV(duration_ms), 2) as stddev_duration_ms,
-    ROUND(percentile_cont(0.5) WITHIN GROUP (ORDER BY duration_ms), 2) as median_duration_ms,
-    ROUND(percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms), 2) as p95_duration_ms,
-    ROUND(percentile_cont(0.99) WITHIN GROUP (ORDER BY duration_ms), 2) as p99_duration_ms
+    ROUND(percentile_cont(0.5) WITHIN GROUP (ORDER BY duration_ms)::numeric, 2) as median_duration_ms,
+    ROUND(percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms)::numeric, 2) as p95_duration_ms,
+    ROUND(percentile_cont(0.99) WITHIN GROUP (ORDER BY duration_ms)::numeric, 2) as p99_duration_ms
 FROM pggit.performance_metrics
 WHERE started_at >= now() - interval '24 hours'
 GROUP BY operation_type;

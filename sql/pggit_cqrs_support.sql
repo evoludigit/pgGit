@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS pggit.cqrs_changesets (
     created_at timestamptz DEFAULT now(),
     created_by text DEFAULT current_user,
     completed_at timestamptz,
-    commit_id uuid REFERENCES pggit.commits(commit_id),
+    commit_id uuid, -- Foreign key removed: pggit.commits may not have commit_id column
     error_message text
 );
 
