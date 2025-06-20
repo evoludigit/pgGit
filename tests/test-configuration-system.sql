@@ -134,21 +134,27 @@ END $$;
 
 -- Test 6: Comment-based tracking control
 \echo '  Test 6: Comment-based tracking control'
-CREATE TABLE test_command.with_ignore_comment (id int);
-COMMENT ON TABLE test_command.with_ignore_comment IS 'This table @pggit:ignore should not be tracked';
+DO $$
+BEGIN
+    CREATE TABLE test_command.with_ignore_comment (id int);
+    COMMENT ON TABLE test_command.with_ignore_comment IS 'This table @pggit:ignore should not be tracked';
 
-SELECT test_assert(
-    NOT EXISTS(SELECT 1 FROM pggit.versioned_objects WHERE object_name = 'test_command.with_ignore_comment'),
-    'Tables with @pggit:ignore comment should not be tracked'
-);
+    PERFORM test_assert(
+        NOT EXISTS(SELECT 1 FROM pggit.versioned_objects WHERE object_name = 'test_command.with_ignore_comment'),
+        'Tables with @pggit:ignore comment should not be tracked'
+    );
+END $$;
 
-CREATE TABLE test_command.with_track_comment (id int);
-COMMENT ON TABLE test_command.with_track_comment IS 'This table @pggit:track must be tracked';
+DO $$
+BEGIN
+    CREATE TABLE test_command.with_track_comment (id int);
+    COMMENT ON TABLE test_command.with_track_comment IS 'This table @pggit:track must be tracked';
 
-SELECT test_assert(
-    EXISTS(SELECT 1 FROM pggit.versioned_objects WHERE object_name = 'test_command.with_track_comment'),
-    'Tables with @pggit:track comment should be tracked even in ignored schema'
-);
+    PERFORM test_assert(
+        EXISTS(SELECT 1 FROM pggit.versioned_objects WHERE object_name = 'test_command.with_track_comment'),
+        'Tables with @pggit:track comment should be tracked even in ignored schema'
+    );
+END $$;
 
 -- Test 7: Emergency pause/resume
 \echo '  Test 7: Emergency pause/resume'

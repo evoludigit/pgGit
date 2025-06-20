@@ -188,11 +188,11 @@ BEGIN
     
     -- Create a commit if not in deployment mode
     IF NOT pggit.in_deployment_mode() THEN
-        INSERT INTO pggit.commits (branch_name, commit_message, commit_sql, author)
+        INSERT INTO pggit.commits (hash, branch_id, message, author)
         SELECT 
-            'main',
+            md5(random()::text || clock_timestamp()::text),
+            1, -- main branch
             'CQRS Change: ' || cs.description || ' (v' || COALESCE(cs.version, '1.0') || ')',
-            array_to_string(cs.command_operations || cs.query_operations, E';\n'),
             current_user
         FROM pggit.cqrs_changesets cs
         WHERE cs.changeset_id = execute_cqrs_changeset.changeset_id;
@@ -294,8 +294,8 @@ SELECT
     (SELECT count(*) FROM pggit.cqrs_operations o 
      WHERE o.changeset_id = c.changeset_id AND o.success = false) as failed_ops,
     c.error_message,
-    com.commit_id,
+    com.id as commit_id,
     com.message as commit_message
 FROM pggit.cqrs_changesets c
-LEFT JOIN pggit.commits com ON com.metadata->>'changeset_id' = c.changeset_id::text
+LEFT JOIN pggit.commits com ON com.hash = c.changeset_id::text
 ORDER BY c.created_at DESC;

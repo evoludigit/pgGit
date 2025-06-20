@@ -93,6 +93,13 @@ DO $$
 DECLARE
     v_conflict_id uuid;
 BEGIN
+    -- Create test table for constraint conflict
+    CREATE TABLE test_conflicts.orders (
+        id serial PRIMARY KEY,
+        amount decimal,
+        CONSTRAINT check_positive_amount CHECK (amount > 0)
+    );
+    
     -- Register constraint conflict
     v_conflict_id := pggit.register_conflict(
         'constraint',

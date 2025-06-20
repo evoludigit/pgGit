@@ -197,7 +197,7 @@ BEGIN
     -- Check metadata
     PERFORM test_assert(
         EXISTS(SELECT 1 FROM pggit.function_versions fv
-               WHERE fv.metadata->>'ignore' = 'true'),
+               WHERE (fv.metadata->>'ignore')::boolean = true),
         'Function with @pggit-ignore should have ignore metadata'
     );
 END $$;

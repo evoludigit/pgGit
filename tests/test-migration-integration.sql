@@ -157,10 +157,10 @@ DECLARE
 BEGIN
     -- Add some migrations with gaps
     INSERT INTO pggit.external_migrations 
-    (v_migration_id, tool_name, migration_name, success, pggit_commit_id)
+    (migration_id, tool_name, migration_name, success, pggit_commit_id)
     VALUES 
-    (100, 'test', 'Migration 100', true, gen_random_uuid()),
-    (102, 'test', 'Migration 102', true, gen_random_uuid()),
+    (100, 'test', 'Migration 100', true, 1),
+    (102, 'test', 'Migration 102', true, 1),
     (103, 'test', 'Migration 103', false, NULL),
     (105, 'test', 'Migration 105', true, NULL);
     
@@ -223,7 +223,7 @@ DECLARE
 BEGIN
     -- Analyze impact of first migration
     SELECT COUNT(*) INTO impact_count
-    FROM pggit.analyze_migration_impact(test_migration_id);
+    FROM pggit.analyze_migration_impact(test_v_migration_id);
     
     PERFORM test_assert(
         impact_count > 0,
@@ -232,7 +232,7 @@ BEGIN
     
     -- Verify impact includes table creation
     PERFORM test_assert(
-        EXISTS(SELECT 1 FROM pggit.analyze_migration_impact(test_migration_id)
+        EXISTS(SELECT 1 FROM pggit.analyze_migration_impact(test_v_migration_id)
                WHERE object_type = 'table' 
                AND operation = 'CREATE'),
         'Should detect table creation in migration'
@@ -331,7 +331,7 @@ BEGIN
     
     -- Check execution time was recorded
     SELECT execution_time INTO exec_time
-    FROM pggit.external_migrations
+    FROM pggit.external_migrations em
     WHERE em.migration_id = v_migration_id;
     
     PERFORM test_assert(

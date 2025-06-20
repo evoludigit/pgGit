@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS pggit.external_migrations (
     tool_name text NOT NULL,
     migration_name text,
     checksum text,
-    pggit_commit_id uuid, -- Foreign key removed: pggit.commits may not have commit_id column
+    pggit_commit_id integer REFERENCES pggit.commits(id),
     pggit_version_start uuid,
     pggit_version_end uuid,
     applied_at timestamptz DEFAULT now(),
@@ -70,7 +70,7 @@ CREATE OR REPLACE FUNCTION pggit.end_migration(
 DECLARE
     migration_record record;
     version_end uuid;
-    commit_id uuid;
+    commit_id integer;
     start_time timestamptz;
 BEGIN
     -- Get migration record
@@ -92,9 +92,9 @@ BEGIN
         );
         
         -- Get the commit that was just created
-        SELECT c.commit_id INTO commit_id
+        SELECT c.id INTO commit_id
         FROM pggit.commits c
-        ORDER BY c.created_at DESC
+        ORDER BY c.committed_at DESC
         LIMIT 1;
     EXCEPTION WHEN OTHERS THEN
         -- Deployment might have already ended
@@ -120,16 +120,16 @@ CREATE OR REPLACE FUNCTION pggit.link_migration(
     tool_name text DEFAULT 'flyway'
 ) RETURNS void AS $$
 DECLARE
-    commit_id uuid;
+    commit_id integer;
 BEGIN
     -- Create a commit for the migration
-    INSERT INTO pggit.commits (branch_name, commit_message, commit_sql, author)
+    INSERT INTO pggit.commits (hash, branch_id, message, author)
     VALUES (
-        'main',
+        md5(random()::text || clock_timestamp()::text),
+        1, -- main branch
         COALESCE(description, format('External migration %s from %s', migration_id, tool_name)),
-        '-- External migration linked retroactively',
         current_user
-    ) RETURNING commit_id INTO commit_id;
+    ) RETURNING id INTO commit_id;
     
     -- Link to migration record if it exists
     UPDATE pggit.external_migrations
@@ -292,14 +292,14 @@ SELECT
     m.applied_by,
     m.execution_time,
     m.success,
-    c.commit_id,
+    c.id as commit_id,
     c.message as commit_message,
-    c.tree_id,
+    c.tree_hash,
     (SELECT COUNT(*) 
-     FROM pggit.tree_entries te 
-     WHERE te.tree_id = c.tree_id) as objects_changed
+     FROM pggit.objects o 
+     WHERE o.branch_id = c.branch_id) as objects_changed
 FROM pggit.external_migrations m
-LEFT JOIN pggit.commits c ON c.commit_id = m.pggit_commit_id
+LEFT JOIN pggit.commits c ON c.id = m.pggit_commit_id
 ORDER BY m.applied_at DESC;
 
 -- Function to export schema state at migration point
