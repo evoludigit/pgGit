@@ -40,7 +40,7 @@ BEGIN
     
     -- Verify conflict was registered
     PERFORM test_assert(
-        EXISTS(SELECT 1 FROM pggit.conflict_registry WHERE conflict_id = conflict_id),
+        EXISTS(SELECT 1 FROM pggit.conflict_registry cr WHERE cr.conflict_id = conflict_id),
         'Conflict should be registered'
     );
     
@@ -49,10 +49,10 @@ BEGIN
     
     -- Verify resolution
     PERFORM test_assert(
-        EXISTS(SELECT 1 FROM pggit.conflict_registry 
-               WHERE conflict_id = conflict_id 
-               AND status = 'resolved'
-               AND resolution_type = 'use_current'),
+        EXISTS(SELECT 1 FROM pggit.conflict_registry cr
+               WHERE cr.conflict_id = conflict_id 
+               AND cr.status = 'resolved'
+               AND cr.resolution_type = 'use_current'),
         'Conflict should be marked as resolved'
     );
 END $$;

@@ -25,7 +25,7 @@ CREATE SCHEMA test_reference;
 -- Test 1: Default configuration (track everything)
 \echo '  Test 1: Default tracking behavior'
 CREATE TABLE test_command.should_track (id int);
-PERFORM test_assert(
+SELECT test_assert(
     EXISTS(SELECT 1 FROM pggit.versioned_objects WHERE object_name = 'test_command.should_track'),
     'Default should track all schemas'
 );
@@ -42,17 +42,17 @@ CREATE TABLE test_command.tracked_table (id int);
 CREATE TABLE test_query.ignored_table (id int);
 CREATE TABLE test_reference.tracked_ref (id int);
 
-PERFORM test_assert(
+SELECT test_assert(
     EXISTS(SELECT 1 FROM pggit.versioned_objects WHERE object_name = 'test_command.tracked_table'),
     'Should track command schema'
 );
 
-PERFORM test_assert(
+SELECT test_assert(
     NOT EXISTS(SELECT 1 FROM pggit.versioned_objects WHERE object_name = 'test_query.ignored_table'),
     'Should ignore query schema'
 );
 
-PERFORM test_assert(
+SELECT test_assert(
     EXISTS(SELECT 1 FROM pggit.versioned_objects WHERE object_name = 'test_reference.tracked_ref'),
     'Should track reference schema'
 );
@@ -67,7 +67,7 @@ CREATE MATERIALIZED VIEW test_query.test_mv AS SELECT 1 as id;
 REFRESH MATERIALIZED VIEW test_query.test_mv;
 
 -- The REFRESH should not create a new version
-PERFORM test_assert(
+SELECT test_assert(
     (SELECT COUNT(*) FROM pggit.version_history vh 
      JOIN pggit.versioned_objects vo ON vo.object_id = vh.object_id
      WHERE vo.object_name = 'test_query.test_mv') <= 1,
@@ -79,7 +79,7 @@ PERFORM test_assert(
 SELECT pggit.add_ignore_pattern('CREATE TEMP TABLE %');
 CREATE TEMP TABLE temp_should_ignore (id int);
 
-PERFORM test_assert(
+SELECT test_assert(
     NOT EXISTS(SELECT 1 FROM pggit.versioned_objects WHERE object_name LIKE '%temp_should_ignore%'),
     'Temporary tables should be ignored by pattern'
 );
@@ -97,7 +97,7 @@ BEGIN
     -- Start deployment
     deployment_id := pggit.begin_deployment('Test deployment', auto_commit => true);
     
-    PERFORM test_assert(
+    SELECT test_assert(
         pggit.in_deployment_mode(),
         'Should be in deployment mode'
     );
@@ -112,13 +112,13 @@ BEGIN
     
     -- Check that only one commit was created
     SELECT COUNT(*) INTO changes_after FROM pggit.commits;
-    PERFORM test_assert(
+    SELECT test_assert(
         changes_after = changes_before + 1,
         'Deployment mode should create single commit'
     );
     
     -- Verify deployment metadata
-    PERFORM test_assert(
+    SELECT test_assert(
         EXISTS(
             SELECT 1 FROM pggit.commits 
             WHERE metadata->>'deployment_id' = deployment_id::text
@@ -133,7 +133,7 @@ END;
 CREATE TABLE test_command.with_ignore_comment (id int);
 COMMENT ON TABLE test_command.with_ignore_comment IS 'This table @pggit:ignore should not be tracked';
 
-PERFORM test_assert(
+SELECT test_assert(
     NOT EXISTS(SELECT 1 FROM pggit.versioned_objects WHERE object_name = 'test_command.with_ignore_comment'),
     'Tables with @pggit:ignore comment should not be tracked'
 );
@@ -141,7 +141,7 @@ PERFORM test_assert(
 CREATE TABLE test_command.with_track_comment (id int);
 COMMENT ON TABLE test_command.with_track_comment IS 'This table @pggit:track must be tracked';
 
-PERFORM test_assert(
+SELECT test_assert(
     EXISTS(SELECT 1 FROM pggit.versioned_objects WHERE object_name = 'test_command.with_track_comment'),
     'Tables with @pggit:track comment should be tracked even in ignored schema'
 );
@@ -159,7 +159,7 @@ BEGIN
     CREATE TABLE test_command.created_while_paused (id int);
     
     -- Check it wasn't tracked
-    PERFORM test_assert(
+    SELECT test_assert(
         NOT EXISTS(SELECT 1 FROM pggit.versioned_objects WHERE object_name = 'test_command.created_while_paused'),
         'Objects created while paused should not be tracked'
     );
@@ -171,7 +171,7 @@ BEGIN
     CREATE TABLE test_command.created_after_resume (id int);
     
     -- Check it was tracked
-    PERFORM test_assert(
+    SELECT test_assert(
         EXISTS(SELECT 1 FROM pggit.versioned_objects WHERE object_name = 'test_command.created_after_resume'),
         'Objects created after resume should be tracked'
     );
@@ -187,7 +187,7 @@ SELECT pggit.configure_tracking(
 
 -- Higher priority (track) should win
 CREATE TABLE test_command.priority_test (id int);
-PERFORM test_assert(
+SELECT test_assert(
     EXISTS(SELECT 1 FROM pggit.versioned_objects WHERE object_name = 'test_command.priority_test'),
     'Track rules should have higher priority than ignore rules'
 );
@@ -201,19 +201,19 @@ SELECT pggit.configure_tracking(
 CREATE SCHEMA test_wildcard;
 CREATE TABLE test_wildcard.should_ignore (id int);
 
-PERFORM test_assert(
+SELECT test_assert(
     NOT EXISTS(SELECT 1 FROM pggit.versioned_objects WHERE object_name = 'test_wildcard.should_ignore'),
     'Wildcard patterns should work for schema names'
 );
 
 -- Test 10: System event logging
 \echo '  Test 10: System event logging'
-PERFORM test_assert(
+SELECT test_assert(
     EXISTS(SELECT 1 FROM pggit.system_events WHERE event_type = 'tracking_paused'),
     'Pause events should be logged'
 );
 
-PERFORM test_assert(
+SELECT test_assert(
     EXISTS(SELECT 1 FROM pggit.system_events WHERE event_type = 'tracking_resumed'),
     'Resume events should be logged'
 );

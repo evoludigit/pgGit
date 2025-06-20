@@ -99,9 +99,9 @@ BEGIN
     END IF;
     
     -- If in deployment mode, link to current deployment
-    SELECT current_deployment_id INTO current_deployment_id 
-    FROM pggit.deployment_state 
-    WHERE is_active = true;
+    SELECT ds.current_deployment_id INTO current_deployment_id 
+    FROM pggit.deployment_state ds
+    WHERE ds.is_active = true;
     
     IF current_deployment_id IS NOT NULL THEN
         -- Increment deployment changes count

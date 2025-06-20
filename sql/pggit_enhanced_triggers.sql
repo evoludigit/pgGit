@@ -30,9 +30,9 @@ BEGIN
     operation := TG_TAG;
     
     -- Check if in deployment mode
-    SELECT deployment_state.current_deployment_id INTO current_deployment_id
-    FROM pggit.deployment_state
-    WHERE is_active = true;
+    SELECT ds.current_deployment_id INTO current_deployment_id
+    FROM pggit.deployment_state ds
+    WHERE ds.is_active = true;
     
     FOR obj IN SELECT * FROM pg_event_trigger_ddl_commands()
     LOOP
@@ -136,9 +136,9 @@ BEGIN
     operation := 'DROP';
     
     -- Check if in deployment mode
-    SELECT deployment_state.current_deployment_id INTO current_deployment_id
-    FROM pggit.deployment_state
-    WHERE is_active = true;
+    SELECT ds.current_deployment_id INTO current_deployment_id
+    FROM pggit.deployment_state ds
+    WHERE ds.is_active = true;
     
     FOR obj IN SELECT * FROM pg_event_trigger_dropped_objects()
     LOOP
