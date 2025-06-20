@@ -48,7 +48,7 @@ BEGIN
     
     -- Verify pgGit commit was created
     PERFORM test_assert(
-        EXISTS(SELECT 1 FROM pggit.external_migrations 
+        EXISTS(SELECT 1 FROM pggit.external_migrations em
                WHERE em.migration_id = v_migration_id 
                AND pggit_commit_id IS NOT NULL),
         'Migration should have associated pgGit commit'
@@ -83,7 +83,7 @@ BEGIN
     
     -- Verify failure was recorded
     PERFORM test_assert(
-        EXISTS(SELECT 1 FROM pggit.external_migrations 
+        EXISTS(SELECT 1 FROM pggit.external_migrations em
                WHERE em.migration_id = v_migration_id 
                AND success = false
                AND error_message IS NOT NULL),
@@ -105,7 +105,7 @@ BEGIN
     
     -- Verify it was linked
     PERFORM test_assert(
-        EXISTS(SELECT 1 FROM pggit.external_migrations 
+        EXISTS(SELECT 1 FROM pggit.external_migrations em
                WHERE em.migration_id = v_migration_id
                AND tool_name = 'liquibase'
                AND pggit_commit_id IS NOT NULL),

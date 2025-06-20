@@ -53,7 +53,7 @@ BEGIN
     
     -- Verify operations were tracked
     PERFORM test_assert(
-        (SELECT COUNT(*) FROM pggit.cqrs_operations co WHERE cs.changeset_id = v_changeset_id) = 3,
+        (SELECT COUNT(*) FROM pggit.cqrs_operations co WHERE co.changeset_id = v_changeset_id) = 3,
         'All CQRS operations should be tracked'
     );
     

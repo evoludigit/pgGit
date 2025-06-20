@@ -79,7 +79,7 @@ BEGIN
     
     -- Verify resolution metadata
     PERFORM test_assert(
-        EXISTS(SELECT 1 FROM pggit.conflict_registry 
+        EXISTS(SELECT 1 FROM pggit.conflict_registry cr
                WHERE cr.conflict_id = v_conflict_id 
                AND resolved_by = current_user
                AND resolution_reason = 'Accepting new version from feature branch'),
@@ -115,7 +115,7 @@ BEGIN
     );
     
     PERFORM test_assert(
-        EXISTS(SELECT 1 FROM pggit.conflict_registry 
+        EXISTS(SELECT 1 FROM pggit.conflict_registry cr
                WHERE cr.conflict_id = v_conflict_id 
                AND resolution_type = 'custom'),
         'Custom resolution should be recorded'

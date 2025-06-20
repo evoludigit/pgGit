@@ -60,13 +60,13 @@ DECLARE
 BEGIN
     -- Create overloaded functions
     CREATE OR REPLACE FUNCTION test_functions.process(value integer)
-    RETURNS integer AS $$ SELECT value * 2 $$ LANGUAGE sql;
+    RETURNS integer AS $func$ SELECT value * 2 $func$ LANGUAGE sql;
     
     CREATE OR REPLACE FUNCTION test_functions.process(value integer, multiplier integer)
-    RETURNS integer AS $$ SELECT value * multiplier $$ LANGUAGE sql;
+    RETURNS integer AS $func$ SELECT value * multiplier $func$ LANGUAGE sql;
     
     CREATE OR REPLACE FUNCTION test_functions.process(value text)
-    RETURNS text AS $$ SELECT upper(value) $$ LANGUAGE sql;
+    RETURNS text AS $func$ SELECT upper(value) $func$ LANGUAGE sql;
     
     -- Track each overload
     PERFORM pggit.track_function('test_functions.process(integer)');
