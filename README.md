@@ -1,7 +1,7 @@
 # pgGit: Git for PostgreSQL Databases 🚀
 
 [![Build](https://github.com/evoludigit/pgGit/actions/workflows/build.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/build.yml)
-[![Tests](https://github.com/evoludigit/pgGit/actions/workflows/tests.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/tests.yml)
+[![Tests](https://github.com/evoludigit/pgGit/actions/workflows/test-with-fixes.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/test-with-fixes.yml)
 [![PostgreSQL 15-17](https://img.shields.io/badge/PostgreSQL-15--17-blue.svg)](https://www.postgresql.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
