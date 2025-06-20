@@ -45,7 +45,7 @@ BEGIN
     );
     
     -- Resolve using current version
-    PERFORM pggit.resolve_conflict(v_v_conflict_id, 'use_current', 'Keeping production version');
+    PERFORM pggit.resolve_conflict(v_conflict_id, 'use_current', 'Keeping production version');
     
     -- Verify resolution
     PERFORM test_assert(
@@ -372,8 +372,8 @@ END $$;
 \echo '  Test 13: Duplicate conflict prevention'
 DO $$
 DECLARE
-    v_v_conflict_id1 uuid;
-    v_v_conflict_id2 uuid;
+    v_conflict_id1 uuid;
+    v_conflict_id2 uuid;
 BEGIN
     -- Register conflict
     v_conflict_id1 := pggit.register_conflict(

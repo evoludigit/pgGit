@@ -190,12 +190,12 @@ BEGIN
     IF NOT pggit.in_deployment_mode() THEN
         INSERT INTO pggit.commits (hash, branch_id, message, author)
         SELECT 
-            'cqrs-' || changeset_id::text,
+            'cqrs-' || cs.changeset_id::text,
             1, -- Default branch
-            'CQRS Change: ' || description || ' (v' || COALESCE(version, '1.0') || ')',
+            'CQRS Change: ' || cs.description || ' (v' || COALESCE(cs.version, '1.0') || ')',
             current_user
-        FROM pggit.cqrs_changesets
-        WHERE pggit.cqrs_changesets.changeset_id = execute_cqrs_changeset.changeset_id;
+        FROM pggit.cqrs_changesets cs
+        WHERE cs.changeset_id = execute_cqrs_changeset.changeset_id;
     END IF;
 END;
 $$ LANGUAGE plpgsql;

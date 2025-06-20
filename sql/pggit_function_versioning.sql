@@ -158,7 +158,7 @@ BEGIN
     SELECT * INTO existing_version
     FROM pggit.function_versions fv
     WHERE fv.signature_id = sig_id
-      AND fv.source_hash = track_function.source_hash;
+      AND fv.source_hash = source_hash;
     
     IF existing_version IS NULL THEN
         -- Insert new version
