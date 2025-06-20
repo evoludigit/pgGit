@@ -74,7 +74,7 @@ BEGIN
         WHEN 'version' THEN
             PERFORM pggit.resolve_version_conflict(conflict_record, resolution);
         WHEN 'constraint' THEN
-            PERFORM pggit.resolve_constraint_conflict(conflict_record, resolution);
+            PERFORM pggit.resolve_constraint_conflict(conflict_record, resolution, custom_resolution);
         WHEN 'dependency' THEN
             PERFORM pggit.resolve_dependency_conflict(conflict_record, resolution);
     END CASE;
@@ -162,7 +162,8 @@ $$ LANGUAGE plpgsql;
 -- Function to resolve constraint conflicts
 CREATE OR REPLACE FUNCTION pggit.resolve_constraint_conflict(
     conflict_record record,
-    resolution text
+    resolution text,
+    custom_resolution jsonb DEFAULT NULL
 ) RETURNS void AS $$
 DECLARE
     constraint_name text;
@@ -189,6 +190,17 @@ BEGIN
             -- Create new constraint that satisfies both
             RAISE NOTICE 'Automatic constraint merge not implemented';
             
+        WHEN 'custom' THEN
+            -- Apply custom resolution
+            IF custom_resolution IS NULL THEN
+                RAISE EXCEPTION 'Custom resolution requires resolution data';
+            END IF;
+            
+            -- Apply custom DDL or data changes
+            IF custom_resolution ? 'sql' THEN
+                EXECUTE custom_resolution->>'sql';
+            END IF;
+            
         ELSE
             RAISE EXCEPTION 'Invalid resolution type: %', resolution;
     END CASE;
@@ -212,6 +224,9 @@ BEGIN
             PERFORM pggit.reorder_dependencies(
                 conflict_record.conflict_data->>'object_list'
             );
+            
+        ELSE
+            RAISE EXCEPTION 'Invalid resolution type: %', resolution;
     END CASE;
 END;
 $$ LANGUAGE plpgsql;

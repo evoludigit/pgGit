@@ -57,6 +57,12 @@ BEGIN
         'All CQRS operations should be tracked'
     );
     
+    -- Check changeset status
+    PERFORM test_assert(
+        (SELECT status FROM pggit.cqrs_changesets WHERE changeset_id = v_changeset_id) = 'completed',
+        'CQRS changeset should be completed successfully'
+    );
+    
     -- Verify objects were created
     PERFORM test_assert(
         EXISTS(SELECT 1 FROM command.users),

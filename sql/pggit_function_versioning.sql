@@ -274,7 +274,7 @@ CREATE OR REPLACE FUNCTION pggit.get_function_version(
 DECLARE
     func_oid oid;
     sig_record record;
-    source_hash text;
+    current_source_hash text;
 BEGIN
     -- Parse the function signature
     BEGIN
@@ -284,7 +284,7 @@ BEGIN
     END;
     
     -- Get current source hash
-    SELECT md5(pg_get_functiondef(func_oid)) INTO source_hash;
+    SELECT md5(pg_get_functiondef(func_oid)) INTO current_source_hash;
     
     -- Get version info
     RETURN QUERY
@@ -296,7 +296,7 @@ BEGIN
     FROM pggit.function_versions fv
     JOIN pggit.function_signatures fs ON fs.signature_id = fv.signature_id
     WHERE fs.signature_hash = md5(function_signature)
-      AND fv.source_hash = source_hash
+      AND fv.source_hash = current_source_hash
     ORDER BY fv.created_at DESC
     LIMIT 1;
 END;

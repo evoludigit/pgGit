@@ -188,11 +188,11 @@ BEGIN
     
     -- Create a commit if not in deployment mode
     IF NOT pggit.in_deployment_mode() THEN
-        INSERT INTO pggit.commits (hash, branch_id, message, author)
+        INSERT INTO pggit.commits (branch_name, commit_message, commit_sql, author)
         SELECT 
-            'cqrs-' || cs.changeset_id::text,
-            1, -- Default branch
+            'main',
             'CQRS Change: ' || cs.description || ' (v' || COALESCE(cs.version, '1.0') || ')',
+            array_to_string(cs.command_operations || cs.query_operations, E';\n'),
             current_user
         FROM pggit.cqrs_changesets cs
         WHERE cs.changeset_id = execute_cqrs_changeset.changeset_id;

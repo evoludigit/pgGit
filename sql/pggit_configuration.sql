@@ -217,17 +217,15 @@ BEGIN
     -- Create a single commit for all deployment changes if auto_commit is true
     IF current_deployment.auto_commit AND current_deployment.changes_count > 0 THEN
         INSERT INTO pggit.commits (
-            message, 
-            author, 
-            metadata
+            branch_name,
+            commit_message, 
+            commit_sql,
+            author
         ) VALUES (
+            'main',
             COALESCE(message, 'Deployment: ' || current_deployment.deployment_name),
-            current_user,
-            jsonb_build_object(
-                'deployment_id', current_deployment.deployment_id,
-                'tags', tags,
-                'changes_count', current_deployment.changes_count
-            )
+            '-- Deployment changes batched together',
+            current_user
         );
     END IF;
     

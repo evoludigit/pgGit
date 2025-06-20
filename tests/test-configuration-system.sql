@@ -6,6 +6,9 @@
 
 BEGIN;
 
+-- Ensure uuid type is available
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- Test helper function
 CREATE OR REPLACE FUNCTION test_assert(condition boolean, message text) RETURNS void AS $$
 BEGIN
@@ -86,6 +89,7 @@ SELECT test_assert(
 
 -- Test 5: Deployment mode
 \echo '  Test 5: Deployment mode'
+DO $$
 DECLARE
     deployment_id uuid;
     changes_before int;
@@ -126,7 +130,7 @@ BEGIN
         ),
         'Deployment commit should have correct metadata'
     );
-END;
+END $$;
 
 -- Test 6: Comment-based tracking control
 \echo '  Test 6: Comment-based tracking control'

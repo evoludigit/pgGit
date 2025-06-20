@@ -92,9 +92,9 @@ BEGIN
         );
         
         -- Get the commit that was just created
-        SELECT commit_id INTO commit_id
-        FROM pggit.commits
-        ORDER BY created_at DESC
+        SELECT c.commit_id INTO commit_id
+        FROM pggit.commits c
+        ORDER BY c.created_at DESC
         LIMIT 1;
     EXCEPTION WHEN OTHERS THEN
         -- Deployment might have already ended
@@ -123,16 +123,13 @@ DECLARE
     commit_id uuid;
 BEGIN
     -- Create a commit for the migration
-    INSERT INTO pggit.commits (message, author, metadata)
+    INSERT INTO pggit.commits (branch_name, commit_message, commit_sql, author)
     VALUES (
+        'main',
         COALESCE(description, format('External migration %s from %s', migration_id, tool_name)),
-        current_user,
-        jsonb_build_object(
-            'migration_id', migration_id,
-            'tool', tool_name,
-            'linked_at', now()
-        )
-    ) RETURNING commits.commit_id INTO commit_id;
+        '-- External migration linked retroactively',
+        current_user
+    ) RETURNING commit_id INTO commit_id;
     
     -- Link to migration record if it exists
     UPDATE pggit.external_migrations
