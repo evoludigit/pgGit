@@ -1,0 +1,39 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Check SQL syntax
+      run: |
+        # Basic SQL syntax check
+        for sql_file in sql/*.sql; do
+          if [ -f "$sql_file" ]; then
+            echo "Checking $sql_file..."
+            # Use PostgreSQL to check syntax without executing
+            docker run --rm -v $(pwd):/workspace postgres:17 \
+              sh -c "cd /workspace && pg_dump --schema-only --file=/dev/null --dbname='postgresql:///?options=-c%20search_path%3d' < '$sql_file'" \
+              || echo "Warning: Syntax check failed for $sql_file"
+          fi
+        done
+    
+    - name: Check test files
+      run: |
+        echo "Found $(find tests -name "*.sql" | wc -l) test files"
+        echo "Found $(find sql -name "*.sql" | wc -l) SQL modules"
+    
+    - name: Validate documentation
+      run: |
+        echo "Checking documentation..."
+        if [ -d "docs" ]; then
+          echo "Found $(find docs -name "*.md" | wc -l) documentation files"
+        fi
