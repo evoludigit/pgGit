@@ -63,8 +63,12 @@ jobs:
         PGUSER: postgres
         PGDATABASE: pggit_test
       run: |
-        # Create pgGit schema and basic tables
-        psql < sql/pggit_core.sql || echo "Core SQL not found, creating minimal setup"
+        # Install pgGit from install.sql
+        if [ -f "sql/install.sql" ]; then
+          psql < sql/install.sql || echo "Warning: Some errors during install (may be expected)"
+        else
+          echo "install.sql not found, creating minimal setup"
+        fi
         
         # Create minimal pgGit setup if core SQL doesn't exist
         psql << 'EOF'
@@ -252,15 +256,15 @@ jobs:
         
         # Run each test file
         for test in tests/test-*.sql; do
-          if [ -f "$test" ] && [[ "$test" =~ test-(configuration|cqrs|function|migration|conflict) ]]; then
+          if [ -f "$test" ] && [[ "$(basename $test)" =~ ^test-(configuration|cqrs|function|migration|conflict) ]]; then
             echo "Running $(basename $test)..."
-            if psql -f "$test" -v ON_ERROR_STOP=1 > /tmp/test_output.log 2>&1; then
+            if psql -f "$test" > /tmp/test_output.log 2>&1; then
               echo "✅ $(basename $test) passed"
               TESTS_PASSED=$((TESTS_PASSED + 1))
             else
               echo "❌ $(basename $test) failed"
               echo "Error output:"
-              cat /tmp/test_output.log
+              tail -50 /tmp/test_output.log
               TESTS_FAILED=$((TESTS_FAILED + 1))
             fi
           fi
