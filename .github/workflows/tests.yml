@@ -55,6 +55,18 @@ jobs:
           echo "Waiting for PostgreSQL..."
           sleep 2
         done
+        
+    - name: Check PostgreSQL version
+      env:
+        PGPASSWORD: postgres
+        PGHOST: localhost
+        PGUSER: postgres
+      run: |
+        echo "PostgreSQL version:"
+        psql -c "SELECT version();"
+        
+        # Create pgcrypto extension for older PostgreSQL versions
+        psql -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
 
     - name: Install pgGit
       env:
@@ -65,7 +77,9 @@ jobs:
       run: |
         # Install pgGit from install.sql
         if [ -f "sql/install.sql" ]; then
-          psql < sql/install.sql || echo "Warning: Some errors during install (may be expected)"
+          # Run from sql directory so \i commands work
+          cd sql && psql -f install.sql || echo "Warning: Some errors during install (may be expected)"
+          cd ..
         else
           echo "install.sql not found, creating minimal setup"
         fi
