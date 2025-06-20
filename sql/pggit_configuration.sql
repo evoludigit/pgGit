@@ -77,10 +77,10 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Function to add ignore patterns
-CREATE OR REPLACE FUNCTION pggit.add_ignore_pattern(pattern text) RETURNS void AS $$
+CREATE OR REPLACE FUNCTION pggit.add_ignore_pattern(p_pattern text) RETURNS void AS $$
 BEGIN
     INSERT INTO pggit.tracking_config (config_type, action, pattern, priority)
-    VALUES ('pattern', 'ignore', pattern, 75)
+    VALUES ('pattern', 'ignore', p_pattern, 75)
     ON CONFLICT (config_type, pattern) 
     DO UPDATE SET action = 'ignore', priority = 75;
 END;

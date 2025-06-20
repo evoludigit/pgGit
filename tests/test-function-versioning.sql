@@ -148,7 +148,7 @@ DECLARE
 BEGIN
     -- Create initial function
     CREATE OR REPLACE FUNCTION test_functions.evolving_func(n integer)
-    RETURNS integer AS $$ SELECT n + 1 $$ LANGUAGE sql;
+    RETURNS integer AS $func$ SELECT n + 1 $func$ LANGUAGE sql;
     
     PERFORM pggit.track_function('test_functions.evolving_func(integer)');
     
@@ -158,7 +158,7 @@ BEGIN
     
     -- Modify function
     CREATE OR REPLACE FUNCTION test_functions.evolving_func(n integer)
-    RETURNS integer AS $$ SELECT n + 2 $$ LANGUAGE sql;
+    RETURNS integer AS $func$ SELECT n + 2 $func$ LANGUAGE sql;
     
     PERFORM pggit.track_function('test_functions.evolving_func(integer)');
     
@@ -186,7 +186,7 @@ DO $$
 BEGIN
     -- Create function with ignore directive
     CREATE OR REPLACE FUNCTION test_functions.ignored_func()
-    RETURNS void AS $$ BEGIN NULL; END $$ LANGUAGE plpgsql;
+    RETURNS void AS $func$ BEGIN NULL; END $func$ LANGUAGE plpgsql;
     
     COMMENT ON FUNCTION test_functions.ignored_func() IS 
     'Internal function @pggit-ignore';

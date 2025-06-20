@@ -188,6 +188,9 @@ BEGIN
         WHEN 'merge' THEN
             -- Create new constraint that satisfies both
             RAISE NOTICE 'Automatic constraint merge not implemented';
+            
+        ELSE
+            RAISE EXCEPTION 'Invalid resolution type: %', resolution;
     END CASE;
 END;
 $$ LANGUAGE plpgsql;
