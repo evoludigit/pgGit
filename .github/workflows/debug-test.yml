@@ -1,0 +1,71 @@
+name: Debug Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Test basic connection
+      env:
+        PGPASSWORD: postgres
+      run: |
+        echo "Testing connection..."
+        psql -h localhost -U postgres -d test_db -c "SELECT version();"
+        
+    - name: Try minimal install
+      env:
+        PGPASSWORD: postgres
+      run: |
+        echo "Creating schema..."
+        psql -h localhost -U postgres -d test_db << 'EOF'
+        CREATE SCHEMA IF NOT EXISTS pggit;
+        CREATE EXTENSION IF NOT EXISTS pgcrypto;
+        
+        -- Test table creation
+        CREATE TABLE pggit.test (id serial PRIMARY KEY);
+        SELECT 'Basic setup works' as status;
+        EOF
+        
+    - name: Try installing core files one by one
+      env:
+        PGPASSWORD: postgres
+      run: |
+        cd sql
+        for file in 001_schema.sql 002_event_triggers.sql; do
+          echo "Installing $file..."
+          if psql -h localhost -U postgres -d test_db -f "$file"; then
+            echo "✓ $file installed"
+          else
+            echo "✗ $file FAILED"
+            exit 1
+          fi
+        done
+        
+    - name: Try new modules
+      env:
+        PGPASSWORD: postgres
+      run: |
+        cd sql
+        echo "Testing configuration module..."
+        psql -h localhost -U postgres -d test_db -f pggit_configuration.sql || echo "Configuration module failed"
