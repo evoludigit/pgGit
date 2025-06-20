@@ -24,10 +24,10 @@ CREATE SCHEMA test_conflicts;
 \echo '  Test 1: Register and resolve merge conflict'
 DO $$
 DECLARE
-    conflict_id uuid;
+    v_conflict_id uuid;
 BEGIN
     -- Register a merge conflict
-    conflict_id := pggit.register_conflict(
+    v_conflict_id := pggit.register_conflict(
         'merge',
         'table',
         'test_conflicts.users',
@@ -40,17 +40,17 @@ BEGIN
     
     -- Verify conflict was registered
     PERFORM test_assert(
-        EXISTS(SELECT 1 FROM pggit.conflict_registry cr WHERE cr.conflict_id = conflict_id),
+        EXISTS(SELECT 1 FROM pggit.conflict_registry cr WHERE cr.conflict_id = v_conflict_id),
         'Conflict should be registered'
     );
     
     -- Resolve using current version
-    PERFORM pggit.resolve_conflict(conflict_id, 'use_current', 'Keeping production version');
+    PERFORM pggit.resolve_conflict(v_v_conflict_id, 'use_current', 'Keeping production version');
     
     -- Verify resolution
     PERFORM test_assert(
         EXISTS(SELECT 1 FROM pggit.conflict_registry cr
-               WHERE cr.conflict_id = conflict_id 
+               WHERE cr.conflict_id = v_conflict_id 
                AND cr.status = 'resolved'
                AND cr.resolution_type = 'use_current'),
         'Conflict should be marked as resolved'
@@ -61,10 +61,10 @@ END $$;
 \echo '  Test 2: Version conflict resolution'
 DO $$
 DECLARE
-    conflict_id uuid;
+    v_conflict_id uuid;
 BEGIN
     -- Create a version conflict
-    conflict_id := pggit.register_conflict(
+    v_conflict_id := pggit.register_conflict(
         'version',
         'function',
         'test_conflicts.process_data',
@@ -75,12 +75,12 @@ BEGIN
     );
     
     -- Resolve using tracked version
-    PERFORM pggit.resolve_conflict(conflict_id, 'use_tracked', 'Accepting new version from feature branch');
+    PERFORM pggit.resolve_conflict(v_conflict_id, 'use_tracked', 'Accepting new version from feature branch');
     
     -- Verify resolution metadata
     PERFORM test_assert(
         EXISTS(SELECT 1 FROM pggit.conflict_registry 
-               WHERE conflict_id = conflict_id 
+               WHERE cr.conflict_id = v_conflict_id 
                AND resolved_by = current_user
                AND resolution_reason = 'Accepting new version from feature branch'),
         'Resolution should include metadata'
@@ -91,10 +91,10 @@ END $$;
 \echo '  Test 3: Constraint conflict resolution'
 DO $$
 DECLARE
-    conflict_id uuid;
+    v_conflict_id uuid;
 BEGIN
     -- Register constraint conflict
-    conflict_id := pggit.register_conflict(
+    v_conflict_id := pggit.register_conflict(
         'constraint',
         'constraint',
         'check_positive_amount',
@@ -108,7 +108,7 @@ BEGIN
     
     -- Custom resolution
     PERFORM pggit.resolve_conflict(
-        conflict_id, 
+        v_conflict_id, 
         'custom',
         'Business rule changed to allow zero amounts',
         jsonb_build_object('sql', 'ALTER TABLE test_conflicts.orders DROP CONSTRAINT IF EXISTS check_positive_amount')
@@ -116,7 +116,7 @@ BEGIN
     
     PERFORM test_assert(
         EXISTS(SELECT 1 FROM pggit.conflict_registry 
-               WHERE conflict_id = conflict_id 
+               WHERE cr.conflict_id = v_conflict_id 
                AND resolution_type = 'custom'),
         'Custom resolution should be recorded'
     );
@@ -156,11 +156,11 @@ END $$;
 \echo '  Test 5: Show conflict details'
 DO $$
 DECLARE
-    conflict_id uuid;
+    v_conflict_id uuid;
     detail_count int;
 BEGIN
     -- Create detailed conflict
-    conflict_id := pggit.register_conflict(
+    v_conflict_id := pggit.register_conflict(
         'merge',
         'table',
         'test_conflicts.products',
@@ -173,7 +173,7 @@ BEGIN
     
     -- Get details
     SELECT COUNT(*) INTO detail_count
-    FROM pggit.show_conflict_details(conflict_id);
+    FROM pggit.show_conflict_details(v_conflict_id);
     
     PERFORM test_assert(
         detail_count > 5,
@@ -182,7 +182,7 @@ BEGIN
     
     -- Verify resolution options are shown
     PERFORM test_assert(
-        EXISTS(SELECT 1 FROM pggit.show_conflict_details(conflict_id)
+        EXISTS(SELECT 1 FROM pggit.show_conflict_details(v_conflict_id)
                WHERE detail_type = 'Resolution Options'),
         'Should show resolution options'
     );
@@ -372,11 +372,11 @@ END $$;
 \echo '  Test 13: Duplicate conflict prevention'
 DO $$
 DECLARE
-    conflict_id1 uuid;
-    conflict_id2 uuid;
+    v_v_conflict_id1 uuid;
+    v_v_conflict_id2 uuid;
 BEGIN
     -- Register conflict
-    conflict_id1 := pggit.register_conflict(
+    v_conflict_id1 := pggit.register_conflict(
         'merge',
         'table', 
         'test_conflicts.duplicate_test',
@@ -384,11 +384,11 @@ BEGIN
     );
     
     -- Try to resolve already resolved conflict
-    PERFORM pggit.resolve_conflict(conflict_id1, 'use_current');
+    PERFORM pggit.resolve_conflict(v_conflict_id1, 'use_current');
     
     -- Try to resolve again
     BEGIN
-        PERFORM pggit.resolve_conflict(conflict_id1, 'use_tracked');
+        PERFORM pggit.resolve_conflict(v_conflict_id1, 'use_tracked');
         PERFORM test_assert(false, 'Should not allow resolving already resolved conflict');
     EXCEPTION WHEN OTHERS THEN
         PERFORM test_assert(true, 'Correctly prevented duplicate resolution');

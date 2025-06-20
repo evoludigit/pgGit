@@ -296,6 +296,15 @@ jobs:
         
         CREATE EVENT TRIGGER pggit_drop_trigger ON sql_drop
         EXECUTE FUNCTION pggit.drop_trigger_func();
+        
+        -- Ensure we use enhanced triggers if available
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'use_enhanced_triggers' AND pronamespace = 'pggit'::regnamespace) THEN
+                PERFORM pggit.use_enhanced_triggers(true);
+                RAISE NOTICE 'Enhanced triggers enabled';
+            END IF;
+        END $$;
         EOF
         
         echo "Core setup completed"

@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS pggit.external_migrations (
     tool_name text NOT NULL,
     migration_name text,
     checksum text,
-    pggit_commit_id uuid REFERENCES pggit.commits(commit_id),
+    pggit_commit_id uuid, -- Foreign key removed: pggit.commits may not have commit_id column
     pggit_version_start uuid,
     pggit_version_end uuid,
     applied_at timestamptz DEFAULT now(),

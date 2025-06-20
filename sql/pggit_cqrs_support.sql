@@ -188,16 +188,12 @@ BEGIN
     
     -- Create a commit if not in deployment mode
     IF NOT pggit.in_deployment_mode() THEN
-        INSERT INTO pggit.commits (message, author, metadata)
+        INSERT INTO pggit.commits (hash, branch_id, message, author)
         SELECT 
-            'CQRS Change: ' || description,
-            current_user,
-            jsonb_build_object(
-                'changeset_id', changeset_id,
-                'version', version,
-                'command_ops_count', array_length(command_operations, 1),
-                'query_ops_count', array_length(query_operations, 1)
-            )
+            'cqrs-' || changeset_id::text,
+            1, -- Default branch
+            'CQRS Change: ' || description || ' (v' || COALESCE(version, '1.0') || ')',
+            current_user
         FROM pggit.cqrs_changesets
         WHERE pggit.cqrs_changesets.changeset_id = execute_cqrs_changeset.changeset_id;
     END IF;

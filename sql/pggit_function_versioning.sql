@@ -156,9 +156,9 @@ BEGIN
     
     -- Check if this exact version already exists
     SELECT * INTO existing_version
-    FROM pggit.function_versions
-    WHERE signature_id = sig_id
-      AND source_hash = source_hash;
+    FROM pggit.function_versions fv
+    WHERE fv.signature_id = sig_id
+      AND fv.source_hash = track_function.source_hash;
     
     IF existing_version IS NULL THEN
         -- Insert new version
