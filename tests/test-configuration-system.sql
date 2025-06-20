@@ -112,7 +112,7 @@ BEGIN
     ALTER TABLE test_command.deploy_table1 ADD COLUMN name text;
     
     -- End deployment
-    SELECT pggit.end_deployment('Test deployment completed', ARRAY['test', 'deployment']);
+    PERFORM pggit.end_deployment('Test deployment completed', ARRAY['test', 'deployment']);
     
     -- Check that only one commit was created
     SELECT COUNT(*) INTO changes_after FROM pggit.commits;
