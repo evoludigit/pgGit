@@ -105,7 +105,7 @@ DECLARE
     func_oid oid;
     sig_record record;
     source_text text;
-    source_hash text;
+    v_source_hash text;
     sig_id integer;
     existing_version record;
     extracted_metadata jsonb;
@@ -123,7 +123,7 @@ BEGIN
     
     -- Get function source
     SELECT pg_get_functiondef(func_oid) INTO source_text;
-    source_hash := md5(source_text);
+    v_source_hash := md5(source_text);
     
     -- Extract metadata from function comments if not provided
     IF metadata IS NULL THEN
@@ -158,7 +158,7 @@ BEGIN
     SELECT * INTO existing_version
     FROM pggit.function_versions fv
     WHERE fv.signature_id = sig_id
-      AND fv.source_hash = source_hash;
+      AND fv.source_hash = v_source_hash;
     
     IF existing_version IS NULL THEN
         -- Insert new version
@@ -170,7 +170,7 @@ BEGIN
         ) VALUES (
             sig_id,
             COALESCE(version, pggit.next_function_version(sig_id)),
-            source_hash,
+            v_source_hash,
             metadata
         );
     END IF;

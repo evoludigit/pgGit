@@ -28,7 +28,7 @@ CREATE SCHEMA reference;
 \echo '  Test 1: Basic CQRS change tracking'
 DO $$
 DECLARE
-    changeset_id uuid;
+    v_changeset_id uuid;
     change pggit.cqrs_change;
 BEGIN
     -- Define a CQRS change
@@ -43,17 +43,17 @@ BEGIN
     ];
     
     -- Track the change
-    changeset_id := pggit.track_cqrs_change(change, atomic => true);
+    v_changeset_id := pggit.track_cqrs_change(change, atomic => true);
     
     -- Verify changeset was created
     PERFORM test_assert(
-        EXISTS(SELECT 1 FROM pggit.cqrs_changesets WHERE changeset_id = changeset_id),
+        EXISTS(SELECT 1 FROM pggit.cqrs_changesets cs WHERE cs.changeset_id = v_changeset_id),
         'CQRS changeset should be created'
     );
     
     -- Verify operations were tracked
     PERFORM test_assert(
-        (SELECT COUNT(*) FROM pggit.cqrs_operations WHERE changeset_id = changeset_id) = 3,
+        (SELECT COUNT(*) FROM pggit.cqrs_operations co WHERE cs.changeset_id = v_changeset_id) = 3,
         'All CQRS operations should be tracked'
     );
     
@@ -74,7 +74,7 @@ END $$;
 DO $$
 DECLARE
     deployment_id uuid;
-    changeset_id uuid;
+    v_changeset_id uuid;
     change pggit.cqrs_change;
     commit_count_before int;
     commit_count_after int;
@@ -95,7 +95,7 @@ BEGIN
         'CREATE MATERIALIZED VIEW query.order_summary AS SELECT user_id, COUNT(*) as order_count, SUM(total) as total_spent FROM command.orders GROUP BY user_id'
     ];
     
-    changeset_id := pggit.track_cqrs_change(change, atomic => true);
+    v_changeset_id := pggit.track_cqrs_change(change, atomic => true);
     
     -- End deployment
     PERFORM pggit.end_deployment('CQRS changes deployed');
@@ -112,7 +112,7 @@ END $$;
 \echo '  Test 3: Non-atomic CQRS execution'
 DO $$
 DECLARE
-    changeset_id uuid;
+    v_changeset_id uuid;
     change pggit.cqrs_change;
 BEGIN
     -- Create change but don't execute
@@ -124,12 +124,12 @@ BEGIN
         'CREATE VIEW query.product_list AS SELECT * FROM command.products'
     ];
     
-    changeset_id := pggit.track_cqrs_change(change, atomic => false);
+    v_changeset_id := pggit.track_cqrs_change(change, atomic => false);
     
     -- Verify changeset is pending
     PERFORM test_assert(
         EXISTS(SELECT 1 FROM pggit.cqrs_changesets 
-               WHERE changeset_id = changeset_id AND status = 'pending'),
+               WHERE cs.changeset_id = v_changeset_id AND status = 'pending'),
         'Non-atomic changeset should be pending'
     );
     
@@ -139,7 +139,7 @@ BEGIN
     -- Verify execution
     PERFORM test_assert(
         EXISTS(SELECT 1 FROM pggit.cqrs_changesets 
-               WHERE changeset_id = changeset_id AND status = 'completed'),
+               WHERE cs.changeset_id = v_changeset_id AND status = 'completed'),
         'Manually executed changeset should be completed'
     );
 END $$;
@@ -148,7 +148,7 @@ END $$;
 \echo '  Test 4: CQRS operation failure handling'
 DO $$
 DECLARE
-    changeset_id uuid;
+    v_changeset_id uuid;
     change pggit.cqrs_change;
     error_caught boolean := false;
 BEGIN
@@ -161,7 +161,7 @@ BEGIN
     
     -- Try to execute
     BEGIN
-        changeset_id := pggit.track_cqrs_change(change, atomic => true);
+        v_changeset_id := pggit.track_cqrs_change(change, atomic => true);
     EXCEPTION WHEN OTHERS THEN
         error_caught := true;
     END;
@@ -246,7 +246,7 @@ END $$;
 \echo '  Test 8: Complex CQRS pattern'
 DO $$
 DECLARE
-    changeset_id uuid;
+    v_changeset_id uuid;
     change pggit.cqrs_change;
 BEGIN
     -- Simulate real-world CQRS update
@@ -266,13 +266,13 @@ BEGIN
          FROM command.inventory_events GROUP BY DATE(occurred_at)'
     ];
     
-    changeset_id := pggit.track_cqrs_change(change, atomic => true);
+    v_changeset_id := pggit.track_cqrs_change(change, atomic => true);
     
     -- Verify complex pattern was tracked
     PERFORM test_assert(
         (SELECT command_ops_count + query_ops_count 
          FROM pggit.cqrs_history 
-         WHERE changeset_id = changeset_id) = 5,
+         WHERE cs.changeset_id = v_changeset_id) = 5,
         'Complex CQRS pattern should track all operations'
     );
 END $$;

@@ -102,15 +102,13 @@ BEGIN
     CASE resolution
         WHEN 'use_current' THEN
             -- Keep current branch version
-            UPDATE pggit.versioned_objects
-            SET merge_status = 'resolved_current'
-            WHERE object_name = conflict_record.object_identifier;
+            -- Note: Resolution is tracked in conflict_registry, not versioned_objects
+            NULL;
             
         WHEN 'use_tracked' THEN
             -- Use incoming branch version
-            UPDATE pggit.versioned_objects
-            SET merge_status = 'resolved_tracked'
-            WHERE object_name = conflict_record.object_identifier;
+            -- Note: Resolution is tracked in conflict_registry, not versioned_objects
+            NULL;
             
         WHEN 'merge' THEN
             -- Automatic three-way merge

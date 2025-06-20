@@ -25,10 +25,10 @@ CREATE SCHEMA test_migrations;
 DO $$
 DECLARE
     deployment_id uuid;
-    migration_id bigint := 20250620001;
+    v_migration_id bigint := 20250620001;
 BEGIN
     -- Start migration
-    deployment_id := pggit.begin_migration(migration_id, 'flyway', 'Add user table');
+    deployment_id := pggit.begin_migration(v_migration_id, 'flyway', 'Add user table');
     
     -- Simulate migration DDL
     CREATE TABLE test_migrations.users (
@@ -38,18 +38,18 @@ BEGIN
     );
     
     -- End migration
-    PERFORM pggit.end_migration(migration_id, 'abc123'::text, true);
+    PERFORM pggit.end_migration(v_migration_id, 'abc123'::text, true);
     
     -- Verify migration was tracked
     PERFORM test_assert(
-        EXISTS(SELECT 1 FROM pggit.external_migrations WHERE migration_id = migration_id),
+        EXISTS(SELECT 1 FROM pggit.external_migrations em WHERE em.migration_id = v_migration_id),
         'Migration should be tracked'
     );
     
     -- Verify pgGit commit was created
     PERFORM test_assert(
         EXISTS(SELECT 1 FROM pggit.external_migrations 
-               WHERE migration_id = migration_id 
+               WHERE em.migration_id = v_migration_id 
                AND pggit_commit_id IS NOT NULL),
         'Migration should have associated pgGit commit'
     );
@@ -60,11 +60,11 @@ END $$;
 DO $$
 DECLARE
     deployment_id uuid;
-    migration_id bigint := 20250620002;
+    v_migration_id bigint := 20250620002;
     error_caught boolean := false;
 BEGIN
     -- Start migration
-    deployment_id := pggit.begin_migration(migration_id, 'flyway', 'Failed migration');
+    deployment_id := pggit.begin_migration(v_migration_id, 'flyway', 'Failed migration');
     
     -- Simulate partial migration
     CREATE TABLE test_migrations.partial_table (id int);
@@ -76,7 +76,7 @@ BEGIN
     EXCEPTION WHEN OTHERS THEN
         error_caught := true;
         -- End migration with failure
-        PERFORM pggit.end_migration(migration_id, NULL, false, SQLERRM);
+        PERFORM pggit.end_migration(v_migration_id, NULL, false, SQLERRM);
     END;
     
     PERFORM test_assert(error_caught, 'Should catch migration error');
@@ -84,7 +84,7 @@ BEGIN
     -- Verify failure was recorded
     PERFORM test_assert(
         EXISTS(SELECT 1 FROM pggit.external_migrations 
-               WHERE migration_id = migration_id 
+               WHERE em.migration_id = v_migration_id 
                AND success = false
                AND error_message IS NOT NULL),
         'Failed migration should be recorded with error'
@@ -95,18 +95,18 @@ END $$;
 \echo '  Test 3: Link existing migration'
 DO $$
 DECLARE
-    migration_id bigint := 20250620003;
+    v_migration_id bigint := 20250620003;
 BEGIN
     -- Simulate existing migration that wasn't tracked
     CREATE TABLE test_migrations.legacy_table (id int);
     
     -- Link it after the fact
-    PERFORM pggit.link_migration(migration_id, 'Legacy migration import', 'liquibase');
+    PERFORM pggit.link_migration(v_migration_id, 'Legacy migration import', 'liquibase');
     
     -- Verify it was linked
     PERFORM test_assert(
         EXISTS(SELECT 1 FROM pggit.external_migrations 
-               WHERE migration_id = migration_id
+               WHERE em.migration_id = v_migration_id
                AND tool_name = 'liquibase'
                AND pggit_commit_id IS NOT NULL),
         'Should be able to link migrations retroactively'
@@ -157,7 +157,7 @@ DECLARE
 BEGIN
     -- Add some migrations with gaps
     INSERT INTO pggit.external_migrations 
-    (migration_id, tool_name, migration_name, success, pggit_commit_id)
+    (v_migration_id, tool_name, migration_name, success, pggit_commit_id)
     VALUES 
     (100, 'test', 'Migration 100', true, gen_random_uuid()),
     (102, 'test', 'Migration 102', true, gen_random_uuid()),
@@ -219,7 +219,7 @@ END $$;
 DO $$
 DECLARE
     impact_count int;
-    test_migration_id bigint := 20250620001;
+    test_v_migration_id bigint := 20250620001;
 BEGIN
     -- Analyze impact of first migration
     SELECT COUNT(*) INTO impact_count
@@ -283,7 +283,7 @@ END $$;
 \echo '  Test 9: Migration with deployment mode'
 DO $$
 DECLARE
-    migration_id bigint := 20250620009;
+    v_migration_id bigint := 20250620009;
     commit_count_before int;
     commit_count_after int;
 BEGIN
@@ -291,7 +291,7 @@ BEGIN
     SELECT COUNT(*) INTO commit_count_before FROM pggit.commits;
     
     -- Start migration (which uses deployment mode internally)
-    PERFORM pggit.begin_migration(migration_id, 'test', 'Multi-step migration');
+    PERFORM pggit.begin_migration(v_migration_id, 'test', 'Multi-step migration');
     
     -- Multiple DDL operations
     CREATE TABLE test_migrations.step1 (id int);
@@ -301,7 +301,7 @@ BEGIN
     ALTER TABLE test_migrations.step2 ADD COLUMN name text;
     
     -- End migration
-    PERFORM pggit.end_migration(migration_id);
+    PERFORM pggit.end_migration(v_migration_id);
     
     -- Should create only one commit
     SELECT COUNT(*) INTO commit_count_after FROM pggit.commits;
@@ -316,23 +316,23 @@ END $$;
 \echo '  Test 10: Migration execution time tracking'
 DO $$
 DECLARE
-    migration_id bigint := 20250620010;
+    v_migration_id bigint := 20250620010;
     exec_time interval;
 BEGIN
     -- Start migration
-    PERFORM pggit.begin_migration(migration_id, 'test', 'Timed migration');
+    PERFORM pggit.begin_migration(v_migration_id, 'test', 'Timed migration');
     
     -- Simulate some work
     PERFORM pg_sleep(0.1);
     CREATE TABLE test_migrations.timed_table (id int);
     
     -- End migration
-    PERFORM pggit.end_migration(migration_id);
+    PERFORM pggit.end_migration(v_migration_id);
     
     -- Check execution time was recorded
     SELECT execution_time INTO exec_time
     FROM pggit.external_migrations
-    WHERE migration_id = migration_id;
+    WHERE em.migration_id = v_migration_id;
     
     PERFORM test_assert(
         exec_time IS NOT NULL AND exec_time > '0'::interval,
@@ -344,16 +344,16 @@ END $$;
 \echo '  Test 11: Duplicate migration prevention'
 DO $$
 DECLARE
-    migration_id bigint := 20250620011;
+    v_migration_id bigint := 20250620011;
     error_caught boolean := false;
 BEGIN
     -- First migration
-    PERFORM pggit.begin_migration(migration_id, 'test', 'Original');
-    PERFORM pggit.end_migration(migration_id);
+    PERFORM pggit.begin_migration(v_migration_id, 'test', 'Original');
+    PERFORM pggit.end_migration(v_migration_id);
     
     -- Try duplicate
     BEGIN
-        PERFORM pggit.begin_migration(migration_id, 'test', 'Duplicate');
+        PERFORM pggit.begin_migration(v_migration_id, 'test', 'Duplicate');
     EXCEPTION WHEN OTHERS THEN
         error_caught := true;
     END;
