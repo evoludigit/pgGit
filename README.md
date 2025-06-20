@@ -135,6 +135,11 @@ SELECT pggit.merge_compressed_branches('feature/user-profiles', 'main');
 | Storage Management | High overhead | **Optimized with compression** |
 | Merge Conflicts | Manual resolution | **Automated 3-way detection** |
 | PostgreSQL 17 Native | Basic support | **✅ Full integration** |
+| **Selective Tracking** | ❌ | **✅ Configure what to track** |
+| **CQRS Support** | ❌ | **✅ Built-in patterns** |
+| **Function Overloading** | Limited | **✅ Full signature tracking** |
+| **Migration Tools** | Separate | **✅ Integrated** |
+| **Emergency Controls** | ❌ | **✅ Production-ready** |
 | License | Commercial | **MIT (Free)** |
 
 ### Performance Monitoring
@@ -150,6 +155,83 @@ SELECT pggit.generate_contribution_metrics();
 | Change Management | Manual tracking | Automated event triggers |
 | Storage Usage | Full database copies | Compressed, efficient storage |
 | Conflict Resolution | Manual intervention | Automated detection and resolution |
+
+---
+
+## 🏢 Enterprise Features (New!)
+
+### Configuration System
+Control exactly what pgGit tracks with fine-grained configuration:
+
+```sql
+-- Configure for CQRS architecture
+SELECT pggit.configure_tracking(
+    track_schemas => ARRAY['command', 'domain'],
+    ignore_schemas => ARRAY['query', 'read_model'],
+    ignore_operations => ARRAY['REFRESH MATERIALIZED VIEW']
+);
+
+-- Use deployment mode for releases
+SELECT pggit.begin_deployment('Release 2.1.0');
+-- Make multiple changes...
+SELECT pggit.end_deployment();
+```
+
+### CQRS Support
+Built-in support for Command Query Responsibility Segregation:
+
+```sql
+-- Track coordinated changes across command and query sides
+SELECT pggit.track_cqrs_change(
+    ROW(
+        ARRAY['ALTER TABLE command.orders ADD status text'],
+        ARRAY['CREATE MATERIALIZED VIEW query.order_summary AS ...'],
+        'Add order status tracking',
+        '2.1.0'
+    )::pggit.cqrs_change
+);
+```
+
+### Enhanced Function Versioning
+Full support for function overloading and metadata:
+
+```sql
+-- Track function with metadata
+COMMENT ON FUNCTION api.process_order(jsonb) IS 
+'Process customer orders
+@pggit-version: 3.1.0
+@pggit-author: Order Team
+@pggit-tags: orders, api, critical';
+
+SELECT pggit.track_function('api.process_order(jsonb)');
+```
+
+### Migration Tool Integration
+Works alongside Flyway, Liquibase, and other tools:
+
+```sql
+-- Enable Flyway integration
+SELECT pggit.integrate_flyway('public');
+
+-- Validate migration sequence
+SELECT * FROM pggit.validate_migrations('flyway');
+```
+
+### Emergency Controls
+Production-ready operational commands:
+
+```sql
+-- Emergency disable for maintenance
+SELECT pggit.emergency_disable('30 minutes'::interval);
+
+-- Check system status
+SELECT * FROM pggit.status();
+
+-- Resolve conflicts easily
+SELECT pggit.resolve_conflict(conflict_id, 'use_current', 'Keep production version');
+```
+
+📚 **[Full Enterprise Documentation →](docs/new-features-index.md)**
 
 ---
 
@@ -251,10 +333,18 @@ Since everything is free, here's what you get:
 
 ## 📚 Documentation
 
+### Core Documentation
 - [Getting Started Guide](docs/Getting_Started.md)
-- [Enterprise Features Guide](docs/Enterprise_Features.md)
 - [Architecture Overview](docs/Architecture_Decision.md)
 - [API Reference](docs/API_Reference.md)
+
+### Enterprise Features (New!)
+- [New Features Overview](docs/new-features-index.md)
+- [Configuration System](docs/configuration-system.md)
+- [CQRS Support](docs/cqrs-support.md)
+- [Function Versioning](docs/function-versioning.md)
+- [Migration Integration](docs/migration-integration.md)
+- [Conflict Resolution & Operations](docs/conflict-resolution-and-operations.md)
 
 ---
 

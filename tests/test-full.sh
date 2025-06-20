@@ -113,6 +113,15 @@ setup_podman() {
         exit 1
     fi
     
+    # Install new feature modules
+    echo "Installing new feature modules..."
+    for module in pggit_configuration.sql pggit_conflict_resolution_api.sql pggit_cqrs_support.sql pggit_function_versioning.sql pggit_migration_integration.sql pggit_operations.sql pggit_enhanced_triggers.sql; do
+        if podman exec "$CONTAINER_NAME" test -f "/pggit/sql/$module"; then
+            echo "  Installing $module..."
+            podman exec "$CONTAINER_NAME" psql -U "$DB_USER" -d "$DB_NAME" -f "/pggit/sql/$module" 2>/dev/null || echo "    (Some warnings are expected)"
+        fi
+    done
+    
     echo -e "${GREEN}✅ Podman environment ready${NC}"
 }
 
@@ -235,6 +244,42 @@ if [ "$USE_PODMAN" = "true" ] || psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" 
     run_sql_test "test-ai.sql" "AI Tests"
 else
     echo -e "${YELLOW}⚠️  Skipping AI tests (AI module not loaded)${NC}"
+fi
+
+# 4. Configuration System tests
+run_sql_test "test-configuration-system.sql" "Configuration System Tests"
+
+# 5. CQRS Support tests
+run_sql_test "test-cqrs-support.sql" "CQRS Support Tests"
+
+# 6. Function Versioning tests
+run_sql_test "test-function-versioning.sql" "Function Versioning Tests"
+
+# 7. Migration Integration tests
+run_sql_test "test-migration-integration.sql" "Migration Integration Tests"
+
+# 8. Conflict Resolution tests
+run_sql_test "test-conflict-resolution.sql" "Conflict Resolution Tests"
+
+# 9. Additional feature tests
+if [ -f "test-advanced-features.sql" ]; then
+    run_sql_test "test-advanced-features.sql" "Advanced Features Tests"
+fi
+
+if [ -f "test-zero-downtime.sql" ]; then
+    run_sql_test "test-zero-downtime.sql" "Zero Downtime Tests"
+fi
+
+if [ -f "test-data-branching.sql" ]; then
+    run_sql_test "test-data-branching.sql" "Data Branching Tests"
+fi
+
+if [ -f "test-diff-functionality.sql" ]; then
+    run_sql_test "test-diff-functionality.sql" "Diff Functionality Tests"
+fi
+
+if [ -f "test-three-way-merge.sql" ]; then
+    run_sql_test "test-three-way-merge.sql" "Three-Way Merge Tests"
 fi
 
 # Calculate duration
