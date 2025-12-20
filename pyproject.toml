@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pggit-chaos-tests"
+version = "0.1.0"
+description = "Chaos engineering tests for pgGit PostgreSQL extension"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+chaos = [
+    "hypothesis>=6.100.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-timeout>=2.2.0",
+    "pytest-xdist>=3.5.0",
+    "psycopg>=3.1.0",
+    "psutil>=5.9.0",
+]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q --strict-markers --strict-config"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "chaos: mark test as chaos engineering test",
+    "slow: mark test as slow (may take >30s)",
+    "concurrent: mark test as testing concurrency",
+    "destructive: mark test as potentially destructive",
+    "property: mark test as property-based test",
+]
+
+[tool.hypothesis]
+max_examples = 100
+deadline = 10000  # 10 seconds per test
+suppress_health_check = ["too_slow"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "C90", "I", "N", "UP", "YTT", "S", "BLE", "FBT", "B", "A", "COM", "C4", "DTZ", "T10", "DJ", "EM", "EXE", "FA", "ISC", "ICN", "G", "INP", "PIE", "T20", "PYI", "PT", "Q", "RSE", "RET", "SLF", "SLOT", "SIM", "TID", "TCH", "INT", "ARG", "PTH", "ERA", "PD", "PGH", "PL", "TRY", "FLY", "NPY", "AIR", "PERF", "FURB", "LOG", "RUF"]
+ignore = ["S101", "S104"]  # Allow assert statements and hardcoded passwords in tests
+
+[tool.ruff.lint.per-file-ignores]
+"tests/chaos/**" = ["S101"]  # Allow asserts in chaos tests
+
+[tool.uv]
+dev-dependencies = [
+    "ruff>=0.1.0",
+]
