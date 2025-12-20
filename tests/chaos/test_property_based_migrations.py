@@ -27,53 +27,70 @@ class TestMigrationIdempotency:
         self, sync_conn: psycopg.Connection, tbl_def: dict
     ):
         """Property: Applying the same migration twice should be idempotent."""
-        # Create initial table
-        sync_conn.execute(tbl_def["create_sql"])
-        sync_conn.commit()
-
         try:
-            # Generate migration SQL (e.g., adding a column)
-            migration_sql = f"ALTER TABLE {tbl_def['name']} ADD COLUMN IF NOT EXISTS new_col_property TEXT"
+            # Create initial table (with cleanup)
+            try:
+                sync_conn.execute(tbl_def["create_sql"])
+                sync_conn.commit()
+            except psycopg.Error:
+                sync_conn.rollback()
+                sync_conn.execute(f"DROP TABLE IF EXISTS {tbl_def['name']} CASCADE")
+                sync_conn.execute(tbl_def["create_sql"])
+                sync_conn.commit()
 
-            # Apply migration first time
-            sync_conn.execute(migration_sql)
-            sync_conn.commit()
+            try:
+                # Generate migration SQL (e.g., adding a column)
+                migration_sql = f"ALTER TABLE {tbl_def['name']} ADD COLUMN IF NOT EXISTS new_col_property TEXT"
 
-            # Get column count
-            cursor1 = sync_conn.execute(
-                f"""
-                SELECT COUNT(*)
-                FROM information_schema.columns
-                WHERE table_name = %s
-            """,
-                (tbl_def["name"],),
-            )
-            count1 = cursor1.fetchone()[0]
+                # Apply migration first time
+                sync_conn.execute(migration_sql)
+                sync_conn.commit()
 
-            # Apply migration second time (should be idempotent)
-            sync_conn.execute(migration_sql)
-            sync_conn.commit()
+                # Get column count
+                cursor1 = sync_conn.execute(
+                    f"""
+                    SELECT COUNT(*)
+                    FROM information_schema.columns
+                    WHERE table_name = %s
+                """,
+                    (tbl_def["name"],),
+                )
+                count1 = cursor1.fetchone()["count"]
 
-            # Get column count again
-            cursor2 = sync_conn.execute(
-                f"""
-                SELECT COUNT(*)
-                FROM information_schema.columns
-                WHERE table_name = %s
-            """,
-                (tbl_def["name"],),
-            )
-            count2 = cursor2.fetchone()[0]
+                # Apply migration second time (should be idempotent)
+                sync_conn.execute(migration_sql)
+                sync_conn.commit()
 
-            # Property: Column count should be identical
-            assert count1 == count2, "Idempotent migration should not change schema"
+                # Get column count again
+                cursor2 = sync_conn.execute(
+                    f"""
+                    SELECT COUNT(*)
+                    FROM information_schema.columns
+                    WHERE table_name = %s
+                """,
+                    (tbl_def["name"],),
+                )
+                count2 = cursor2.fetchone()["count"]
 
-        except psycopg.Error as e:
-            # Expected to fail initially - migration functions may not exist
-            if "IF NOT EXISTS" in str(e):
-                pytest.skip("IF NOT EXISTS not supported in this PostgreSQL version")
-            else:
-                pytest.skip("Migration functionality not implemented yet")
+                # Property: Column count should be identical
+                assert count1 == count2, "Idempotent migration should not change schema"
+
+            except psycopg.Error as e:
+                # Expected to fail initially - migration functions may not exist
+                if "IF NOT EXISTS" in str(e):
+                    pytest.skip(
+                        "IF NOT EXISTS not supported in this PostgreSQL version"
+                    )
+                else:
+                    pytest.skip("Migration functionality not implemented yet")
+
+        finally:
+            # Clean up
+            try:
+                sync_conn.execute(f"DROP TABLE IF EXISTS {tbl_def['name']} CASCADE")
+                sync_conn.commit()
+            except psycopg.Error:
+                pass
 
     @given(tbl_def=table_definition())
     @settings(
@@ -131,28 +148,45 @@ class TestMigrationIdempotency:
         self, sync_conn: psycopg.Connection, tbl_def: dict
     ):
         """Property: Schema hash is consistent for identical schemas."""
-        # Create table
-        sync_conn.execute(tbl_def["create_sql"])
-        sync_conn.commit()
-
         try:
-            # Get schema hash twice
-            cursor1 = sync_conn.execute(
-                "SELECT pggit.calculate_schema_hash(%s)", (tbl_def["name"],)
-            )
-            hash1 = cursor1.fetchone()["calculate_schema_hash"]
+            # Create table (with cleanup)
+            try:
+                sync_conn.execute(tbl_def["create_sql"])
+                sync_conn.commit()
+            except psycopg.Error:
+                sync_conn.rollback()
+                sync_conn.execute(f"DROP TABLE IF EXISTS {tbl_def['name']} CASCADE")
+                sync_conn.execute(tbl_def["create_sql"])
+                sync_conn.commit()
 
-            cursor2 = sync_conn.execute(
-                "SELECT pggit.calculate_schema_hash(%s)", (tbl_def["name"],)
-            )
-            hash2 = cursor2.fetchone()["calculate_schema_hash"]
+            try:
+                # Get schema hash twice
+                cursor1 = sync_conn.execute(
+                    "SELECT pggit.calculate_schema_hash(%s)", (tbl_def["name"],)
+                )
+                hash1 = cursor1.fetchone()["calculate_schema_hash"]
 
-            # Property: Hashes should be identical
-            assert hash1 == hash2, "Schema hash should be consistent for same schema"
+                cursor2 = sync_conn.execute(
+                    "SELECT pggit.calculate_schema_hash(%s)", (tbl_def["name"],)
+                )
+                hash2 = cursor2.fetchone()["calculate_schema_hash"]
 
-        except psycopg.Error:
-            # Expected to fail initially
-            pytest.skip("calculate_schema_hash function not implemented yet")
+                # Property: Hashes should be identical
+                assert hash1 == hash2, (
+                    "Schema hash should be consistent for same schema"
+                )
+
+            except psycopg.Error:
+                # Expected to fail initially
+                pytest.skip("calculate_schema_hash function not implemented yet")
+
+        finally:
+            # Clean up
+            try:
+                sync_conn.execute(f"DROP TABLE IF EXISTS {tbl_def['name']} CASCADE")
+                sync_conn.commit()
+            except psycopg.Error:
+                pass
 
 
 @pytest.mark.chaos
