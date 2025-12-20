@@ -18,13 +18,13 @@ DECLARE
     v_new_def JSONB;
 BEGIN
     -- Check for removed columns (MAJOR change)
-    FOR v_column_name IN 
+    FOR v_column_name IN
         SELECT key FROM jsonb_each(p_old_columns)
         EXCEPT
         SELECT key FROM jsonb_each(p_new_columns)
     LOOP
         RETURN QUERY
-        SELECT 
+        SELECT
             v_column_name,
             'DROP'::pggit.change_type,
             'MAJOR'::pggit.change_severity,
@@ -32,16 +32,16 @@ BEGIN
             NULL::JSONB,
             'Column dropped: ' || v_column_name;
     END LOOP;
-    
+
     -- Check for new columns (MINOR change)
-    FOR v_column_name IN 
+    FOR v_column_name IN
         SELECT key FROM jsonb_each(p_new_columns)
         EXCEPT
         SELECT key FROM jsonb_each(p_old_columns)
     LOOP
         v_new_def := p_new_columns->v_column_name;
         RETURN QUERY
-        SELECT 
+        SELECT
             v_column_name,
             'CREATE'::pggit.change_type,
             'MINOR'::pggit.change_severity,
@@ -49,25 +49,25 @@ BEGIN
             v_new_def,
             'Column added: ' || v_column_name;
     END LOOP;
-    
+
     -- Check for modified columns
-    FOR v_column_name IN 
+    FOR v_column_name IN
         SELECT key FROM jsonb_each(p_old_columns)
         INTERSECT
         SELECT key FROM jsonb_each(p_new_columns)
     LOOP
         v_old_def := p_old_columns->v_column_name;
         v_new_def := p_new_columns->v_column_name;
-        
+
         IF v_old_def IS DISTINCT FROM v_new_def THEN
             -- Determine severity based on change type
             RETURN QUERY
-            SELECT 
+            SELECT
                 v_column_name,
                 'ALTER'::pggit.change_type,
                 CASE
                     -- Changing from nullable to not null is breaking
-                    WHEN (v_old_def->>'nullable')::boolean = true 
+                    WHEN (v_old_def->>'nullable')::boolean = true
                      AND (v_new_def->>'nullable')::boolean = false THEN 'MAJOR'::pggit.change_severity
                     -- Changing data type is usually breaking
                     WHEN v_old_def->>'type' IS DISTINCT FROM v_new_def->>'type' THEN 'MAJOR'::pggit.change_severity
@@ -105,14 +105,14 @@ BEGIN
             )
         );
     END LOOP;
-    
+
     -- Build CREATE TABLE statement
     v_sql := format('CREATE TABLE %I.%I (%s)',
         p_schema_name,
         p_table_name,
         array_to_string(v_column_defs, ', ')
     );
-    
+
     RETURN v_sql;
 END;
 $$ LANGUAGE plpgsql;
@@ -139,14 +139,14 @@ BEGIN
                 CASE WHEN (p_new_def->>'nullable')::boolean = false THEN ' NOT NULL' ELSE '' END,
                 CASE WHEN p_new_def->>'default' IS NOT NULL THEN ' DEFAULT ' || p_new_def->>'default' ELSE '' END
             );
-            
+
         WHEN 'DROP' THEN
             v_sql := format('ALTER TABLE %I.%I DROP COLUMN %I',
                 p_schema_name,
                 p_table_name,
                 p_column_name
             );
-            
+
         WHEN 'ALTER' THEN
             -- Generate appropriate ALTER based on what changed
             IF p_old_def->>'type' IS DISTINCT FROM p_new_def->>'type' THEN
@@ -172,7 +172,7 @@ BEGIN
                 END IF;
             END IF;
     END CASE;
-    
+
     RETURN v_sql;
 END;
 $$ LANGUAGE plpgsql;
@@ -196,15 +196,15 @@ DECLARE
     v_object_id INTEGER;
 BEGIN
     -- Check each table in the schema
-    FOR v_table IN 
-        SELECT table_name 
-        FROM information_schema.tables 
+    FOR v_table IN
+        SELECT table_name
+        FROM information_schema.tables
         WHERE table_schema = p_schema_name
         AND table_type = 'BASE TABLE'
     LOOP
         -- Get current columns from database
         v_current_columns := pggit.extract_table_columns(p_schema_name, v_table.table_name::text);
-        
+
         -- Get tracked columns
         SELECT metadata->'columns', id
         INTO v_tracked_columns, v_object_id
@@ -213,11 +213,11 @@ BEGIN
         AND o.schema_name = p_schema_name
         AND o.object_name = v_table.table_name::text
         AND o.is_active = true;
-        
+
         IF v_tracked_columns IS NULL THEN
             -- New table
             RETURN QUERY
-            SELECT 
+            SELECT
                 'TABLE'::pggit.object_type,
                 v_table.table_name::text,
                 'CREATE'::pggit.change_type,
@@ -226,11 +226,11 @@ BEGIN
                 pggit.generate_create_table(p_schema_name, v_table.table_name::text, v_current_columns);
         ELSE
             -- Compare columns
-            FOR v_column_change IN 
+            FOR v_column_change IN
                 SELECT * FROM pggit.compare_columns(v_tracked_columns, v_current_columns)
             LOOP
                 RETURN QUERY
-                SELECT 
+                SELECT
                     'COLUMN'::pggit.object_type,
                     v_table.table_name::text || '.' || v_column_change.column_name,
                     v_column_change.change_type,
@@ -247,7 +247,7 @@ BEGIN
             END LOOP;
         END IF;
     END LOOP;
-    
+
     -- Check for dropped tables
     FOR v_table IN
         SELECT o.object_name, o.version
@@ -256,14 +256,14 @@ BEGIN
         AND o.schema_name = p_schema_name
         AND o.is_active = true
         AND NOT EXISTS (
-            SELECT 1 
-            FROM information_schema.tables 
+            SELECT 1
+            FROM information_schema.tables
             WHERE table_schema = p_schema_name
             AND table_name = o.object_name
         )
     LOOP
         RETURN QUERY
-        SELECT 
+        SELECT
             'TABLE'::pggit.object_type,
             v_table.object_name,
             'DROP'::pggit.change_type,
@@ -290,19 +290,19 @@ DECLARE
 BEGIN
     -- Generate version if not provided
     v_version := COALESCE(p_version, to_char(CURRENT_TIMESTAMP, 'YYYYMMDD_HH24MISS'));
-    
+
     -- Collect all changes
-    FOR v_changes IN 
+    FOR v_changes IN
         SELECT * FROM pggit.detect_schema_changes(p_schema_name)
-        ORDER BY 
-            CASE change_type 
-                WHEN 'CREATE' THEN 1 
-                WHEN 'ALTER' THEN 2 
-                WHEN 'DROP' THEN 3 
+        ORDER BY
+            CASE change_type
+                WHEN 'CREATE' THEN 1
+                WHEN 'ALTER' THEN 2
+                WHEN 'DROP' THEN 3
             END
     LOOP
         v_up_statements := array_append(v_up_statements, v_changes.sql_statement || ';');
-        
+
         -- Generate reverse operations for down migration
         -- This is simplified - a full implementation would be more sophisticated
         CASE v_changes.change_type
@@ -313,16 +313,16 @@ BEGIN
                 );
             WHEN 'DROP' THEN
                 v_down_statements := array_prepend(
-                    format('-- TODO: Recreate %s %s', v_changes.object_type, v_changes.object_name),
+                    format('-- ROLLBACK: Recreate %s %s (original DDL stored in history)', v_changes.object_type, v_changes.object_name),
                     v_down_statements
                 );
         END CASE;
     END LOOP;
-    
+
     -- Create migration record
     IF array_length(v_up_statements, 1) > 0 THEN
         v_checksum := md5(array_to_string(v_up_statements, ''));
-        
+
         INSERT INTO pggit.migrations (
             version,
             description,
@@ -336,7 +336,7 @@ BEGIN
             array_to_string(v_down_statements, E'\n'),
             v_checksum
         ) RETURNING id INTO v_migration_id;
-        
+
         RETURN format(E'-- Migration: %s\n-- Description: %s\n-- Generated: %s\n\n-- UP\n%s\n\n-- DOWN\n%s',
             v_version,
             COALESCE(p_description, 'Auto-generated migration'),
@@ -364,34 +364,34 @@ BEGIN
     FROM pggit.migrations
     WHERE version = p_version
     AND applied_at IS NULL;
-    
+
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Migration % not found or already applied', p_version;
     END IF;
-    
+
     v_start_time := clock_timestamp();
-    
+
     -- Execute migration
     EXECUTE v_migration.up_script;
-    
+
     v_end_time := clock_timestamp();
-    
+
     -- Mark as applied
     UPDATE pggit.migrations
     SET applied_at = CURRENT_TIMESTAMP,
         applied_by = CURRENT_USER,
         execution_time_ms = EXTRACT(MILLISECONDS FROM (v_end_time - v_start_time))::INTEGER
     WHERE id = v_migration.id;
-    
-    RAISE NOTICE 'Migration % applied successfully in % ms', 
-        p_version, 
+
+    RAISE NOTICE 'Migration % applied successfully in % ms',
+        p_version,
         EXTRACT(MILLISECONDS FROM (v_end_time - v_start_time))::INTEGER;
 END;
 $$ LANGUAGE plpgsql;
 
 -- View to show pending migrations
 CREATE OR REPLACE VIEW pggit.pending_migrations AS
-SELECT 
+SELECT
     version,
     description,
     created_at,

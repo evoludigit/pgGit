@@ -1,0 +1,42 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-merge-conflict
+      - id: check-case-conflict
+
+  - repo: https://github.com/sqlfluff/sqlfluff
+    rev: 3.5.0
+    hooks:
+      - id: sqlfluff-lint
+        files: \.(sql)$
+        args: ['--dialect', 'postgres']
+      - id: sqlfluff-fix
+        files: \.(sql)$
+        args: ['--dialect', 'postgres']
+
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.9.0
+    hooks:
+      - id: shellcheck
+        args: ['--severity=warning']
+
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.37.0
+    hooks:
+      - id: markdownlint
+        args: ['--fix']
+
+  - repo: local
+    hooks:
+      - id: test-core
+        name: Run core tests
+        entry: make test-core
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
