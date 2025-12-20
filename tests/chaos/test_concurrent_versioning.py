@@ -29,7 +29,6 @@ class TestConcurrentVersioning:
 
         # Setup: Create table
         setup_conn = psycopg.connect(db_connection_string)
-        setup_conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
         setup_conn.execute(f"CREATE TABLE {table_name} (id INT)")
         setup_conn.commit()
 
@@ -122,7 +121,6 @@ class TestConcurrentVersioning:
 
         # Setup
         setup_conn = psycopg.connect(db_connection_string)
-        setup_conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
         setup_conn.execute(f"CREATE TABLE {table_name} (id INT)")
         setup_conn.commit()
         setup_conn.close()
@@ -211,7 +209,6 @@ class TestConcurrentVersioning:
 
         # Setup
         setup_conn = psycopg.connect(db_connection_string)
-        setup_conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
         setup_conn.execute(f"CREATE TABLE {table_name} (id INT)")
         setup_conn.commit()
 
@@ -322,7 +319,6 @@ class TestConcurrentVersioning:
 
         # Setup
         setup_conn = psycopg.connect(db_connection_string)
-        setup_conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
         setup_conn.execute(f"CREATE TABLE {table_name} (id INT)")
         setup_conn.commit()
 
@@ -395,7 +391,6 @@ class TestConcurrentVersioning:
 
         # Setup
         setup_conn = psycopg.connect(db_connection_string)
-        setup_conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
         setup_conn.execute(f"CREATE TABLE {table_name} (id INT)")
         setup_conn.commit()
         setup_conn.close()

@@ -26,7 +26,6 @@ class TestSerializationFailures:
 
         # Setup
         setup_conn = psycopg.connect(db_connection_string)
-        setup_conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
         setup_conn.execute(f"""
             CREATE TABLE {table_name} (
                 id INT PRIMARY KEY,
@@ -110,7 +109,6 @@ class TestSerializationFailures:
 
         # Setup
         setup_conn = psycopg.connect(db_connection_string)
-        setup_conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
         setup_conn.execute(f"CREATE TABLE {table_name} (id INT PRIMARY KEY, data TEXT)")
         setup_conn.execute(f"INSERT INTO {table_name} VALUES (1, 'original')")
         setup_conn.commit()
@@ -192,7 +190,6 @@ class TestSerializationFailures:
 
         # Setup
         setup_conn = psycopg.connect(db_connection_string)
-        setup_conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
         setup_conn.execute(
             f"CREATE TABLE {table_name} (id INT PRIMARY KEY, counter INT)"
         )
@@ -277,7 +274,6 @@ class TestSerializationFailures:
 
         # Setup
         setup_conn = psycopg.connect(db_connection_string)
-        setup_conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
         setup_conn.execute(
             f"CREATE TABLE {table_name} (id INT PRIMARY KEY, category TEXT)"
         )
@@ -366,7 +362,6 @@ class TestSerializationFailures:
 
         # Setup
         setup_conn = psycopg.connect(db_connection_string)
-        setup_conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
         setup_conn.commit()
         setup_conn.close()
 
@@ -442,7 +437,6 @@ class TestSerializationFailures:
 
         # Setup
         setup_conn = psycopg.connect(db_connection_string)
-        setup_conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
         setup_conn.execute(f"CREATE TABLE {table_name} (id INT PRIMARY KEY, data TEXT)")
         setup_conn.execute(f"INSERT INTO {table_name} VALUES (1, 'initial')")
         setup_conn.commit()

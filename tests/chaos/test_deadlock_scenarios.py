@@ -32,7 +32,6 @@ class TestDeadlockScenarios:
 
         # Setup tables
         setup_conn = psycopg.connect(db_connection_string)
-        setup_conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
         setup_conn.execute(f"CREATE TABLE {table_a} (id INT)")
         setup_conn.execute(f"CREATE TABLE {table_b} (id INT)")
         setup_conn.commit()
@@ -119,14 +118,12 @@ class TestDeadlockScenarios:
 
         # Setup
         setup_conn = psycopg.connect(db_connection_string)
-        setup_conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
         setup_conn.execute(f"CREATE TABLE {table_name} (id INT)")
         setup_conn.commit()
         setup_conn.close()
 
         def pggit_worker1():
             conn = psycopg.connect(db_connection_string)
-            conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
 
             try:
                 conn.execute("BEGIN")
@@ -156,7 +153,6 @@ class TestDeadlockScenarios:
 
         def pggit_worker2():
             conn = psycopg.connect(db_connection_string)
-            conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
 
             try:
                 conn.execute("BEGIN")
@@ -219,7 +215,6 @@ class TestDeadlockScenarios:
 
         # Setup tables
         setup_conn = psycopg.connect(db_connection_string)
-        setup_conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
         for table in tables:
             setup_conn.execute(f"CREATE TABLE {table} (id INT)")
         setup_conn.commit()
@@ -227,7 +222,6 @@ class TestDeadlockScenarios:
 
         def multi_worker(worker_id: int):
             conn = psycopg.connect(db_connection_string)
-            conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
 
             try:
                 conn.execute("BEGIN")
@@ -298,7 +292,6 @@ class TestDeadlockScenarios:
 
         # Setup
         setup_conn = psycopg.connect(db_connection_string)
-        setup_conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
         setup_conn.execute(f"CREATE TABLE {table_x} (id INT)")
         setup_conn.execute(f"CREATE TABLE {table_y} (id INT)")
         setup_conn.commit()
@@ -408,7 +401,6 @@ class TestDeadlockScenarios:
 
         # Setup with initial data
         setup_conn = psycopg.connect(db_connection_string)
-        setup_conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
         setup_conn.execute(f"CREATE TABLE {test_table} (id INT PRIMARY KEY, data TEXT)")
         setup_conn.execute(f"INSERT INTO {test_table} VALUES (1, 'initial')")
         setup_conn.commit()
@@ -510,7 +502,6 @@ class TestDeadlockScenarios:
 
         # Setup multiple tables
         setup_conn = psycopg.connect(db_connection_string)
-        setup_conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
         for table in tables:
             setup_conn.execute(f"CREATE TABLE {table} (id INT)")
         setup_conn.commit()

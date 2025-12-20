@@ -44,7 +44,6 @@ class TestConcurrentCommits:
             """Worker function: create table and commit."""
             try:
                 conn = psycopg.connect(db_connection_string, row_factory=dict_row)
-                conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
 
                 # Create unique table for this worker
                 table_name = f"test_table_{worker_id}"
@@ -194,7 +193,7 @@ class TestConcurrentCommits:
 
         print(f"\n✅ {len(successes)} successes, {len(failures)} failures with delays")
 
-    @given(num_workers=st.integers(min_value=2, max_value=15), branch=git_branch_name())
+    @given(num_workers=st.integers(min_value=2, max_value=15), branch=git_branch_name)
     @settings(
         max_examples=10,
         deadline=None,
@@ -212,7 +211,6 @@ class TestConcurrentCommits:
 
         def worker(worker_id: int):
             conn = psycopg.connect(db_connection_string, row_factory=dict_row)
-            conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
 
             table_name = f"prop_table_{worker_id}_{branch[:20]}"
             try:
@@ -269,7 +267,6 @@ class TestConcurrentCommits:
 
         def worker_with_isolation(worker_id: int):
             conn = psycopg.connect(db_connection_string, row_factory=dict_row)
-            conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
 
             try:
                 # Set isolation level
