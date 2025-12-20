@@ -94,7 +94,7 @@ class TestConcurrentVersioning:
 
         # Validation: Final version is higher than initial
         if successes:
-            final_conn = psycopg.connect(db_connection_string)
+            final_conn = psycopg.connect(db_connection_string, row_factory=dict_row)
             cursor = final_conn.execute(
                 "SELECT * FROM pggit.get_version(%s)", (table_name,)
             )
@@ -208,7 +208,7 @@ class TestConcurrentVersioning:
         table_name = f"explicit_{version_type}_table"
 
         # Setup
-        setup_conn = psycopg.connect(db_connection_string)
+        setup_conn = psycopg.connect(db_connection_string, row_factory=dict_row)
         setup_conn.execute(f"CREATE TABLE {table_name} (id INT)")
         setup_conn.commit()
 
@@ -366,7 +366,7 @@ class TestConcurrentVersioning:
         )
 
         # Verify version didn't change
-        final_conn = psycopg.connect(db_connection_string)
+        final_conn = psycopg.connect(db_connection_string, row_factory=dict_row)
         cursor = final_conn.execute(
             "SELECT * FROM pggit.get_version(%s)", (table_name,)
         )
