@@ -24,15 +24,15 @@ if ! psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -lqt | cut -d \| -f 1 | grep
     exit 1
 fi
 
-# Install pgTAP if not already installed
-echo "📦 Ensuring pgTAP is installed..."
+# Check if pgTAP is available (should be installed via apt in CI)
+echo "📦 Checking pgTAP availability..."
 if ! psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1 FROM pg_proc WHERE proname = 'plan'" &> /dev/null; then
-    echo "   Installing pgTAP..."
-    # Try to install from local file first
-    if [ -f "pgtap-1.3.3/sql/pgtap.sql" ]; then
-        psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f pgtap-1.3.3/sql/pgtap.sql >/dev/null 2>&1
+    echo "   ❌ pgTAP functions not found. Installing manually..."
+    # Try to install from system if available
+    if psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS pgtap;" 2>/dev/null; then
+        echo "   ✅ pgTAP extension created"
     else
-        echo "   ❌ pgTAP source not found. Please run 'make' in the pgTAP directory first."
+        echo "   ❌ Failed to install pgTAP"
         exit 1
     fi
 fi
