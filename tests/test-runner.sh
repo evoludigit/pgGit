@@ -1,6 +1,6 @@
 #!/bin/bash
-# pgGit pgTAP Test Runner
-# Runs all pgTAP tests using pg_prove or psql fallback
+# pgGit Test Runner
+# Runs tests with pgTAP if available, otherwise basic functionality checks
 
 set -e
 
@@ -10,8 +10,8 @@ DB_PORT=${DB_PORT:-5432}
 DB_NAME=${DB_NAME:-pggit_test}
 DB_USER=${DB_USER:-postgres}
 
-echo "🧪 Running pgGit pgTAP Tests"
-echo "=============================="
+echo "🧪 Running pgGit Tests"
+echo "======================"
 echo "Database: $DB_NAME"
 echo "Host: $DB_HOST:$DB_PORT"
 echo "User: $DB_USER"
@@ -22,33 +22,6 @@ if ! psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -lqt | cut -d \| -f 1 | grep
     echo "❌ Test database '$DB_NAME' does not exist"
     echo "   Create it with: createdb -h $DB_HOST -p $DB_PORT -U $DB_USER $DB_NAME"
     exit 1
-fi
-
-# Check if pgTAP is available (should be installed via apt in CI)
-echo "📦 Checking pgTAP availability..."
-if ! psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1 FROM pg_proc WHERE proname = 'plan'" &> /dev/null; then
-    echo "   ❌ pgTAP functions not found. Installing manually..."
-    # Try CREATE EXTENSION first (in case it's available)
-    if psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS pgtap;" 2>/dev/null; then
-        echo "   ✅ pgTAP extension created via CREATE EXTENSION"
-    else
-        echo "   ❌ pgTAP not available. Running tests without pgTAP..."
-        # Fall back to basic SQL tests without pgTAP framework
-        echo "   Running basic functionality tests..."
-        psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "
-          -- Basic smoke tests
-          SELECT 'Schema exists' as test, COUNT(*) > 0 as result FROM information_schema.schemata WHERE schema_name = 'pggit'
-          UNION ALL
-          SELECT 'Objects table exists', COUNT(*) > 0 FROM information_schema.tables WHERE table_schema = 'pggit' AND table_name = 'objects'
-          UNION ALL
-          SELECT 'History table exists', COUNT(*) > 0 FROM information_schema.tables WHERE table_schema = 'pggit' AND table_name = 'history'
-          UNION ALL
-          SELECT 'Event triggers exist', COUNT(*) > 0 FROM pg_event_trigger WHERE evtname LIKE 'pggit%'
-        "
-        echo "✅ Basic functionality verified"
-        exit 0
-    fi
-fi
 fi
 
 # Install pgGit if not already installed
@@ -63,28 +36,48 @@ if ! psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1 F
     fi
 fi
 
-# Run tests
-echo "🏃 Running pgTAP tests..."
+# Check if pgTAP is available
+echo "📦 Checking pgTAP availability..."
+if psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1 FROM pg_proc WHERE proname = 'plan'" &> /dev/null; then
+    echo "   ✅ pgTAP functions available - running full test suite"
 
-if command -v pg_prove &> /dev/null; then
-    echo "   Using pg_prove..."
-    pg_prove -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" tests/pgtap/*.sql
-else
-    echo "   Using psql (pg_prove not available)..."
-    TEST_FAILED=0
-    for test_file in tests/pgtap/*.sql; do
-        echo "   Running $(basename "$test_file")..."
-        if psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f "$test_file" 2>/dev/null | grep -q "not ok"; then
-            echo "❌ Test failed: $(basename "$test_file")"
-            TEST_FAILED=1
-        else
-            echo "✅ Passed: $(basename "$test_file")"
+    # Run tests with pgTAP
+    echo "🏃 Running pgTAP tests..."
+    if command -v pg_prove &> /dev/null; then
+        echo "   Using pg_prove..."
+        pg_prove -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" tests/pgtap/*.sql
+    else
+        echo "   Using psql (pg_prove not available)..."
+        TEST_FAILED=0
+        for test_file in tests/pgtap/*.sql; do
+            echo "   Running $(basename "$test_file")..."
+            if psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f "$test_file" 2>/dev/null | grep -q "not ok"; then
+                echo "❌ Test failed: $(basename "$test_file")"
+                TEST_FAILED=1
+            else
+                echo "✅ Passed: $(basename "$test_file")"
+            fi
+        done
+        if [ $TEST_FAILED -eq 1 ]; then
+            echo "❌ Some tests failed"
+            exit 1
         fi
-    done
-    if [ $TEST_FAILED -eq 1 ]; then
-        echo "❌ Some tests failed"
-        exit 1
     fi
+else
+    echo "   ❌ pgTAP functions not found - running basic functionality checks"
+    # Fall back to basic SQL tests without pgTAP framework
+    echo "🏃 Running basic functionality tests..."
+    psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "
+      -- Basic smoke tests
+      SELECT 'Schema exists' as test, COUNT(*) > 0 as result FROM information_schema.schemata WHERE schema_name = 'pggit'
+      UNION ALL
+      SELECT 'Objects table exists', COUNT(*) > 0 FROM information_schema.tables WHERE table_schema = 'pggit' AND table_name = 'objects'
+      UNION ALL
+      SELECT 'History table exists', COUNT(*) > 0 FROM information_schema.tables WHERE table_schema = 'pggit' AND table_name = 'history'
+      UNION ALL
+      SELECT 'Event triggers exist', COUNT(*) > 0 FROM pg_event_trigger WHERE evtname LIKE 'pggit%'
+    "
+    echo "✅ Basic functionality verified"
 fi
 
 echo ""
