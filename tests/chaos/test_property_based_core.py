@@ -111,7 +111,7 @@ class TestTableVersioningProperties:
             # Make commit with generated message (use unique ID per test)
             commit_id = f"test-commit-{uuid.uuid4().hex[:8]}"
             cursor = sync_conn.execute(
-                "SELECT pggit.commit_changes(%s, %s, %s)", (commit_id, "main", msg)
+                "SELECT pggit.commit_changes(%s, %s, %s)", ("main", msg, commit_id)
             )
             result_commit_id = cursor.fetchone()["commit_changes"]
             assert result_commit_id == commit_id, (

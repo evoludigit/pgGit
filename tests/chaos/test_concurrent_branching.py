@@ -363,9 +363,9 @@ class TestConcurrentBranching:
                 cursor = conn.execute(
                     "SELECT pggit.commit_changes(%s, %s, %s)",
                     (
-                        f"iso-{worker_id}",
                         branch_name,
                         f"Isolated work by worker {worker_id}",
+                        f"iso-{worker_id}",
                     ),
                 )
                 trinity_id = cursor.fetchone()["commit_changes"]

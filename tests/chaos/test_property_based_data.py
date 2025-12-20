@@ -172,7 +172,7 @@ class TestDataIntegrityProperties:
                 # Commit changes
                 cursor = sync_conn.execute(
                     "SELECT pggit.commit_changes(%s, %s, %s)",
-                    (f"data-test-{i}", "main", f"Data test commit {i}"),
+                    ("main", f"Data test commit {i}", f"data-test-{i}"),
                 )
                 commit_id = cursor.fetchone()["commit_changes"]
 
@@ -379,7 +379,7 @@ class TestDataVersioningProperties:
             # Commit initial version
             cursor = sync_conn.execute(
                 "SELECT pggit.commit_changes(%s, %s, %s)",
-                ("v1", "main", "Initial version"),
+                ("main", "Initial version", "v1"),
             )
             v1_commit = cursor.fetchone()["commit_changes"]
 
@@ -396,7 +396,7 @@ class TestDataVersioningProperties:
                 # Commit version
                 cursor = sync_conn.execute(
                     "SELECT pggit.commit_changes(%s, %s, %s)",
-                    (f"v{version}", "main", f"Version {version}"),
+                    ("main", f"Version {version}", f"v{version}"),
                 )
                 commit_id = cursor.fetchone()["commit_changes"]
 
