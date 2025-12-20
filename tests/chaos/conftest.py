@@ -122,6 +122,33 @@ def sync_conn(db_connection_string: str) -> Generator[psycopg.Connection, None, 
     ) as conn:
         # Set autocommit to avoid issues with hypothesis examples
         conn.autocommit = True
+
+        # Aggressive cleanup before yielding connection to prevent table collisions
+        # This runs before each test, including between hypothesis examples
+        try:
+            # Clean up test tables that might be left over from previous runs
+            cursor = conn.execute("""
+                SELECT tablename FROM pg_tables
+                WHERE schemaname = 'public'
+                AND (tablename LIKE 'test_%' OR tablename LIKE '%_test%' OR
+                     tablename LIKE 'a_%' OR tablename LIKE 'x%' OR
+                     tablename ~ '^[a-z_]+_[0-9]+$' OR
+                     length(tablename) <= 20)
+                AND tablename NOT LIKE 'pg_%'
+                AND tablename NOT LIKE 'pggit%'
+                AND tablename NOT IN ('spatial_ref_sys')
+            """)
+            test_tables = cursor.fetchall()
+
+            for row in test_tables:
+                table_name = row["tablename"]
+                try:
+                    conn.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE")
+                except psycopg.Error:
+                    pass  # Ignore errors during cleanup
+        except psycopg.Error:
+            pass  # Ignore errors if cleanup query fails
+
         yield conn
 
 

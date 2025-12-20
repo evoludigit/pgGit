@@ -202,14 +202,15 @@ class TestTableVersioningProperties:
 
         assert len(errors) == 0, f"Found errors during concurrent execution: {errors}"
 
+    @settings(
+        max_examples=50,
+        deadline=None,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
     @given(
         major=st.integers(min_value=0, max_value=100),
         minor=st.integers(min_value=0, max_value=100),
         patch=st.integers(min_value=0, max_value=100),
-    )
-    @settings(
-        max_examples=50,
-        deadline=None,
     )
     def test_minor_increment_resets_patch(
         self, sync_conn: psycopg.Connection, major: int, minor: int, patch: int
@@ -217,12 +218,13 @@ class TestTableVersioningProperties:
         """Property: Minor increment resets patch to 0."""
         try:
             cursor = sync_conn.execute(
-                "SELECT pggit.increment_version(%s, %s, %s, 'minor')",
+                "SELECT * FROM pggit.increment_version(%s, %s, %s, 'minor')",
                 (major, minor, patch),
             )
-            new_version = cursor.fetchone()["increment_version"]
-
-            new_major, new_minor, new_patch = map(int, new_version.split("."))
+            result = cursor.fetchone()
+            new_major = result["major"]
+            new_minor = result["minor"]
+            new_patch = result["patch"]
 
             # Properties
             assert new_major == major, "Major version should not change"
