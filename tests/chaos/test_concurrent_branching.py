@@ -28,7 +28,6 @@ class TestConcurrentBranching:
 
         def create_branch(branch_id: int):
             conn = psycopg.connect(db_connection_string, row_factory=dict_row)
-            conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
 
             branch_name = f"concurrent-branch-{branch_id}"
             table_name = f"branch_table_{branch_id}"
@@ -82,7 +81,6 @@ class TestConcurrentBranching:
 
         def create_duplicate_branch(worker_id: int):
             conn = psycopg.connect(db_connection_string, row_factory=dict_row)
-            conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
 
             table_name = f"dup_table_{worker_id}"
 
@@ -158,7 +156,6 @@ class TestConcurrentBranching:
         def commit_worker():
             """Worker that commits to branch."""
             conn = psycopg.connect(db_connection_string)
-            conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
 
             try:
                 conn.execute("CREATE TABLE deletion_test (id INT)")
@@ -191,7 +188,6 @@ class TestConcurrentBranching:
             time.sleep(0.2)  # Let commit start first
 
             conn = psycopg.connect(db_connection_string)
-            conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
 
             try:
                 # Try to delete branch (this may not be implemented yet)
@@ -240,7 +236,6 @@ class TestConcurrentBranching:
 
         def mixed_branch_worker(worker_id: int):
             conn = psycopg.connect(db_connection_string, row_factory=dict_row)
-            conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
 
             operations = []
 
@@ -351,7 +346,6 @@ class TestConcurrentBranching:
 
         def isolated_worker(worker_id: int):
             conn = psycopg.connect(db_connection_string, row_factory=dict_row)
-            conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
 
             branch_name = f"isolation-branch-{worker_id}"
             table_name = f"isolation_table_{worker_id}"
@@ -432,7 +426,6 @@ class TestConcurrentBranching:
 
         def load_worker(worker_id: int):
             conn = psycopg.connect(db_connection_string, row_factory=dict_row)
-            conn.execute("CREATE EXTENSION IF NOT EXISTS pggit")
 
             # Each worker uses a slightly different branch name
             branch_name = f"{base_branch}-{worker_id % 3}"  # Only 3 different branches
