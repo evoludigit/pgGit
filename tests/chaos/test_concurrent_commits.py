@@ -54,11 +54,10 @@ class TestConcurrentCommits:
 
                 # Commit to same branch (potential race condition)
                 cursor = conn.execute(
-                    "SELECT pggit.commit_changes(%s, %s, %s)",
+                    "SELECT pggit.commit_changes(%s, %s)",
                     (
                         branch_name,
                         f"Commit from worker {worker_id}",
-                        f"worker-{worker_id}",
                     ),
                 )
                 result = cursor.fetchone()
@@ -156,8 +155,8 @@ class TestConcurrentCommits:
 
                 # Commit
                 cursor = conn.execute(
-                    "SELECT pggit.commit_changes(%s, %s, %s)",
-                    (branch_name, f"Delayed commit {task_id}", f"delayed-{task_id}"),
+                    "SELECT pggit.commit_changes(%s, %s)",
+                    (branch_name, f"Delayed commit {task_id}"),
                 )
                 result = cursor.fetchone()
                 conn.commit()
@@ -222,8 +221,8 @@ class TestConcurrentCommits:
                 conn.commit()
 
                 cursor = conn.execute(
-                    "SELECT pggit.commit_changes(%s, %s, %s)",
-                    (branch, f"Property test {worker_id}", f"prop-{worker_id}"),
+                    "SELECT pggit.commit_changes(%s, %s)",
+                    (branch, f"Property test {worker_id}"),
                 )
                 trinity_id = cursor.fetchone()["commit_changes"]
                 conn.commit()
@@ -281,8 +280,8 @@ class TestConcurrentCommits:
                 conn.commit()
 
                 cursor = conn.execute(
-                    "SELECT pggit.commit_changes(%s, %s, %s)",
-                    (branch_name, f"Isolation test {worker_id}", f"iso-{worker_id}"),
+                    "SELECT pggit.commit_changes(%s, %s)",
+                    (branch_name, f"Isolation test {worker_id}"),
                 )
                 trinity_id = cursor.fetchone()["commit_changes"]
                 conn.commit()
@@ -346,8 +345,8 @@ class TestConcurrentCommits:
 
                 # Commit
                 cursor = await conn.execute(
-                    "SELECT pggit.commit_changes(%s, %s, %s)",
-                    (branch_name, f"Async commit {worker_id}", f"async-{worker_id}"),
+                    "SELECT pggit.commit_changes(%s, %s)",
+                    (branch_name, f"Async commit {worker_id}"),
                 )
                 result = await cursor.fetchone()
                 await conn.commit()

@@ -38,8 +38,8 @@ class TestConcurrentBranching:
                 conn.commit()
 
                 cursor = conn.execute(
-                    "SELECT pggit.commit_changes(%s, %s, %s)",
-                    (f"commit-{branch_id}", branch_name, f"Create branch {branch_id}"),
+                    "SELECT pggit.commit_changes(%s, %s)",
+                    (branch_name, f"Create branch {branch_id}"),
                 )
                 result = cursor.fetchone()
                 conn.commit()
