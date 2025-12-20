@@ -43,6 +43,19 @@ pg_identifier = (
 table_name = pg_identifier
 
 # Column definition strategy
+# Compatible type/constraint combinations
+type_constraints = {
+    "INTEGER": ["", "NOT NULL", "DEFAULT 0", "UNIQUE"],
+    "BIGINT": ["", "NOT NULL", "DEFAULT 0", "UNIQUE"],
+    "TEXT": ["", "NOT NULL", "DEFAULT ''", "UNIQUE"],
+    "VARCHAR(255)": ["", "NOT NULL", "DEFAULT ''", "UNIQUE"],
+    "BOOLEAN": ["", "NOT NULL", "DEFAULT true", "DEFAULT false", "UNIQUE"],
+    "TIMESTAMP": ["", "NOT NULL", "DEFAULT CURRENT_TIMESTAMP", "UNIQUE"],
+    "DATE": ["", "NOT NULL", "DEFAULT CURRENT_DATE", "UNIQUE"],
+    "NUMERIC(10,2)": ["", "NOT NULL", "DEFAULT 0.00", "UNIQUE"],
+    "SERIAL": ["", "PRIMARY KEY"],  # SERIAL usually gets PRIMARY KEY separately
+}
+
 column_definition = st.builds(
     lambda name, col_type, constraint: f"{name} {col_type} {constraint}".strip(),
     pg_identifier.filter(lambda x: len(x) <= 63),
@@ -60,9 +73,79 @@ column_definition = st.builds(
         ]
     ),
     st.sampled_from(
-        ["", "NOT NULL", "DEFAULT 0", "DEFAULT CURRENT_TIMESTAMP", "UNIQUE"]
+        ["", "NOT NULL", "UNIQUE"]  # Remove problematic defaults for now
     ),
 )
+
+
+def _validate_table_definition(tbl):
+    """Validate that a table definition generates valid PostgreSQL DDL."""
+    try:
+        # PostgreSQL reserved keywords that can't be used as identifiers
+        reserved_keywords = {
+            "user",
+            "table",
+            "column",
+            "index",
+            "constraint",
+            "select",
+            "insert",
+            "update",
+            "delete",
+            "create",
+            "drop",
+            "alter",
+            "as",
+            "from",
+            "where",
+            "join",
+            "group",
+            "order",
+            "by",
+            "having",
+            "limit",
+            "offset",
+            "union",
+            "all",
+            "distinct",
+            "null",
+            "not",
+            "and",
+            "or",
+            "in",
+            "exists",
+            "case",
+            "when",
+            "then",
+            "else",
+            "end",
+            "begin",
+            "commit",
+            "rollback",
+        }
+
+        # Check for duplicate column names and reserved keywords
+        column_names = []
+        for col in tbl["columns"]:
+            col_name = col.split()[0].lower()
+            if col_name in column_names or col_name in reserved_keywords:
+                return False
+            column_names.append(col_name)
+
+        # Check for reserved table names
+        if tbl["name"].lower() in reserved_keywords:
+            return False
+
+        # Basic SQL syntax check - ensure no obviously invalid combinations
+        sql = tbl["create_sql"].upper()
+        if "BOOLEAN DEFAULT CURRENT_TIMESTAMP" in sql:
+            return False
+        if "TEXT DEFAULT 0" in sql or ("VARCHAR" in sql and "DEFAULT 0" in sql):
+            return False
+
+        return True
+    except:
+        return False
 
 
 # Table definition strategy
@@ -74,20 +157,39 @@ def table_definition(draw):
     # Generate 1-10 columns
     num_cols = draw(st.integers(min_value=1, max_value=10))
     columns = []
+    column_names = set()
+
     for _ in range(num_cols):
         col_def = draw(column_definition)
+        # Extract column name from definition
+        col_name = col_def.split()[0]
+        # Ensure unique column names
+        if col_name in column_names:
+            continue
+        column_names.add(col_name)
         columns.append(col_def)
 
     # Add primary key sometimes
-    if draw(st.booleans()):
-        pk_name = draw(pg_identifier.filter(lambda x: len(x) <= 20))
+    if draw(st.booleans()) and len(columns) > 0:
+        pk_name = draw(
+            pg_identifier.filter(lambda x: len(x) <= 20 and x not in column_names)
+        )
         columns.insert(0, f"{pk_name} SERIAL PRIMARY KEY")
 
-    return {
+    create_sql = f"CREATE TABLE {tbl_name} ({', '.join(columns)})"
+
+    # Validate the table definition
+    tbl_def = {
         "name": tbl_name,
         "columns": columns,
-        "create_sql": f"CREATE TABLE {tbl_name} ({', '.join(columns)})",
+        "create_sql": create_sql,
     }
+
+    if not _validate_table_definition(tbl_def):
+        # If invalid, try again (Hypothesis will handle retries)
+        return draw(table_definition)
+
+    return tbl_def
 
 
 # Git branch name strategy

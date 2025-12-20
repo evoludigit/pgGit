@@ -53,3 +53,40 @@ EXCEPTION
         RAISE EXCEPTION 'Failed to create commit: %', SQLERRM;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function: pggit.create_data_branch
+-- Creates a data branch (copy-on-write) of a table
+-- Parameters:
+--   p_table_name: Name of the table to branch
+--   p_from_branch: Source branch (currently ignored, assumes 'main')
+--   p_to_branch: Target branch name
+-- Returns: Branch table name created
+
+CREATE OR REPLACE FUNCTION pggit.create_data_branch(
+    p_table_name TEXT,
+    p_from_branch TEXT,
+    p_to_branch TEXT
+) RETURNS TEXT AS $$
+DECLARE
+    v_branch_table_name TEXT;
+BEGIN
+    -- Create branch table name: table__branch
+    v_branch_table_name := p_table_name || '__' || p_to_branch;
+
+    -- Create branch table as a copy of the original table
+    -- Use inheritance for copy-on-write semantics
+    EXECUTE format(
+        'CREATE TABLE %I (LIKE %I INCLUDING ALL) INHERITS (%I)',
+        v_branch_table_name,
+        p_table_name,
+        p_table_name
+    );
+
+    -- Return the branch table name
+    RETURN v_branch_table_name;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'Failed to create data branch: %', SQLERRM;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
