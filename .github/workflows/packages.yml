@@ -1,0 +1,76 @@
+name: Build Packages
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        pg-version: [15, 16, 17]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y debhelper postgresql-server-dev-${{ matrix.pg-version }}
+
+    - name: Build package
+      run: |
+        chmod +x scripts/build-deb.sh
+        ./scripts/build-deb.sh "${{ github.event.release.tag_name }}" || ./scripts/build-deb.sh "0.2.0"
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: postgresql-${{ matrix.pg-version }}-pggit
+        path: dist/*.deb
+
+    - name: Upload to release
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: dist/pggit*.deb
+        asset_name: pggit-${{ github.event.release.tag_name }}-postgresql-${{ matrix.pg-version }}.deb
+        asset_content_type: application/vnd.debian.binary-package
+
+  build-rpm:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y rpm
+
+    - name: Build RPM
+      run: |
+        chmod +x scripts/build-rpm.sh
+        ./scripts/build-rpm.sh "${{ github.event.release.tag_name }}" || ./scripts/build-rpm.sh "0.2.0"
+
+    - name: Upload RPM artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: pggit-rpm
+        path: dist/*.rpm
+
+    - name: Upload RPM to release
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: dist/pggit*.rpm
+        asset_name: pggit-${{ github.event.release.tag_name }}.rpm
+        asset_content_type: application/x-rpm
