@@ -65,7 +65,7 @@
 
 ### Phase 2-GREEN: Core pggit Functions
 **Priority**: Critical - Must implement first
-**Progress**: ✅ 2/4 functions implemented
+**Progress**: ✅ 3/4 functions implemented
 **Estimated Time**: 1-2 days
 
 #### ✅ Completed:
@@ -82,11 +82,17 @@
    - Properly inherits data from parent table
    - Enables independent data operations on branches
 
+3. **`pggit.calculate_schema_hash`** ✅ IMPLEMENTED
+   - Generates deterministic hash of table schema using existing DDL hashing
+   - Returns SHA-256 hash for schema change detection
+   - Handles missing tables gracefully (returns NULL)
+   - Enables migration testing and schema integrity validation
+
 #### Remaining Tasks:
-3. **Implement `pggit.calculate_schema_hash`**
-   - Analyze table structure
-   - Generate deterministic hash of schema
-   - Cache results for performance
+4. **Implement `pggit.delete_branch`**
+   - Safely remove branch data
+   - Handle dependent objects
+   - Update metadata
 
 3. **Implement `pggit.calculate_schema_hash`**
    - Analyze table structure
