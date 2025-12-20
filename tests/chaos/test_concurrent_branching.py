@@ -191,7 +191,9 @@ class TestConcurrentBranching:
 
             try:
                 # Try to delete branch (this may not be implemented yet)
-                cursor = conn.execute("SELECT pggit.delete_branch(%s)", (branch_name,))
+                cursor = conn.execute(
+                    "SELECT pggit.delete_branch_simple(%s)", (branch_name,)
+                )
                 conn.commit()
                 conn.close()
 
