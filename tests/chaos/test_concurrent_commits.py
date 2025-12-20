@@ -128,6 +128,7 @@ class TestConcurrentCommits:
         print(f"   Unique Trinity IDs: {len(set(trinity_ids))}")
 
     @pytest.mark.timeout(120)
+    @pytest.mark.asyncio
     async def test_concurrent_commits_with_delays(
         self, async_conn: psycopg.AsyncConnection, conn_pool
     ):
@@ -324,6 +325,7 @@ class TestConcurrentCommits:
             f"\n✅ {isolation_level}: {len(successes)} successes, {len(failures)} failures"
         )
 
+    @pytest.mark.asyncio
     async def test_async_concurrent_commits(self, async_conn_pool):
         """
         Test fully async concurrent commits using async connection pool.
@@ -353,7 +355,7 @@ class TestConcurrentCommits:
 
                 return {
                     "worker_id": worker_id,
-                    "trinity_id": result[0],
+                    "trinity_id": list(result.values())[0],
                     "success": True,
                 }
 
