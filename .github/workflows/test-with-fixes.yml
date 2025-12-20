@@ -3,7 +3,7 @@ name: Test with Fixes
 on:
   workflow_dispatch:
   push:
-    branches: [ main, phase-1-critical-fixes ]
+    branches: [ main, phase-1-critical-fixes, phase-2-quality-foundation ]
 
 jobs:
   test:
