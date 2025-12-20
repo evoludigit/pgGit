@@ -9,7 +9,7 @@ import uuid
 
 import pytest
 import psycopg
-from hypothesis import given, settings, HealthCheck, strategies as st
+from hypothesis import given, settings, HealthCheck, strategies as st, assume
 
 from tests.chaos.strategies import (
     table_definition,
@@ -32,64 +32,85 @@ class TestTableVersioningProperties:
         self, sync_conn: psycopg.Connection, tbl_def: dict
     ):
         """Property: Creating any valid table assigns a version."""
-        # Create table
-        sync_conn.execute(tbl_def["create_sql"])
-        sync_conn.commit()
-
-        # Check version assigned - this will likely fail initially (RED phase)
         try:
-            cursor = sync_conn.execute(
-                "SELECT * FROM pggit.get_version(%s)", (tbl_def["name"],)
-            )
-            version = cursor.fetchone()
+            # Create table
+            sync_conn.execute(tbl_def["create_sql"])
+            sync_conn.commit()
 
-            assert version is not None, f"Table {tbl_def['name']} should have version"
-            assert version["major"] == 1, "Initial version should be 1.0.0"
-            assert version["minor"] == 0
-            assert version["patch"] == 0
-        except psycopg.Error:
-            # Expected to fail initially - pggit.get_version might not exist yet
-            pytest.skip("get_version function not implemented yet")
+            # Check version assigned - this will likely fail initially (RED phase)
+            try:
+                cursor = sync_conn.execute(
+                    "SELECT * FROM pggit.get_version(%s)", (tbl_def["name"],)
+                )
+                version = cursor.fetchone()
 
-    @given(tbl_def=table_definition(), branch1=git_branch_name, branch2=git_branch_name)
+                assert version is not None, (
+                    f"Table {tbl_def['name']} should have version"
+                )
+                assert version["major"] == 1, "Initial version should be 1.0.0"
+                assert version["minor"] == 0
+                assert version["patch"] == 0
+            except psycopg.Error:
+                # Expected to fail initially - pggit.get_version might not exist yet
+                pytest.skip("get_version function not implemented yet")
+        finally:
+            # Clean up the test table to prevent collisions with future examples
+            try:
+                sync_conn.execute(f"DROP TABLE IF EXISTS {tbl_def['name']} CASCADE")
+                sync_conn.commit()
+            except psycopg.Error:
+                pass  # Best-effort cleanup
+
+    @given(
+        tbl_def=table_definition(),
+        branches=st.sets(git_branch_name, min_size=2, max_size=2),
+    )
     @settings(
         max_examples=30,
         deadline=None,
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
     def test_trinity_id_unique_across_branches(
-        self, sync_conn: psycopg.Connection, tbl_def: dict, branch1: str, branch2: str
+        self, sync_conn: psycopg.Connection, tbl_def: dict, branches: set
     ):
         """Property: Trinity IDs are unique across different branches."""
-        assume(branch1 != branch2)  # Ensure different branches
-
-        # Create table
-        sync_conn.execute(tbl_def["create_sql"])
-        sync_conn.commit()
+        branch1, branch2 = list(branches)  # Unpack the two unique branches
 
         try:
-            # Create commit on branch1
-            cursor1 = sync_conn.execute(
-                "SELECT pggit.commit_changes(%s, %s, %s)",
-                (f"commit-{branch1}", branch1, "Initial commit"),
-            )
-            trinity_id_1 = cursor1.fetchone()[0]
+            # Create table
+            sync_conn.execute(tbl_def["create_sql"])
+            sync_conn.commit()
 
-            # Create commit on branch2
-            cursor2 = sync_conn.execute(
-                "SELECT pggit.commit_changes(%s, %s, %s)",
-                (f"commit-{branch2}", branch2, "Initial commit"),
-            )
-            trinity_id_2 = cursor2.fetchone()[0]
+            try:
+                # Create commit on branch1
+                cursor1 = sync_conn.execute(
+                    "SELECT pggit.commit_changes(%s, %s)",
+                    (branch1, "Initial commit"),
+                )
+                trinity_id_1 = cursor1.fetchone()
 
-            # Property: Trinity IDs must be unique
-            assert trinity_id_1 != trinity_id_2, (
-                f"Trinity IDs should be unique: {trinity_id_1} vs {trinity_id_2}"
-            )
+                # Create commit on branch2
+                cursor2 = sync_conn.execute(
+                    "SELECT pggit.commit_changes(%s, %s)",
+                    (branch2, "Initial commit"),
+                )
+                trinity_id_2 = cursor2.fetchone()
 
-        except psycopg.Error:
-            # Expected to fail initially
-            pytest.skip("increment_version function not implemented yet")
+                # Property: Trinity IDs must be unique
+                assert trinity_id_1 != trinity_id_2, (
+                    f"Trinity IDs should be unique: {trinity_id_1} vs {trinity_id_2}"
+                )
+
+            except psycopg.Error:
+                # Expected to fail initially
+                pytest.skip("increment_version function not implemented yet")
+        finally:
+            # Clean up the test table to prevent collisions with future examples
+            try:
+                sync_conn.execute(f"DROP TABLE IF EXISTS {tbl_def['name']} CASCADE")
+                sync_conn.commit()
+            except psycopg.Error:
+                pass  # Best-effort cleanup
 
     @pytest.mark.parametrize("concurrency_level", [1, 5, 10])
     def test_trinity_id_uniqueness_under_concurrency(
@@ -186,7 +207,10 @@ class TestTableVersioningProperties:
         minor=st.integers(min_value=0, max_value=100),
         patch=st.integers(min_value=0, max_value=100),
     )
-    @settings(max_examples=50, deadline=None,)
+    @settings(
+        max_examples=50,
+        deadline=None,
+    )
     def test_minor_increment_resets_patch(
         self, sync_conn: psycopg.Connection, major: int, minor: int, patch: int
     ):
@@ -214,7 +238,10 @@ class TestTableVersioningProperties:
         minor=st.integers(min_value=0, max_value=100),
         patch=st.integers(min_value=0, max_value=100),
     )
-    @settings(max_examples=50, deadline=None,)
+    @settings(
+        max_examples=50,
+        deadline=None,
+    )
     def test_major_increment_resets_minor_and_patch(
         self, sync_conn: psycopg.Connection, major: int, minor: int, patch: int
     ):

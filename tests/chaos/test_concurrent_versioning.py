@@ -28,7 +28,7 @@ class TestConcurrentVersioning:
         table_name = "version_test_table"
 
         # Setup: Create table
-        setup_conn = psycopg.connect(db_connection_string)
+        setup_conn = psycopg.connect(db_connection_string, row_factory=dict_row)
         setup_conn.execute(f"CREATE TABLE {table_name} (id INT)")
         setup_conn.commit()
 
