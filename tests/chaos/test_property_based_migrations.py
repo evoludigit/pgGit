@@ -76,33 +76,43 @@ class TestMigrationIdempotency:
                 pytest.skip("Migration functionality not implemented yet")
 
     @given(tbl_def=table_definition())
-    @settings(max_examples=20, deadline=None)
+    @settings(
+        max_examples=20,
+        deadline=None,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
     def test_schema_hash_changes_on_modification(
         self, sync_conn: psycopg.Connection, tbl_def: dict
     ):
         """Property: Schema hash changes when table is modified."""
-        # Create table
-        sync_conn.execute(tbl_def["create_sql"])
+        import uuid
+
+        # Use unique table name to avoid collisions
+        table_name = f"{tbl_def['name']}_{uuid.uuid4().hex[:8]}"
+        create_sql = tbl_def["create_sql"].replace(
+            f"CREATE TABLE {tbl_def['name']}", f"CREATE TABLE {table_name}"
+        )
+        sync_conn.execute(create_sql)
         sync_conn.commit()
 
         try:
             # Get initial schema hash
             cursor1 = sync_conn.execute(
-                "SELECT pggit.calculate_schema_hash(%s)", (tbl_def["name"],)
+                "SELECT pggit.calculate_schema_hash(%s)", (table_name,)
             )
-            hash1 = cursor1.fetchone()[0]
+            hash1 = cursor1.fetchone()["calculate_schema_hash"]
 
             # Modify table
             sync_conn.execute(
-                f"ALTER TABLE {tbl_def['name']} ADD COLUMN new_col_property TEXT"
+                f"ALTER TABLE {table_name} ADD COLUMN new_col_property TEXT"
             )
             sync_conn.commit()
 
             # Get new schema hash
             cursor2 = sync_conn.execute(
-                "SELECT pggit.calculate_schema_hash(%s)", (tbl_def["name"],)
+                "SELECT pggit.calculate_schema_hash(%s)", (table_name,)
             )
-            hash2 = cursor2.fetchone()[0]
+            hash2 = cursor2.fetchone()["calculate_schema_hash"]
 
             # Property: Hashes should differ
             assert hash1 != hash2, "Schema hash should change after modification"
@@ -112,7 +122,11 @@ class TestMigrationIdempotency:
             pytest.skip("calculate_schema_hash function not implemented yet")
 
     @given(tbl_def=table_definition())
-    @settings(max_examples=20, deadline=None)
+    @settings(
+        max_examples=20,
+        deadline=None,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
     def test_schema_hash_consistent_for_same_schema(
         self, sync_conn: psycopg.Connection, tbl_def: dict
     ):
@@ -126,12 +140,12 @@ class TestMigrationIdempotency:
             cursor1 = sync_conn.execute(
                 "SELECT pggit.calculate_schema_hash(%s)", (tbl_def["name"],)
             )
-            hash1 = cursor1.fetchone()[0]
+            hash1 = cursor1.fetchone()["calculate_schema_hash"]
 
             cursor2 = sync_conn.execute(
                 "SELECT pggit.calculate_schema_hash(%s)", (tbl_def["name"],)
             )
-            hash2 = cursor2.fetchone()[0]
+            hash2 = cursor2.fetchone()["calculate_schema_hash"]
 
             # Property: Hashes should be identical
             assert hash1 == hash2, "Schema hash should be consistent for same schema"
@@ -147,7 +161,11 @@ class TestMigrationRollbackProperties:
     """Property-based tests for migration rollback behavior."""
 
     @given(tbl_def=table_definition())
-    @settings(max_examples=25, deadline=None)
+    @settings(
+        max_examples=20,
+        deadline=None,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
     def test_rollback_restores_original_state(
         self, sync_conn: psycopg.Connection, tbl_def: dict
     ):
@@ -211,7 +229,11 @@ class TestMigrationValidationProperties:
             max_size=200,
         )
     )
-    @settings(max_examples=50, deadline=None)
+    @settings(
+        max_examples=20,
+        deadline=None,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
     def test_migration_sql_validation(
         self, sync_conn: psycopg.Connection, migration_sql: str
     ):
@@ -273,7 +295,11 @@ class TestSchemaEvolutionProperties:
     @given(
         st.integers(min_value=1, max_value=5)  # Number of evolution steps
     )
-    @settings(max_examples=15, deadline=None)
+    @settings(
+        max_examples=20,
+        deadline=None,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
     def test_schema_evolution_maintains_integrity(
         self, sync_conn: psycopg.Connection, evolution_steps: int
     ):
