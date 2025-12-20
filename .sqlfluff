@@ -1,0 +1,13 @@
+[sqlfluff]
+dialect = postgres
+templater = raw
+max_line_length = 120
+exclude_rules = L003,L009,L016,L010,L014,L030,L042,L052
+large_file_skip_byte_limit = 50000
+
+[sqlfluff:indentation]
+tab_space_size = 4
+indent_unit = space
+indented_joins = True
+indented_using_on = True
+template_blocks_indent = True
