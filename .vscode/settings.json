@@ -1,0 +1,50 @@
+{
+  "files.associations": {
+    "*.sql": "postgres"
+  },
+  "sqltools.connections": [
+    {
+      "name": "pgGit Development",
+      "server": "localhost",
+      "port": 5432,
+      "database": "pggit_dev",
+      "username": "postgres",
+      "askForPassword": true,
+      "connectionTimeout": 30
+    }
+  ],
+  "editor.formatOnSave": true,
+  "editor.rulers": [80, 120],
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "[sql]": {
+    "editor.defaultFormatter": "mtxr.sqltools",
+    "editor.tabSize": 4
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "davidanson.vscode-markdownlint"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml"
+  },
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "git.autofetch": true,
+  "git.enableSmartCommit": true,
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/*.log": true,
+    "**/node_modules": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/*.log": true,
+    "**/build": true,
+    "**/dist": true
+  }
+}

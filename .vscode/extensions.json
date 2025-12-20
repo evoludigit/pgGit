@@ -1,0 +1,17 @@
+{
+  "recommendations": [
+    "ms-vscode.vscode-postgres",
+    "cweijan.vscode-postgresql-client2",
+    "mtxr.sqltools",
+    "mtxr.sqltools-driver-pg",
+    "redhat.vscode-yaml",
+    "davidanson.vscode-markdownlint",
+    "editorconfig.editorconfig",
+    "github.copilot",
+    "eamodio.gitlens",
+    "ms-vscode.vscode-json",
+    "streetsidesoftware.code-spell-checker",
+    "ms-vscode.vscode-docker",
+    "github.copilot-chat"
+  ]
+}

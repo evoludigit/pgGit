@@ -1,0 +1,14 @@
+# File: templates/extension-template/my-extension.control
+# Example PostgreSQL extension control file
+
+# Basic information
+comment = 'Example pgGit extension template'
+default_version = '1.0.0'
+module_pathname = '$libdir/my_extension'
+relocatable = true
+
+# Dependencies
+requires = 'pgGit'
+
+# Load order
+schema = pggit_example
