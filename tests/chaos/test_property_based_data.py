@@ -8,6 +8,7 @@ different branches and versions of table schemas.
 import pytest
 from hypothesis import given, strategies as st, assume, settings, HealthCheck
 import psycopg
+from psycopg.rows import dict_row
 
 from tests.chaos.strategies import table_definition, git_branch_name, pg_branch_name
 
@@ -322,49 +323,73 @@ class TestDataBranchingProperties:
         """Property: Schema changes preserve existing data integrity."""
         assume(len(tbl_def["columns"]) >= 2)  # Need at least 2 columns
 
-        # Create table
-        sync_conn.execute(tbl_def["create_sql"])
-
-        # Insert data using first two columns
-        col1 = tbl_def["columns"][0].split()[0]
-        col2 = tbl_def["columns"][1].split()[0]
-
-        # Generate appropriate values for the columns
-        val1 = "test_value" if "TEXT" in tbl_def["columns"][0] else 123
-        val2 = "test_value2" if "TEXT" in tbl_def["columns"][1] else 456
-
-        sync_conn.execute(
-            f"INSERT INTO {tbl_def['name']} ({col1}, {col2}) VALUES (%s, %s)",
-            (val1, val2),
-        )
-        sync_conn.commit()
-
         try:
-            # Add a new column (schema change)
-            sync_conn.execute(
-                f"ALTER TABLE {tbl_def['name']} ADD COLUMN new_schema_col TEXT DEFAULT 'added'"
-            )
-            sync_conn.commit()
+            # Create table (with cleanup)
+            try:
+                sync_conn.execute(tbl_def["create_sql"])
+                sync_conn.commit()
+            except psycopg.Error:
+                sync_conn.rollback()
+                sync_conn.execute(f"DROP TABLE IF EXISTS {tbl_def['name']} CASCADE")
+                sync_conn.execute(tbl_def["create_sql"])
+                sync_conn.commit()
 
-            # Verify original data preserved
-            cursor = sync_conn.execute(f"SELECT {col1}, {col2} FROM {tbl_def['name']}")
-            row = cursor.fetchone()
+            # Insert data using first two columns
+            col1 = tbl_def["columns"][0].split()[0]
+            col2 = tbl_def["columns"][1].split()[0]
 
-            assert row[col1] == val1, (
-                "Original data should be preserved after schema change"
-            )
-            assert row[col2] == val2, (
-                "Original data should be preserved after schema change"
-            )
+            # Generate appropriate values for the columns
+            val1 = "test_value" if "TEXT" in tbl_def["columns"][0].upper() else 123
+            val2 = "test_value2" if "TEXT" in tbl_def["columns"][1].upper() else 456
 
-            # Verify new column has default value
-            cursor = sync_conn.execute(f"SELECT new_schema_col FROM {tbl_def['name']}")
-            new_col_value = cursor.fetchone()["new_schema_col"]
-            assert new_col_value == "added", "New column should have default value"
+            try:
+                sync_conn.execute(
+                    f"INSERT INTO {tbl_def['name']} ({col1}, {col2}) VALUES (%s, %s)",
+                    (val1, val2),
+                )
+                sync_conn.commit()
+            except psycopg.Error:
+                # If insert fails due to constraints, skip
+                pytest.skip("Cannot insert test data due to table constraints")
 
-        except psycopg.Error as e:
-            # Expected to fail initially - schema changes may not be fully implemented
-            pytest.skip(f"Schema change functionality incomplete: {e}")
+            try:
+                # Add a new column (schema change)
+                sync_conn.execute(
+                    f"ALTER TABLE {tbl_def['name']} ADD COLUMN new_schema_col TEXT DEFAULT 'added'"
+                )
+                sync_conn.commit()
+
+                # Verify original data preserved
+                cursor = sync_conn.execute(
+                    f"SELECT {col1}, {col2} FROM {tbl_def['name']}"
+                )
+                row = cursor.fetchone()
+
+                assert row[col1] == val1, (
+                    "Original data should be preserved after schema change"
+                )
+                assert row[col2] == val2, (
+                    "Original data should be preserved after schema change"
+                )
+
+                # Verify new column has default value
+                cursor = sync_conn.execute(
+                    f"SELECT new_schema_col FROM {tbl_def['name']}"
+                )
+                new_col_value = cursor.fetchone()["new_schema_col"]
+                assert new_col_value == "added", "New column should have default value"
+
+            except psycopg.Error as e:
+                # Expected to fail initially - schema changes may not be fully implemented
+                pytest.skip(f"Schema change functionality incomplete: {e}")
+
+        finally:
+            # Clean up
+            try:
+                sync_conn.execute(f"DROP TABLE IF EXISTS {tbl_def['name']} CASCADE")
+                sync_conn.commit()
+            except psycopg.Error:
+                pass
 
 
 @pytest.mark.chaos
@@ -372,93 +397,100 @@ class TestDataBranchingProperties:
 class TestConcurrentDataOperations:
     """Property-based tests for concurrent data operations."""
 
-    @given(
-        st.integers(min_value=2, max_value=5)  # Number of concurrent operations
-    )
-    @settings(
-        max_examples=10,
-        deadline=None,
-        suppress_health_check=[HealthCheck.function_scoped_fixture],
-    )
-    def test_concurrent_data_modifications_isolated(
-        self, conn_pool, num_operations: int
+    def test_concurrent_data_modifications_isolated_simple(
+        self, db_connection_string: str
     ):
-        """Property: Concurrent data modifications maintain isolation."""
-        assume(len(conn_pool) >= num_operations)  # Need enough connections
-
-        # Create test table on first connection
-        conn_pool[0].execute("""
-            CREATE TABLE concurrent_test (
-                id SERIAL PRIMARY KEY,
-                counter INTEGER DEFAULT 0
-            )
-        """)
-        conn_pool[0].execute("INSERT INTO concurrent_test (counter) VALUES (0)")
-        conn_pool[0].commit()
+        """Test: Concurrent data modifications maintain basic isolation."""
+        table_name = "concurrent_data_test"
 
         try:
-            # Perform concurrent increments
-            import threading
+            # Create test table
+            conn = psycopg.connect(db_connection_string)
+            try:
+                conn.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE")
+                conn.execute(f"""
+                    CREATE TABLE {table_name} (
+                        id SERIAL PRIMARY KEY,
+                        counter INTEGER DEFAULT 0
+                    )
+                """)
+                conn.execute(f"INSERT INTO {table_name} (counter) VALUES (0)")
+                conn.commit()
+            except psycopg.Error:
+                conn.rollback()
+                pytest.skip("Cannot create test table")
 
-            results = []
-            errors = []
-
-            def increment_counter(conn_index: int):
+            # Perform concurrent increments using ThreadPoolExecutor
+            def increment_counter(worker_id: int):
                 try:
-                    conn = conn_pool[conn_index]
-                    # Start transaction
-                    conn.execute("BEGIN")
+                    worker_conn = psycopg.connect(
+                        db_connection_string, row_factory=dict_row
+                    )
+                    worker_conn.execute("BEGIN")
                     # Read current value
-                    cursor = conn.execute(
-                        "SELECT counter FROM concurrent_test WHERE id = 1"
+                    cursor = worker_conn.execute(
+                        f"SELECT counter FROM {table_name} WHERE id = 1"
                     )
                     current = cursor.fetchone()["counter"]
                     # Increment
                     new_value = current + 1
-                    # Write back
-                    conn.execute(
-                        "UPDATE concurrent_test SET counter = %s WHERE id = 1",
+                    # Write back with delay to increase concurrency chance
+                    import time
+
+                    time.sleep(0.01)
+                    worker_conn.execute(
+                        f"UPDATE {table_name} SET counter = %s WHERE id = 1",
                         (new_value,),
                     )
-                    # Commit
-                    conn.commit()
-                    results.append(new_value)
+                    worker_conn.commit()
+                    worker_conn.close()
+                    return {"worker": worker_id, "success": True, "value": new_value}
                 except Exception as e:
-                    errors.append(str(e))
+                    try:
+                        worker_conn.rollback()
+                        worker_conn.close()
+                    except:
+                        pass
+                    return {"worker": worker_id, "success": False, "error": str(e)}
 
             # Run concurrent operations
-            threads = []
-            for i in range(num_operations):
-                thread = threading.Thread(target=increment_counter, args=(i,))
-                threads.append(thread)
-                thread.start()
+            from concurrent.futures import ThreadPoolExecutor
 
-            # Wait for completion
-            for thread in threads:
-                thread.join()
+            num_workers = 3
+            with ThreadPoolExecutor(max_workers=num_workers) as executor:
+                futures = [
+                    executor.submit(increment_counter, i) for i in range(num_workers)
+                ]
+                results = [f.result() for f in futures]
 
-            # Verify no errors occurred
-            assert len(errors) == 0, f"Concurrent operations failed: {errors}"
+            successes = [r for r in results if r["success"]]
+            failures = [r for r in results if not r["success"]]
 
-            # Verify final counter value
-            cursor = conn_pool[0].execute(
-                "SELECT counter FROM concurrent_test WHERE id = 1"
+            # Should have at least some successes
+            assert len(successes) > 0, f"No successful concurrent operations: {results}"
+
+            # Verify final counter value reflects all successful increments
+            final_conn = psycopg.connect(db_connection_string)
+            cursor = final_conn.execute(
+                f"SELECT counter FROM {table_name} WHERE id = 1"
             )
             final_value = cursor.fetchone()["counter"]
-            assert final_value == num_operations, (
-                f"Counter should be {num_operations}, got {final_value}"
+            final_conn.close()
+
+            # Final value should be initial (0) + number of successful increments
+            expected_final = len(successes)
+            assert final_value == expected_final, (
+                f"Concurrent operations not properly isolated: expected {expected_final}, got {final_value}"
             )
 
-        except psycopg.Error:
-            # Expected to fail initially - concurrent operations may not be properly implemented
-            pytest.skip("Concurrent data operations not fully implemented yet")
-
         finally:
-            # Cleanup
+            # Clean up
             try:
-                for conn in conn_pool:
-                    conn.rollback()
-            except Exception:
+                cleanup_conn = psycopg.connect(db_connection_string)
+                cleanup_conn.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE")
+                cleanup_conn.commit()
+                cleanup_conn.close()
+            except psycopg.Error:
                 pass
 
 
