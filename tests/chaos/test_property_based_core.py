@@ -98,13 +98,15 @@ class TestTableVersioningProperties:
     def test_commit_message_preserved(self, sync_conn: psycopg.Connection, msg: str):
         """Property: Commit messages are preserved exactly as written."""
         # Create a unique table for this test
-        table_name = f"test_table_{hash(msg) % 1000000}"
+        import uuid
+
+        table_name = f"test_table_{uuid.uuid4().hex[:8]}"
         sync_conn.execute(f"CREATE TABLE {table_name} (id SERIAL PRIMARY KEY)")
         sync_conn.commit()
 
         try:
             # Make commit with generated message (use unique ID per test)
-            commit_id = f"test-commit-{hash(msg) % 1000000}"
+            commit_id = f"test-commit-{uuid.uuid4().hex[:8]}"
             cursor = sync_conn.execute(
                 "SELECT pggit.commit_changes(%s, %s, %s)", (commit_id, "main", msg)
             )
