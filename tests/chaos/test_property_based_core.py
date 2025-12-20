@@ -5,6 +5,8 @@ These tests validate fundamental properties of pggit operations using Hypothesis
 to generate diverse test inputs and catch edge cases.
 """
 
+import uuid
+
 import pytest
 from hypothesis import given, strategies as st, assume, settings, HealthCheck
 from hypothesis import Phase
@@ -54,7 +56,11 @@ class TestTableVersioningProperties:
             pytest.skip("get_version function not implemented yet")
 
     @given(tbl_def=table_definition(), branch1=git_branch_name, branch2=git_branch_name)
-    @settings(max_examples=30, deadline=None)
+    @settings(
+        max_examples=30,
+        deadline=None,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
     def test_trinity_id_unique_across_branches(
         self, sync_conn: psycopg.Connection, tbl_def: dict, branch1: str, branch2: str
     ):
@@ -97,9 +103,6 @@ class TestTableVersioningProperties:
     )
     def test_commit_message_preserved(self, sync_conn: psycopg.Connection, msg: str):
         """Property: Commit messages are preserved exactly as written."""
-        # Create a unique table for this test
-        import uuid
-
         table_name = f"test_table_{uuid.uuid4().hex[:8]}"
         sync_conn.execute(f"CREATE TABLE {table_name} (id SERIAL PRIMARY KEY)")
         sync_conn.commit()

@@ -5,7 +5,7 @@ These strategies generate valid inputs for property-based testing of pggit funct
 including PostgreSQL identifiers, table definitions, Git-like branch names, and data.
 """
 
-from hypothesis import strategies as st
+from hypothesis import strategies as st, assume
 import string
 
 # Valid PostgreSQL identifier characters
@@ -152,7 +152,11 @@ def _validate_table_definition(tbl):
 @st.composite
 def table_definition(draw):
     """Generate complete table definition."""
-    tbl_name = draw(table_name)
+    # Generate more unique table names to avoid collisions
+    base_name = draw(table_name)
+    # Add random suffix to make names more unique
+    unique_suffix = draw(st.integers(min_value=1000, max_value=999999))
+    tbl_name = f"{base_name}_{unique_suffix}"
 
     # Generate 1-10 columns
     num_cols = draw(st.integers(min_value=1, max_value=10))
