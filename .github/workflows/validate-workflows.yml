@@ -1,0 +1,39 @@
+name: Validate Workflows
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+jobs:
+  validate-yaml:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Validate YAML syntax
+      run: |
+        if command -v yamllint >/dev/null 2>&1; then
+          yamllint .github/workflows/*.yml
+          echo "✅ YAML syntax valid"
+        else
+          echo "⚠️ yamllint not available, skipping YAML validation"
+        fi
+
+    - name: Check workflow files exist
+      run: |
+        ls -la .github/workflows/
+        echo "✅ Workflow files present"
+
+    - name: Validate SBOM format
+      run: |
+        if [ -f "SBOM.json" ]; then
+          if command -v jq >/dev/null 2>&1; then
+            jq -e '.bomFormat == "CycloneDX"' SBOM.json >/dev/null && echo "✅ SBOM format valid"
+          else
+            echo "⚠️ jq not available, skipping SBOM validation"
+          fi
+        else
+          echo "⚠️ SBOM.json not found"
+        fi
