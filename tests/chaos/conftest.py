@@ -66,6 +66,35 @@ def db_connection_string(db_config: dict[str, str | None]) -> str:
     return " ".join(parts)
 
 
+@pytest.fixture(scope="function", autouse=True)
+def cleanup_test_tables(db_connection_string: str):
+    """Clean up test tables before each test function runs."""
+    with psycopg.connect(db_connection_string, autocommit=True) as conn:
+        try:
+            # Drop tables that might be created by chaos tests
+            cursor = conn.execute("""
+                SELECT tablename FROM pg_tables
+                WHERE schemaname = 'public'
+                AND (
+                    tablename LIKE 'test_table_%' OR
+                    tablename LIKE '%_%' OR  -- Tables with underscores (generated names)
+                    length(tablename) <= 10  -- Short table names
+                )
+                AND tablename NOT LIKE 'pg_%'  -- Don't drop system tables
+                AND tablename NOT LIKE 'pggit%'  -- Don't drop pggit tables
+            """)
+            test_tables = cursor.fetchall()
+
+            for row in test_tables:
+                table_name = row[0]  # tablename is first column
+                try:
+                    conn.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE")
+                except psycopg.Error:
+                    pass  # Ignore errors during cleanup
+        except psycopg.Error:
+            pass  # Ignore errors if cleanup query fails
+
+
 @pytest.fixture
 def sync_conn(db_connection_string: str) -> Generator[psycopg.Connection, None, None]:
     """Synchronous database connection for a single test."""
@@ -73,14 +102,13 @@ def sync_conn(db_connection_string: str) -> Generator[psycopg.Connection, None, 
     with psycopg.connect(db_connection_string) as check_conn:
         cursor = check_conn.execute(
             "SELECT EXISTS (SELECT 1 FROM information_schema.schemata "
-            "WHERE schema_name = 'pggit')",
+            "WHERE schema_name = 'pggit')"
         )
         if not cursor.fetchone()[0]:
-            msg = (
+            raise RuntimeError(
                 "pggit schema not found. Please install: cd sql && "
                 "psql -d pggit_chaos_test -f install.sql"
             )
-            raise RuntimeError(msg)
 
     # Now create the actual connection with dict_row and autocommit
     # Autocommit prevents transaction state issues between hypothesis examples

@@ -19,7 +19,11 @@ class TestDataBranchingProperties:
     """Property-based tests for data branching (copy-on-write)."""
 
     @given(tbl_def=table_definition(), branch_name=git_branch_name)
-    @settings(max_examples=20, deadline=None)
+    @settings(
+        max_examples=20,
+        deadline=None,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
     def test_branched_data_independent(
         self, sync_conn: psycopg.Connection, tbl_def: dict, branch_name: str
     ):
@@ -69,7 +73,11 @@ class TestDataBranchingProperties:
             pytest.skip("Data branching functionality not implemented yet")
 
     @given(tbl_def=table_definition())
-    @settings(max_examples=15, deadline=None)
+    @settings(
+        max_examples=15,
+        deadline=None,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
     def test_data_branch_creation_preserves_data(
         self, sync_conn: psycopg.Connection, tbl_def: dict
     ):
@@ -125,7 +133,11 @@ class TestDataIntegrityProperties:
     @given(
         st.integers(min_value=1, max_value=10)  # Number of data modifications
     )
-    @settings(max_examples=20, deadline=None)
+    @settings(
+        max_examples=20,
+        deadline=None,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
     def test_data_integrity_across_commits(
         self, sync_conn: psycopg.Connection, num_modifications: int
     ):
@@ -178,7 +190,11 @@ class TestDataIntegrityProperties:
             pytest.skip("Commit functionality not implemented yet")
 
     @given(tbl_def=table_definition())
-    @settings(max_examples=15, deadline=None)
+    @settings(
+        max_examples=15,
+        deadline=None,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
     def test_schema_changes_preserve_existing_data(
         self, sync_conn: psycopg.Connection, tbl_def: dict
     ):
@@ -238,7 +254,11 @@ class TestConcurrentDataOperations:
     @given(
         st.integers(min_value=2, max_value=5)  # Number of concurrent operations
     )
-    @settings(max_examples=10, deadline=None)
+    @settings(
+        max_examples=10,
+        deadline=None,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
     def test_concurrent_data_modifications_isolated(
         self, conn_pool, num_operations: int
     ):
@@ -329,7 +349,11 @@ class TestDataVersioningProperties:
     @given(
         st.integers(min_value=1, max_value=5)  # Number of versions
     )
-    @settings(max_examples=15, deadline=None)
+    @settings(
+        max_examples=15,
+        deadline=None,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
     def test_data_version_history_preserved(
         self, sync_conn: psycopg.Connection, num_versions: int
     ):
