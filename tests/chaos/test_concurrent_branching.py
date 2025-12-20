@@ -345,11 +345,12 @@ class TestConcurrentBranching:
         )
         print(f"   Unique Trinity IDs: {len(set(all_trinity_ids))}")
 
-    def test_branch_isolation_between_workers(self, db_connection_string: str):
+    def test_branch_isolation_between_workers(self, db_connection_string: str) -> None:
         """
-        Test: Workers on different branches don't interfere with each other.
+        Test: Branch operations from different workers should be isolated.
 
-        Expected: Each worker's operations stay isolated to their branch.
+        Each worker gets their own branch and should not interfere with others.
+        Ensures proper isolation between concurrent branch operations.
         """
         num_workers = 6
 
@@ -410,7 +411,9 @@ class TestConcurrentBranching:
 
         # All should succeed (no interference between branches)
         assert len(successes) == num_workers, (
-            f"All {num_workers} isolated workers should succeed, got {len(failures)} failures"
+            f"All {num_workers} isolated workers should succeed without interference. "
+            f"Got {len(successes)} successes, {len(failures)} failures. "
+            f"This indicates branch isolation is not working properly."
         )
 
         # All Trinity IDs should be unique
@@ -423,7 +426,7 @@ class TestConcurrentBranching:
         print(f"   All Trinity IDs unique: {len(set(trinity_ids))} distinct IDs")
 
     @pytest.mark.slow
-    def test_branch_contention_under_load(self, db_connection_string: str):
+    def test_branch_contention_under_load(self, db_connection_string: str) -> None:
         """
         Test: High contention on branch operations with many workers.
 
@@ -509,11 +512,13 @@ class TestConcurrentBranching:
         print(f"   Average operations per worker: {total_operations / num_workers:.1f}")
 
     @pytest.mark.slow
-    def test_extreme_branching_contention(self, db_connection_string: str):
+    def test_extreme_branching_contention(self, db_connection_string: str) -> None:
         """
-        Test: Extreme contention with many workers on the same branch.
+        Test: Extreme contention with many workers competing for the same branch.
 
-        This pushes the limits of pggit's concurrency handling.
+        This pushes the limits of pggit's concurrency handling by having 10 workers
+        perform multiple operations each on shared branches, testing conflict resolution
+        and transaction isolation under maximum contention.
         """
         num_workers = 10
         branch_name = "extreme-contention-branch"
@@ -690,11 +695,17 @@ class TestConcurrentBranching:
         total_operations = sum(r.get("operations", 0) for r in results)
         operations_per_second = total_operations / total_time
 
-        # Performance expectations
+        # Performance expectations - should handle reasonable load
+        # At least 50 operations in 10 seconds shows basic functionality
         assert total_operations > 50, (
-            f"Expected >50 operations in {test_duration}s, got {total_operations}"
+            f"Expected >50 operations in {test_duration}s under normal load, got {total_operations}. "
+            f"This may indicate performance issues."
         )
-        assert operations_per_second > 2.0, ".2f"
+        # At least 2 operations per second is reasonable for database operations
+        assert operations_per_second > 2.0, (
+            f"Expected >2.0 operations/second, got {operations_per_second:.2f}. "
+            f"Performance may be degraded under concurrent load."
+        )
 
         print(f"\n✅ Performance test results:")
         print(f"   Duration: {total_time:.2f}s")
@@ -835,10 +846,15 @@ class TestConcurrentBranching:
             f"Expected >{num_workers * 2} operations under chaos, got {total_operations}"
         )
 
+        print(f"\n✅ Mixed workload chaos test completed:")
         print(
-            f"\n✅ Mixed workload chaos: {len(successes)}/{num_workers} workers succeeded"
+            f"   Workers: {len(successes)}/{num_workers} succeeded ({len(successes) / num_workers * 100:.1f}%)"
         )
         print(f"   Total operations: {total_operations}")
-        print(f"   Total errors/conflicts: {total_errors}")
+        print(f"   Errors/conflicts: {len(errors)}")
         print(f"   Average operations per worker: {total_operations / num_workers:.1f}")
+        if len(errors) > 0:
+            print(
+                f"   Note: {len(errors)} conflicts occurred as expected under mixed workload"
+            )
         print(f"   Average errors per worker: {total_errors / num_workers:.1f}")
