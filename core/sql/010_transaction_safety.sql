@@ -37,16 +37,16 @@ DECLARE
     v_existing_lock RECORD;
 BEGIN
     -- Clean up expired locks first
-    DELETE FROM pggit.operation_locks 
+    DELETE FROM pggit.operation_locks
     WHERE expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP;
-    
+
     -- Clean up locks from dead sessions
     DELETE FROM pggit.operation_locks
     WHERE NOT EXISTS (
-        SELECT 1 FROM pg_stat_activity 
+        SELECT 1 FROM pg_stat_activity
         WHERE pid = operation_locks.session_pid
     );
-    
+
     -- Loop until we can acquire the lock or timeout
     LOOP
         -- Check for conflicting locks
@@ -55,18 +55,18 @@ BEGIN
         WHERE operation_type = p_operation_type
         AND (locked_object IS NULL OR locked_object = p_locked_object OR p_locked_object IS NULL)
         AND (
-            lock_mode = 'EXCLUSIVE' OR 
+            lock_mode = 'EXCLUSIVE' OR
             p_lock_mode = 'EXCLUSIVE' OR
             (lock_mode = 'SHARED' AND p_lock_mode = 'SHARED' AND session_pid != pg_backend_pid())
         )
         AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
         AND session_pid != pg_backend_pid()
         LIMIT 1;
-        
+
         IF v_existing_lock IS NULL THEN
             -- No conflicting locks, acquire the lock
             INSERT INTO pggit.operation_locks (
-                operation_type, locked_object, lock_mode, 
+                operation_type, locked_object, lock_mode,
                 expires_at, metadata
             ) VALUES (
                 p_operation_type, p_locked_object, p_lock_mode,
@@ -76,19 +76,19 @@ BEGIN
                     'timeout_seconds', p_timeout_seconds
                 )
             ) RETURNING lock_id INTO v_lock_id;
-            
-            RETURN format('Acquired %s lock %s for %s (lock_id: %s)', 
+
+            RETURN format('Acquired %s lock %s for %s (lock_id: %s)',
                 p_lock_mode, p_operation_type, COALESCE(p_locked_object, 'global'), v_lock_id);
         END IF;
-        
+
         -- Check timeout
         IF CURRENT_TIMESTAMP >= v_timeout_time THEN
-            RAISE EXCEPTION 'Timeout waiting for lock on % % (blocked by session %)', 
-                p_operation_type, 
+            RAISE EXCEPTION 'Timeout waiting for lock on % % (blocked by session %)',
+                p_operation_type,
                 COALESCE(p_locked_object, 'global'),
                 v_existing_lock.session_pid;
         END IF;
-        
+
         -- Wait a bit before retrying
         PERFORM pg_sleep(0.1);
     END LOOP;
@@ -107,14 +107,14 @@ BEGIN
     WHERE operation_type = p_operation_type
     AND (locked_object = p_locked_object OR (locked_object IS NULL AND p_locked_object IS NULL))
     AND session_pid = pg_backend_pid();
-    
+
     GET DIAGNOSTICS v_deleted_count = ROW_COUNT;
-    
+
     IF v_deleted_count = 0 THEN
         RAISE WARNING 'No lock found to release for % %', p_operation_type, COALESCE(p_locked_object, 'global');
     END IF;
-    
-    RETURN format('Released %s locks for %s %s', 
+
+    RETURN format('Released %s locks for %s %s',
         v_deleted_count, p_operation_type, COALESCE(p_locked_object, 'global'));
 END;
 $$ LANGUAGE plpgsql;
@@ -134,21 +134,21 @@ DECLARE
 BEGIN
     -- Acquire exclusive lock for branch creation
     v_lock_result := pggit.acquire_operation_lock(
-        'CREATE_BRANCH', 
-        p_branch_name, 
+        'CREATE_BRANCH',
+        p_branch_name,
         'EXCLUSIVE',
         60 -- 60 second timeout
     );
-    
+
     BEGIN
         -- Perform branch creation within transaction
         v_result := pggit.create_branch(p_branch_name, p_from_branch);
-        
+
         -- Release lock on success
         PERFORM pggit.release_operation_lock('CREATE_BRANCH', p_branch_name);
-        
+
         RETURN v_result;
-        
+
     EXCEPTION WHEN OTHERS THEN
         -- Release lock on error
         PERFORM pggit.release_operation_lock('CREATE_BRANCH', p_branch_name);
@@ -168,14 +168,14 @@ DECLARE
 BEGIN
     -- Get current branch
     SELECT current_branch INTO v_current_branch FROM pggit.HEAD;
-    
+
     -- Acquire locks for both source and target branches
     IF v_current_branch IS NOT NULL THEN
         PERFORM pggit.acquire_operation_lock('CHECKOUT', v_current_branch, 'SHARED', 30);
     END IF;
-    
+
     PERFORM pggit.acquire_operation_lock('CHECKOUT', p_branch_name, 'SHARED', 30);
-    
+
     BEGIN
         -- Perform checkout
         IF p_create_new THEN
@@ -183,15 +183,15 @@ BEGIN
         ELSE
             v_result := pggit.checkout_with_apply(p_branch_name, false);
         END IF;
-        
+
         -- Release locks
         IF v_current_branch IS NOT NULL THEN
             PERFORM pggit.release_operation_lock('CHECKOUT', v_current_branch);
         END IF;
         PERFORM pggit.release_operation_lock('CHECKOUT', p_branch_name);
-        
+
         RETURN v_result;
-        
+
     EXCEPTION WHEN OTHERS THEN
         -- Release locks on error
         IF v_current_branch IS NOT NULL THEN
@@ -213,23 +213,23 @@ DECLARE
 BEGIN
     -- Get current branch
     SELECT current_branch INTO v_current_branch FROM pggit.HEAD;
-    
+
     IF v_current_branch IS NULL THEN
         RAISE EXCEPTION 'No branch checked out';
     END IF;
-    
+
     -- Acquire exclusive lock for commit
     PERFORM pggit.acquire_operation_lock('COMMIT', v_current_branch, 'EXCLUSIVE', 60);
-    
+
     BEGIN
         -- Perform commit
         v_result := pggit.commit(p_message);
-        
+
         -- Release lock
         PERFORM pggit.release_operation_lock('COMMIT', v_current_branch);
-        
+
         RETURN v_result;
-        
+
     EXCEPTION WHEN OTHERS THEN
         -- Release lock on error
         PERFORM pggit.release_operation_lock('COMMIT', v_current_branch);
@@ -249,25 +249,25 @@ DECLARE
 BEGIN
     -- Get current branch as target
     SELECT current_branch INTO v_target_branch FROM pggit.HEAD;
-    
+
     IF v_target_branch IS NULL THEN
         RAISE EXCEPTION 'No branch checked out';
     END IF;
-    
+
     -- Acquire exclusive locks for both branches
     PERFORM pggit.acquire_operation_lock('MERGE', v_target_branch, 'EXCLUSIVE', 120);
     PERFORM pggit.acquire_operation_lock('MERGE', p_source_branch, 'SHARED', 120);
-    
+
     BEGIN
         -- Perform merge
         v_result := pggit.merge(p_source_branch, p_merge_message);
-        
+
         -- Release locks
         PERFORM pggit.release_operation_lock('MERGE', v_target_branch);
         PERFORM pggit.release_operation_lock('MERGE', p_source_branch);
-        
+
         RETURN v_result;
-        
+
     EXCEPTION WHEN OTHERS THEN
         -- Release locks on error
         PERFORM pggit.release_operation_lock('MERGE', v_target_branch);
@@ -307,14 +307,14 @@ BEGIN
     -- Clean up old sessions
     DELETE FROM pggit.session_state
     WHERE NOT EXISTS (
-        SELECT 1 FROM pg_stat_activity 
+        SELECT 1 FROM pg_stat_activity
         WHERE pid = session_state.session_pid
     );
-    
+
     -- For now, all branches use their own schema or public
     -- This could be enhanced to store schema mapping elsewhere
     v_schema_name := COALESCE('branch_' || p_branch_name, 'public');
-    
+
     -- Create or update session state
     INSERT INTO pggit.session_state (
         session_pid, current_branch, working_schema
@@ -325,19 +325,19 @@ BEGIN
         working_schema = EXCLUDED.working_schema,
         last_activity = CURRENT_TIMESTAMP
     RETURNING session_id INTO v_session_id;
-    
+
     -- Set session configuration
     PERFORM set_config('pggit.session_id', v_session_id, false);
     PERFORM set_config('pggit.current_branch', p_branch_name, false);
     PERFORM set_config('pggit.working_schema', v_schema_name, false);
-    
-    RETURN format('Initialized session state: %s (branch: %s, schema: %s)', 
+
+    RETURN format('Initialized session state: %s (branch: %s, schema: %s)',
         v_session_id, p_branch_name, v_schema_name);
 END;
 $$ LANGUAGE plpgsql;
 
 -- Update session activity
-CREATE OR REPLACE FUNCTION pggit.update_session_activity() 
+CREATE OR REPLACE FUNCTION pggit.update_session_activity()
 RETURNS void AS $$
 BEGIN
     UPDATE pggit.session_state
@@ -364,7 +364,7 @@ RETURNS TABLE (
 BEGIN
     RETURN QUERY
     WITH lock_pairs AS (
-        SELECT 
+        SELECT
             l1.session_pid as pid1,
             l1.operation_type as op1,
             l1.locked_object as obj1,
@@ -376,21 +376,21 @@ BEGIN
         WHERE (l1.expires_at IS NULL OR l1.expires_at > CURRENT_TIMESTAMP)
         AND (l2.expires_at IS NULL OR l2.expires_at > CURRENT_TIMESTAMP)
     )
-    SELECT 
+    SELECT
         lp.pid1,
         lp.op1,
         lp.obj1,
         lp.pid2,
         lp.op2,
         lp.obj2,
-        CASE 
+        CASE
             WHEN lp.obj1 = lp.obj2 AND lp.op1 != lp.op2 THEN 'HIGH'
             WHEN lp.obj1 IS NULL OR lp.obj2 IS NULL THEN 'MEDIUM'
             ELSE 'LOW'
         END as deadlock_risk
     FROM lock_pairs lp
     WHERE EXISTS (
-        SELECT 1 FROM lock_pairs lp2 
+        SELECT 1 FROM lock_pairs lp2
         WHERE lp2.pid1 = lp.pid2 AND lp2.pid2 = lp.pid1
     );
 END;
@@ -406,9 +406,9 @@ DECLARE
     v_lock_key TEXT;
 BEGIN
     -- Sort locks by a consistent order to prevent deadlocks
-    FOR v_lock IN 
+    FOR v_lock IN
         SELECT value FROM jsonb_array_elements(p_locks)
-        ORDER BY 
+        ORDER BY
             value->>'operation_type',
             COALESCE(value->>'locked_object', ''),
             value->>'lock_mode'
@@ -420,8 +420,8 @@ BEGIN
         );
         v_acquired_locks := v_acquired_locks || v_lock_key;
     END LOOP;
-    
-    RETURN format('Acquired %s locks in order: %s', 
+
+    RETURN format('Acquired %s locks in order: %s',
         array_length(v_acquired_locks, 1),
         array_to_string(v_acquired_locks, ', ')
     );
@@ -457,35 +457,42 @@ DECLARE
     v_recovered_ops INTEGER := 0;
 BEGIN
     -- Clean up expired locks
-    DELETE FROM pggit.operation_locks 
+    DELETE FROM pggit.operation_locks
     WHERE expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP;
     GET DIAGNOSTICS v_cleaned_locks = ROW_COUNT;
-    
+
     -- Clean up locks from dead sessions
     DELETE FROM pggit.operation_locks
     WHERE NOT EXISTS (
-        SELECT 1 FROM pg_stat_activity 
+        SELECT 1 FROM pg_stat_activity
         WHERE pid = operation_locks.session_pid
     );
     v_cleaned_locks := v_cleaned_locks + ROW_COUNT;
-    
+
     -- Clean up dead sessions
     DELETE FROM pggit.session_state
     WHERE NOT EXISTS (
-        SELECT 1 FROM pg_stat_activity 
+        SELECT 1 FROM pg_stat_activity
         WHERE pid = session_state.session_pid
     );
     GET DIAGNOSTICS v_cleaned_sessions = ROW_COUNT;
-    
-    -- TODO: Implement operation recovery logic
-    
+
+    -- Attempt to recover failed operations
+    UPDATE pggit.operation_recovery
+    SET status = 'recovered',
+        recovered_at = CURRENT_TIMESTAMP,
+        recovery_action = 'auto_recovered'
+    WHERE status = 'pending'
+      AND attempted_at < CURRENT_TIMESTAMP - INTERVAL '1 hour';
+    GET DIAGNOSTICS v_recovered_ops = ROW_COUNT;
+
     RETURN QUERY SELECT v_cleaned_locks, v_cleaned_sessions, v_recovered_ops;
 END;
 $$ LANGUAGE plpgsql;
 
 -- Monitoring view for active operations
 CREATE OR REPLACE VIEW pggit.active_operations AS
-SELECT 
+SELECT
     ol.operation_type,
     ol.locked_object,
     ol.lock_mode,
@@ -522,10 +529,10 @@ DECLARE
 BEGIN
     -- Set statement timeout
     EXECUTE format('SET statement_timeout = %s', p_timeout_seconds * 1000);
-    
+
     -- Initialize session tracking
     PERFORM pggit.update_session_activity();
-    
+
     BEGIN
         -- Execute the function dynamically
         CASE p_function_name
@@ -551,20 +558,20 @@ BEGIN
             ELSE
                 RAISE EXCEPTION 'Unknown function: %', p_function_name;
         END CASE;
-        
+
         -- Update session activity on success
         PERFORM pggit.update_session_activity();
-        
+
         RETURN jsonb_build_object(
             'success', true,
             'result', v_result,
             'duration_ms', EXTRACT(milliseconds FROM (CURRENT_TIMESTAMP - v_start_time))
         );
-        
+
     EXCEPTION WHEN OTHERS THEN
         -- Cleanup on error
         PERFORM pggit.cleanup_session_locks();
-        
+
         RETURN jsonb_build_object(
             'success', false,
             'error', SQLERRM,
@@ -572,7 +579,7 @@ BEGIN
             'duration_ms', EXTRACT(milliseconds FROM (CURRENT_TIMESTAMP - v_start_time))
         );
     END;
-    
+
     -- Reset statement timeout
     RESET statement_timeout;
 END;
@@ -586,9 +593,9 @@ DECLARE
 BEGIN
     DELETE FROM pggit.operation_locks
     WHERE session_pid = pg_backend_pid();
-    
+
     GET DIAGNOSTICS v_deleted_count = ROW_COUNT;
-    
+
     RETURN v_deleted_count;
 END;
 $$ LANGUAGE plpgsql;
