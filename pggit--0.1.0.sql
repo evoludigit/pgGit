@@ -261,6 +261,14 @@ DECLARE
 BEGIN
     -- Process each DDL command
     FOR v_object IN SELECT * FROM pg_event_trigger_ddl_commands() LOOP
+        -- FIRST: Skip temporary objects before ANY processing
+        CONTINUE WHEN COALESCE(v_object.schema_name, '') LIKE 'pg_temp%' OR 
+                      COALESCE(v_object.schema_name, '') LIKE 'pg_toast_temp%';
+        
+        -- Also check command tag for TEMP/TEMPORARY keywords
+        CONTINUE WHEN v_object.command_tag LIKE '%TEMP%TABLE%' OR 
+                      v_object.command_tag LIKE '%TEMPORARY%TABLE%';
+        
         -- Skip if not a tracked object type
         CONTINUE WHEN v_object.object_type NOT IN (
             'table', 'view', 'index', 'sequence', 'function', 'type', 'trigger'
@@ -319,6 +327,10 @@ DECLARE
 BEGIN
     -- Process each dropped object
     FOR v_object IN SELECT * FROM pg_event_trigger_dropped_objects() LOOP
+        -- Skip temporary objects (pg_temp* schemas)
+        CONTINUE WHEN COALESCE(v_object.schema_name, '') LIKE 'pg_temp%' OR 
+                      COALESCE(v_object.schema_name, '') LIKE 'pg_toast_temp%';
+        
         -- Mark object as inactive
         UPDATE pggit.objects
         SET is_active = false,

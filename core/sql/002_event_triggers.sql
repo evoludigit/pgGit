@@ -49,12 +49,35 @@ DECLARE
 BEGIN
     -- Loop through all objects affected by the DDL command
     FOR v_object IN SELECT * FROM pg_event_trigger_ddl_commands() LOOP
-        -- Parse schema and object names
+        -- FIRST: Check for temporary objects before ANY processing
+        IF v_object.schema_name IS NOT NULL AND 
+           (v_object.schema_name LIKE 'pg_temp%' OR 
+            v_object.schema_name LIKE 'pg_toast_temp%') THEN
+            CONTINUE;
+        END IF;
+        
+        -- Also check command tag for TEMP/TEMPORARY keywords
+        IF v_object.command_tag LIKE '%TEMP%TABLE%' OR 
+           v_object.command_tag LIKE '%TEMPORARY%TABLE%' THEN
+            CONTINUE;
+        END IF;
+        
+        -- NOW safe to parse schema and object names
         IF v_object.schema_name IS NOT NULL THEN
             v_schema_name := v_object.schema_name;
-            v_object_name := v_object.objid::regclass::text;
-            -- Remove schema prefix if present
-            v_object_name := regexp_replace(v_object_name, '^' || v_schema_name || '\.', '');
+            -- Use defensive approach for object name access
+            BEGIN
+                v_object_name := v_object.objid::regclass::text;
+                -- Remove schema prefix if present
+                v_object_name := regexp_replace(v_object_name, '^' || v_schema_name || '\.', '');
+            EXCEPTION 
+                WHEN insufficient_privilege THEN
+                    -- Skip objects we can't access due to permissions
+                    CONTINUE;
+                WHEN OTHERS THEN
+                    -- Use object_identity as fallback
+                    v_object_name := v_object.object_identity;
+            END;
         ELSE
             v_schema_name := '';
             v_object_name := v_object.object_identity;
@@ -219,6 +242,12 @@ DECLARE
     v_object_id INTEGER;
 BEGIN
     FOR v_object IN SELECT * FROM pg_event_trigger_dropped_objects() LOOP
+        -- Skip temporary objects (pg_temp* schemas)
+        IF COALESCE(v_object.schema_name, '') LIKE 'pg_temp%' OR 
+           COALESCE(v_object.schema_name, '') LIKE 'pg_toast_temp%' THEN
+            CONTINUE;
+        END IF;
+        
         -- Find the object in our tracking system
         SELECT id INTO v_object_id
         FROM pggit.objects
