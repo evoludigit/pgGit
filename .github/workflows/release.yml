@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Extract changes since last tag
+        PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        if [ -z "$PREV_TAG" ]; then
+          CHANGES=$(git log --pretty=format:"- %s (%an)" --no-merges)
+        else
+          CHANGES=$(git log --pretty=format:"- %s (%an)" --no-merges $PREV_TAG..HEAD)
+        fi
+        echo "changes<<EOF" >> $GITHUB_OUTPUT
+        echo "$CHANGES" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: pgGit ${{ github.ref_name }}
+        body: |
+          ## Changes
+
+          ${{ steps.changelog.outputs.changes }}
+
+          ## Installation
+
+          ### Debian/Ubuntu
+          ```bash
+          wget https://github.com/evoludigit/pgGit/releases/download/${{ github.ref_name }}/postgresql-17-pggit_${{ github.ref_name }}.deb
+          sudo dpkg -i postgresql-17-pggit_${{ github.ref_name }}.deb
+          ```
+
+          ### RHEL/Rocky
+          ```bash
+          wget https://github.com/evoludigit/pgGit/releases/download/${{ github.ref_name }}/pggit-${{ github.ref_name }}.rpm
+          sudo dnf install pggit-${{ github.ref_name }}.rpm
+          ```
+
+          ### From Source
+          ```bash
+          git clone --branch ${{ github.ref_name }} https://github.com/evoludigit/pgGit.git
+          cd pgGit
+          make && sudo make install
+          ```
+        draft: false
+        prerelease: false
+
+  build-packages:
+    needs: create-release
+    uses: ./.github/workflows/packages.yml
+    secrets: inherit
