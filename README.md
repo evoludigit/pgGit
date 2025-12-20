@@ -7,9 +7,9 @@
 
 > [!CAUTION]
 > **⚠️ EXPERIMENTAL PROJECT - NOT PRODUCTION READY ⚠️**
-> 
+>
 > This project is created by a self-taught database programmer experimenting with Claude AI and PostgreSQL internals. The code quality is waiting to be roasted by experienced developers. Please use this only for learning and experimentation - definitely NOT in production yet!
-> 
+>
 > Contributions, code reviews, and constructive criticism are very welcome! 🙏
 
 **Git-like version control for PostgreSQL schemas. Track, branch, and manage database changes like code.**
@@ -75,7 +75,7 @@ You know that moment when you're staring at a production database after a deploy
 Everyone else tracks migrations. We've built **actual Git workflows inside PostgreSQL**:
 
 - **🌿 Native Branching**: Create isolated database branches with real data
-- **🔀 Three-Way Merging**: Intelligent conflict resolution for schema and data changes  
+- **🔀 Three-Way Merging**: Intelligent conflict resolution for schema and data changes
 - **💾 Efficient Storage**: PostgreSQL 17 compression enables practical data branching
 - **⚡ High Performance**: Optimized for speed with minimal overhead
 - **🔄 Copy-on-Write**: Branch data without exploding storage costs
@@ -106,7 +106,7 @@ SELECT pggit.merge_compressed_branches('feature/user-profiles', 'main');
 - **Branch Views**: Automatic query routing to branch-specific data
 - **Storage Efficiency**: Compression technology reduces storage overhead
 
-### Intelligent Merging  
+### Intelligent Merging
 
 - **Three-Way Conflict Detection**: Compare base, source, and target branches
 - **Automatic Resolution**: Smart defaults for non-conflicting changes
@@ -205,7 +205,7 @@ Full support for function overloading and metadata:
 
 ```sql
 -- Track function with metadata
-COMMENT ON FUNCTION api.process_order(jsonb) IS 
+COMMENT ON FUNCTION api.process_order(jsonb) IS
 'Process customer orders
 @pggit-version: 3.1.0
 @pggit-author: Order Team
@@ -302,7 +302,7 @@ I'm building pgGit because database version control shouldn't be a luxury. Every
 pgGit is 100% free and open source software:
 
 - ⭐ Star this repository if you find it useful
-- 🐛 Report bugs and request features  
+- 🐛 Report bugs and request features
 - 🔧 Submit pull requests to help improve it
 - 📢 Share with your team and community
 
@@ -317,7 +317,7 @@ Since everything is free, here's what you get:
 ### Core Features
 
 - ✅ Automatic DDL change tracking
-- ✅ Git-style branching and merging  
+- ✅ Git-style branching and merging
 - ✅ Three-way conflict resolution
 - ✅ Time-travel to any database state
 - ✅ PostgreSQL 17 compression (efficient storage)
@@ -401,6 +401,7 @@ SOFTWARE.
 ## 🚀 What's Next?
 
 - **GitHub**: [@evoludigit](https://github.com/evoludigit)
+- **Code of Conduct**: [Community Guidelines](CODE_OF_CONDUCT.md)
 
 ---
 
