@@ -56,9 +56,9 @@ class TestConcurrentCommits:
                 cursor = conn.execute(
                     "SELECT pggit.commit_changes(%s, %s, %s)",
                     (
-                        f"worker-{worker_id}",
                         branch_name,
                         f"Commit from worker {worker_id}",
+                        f"worker-{worker_id}",
                     ),
                 )
                 result = cursor.fetchone()
@@ -157,12 +157,16 @@ class TestConcurrentCommits:
                 # Commit
                 cursor = conn.execute(
                     "SELECT pggit.commit_changes(%s, %s, %s)",
-                    (f"delayed-{task_id}", branch_name, f"Delayed commit {task_id}"),
+                    (branch_name, f"Delayed commit {task_id}", f"delayed-{task_id}"),
                 )
                 result = cursor.fetchone()
                 conn.commit()
 
-                return {"task_id": task_id, "trinity_id": result[0], "success": True}
+                return {
+                    "task_id": task_id,
+                    "trinity_id": result["commit_changes"],
+                    "success": True,
+                }
 
             except Exception as e:
                 try:
@@ -219,7 +223,7 @@ class TestConcurrentCommits:
 
                 cursor = conn.execute(
                     "SELECT pggit.commit_changes(%s, %s, %s)",
-                    (f"prop-{worker_id}", branch, f"Property test {worker_id}"),
+                    (branch, f"Property test {worker_id}", f"prop-{worker_id}"),
                 )
                 trinity_id = cursor.fetchone()["commit_changes"]
                 conn.commit()
@@ -278,7 +282,7 @@ class TestConcurrentCommits:
 
                 cursor = conn.execute(
                     "SELECT pggit.commit_changes(%s, %s, %s)",
-                    (f"iso-{worker_id}", branch_name, f"Isolation test {worker_id}"),
+                    (branch_name, f"Isolation test {worker_id}", f"iso-{worker_id}"),
                 )
                 trinity_id = cursor.fetchone()["commit_changes"]
                 conn.commit()
@@ -343,7 +347,7 @@ class TestConcurrentCommits:
                 # Commit
                 cursor = await conn.execute(
                     "SELECT pggit.commit_changes(%s, %s, %s)",
-                    (f"async-{worker_id}", branch_name, f"Async commit {worker_id}"),
+                    (branch_name, f"Async commit {worker_id}", f"async-{worker_id}"),
                 )
                 result = await cursor.fetchone()
                 await conn.commit()

@@ -1,22 +1,60 @@
 -- Chaos Engineering: Core pggit functions implementation
 -- Phase 2-GREEN: Implement missing functions identified in RED phase
 
+-- Function: pggit.generate_trinity_id
+-- Generates a unique Trinity ID for commits
+-- Returns: Unique identifier string
+
+CREATE OR REPLACE FUNCTION pggit.generate_trinity_id() RETURNS TEXT AS $$
+DECLARE
+    v_timestamp TEXT;
+    v_sequence INTEGER;
+    v_random TEXT;
+    v_trinity_id TEXT;
+BEGIN
+    -- Get current timestamp with microsecond precision
+    v_timestamp := to_char(CURRENT_TIMESTAMP, 'YYYYMMDDHH24MISSUS');
+
+    -- Get a sequence number for uniqueness within the same microsecond
+    SELECT nextval('pggit.trinity_id_seq') INTO v_sequence;
+
+    -- Add random component for extra uniqueness
+    v_random := substring(md5(random()::text) from 1 for 8);
+
+    -- Combine components: timestamp + sequence + random
+    v_trinity_id := v_timestamp || '-' || lpad(v_sequence::text, 6, '0') || '-' || v_random;
+
+    RETURN v_trinity_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create sequence for Trinity ID generation
+CREATE SEQUENCE IF NOT EXISTS pggit.trinity_id_seq START 1;
+
 -- Function: pggit.commit_changes
--- Creates a commit record with the given Trinity ID
+-- Creates a commit record with automatic Trinity ID generation
 -- Parameters:
---   p_trinity_id: Unique commit identifier (hash)
 --   p_branch_name: Branch name to commit to
 --   p_message: Commit message
+--   p_custom_trinity_id: Optional custom Trinity ID (for testing)
 -- Returns: The Trinity ID that was committed
 
 CREATE OR REPLACE FUNCTION pggit.commit_changes(
-    p_trinity_id TEXT,
     p_branch_name TEXT,
-    p_message TEXT DEFAULT ''
+    p_message TEXT DEFAULT '',
+    p_custom_trinity_id TEXT DEFAULT NULL
 ) RETURNS TEXT AS $$
 DECLARE
     v_branch_id INTEGER;
+    v_trinity_id TEXT;
 BEGIN
+    -- Generate or use custom Trinity ID
+    IF p_custom_trinity_id IS NOT NULL THEN
+        v_trinity_id := p_custom_trinity_id;
+    ELSE
+        v_trinity_id := pggit.generate_trinity_id();
+    END IF;
+
     -- Look up branch ID by name
     SELECT id INTO v_branch_id
     FROM pggit.branches
@@ -36,19 +74,24 @@ BEGIN
         message,
         committed_at
     ) VALUES (
-        p_trinity_id,
+        v_trinity_id,
         v_branch_id,
         p_message,
         CURRENT_TIMESTAMP
     );
 
     -- Return the Trinity ID
-    RETURN p_trinity_id;
+    RETURN v_trinity_id;
 
 EXCEPTION
     WHEN unique_violation THEN
-        -- Commit with this Trinity ID already exists
-        RETURN p_trinity_id;
+        -- If we generated a duplicate ID (very rare), retry with a new one
+        IF p_custom_trinity_id IS NULL THEN
+            RETURN pggit.commit_changes(p_branch_name, p_message, NULL);
+        ELSE
+            -- Custom ID collision - return the existing ID
+            RETURN p_custom_trinity_id;
+        END IF;
     WHEN OTHERS THEN
         RAISE EXCEPTION 'Failed to create commit: %', SQLERRM;
 END;
