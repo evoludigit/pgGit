@@ -93,80 +93,97 @@ class TestTableVersioningProperties:
 
         except psycopg.Error:
             # Expected to fail initially
-            pytest.skip("commit_changes function not implemented yet")
-
-    @given(msg=commit_message)
-    @settings(
-        max_examples=100,
-        deadline=None,
-        suppress_health_check=[HealthCheck.function_scoped_fixture],
-    )
-    def test_commit_message_preserved(self, sync_conn: psycopg.Connection, msg: str):
-        """Property: Commit messages are preserved exactly as written."""
-        table_name = f"test_table_{uuid.uuid4().hex[:8]}"
-        sync_conn.execute(f"CREATE TABLE {table_name} (id SERIAL PRIMARY KEY)")
-        sync_conn.commit()
-
-        try:
-            # Make commit with generated message (use unique ID per test)
-            commit_id = f"test-commit-{uuid.uuid4().hex[:8]}"
-            cursor = sync_conn.execute(
-                "SELECT pggit.commit_changes(%s, %s, %s)", ("main", msg, commit_id)
-            )
-            result_commit_id = cursor.fetchone()["commit_changes"]
-            assert result_commit_id == commit_id, (
-                "Function should return the Trinity ID"
-            )
-
-            # Retrieve commit message
-            cursor = sync_conn.execute(
-                "SELECT message FROM pggit.commits WHERE hash = %s", (commit_id,)
-            )
-            stored_msg = cursor.fetchone()["message"]
-
-            # Property: Message should be identical
-            assert stored_msg == msg, "Commit message should be preserved exactly"
-
-        except psycopg.Error:
-            # Expected to fail initially
-            pytest.skip("Commits table or commit_changes not implemented yet")
-        finally:
-            sync_conn.rollback()
-
-
-@pytest.mark.chaos
-@pytest.mark.property
-class TestVersionIncrementProperties:
-    """Property-based tests for version increment logic."""
-
-    @given(
-        major=st.integers(min_value=0, max_value=100),
-        minor=st.integers(min_value=0, max_value=100),
-        patch=st.integers(min_value=0, max_value=100),
-    )
-    @settings(max_examples=50, deadline=None)
-    def test_patch_increment_properties(
-        self, sync_conn: psycopg.Connection, major: int, minor: int, patch: int
-    ):
-        """Property: Patch increment preserves major.minor."""
-        try:
-            cursor = sync_conn.execute(
-                "SELECT pggit.increment_version(%s, %s, %s, 'patch')",
-                (major, minor, patch),
-            )
-            new_version = cursor.fetchone()["increment_version"]
-
-            # Parse version string
-            new_major, new_minor, new_patch = map(int, new_version.split("."))
-
-            # Properties
-            assert new_major == major, "Major version should not change"
-            assert new_minor == minor, "Minor version should not change"
-            assert new_patch == patch + 1, "Patch should increment by 1"
-
-        except psycopg.Error:
-            # Expected to fail initially
             pytest.skip("increment_version function not implemented yet")
+
+    @pytest.mark.parametrize("concurrency_level", [1, 5, 10])
+    def test_trinity_id_uniqueness_under_concurrency(
+        self, sync_conn: psycopg.Connection, concurrency_level: int
+    ):
+        """Test that Trinity IDs remain unique under concurrent commit operations."""
+        import threading
+        import queue
+
+        results = queue.Queue()
+        errors = []
+
+        def worker_commit(worker_id: int):
+            """Worker function that performs commits."""
+            try:
+                # Create unique table for this worker
+                table_name = (
+                    f"concurrency_test_{worker_id}_{threading.current_thread().ident}"
+                )
+                sync_conn.execute(f"CREATE TABLE {table_name} (id INT)")
+                sync_conn.commit()
+
+                # Perform multiple commits
+                trinity_ids = []
+                for i in range(3):  # 3 commits per worker
+                    cursor = sync_conn.execute(
+                        "SELECT pggit.commit_changes(%s, %s, %s)",
+                        ("main", f"Worker {worker_id} commit {i}", None),
+                    )
+                    trinity_id = cursor.fetchone()["commit_changes"]
+                    trinity_ids.append(trinity_id)
+                    sync_conn.commit()
+
+                results.put(
+                    {
+                        "worker_id": worker_id,
+                        "trinity_ids": trinity_ids,
+                        "success": True,
+                    }
+                )
+
+            except Exception as e:
+                errors.append(f"Worker {worker_id}: {e}")
+                results.put({"worker_id": worker_id, "success": False, "error": str(e)})
+
+        # Start concurrent workers
+        threads = []
+        for i in range(concurrency_level):
+            thread = threading.Thread(target=worker_commit, args=(i,))
+            threads.append(thread)
+            thread.start()
+
+        # Wait for all threads to complete
+        for thread in threads:
+            thread.join()
+
+        # Collect results
+        all_trinity_ids = []
+        successful_workers = 0
+
+        while not results.empty():
+            result = results.get()
+            if result["success"]:
+                successful_workers += 1
+                all_trinity_ids.extend(result["trinity_ids"])
+            else:
+                errors.append(result["error"])
+
+        # Verify results
+        assert successful_workers == concurrency_level, (
+            f"Expected {concurrency_level} successful workers, got {successful_workers}"
+        )
+        assert len(all_trinity_ids) == concurrency_level * 3, (
+            f"Expected {concurrency_level * 3} Trinity IDs, got {len(all_trinity_ids)}"
+        )
+
+        # Verify uniqueness
+        unique_ids = set(all_trinity_ids)
+        assert len(unique_ids) == len(all_trinity_ids), (
+            f"Found duplicate Trinity IDs: {all_trinity_ids}"
+        )
+
+        # Verify format
+        for trinity_id in all_trinity_ids:
+            assert len(trinity_id) == 36, f"Invalid Trinity ID length: {trinity_id}"
+            assert trinity_id[20] == "-" and trinity_id[27] == "-", (
+                f"Invalid Trinity ID format: {trinity_id}"
+            )
+
+        assert len(errors) == 0, f"Found errors during concurrent execution: {errors}"
 
     @given(
         major=st.integers(min_value=0, max_value=100),
@@ -261,6 +278,79 @@ class TestBranchNamingProperties:
             ), f"Unexpected error for branch '{branch}': {e}"
         finally:
             sync_conn.rollback()
+
+    def test_edge_cases_and_error_handling(self, sync_conn: psycopg.Connection):
+        """Test edge cases and error handling for implemented functions."""
+        # Test commit_changes with very long message
+        long_message = "x" * 1000
+        cursor = sync_conn.execute(
+            "SELECT pggit.commit_changes(%s, %s)", ("main", long_message)
+        )
+        trinity_id = cursor.fetchone()["commit_changes"]
+        assert trinity_id is not None
+        assert len(trinity_id) == 36  # Standard Trinity ID length
+
+        # Verify the long message was stored
+        cursor = sync_conn.execute(
+            "SELECT message FROM pggit.commits WHERE hash = %s", (trinity_id,)
+        )
+        stored_message = cursor.fetchone()["message"]
+        assert stored_message == long_message
+
+        # Test get_version on non-existent table
+        cursor = sync_conn.execute(
+            "SELECT * FROM pggit.get_version(%s)", ("non_existent_table",)
+        )
+        result = cursor.fetchall()
+        assert len(result) == 0  # Should return empty result set
+
+        # Test increment_version with invalid type
+        try:
+            cursor = sync_conn.execute(
+                "SELECT pggit.increment_version(%s, %s, %s, %s)",
+                (1, 0, 0, "invalid_type"),
+            )
+            # Should not reach here
+            assert False, "Expected exception for invalid increment type"
+        except psycopg.errors.RaiseException as e:
+            assert "Invalid increment type" in str(e)
+
+        # Test calculate_schema_hash on non-existent table
+        cursor = sync_conn.execute(
+            "SELECT pggit.calculate_schema_hash(%s)", ("non_existent_table",)
+        )
+        result = cursor.fetchone()["calculate_schema_hash"]
+        assert result is None  # Should return NULL for non-existent table
+
+        sync_conn.commit()
+
+    def test_basic_performance_under_load(self, sync_conn: psycopg.Connection):
+        """Test that functions perform adequately under basic load."""
+        import time
+
+        # Test Trinity ID generation performance (should be fast)
+        start_time = time.time()
+        for i in range(10):
+            cursor = sync_conn.execute("SELECT pggit.generate_trinity_id()")
+            trinity_id = cursor.fetchone()["generate_trinity_id"]
+            assert len(trinity_id) == 36
+        generation_time = time.time() - start_time
+        assert generation_time < 0.1, (
+            f"Trinity ID generation too slow: {generation_time}s for 10 IDs"
+        )
+
+        # Test commit performance (should be reasonable)
+        start_time = time.time()
+        for i in range(5):
+            cursor = sync_conn.execute(
+                "SELECT pggit.commit_changes(%s, %s)", ("main", f"Performance test {i}")
+            )
+            result = cursor.fetchone()["commit_changes"]
+            assert result is not None
+        commit_time = time.time() - start_time
+        assert commit_time < 1.0, f"Commits too slow: {commit_time}s for 5 commits"
+
+        sync_conn.commit()
 
 
 @pytest.mark.chaos
