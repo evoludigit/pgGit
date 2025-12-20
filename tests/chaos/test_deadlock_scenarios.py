@@ -118,9 +118,17 @@ class TestDeadlockScenarios:
 
         # Setup
         setup_conn = psycopg.connect(db_connection_string)
-        setup_conn.execute(f"CREATE TABLE {table_name} (id INT)")
-        setup_conn.commit()
-        setup_conn.close()
+        try:
+            setup_conn.execute(f"CREATE TABLE {table_name} (id INT)")
+            setup_conn.commit()
+        except psycopg.Error:
+            # Table might already exist, try to drop and recreate
+            setup_conn.rollback()
+            setup_conn.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE")
+            setup_conn.execute(f"CREATE TABLE {table_name} (id INT)")
+            setup_conn.commit()
+        finally:
+            setup_conn.close()
 
         def pggit_worker1():
             conn = psycopg.connect(db_connection_string)
@@ -134,8 +142,8 @@ class TestDeadlockScenarios:
 
                 # Try pggit operation (may cause deadlock)
                 cursor = conn.execute(
-                    "SELECT pggit.commit_changes(%s, %s, %s)",
-                    ("deadlock-test-1", "deadlock-branch", "Deadlock test 1"),
+                    "SELECT pggit.commit_changes(%s, %s)",
+                    ("deadlock-branch", "Deadlock test 1"),
                 )
                 conn.commit()
                 conn.close()
@@ -165,8 +173,8 @@ class TestDeadlockScenarios:
                 conn.execute(f"LOCK TABLE {table_name} IN EXCLUSIVE MODE")
 
                 cursor = conn.execute(
-                    "SELECT pggit.commit_changes(%s, %s, %s)",
-                    ("deadlock-test-2", "deadlock-branch", "Deadlock test 2"),
+                    "SELECT pggit.commit_changes(%s, %s)",
+                    ("deadlock-branch", "Deadlock test 2"),
                 )
                 conn.commit()
                 conn.close()
@@ -235,9 +243,8 @@ class TestDeadlockScenarios:
 
                 # Perform pggit operation
                 cursor = conn.execute(
-                    "SELECT pggit.commit_changes(%s, %s, %s)",
+                    "SELECT pggit.commit_changes(%s, %s)",
                     (
-                        f"multi-{worker_id}",
                         "multi-branch",
                         f"Multi-table worker {worker_id}",
                     ),
@@ -398,17 +405,38 @@ class TestDeadlockScenarios:
         Ensures that failed deadlock transactions don't leave partial state.
         """
         test_table = "integrity_table"
+        helper_table = "helper_table"
 
-        # Setup with initial data
+        # Setup with initial data and helper table for deadlock
         setup_conn = psycopg.connect(db_connection_string)
-        setup_conn.execute(f"CREATE TABLE {test_table} (id INT PRIMARY KEY, data TEXT)")
-        setup_conn.execute(f"INSERT INTO {test_table} VALUES (1, 'initial')")
-        setup_conn.commit()
+        initial_data = None
+        try:
+            try:
+                setup_conn.execute(
+                    f"CREATE TABLE {test_table} (id INT PRIMARY KEY, data TEXT)"
+                )
+                setup_conn.execute(f"INSERT INTO {test_table} VALUES (1, 'initial')")
+                setup_conn.execute(f"CREATE TABLE {helper_table} (id INT PRIMARY KEY)")
+                setup_conn.commit()
+            except psycopg.Error:
+                setup_conn.rollback()
+                setup_conn.execute(f"DROP TABLE IF EXISTS {test_table} CASCADE")
+                setup_conn.execute(f"DROP TABLE IF EXISTS {helper_table} CASCADE")
+                setup_conn.execute(
+                    f"CREATE TABLE {test_table} (id INT PRIMARY KEY, data TEXT)"
+                )
+                setup_conn.execute(f"INSERT INTO {test_table} VALUES (1, 'initial')")
+                setup_conn.execute(f"CREATE TABLE {helper_table} (id INT PRIMARY KEY)")
+                setup_conn.commit()
 
-        # Record initial state
-        cursor = setup_conn.execute(f"SELECT data FROM {test_table} WHERE id = 1")
-        initial_data = cursor.fetchone()[0]
-        setup_conn.close()
+            # Record initial state
+            cursor = setup_conn.execute(f"SELECT data FROM {test_table} WHERE id = 1")
+            initial_data = cursor.fetchone()[0]
+        finally:
+            setup_conn.close()
+
+        if initial_data is None:
+            raise RuntimeError("Failed to set up test data")
 
         def integrity_worker1():
             conn = psycopg.connect(db_connection_string)
@@ -423,8 +451,8 @@ class TestDeadlockScenarios:
                     f"UPDATE {test_table} SET data = 'modified_by_1' WHERE id = 1"
                 )
 
-                # This lock will cause deadlock
-                conn.execute("LOCK TABLE pg_class IN EXCLUSIVE MODE")
+                # This lock will cause deadlock with worker2
+                conn.execute(f"LOCK TABLE {helper_table} IN EXCLUSIVE MODE")
 
                 conn.commit()
                 conn.close()
@@ -445,7 +473,7 @@ class TestDeadlockScenarios:
             try:
                 conn.execute("BEGIN")
                 conn.execute(
-                    "LOCK TABLE pg_class IN EXCLUSIVE MODE"
+                    f"LOCK TABLE {helper_table} IN EXCLUSIVE MODE"
                 )  # Opposite lock order
                 time.sleep(0.2)
 
@@ -472,19 +500,35 @@ class TestDeadlockScenarios:
             result1 = future1.result(timeout=20)
             result2 = future2.result(timeout=20)
 
-        # Verify deadlock occurred
+        # Check results
+        successes = [r for r in [result1, result2] if r.get("success")]
         deadlocks = [r for r in [result1, result2] if r.get("deadlock_detected")]
-        assert len(deadlocks) > 0, "Deadlock should occur in this scenario"
+        print(f"\nDeadlock test results: worker1={result1}, worker2={result2}")
 
-        # Verify data integrity maintained
+        # Deadlock behavior: either both succeed (no deadlock) OR exactly one succeeds and one fails
+        assert len(successes) == 1, (
+            f"Expected exactly one transaction to succeed in deadlock scenario, got {len(successes)} successes"
+        )
+        assert len(deadlocks) == 1, (
+            f"Expected exactly one deadlock detection, got {len(deadlocks)} deadlocks"
+        )
+
+        # Verify data integrity: the successful transaction's changes should be preserved
         final_conn = psycopg.connect(db_connection_string)
         cursor = final_conn.execute(f"SELECT data FROM {test_table} WHERE id = 1")
         final_data = cursor.fetchone()[0]
         final_conn.close()
 
-        assert final_data == initial_data, (
-            f"Data integrity violated by deadlock: expected '{initial_data}', got '{final_data}'"
-        )
+        # If worker1 succeeded, data should be modified. If worker2 succeeded, data should be unchanged.
+        successful_worker = successes[0]["worker"]
+        if successful_worker == 1:
+            assert final_data == "modified_by_1", (
+                f"Worker 1 succeeded but data not modified: expected 'modified_by_1', got '{final_data}'"
+            )
+        else:
+            assert final_data == initial_data, (
+                f"Worker 2 succeeded but data was modified: expected '{initial_data}', got '{final_data}'"
+            )
 
         print(
             f"✅ Data integrity maintained through deadlock: '{final_data}' preserved"
