@@ -1,0 +1,88 @@
+{
+  "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:550e8400-e29b-41d4-a716-446655440000",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2025-12-20T10:00:00Z",
+    "tools": [
+      {
+        "vendor": "pgGit",
+        "name": "SBOM Generator",
+        "version": "1.0.0"
+      }
+    ],
+    "component": {
+      "type": "application",
+      "bom-ref": "pkg:github/evoludigit/pgGit@0.1.0",
+      "name": "pgGit",
+      "version": "0.1.0",
+      "description": "Git-like version control for PostgreSQL",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:github/evoludigit/pgGit@0.1.0"
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "pkg:postgresql/extension/pgcrypto",
+      "name": "pgcrypto",
+      "version": "1.3",
+      "description": "PostgreSQL cryptographic functions",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "PostgreSQL"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:postgresql/extension/plpgsql",
+      "name": "PL/pgSQL",
+      "version": "1.0",
+      "description": "PostgreSQL procedural language",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "PostgreSQL"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:postgresql/extension/uuid-ossp",
+      "name": "uuid-ossp",
+      "version": "1.1",
+      "description": "Universally Unique Identifier extensions for PostgreSQL",
+      "scope": "optional",
+      "licenses": [
+        {
+          "license": {
+            "id": "PostgreSQL"
+          }
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "pkg:github/evoludigit/pgGit@0.1.0",
+      "dependsOn": [
+        "pkg:postgresql/extension/pgcrypto",
+        "pkg:postgresql/extension/plpgsql"
+      ]
+    }
+  ]
+}
