@@ -19,7 +19,9 @@ from tests.chaos.strategies import table_definition, git_branch_name, pg_branch_
 class TestDataBranchingProperties:
     """Property-based tests for data branching (copy-on-write)."""
 
-    def test_branched_data_independent_simple(self, sync_conn: psycopg.Connection):
+    def test_branched_data_independent_simple(
+        self, sync_conn: psycopg.Connection
+    ) -> None:
         """Test: Changes in branched data don't affect main branch (simple case)."""
         table_name = "data_branch_test"
         branch_name = "test_branch"
