@@ -449,9 +449,8 @@ class TestConcurrentBranching:
                         conn.commit()
 
                         cursor = conn.execute(
-                            "SELECT pggit.commit_changes(%s, %s, %s)",
+                            "SELECT pggit.commit_changes(%s, %s)",
                             (
-                                f"load-{worker_id}-{op}",
                                 branch_name,
                                 f"Load operation {worker_id}-{op}",
                             ),
@@ -508,3 +507,338 @@ class TestConcurrentBranching:
         print(f"\n✅ Load test: {len(successes)}/{num_workers} workers succeeded")
         print(f"   Total operations completed: {total_operations}")
         print(f"   Average operations per worker: {total_operations / num_workers:.1f}")
+
+    @pytest.mark.slow
+    def test_extreme_branching_contention(self, db_connection_string: str):
+        """
+        Test: Extreme contention with many workers on the same branch.
+
+        This pushes the limits of pggit's concurrency handling.
+        """
+        num_workers = 10
+        branch_name = "extreme-contention-branch"
+
+        def extreme_worker(worker_id: int):
+            conn = psycopg.connect(db_connection_string, row_factory=dict_row)
+            operations_completed = 0
+
+            try:
+                # All workers compete for the same branch
+                for attempt in range(5):  # Multiple attempts per worker
+                    try:
+                        # Create table with unique name per worker-attempt
+                        table_name = f"extreme_table_{worker_id}_{attempt}"
+                        conn.execute(
+                            f"CREATE TABLE {table_name} (id SERIAL PRIMARY KEY, data TEXT)"
+                        )
+                        conn.execute(
+                            f"INSERT INTO {table_name} (data) VALUES ('worker_{worker_id}_attempt_{attempt}')"
+                        )
+                        conn.commit()
+
+                        # Commit to the shared branch
+                        cursor = conn.execute(
+                            "SELECT pggit.commit_changes(%s, %s)",
+                            (
+                                branch_name,
+                                f"Extreme load operation {worker_id}-{attempt}",
+                            ),
+                        )
+                        conn.commit()
+                        operations_completed += 1
+
+                        # Brief pause to create contention windows
+                        import time
+
+                        time.sleep(0.01)
+
+                    except psycopg.Error as e:
+                        # Expected under high contention - rollback and continue
+                        conn.rollback()
+                        continue
+
+                conn.close()
+                return {
+                    "worker_id": worker_id,
+                    "operations": operations_completed,
+                    "success": operations_completed > 0,
+                }
+
+            except Exception as e:
+                try:
+                    conn.close()
+                except:
+                    pass
+                return {
+                    "worker_id": worker_id,
+                    "error": str(e),
+                    "operations": operations_completed,
+                    "success": False,
+                }
+
+        # Run extreme contention test
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures = [executor.submit(extreme_worker, i) for i in range(num_workers)]
+            results = []
+
+            for future in as_completed(futures, timeout=120):  # 2 minute timeout
+                try:
+                    result = future.result(timeout=30)
+                    results.append(result)
+                except Exception as e:
+                    results.append(
+                        {"worker_id": "timeout", "error": str(e), "success": False}
+                    )
+
+        successes = [r for r in results if r.get("success")]
+        total_operations = sum(r.get("operations", 0) for r in results)
+        errors = [r for r in results if r.get("error") and not r.get("success")]
+
+        # Under extreme contention, we expect some success but allow for conflicts
+        assert len(successes) > 0, (
+            "At least some operations should succeed under extreme contention"
+        )
+
+        # Should complete some operations despite conflicts
+        assert total_operations > len(successes), (
+            "Multiple operations per successful worker expected"
+        )
+
+        print(
+            f"\n✅ Extreme contention test: {len(successes)}/{num_workers} workers had successes"
+        )
+        print(f"   Total operations across all workers: {total_operations}")
+        print(f"   Errors/conflicts: {len(errors)}")
+        print(f"   Average operations per worker: {total_operations / num_workers:.1f}")
+
+    @pytest.mark.slow
+    @pytest.mark.performance
+    def test_branching_performance_under_load(self, db_connection_string: str):
+        """
+        Test: Performance validation under sustained branching load.
+
+        Measures throughput and validates performance remains acceptable.
+        """
+        import time
+
+        num_workers = 8
+        branch_name = "performance-test-branch"
+        test_duration = 10  # 10 seconds
+
+        def performance_worker(worker_id: int):
+            conn = psycopg.connect(db_connection_string, row_factory=dict_row)
+            operations = 0
+            start_time = time.time()
+
+            try:
+                while time.time() - start_time < test_duration:
+                    try:
+                        # Create unique table for this operation
+                        table_name = f"perf_table_{worker_id}_{operations}"
+                        conn.execute(f"CREATE TABLE {table_name} (id INT, data TEXT)")
+                        conn.execute(
+                            f"INSERT INTO {table_name} (id, data) VALUES ({operations}, 'perf_data')"
+                        )
+                        conn.commit()
+
+                        # Commit to shared branch
+                        cursor = conn.execute(
+                            "SELECT pggit.commit_changes(%s, %s)",
+                            (branch_name, f"Performance op {worker_id}-{operations}"),
+                        )
+                        conn.commit()
+                        operations += 1
+
+                    except psycopg.Error:
+                        # Conflict occurred, rollback and continue
+                        conn.rollback()
+                        continue
+
+                conn.close()
+                return {
+                    "worker_id": worker_id,
+                    "operations": operations,
+                    "success": True,
+                }
+
+            except Exception as e:
+                try:
+                    conn.close()
+                except:
+                    pass
+                return {
+                    "worker_id": worker_id,
+                    "error": str(e),
+                    "operations": operations,
+                    "success": False,
+                }
+
+        # Run performance test
+        start_time = time.time()
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures = [
+                executor.submit(performance_worker, i) for i in range(num_workers)
+            ]
+            results = [
+                f.result(timeout=60) for f in futures
+            ]  # 1 minute timeout per worker
+
+        end_time = time.time()
+        total_time = end_time - start_time
+
+        successes = [r for r in results if r.get("success")]
+        total_operations = sum(r.get("operations", 0) for r in results)
+        operations_per_second = total_operations / total_time
+
+        # Performance expectations
+        assert total_operations > 50, (
+            f"Expected >50 operations in {test_duration}s, got {total_operations}"
+        )
+        assert operations_per_second > 2.0, ".2f"
+
+        print(f"\n✅ Performance test results:")
+        print(f"   Duration: {total_time:.2f}s")
+        print(f"   Total operations: {total_operations}")
+        print(f"   Successful workers: {len(successes)}")
+        print(f"   Operations per second: {operations_per_second:.2f}")
+
+    @pytest.mark.slow
+    def test_mixed_workload_chaos(self, db_connection_string: str):
+        """
+        Test: Mixed workload with different operation types under chaos.
+
+        Simulates real-world usage with concurrent commits, branches, and queries.
+        """
+        import random
+
+        num_workers = 12
+        operations_per_worker = 8
+
+        def chaos_worker(worker_id: int):
+            conn = psycopg.connect(db_connection_string, row_factory=dict_row)
+            operations_completed = 0
+            errors_encountered = 0
+
+            try:
+                for op in range(operations_per_worker):
+                    operation_type = random.choice(
+                        [
+                            "create_branch",
+                            "commit_changes",
+                            "create_table",
+                            "query_data",
+                        ]
+                    )
+
+                    try:
+                        if operation_type == "create_branch":
+                            branch_name = f"chaos-branch-{worker_id}-{op}"
+                            table_name = f"chaos_table_{worker_id}_{op}"
+                            conn.execute(
+                                f"CREATE TABLE {table_name} (id INT, data TEXT)"
+                            )
+                            conn.execute(
+                                f"INSERT INTO {table_name} (id, data) VALUES ({op}, 'chaos_data')"
+                            )
+                            conn.commit()
+
+                            cursor = conn.execute(
+                                "SELECT pggit.commit_changes(%s, %s)",
+                                (branch_name, f"Chaos branch {worker_id}-{op}"),
+                            )
+                            conn.commit()
+
+                        elif operation_type == "commit_changes":
+                            # Use a shared branch for conflicts
+                            branch_name = f"shared-chaos-branch-{worker_id % 3}"
+                            table_name = f"shared_table_{worker_id}_{op}"
+                            conn.execute(
+                                f"CREATE TABLE {table_name} (id INT, data TEXT)"
+                            )
+                            conn.execute(
+                                f"INSERT INTO {table_name} (id, data) VALUES ({op}, 'shared_data')"
+                            )
+                            conn.commit()
+
+                            cursor = conn.execute(
+                                "SELECT pggit.commit_changes(%s, %s)",
+                                (branch_name, f"Shared chaos {worker_id}-{op}"),
+                            )
+                            conn.commit()
+
+                        elif operation_type == "create_table":
+                            # Just create a table without committing
+                            table_name = f"simple_table_{worker_id}_{op}"
+                            conn.execute(f"CREATE TABLE {table_name} (id INT)")
+                            conn.commit()
+
+                        elif operation_type == "query_data":
+                            # Try to query existing tables
+                            try:
+                                cursor = conn.execute("""
+                                    SELECT schemaname, tablename
+                                    FROM pg_tables
+                                    WHERE schemaname = 'public'
+                                    AND tablename LIKE 'chaos_%'
+                                    LIMIT 5
+                                """)
+                                tables = cursor.fetchall()
+                                # Just accessing the data is enough for this test
+                            except psycopg.Error:
+                                # No tables to query, that's fine
+                                pass
+
+                        operations_completed += 1
+
+                    except psycopg.Error as e:
+                        # Expected under mixed workload chaos
+                        conn.rollback()
+                        errors_encountered += 1
+                        continue
+
+                conn.close()
+                return {
+                    "worker_id": worker_id,
+                    "operations": operations_completed,
+                    "errors": errors_encountered,
+                    "success": operations_completed > 0,
+                }
+
+            except Exception as e:
+                try:
+                    conn.close()
+                except:
+                    pass
+                return {
+                    "worker_id": worker_id,
+                    "error": str(e),
+                    "operations": operations_completed,
+                    "success": False,
+                }
+
+        # Run mixed workload chaos test
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures = [executor.submit(chaos_worker, i) for i in range(num_workers)]
+            results = [f.result(timeout=60) for f in futures]  # 1 minute timeout
+
+        successes = [r for r in results if r.get("success")]
+        total_operations = sum(r.get("operations", 0) for r in results)
+        total_errors = sum(r.get("errors", 0) for r in results)
+
+        # Under mixed workload chaos, we expect some success despite conflicts
+        assert len(successes) > num_workers * 0.5, (
+            f"Expected >50% success under mixed workload, got {len(successes)}/{num_workers}"
+        )
+
+        # Should have completed many operations despite chaos
+        assert total_operations > num_workers * 2, (
+            f"Expected >{num_workers * 2} operations under chaos, got {total_operations}"
+        )
+
+        print(
+            f"\n✅ Mixed workload chaos: {len(successes)}/{num_workers} workers succeeded"
+        )
+        print(f"   Total operations: {total_operations}")
+        print(f"   Total errors/conflicts: {total_errors}")
+        print(f"   Average operations per worker: {total_operations / num_workers:.1f}")
+        print(f"   Average errors per worker: {total_errors / num_workers:.1f}")
