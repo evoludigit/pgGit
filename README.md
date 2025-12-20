@@ -258,6 +258,21 @@ SELECT pggit.resolve_conflict(conflict_id, 'use_current', 'Keep production versi
 
 ### 1. Install pgGit (2 minutes)
 
+#### Option A: Package Installation (Recommended)
+
+```bash
+# Debian/Ubuntu
+sudo apt install ./pggit_0.2.0-postgresql.deb
+
+# RHEL/Rocky Linux
+sudo rpm -i pggit-0.2.0.rpm
+
+# Create extension
+psql -d your_database -c "CREATE EXTENSION pggit CASCADE;"
+```
+
+#### Option B: Manual Installation
+
 ```bash
 # For PostgreSQL 17 (with compression support)
 git clone https://github.com/evoludigit/pgGit.git
