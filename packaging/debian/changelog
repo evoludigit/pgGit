@@ -1,0 +1,10 @@
+pggit (0.1.0-1) unstable; urgency=medium
+
+  * Initial release
+  * Core DDL tracking functionality
+  * Git-style branching and merging
+  * PostgreSQL 15-17 support
+  * Comprehensive audit trail
+  * Schema versioning and time-travel
+
+ -- pgGit Team <team@pggit.dev>  Mon, 20 Dec 2025 12:00:00 +0000
