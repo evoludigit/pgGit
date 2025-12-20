@@ -90,23 +90,32 @@ class TestTableVersioningProperties:
             pytest.skip("commit_changes function not implemented yet")
 
     @given(msg=commit_message)
-    @settings(max_examples=100, deadline=None)
+    @settings(
+        max_examples=100,
+        deadline=None,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
     def test_commit_message_preserved(self, sync_conn: psycopg.Connection, msg: str):
         """Property: Commit messages are preserved exactly as written."""
-        # Create a simple table
-        sync_conn.execute("CREATE TABLE test_table (id SERIAL PRIMARY KEY)")
+        # Create a unique table for this test
+        table_name = f"test_table_{hash(msg) % 1000000}"
+        sync_conn.execute(f"CREATE TABLE {table_name} (id SERIAL PRIMARY KEY)")
         sync_conn.commit()
 
         try:
-            # Make commit with generated message
+            # Make commit with generated message (use unique ID per test)
+            commit_id = f"test-commit-{hash(msg) % 1000000}"
             cursor = sync_conn.execute(
-                "SELECT pggit.commit_changes(%s, %s, %s)", ("test-commit", "main", msg)
+                "SELECT pggit.commit_changes(%s, %s, %s)", (commit_id, "main", msg)
             )
-            commit_id = cursor.fetchone()[0]
+            result_commit_id = cursor.fetchone()["commit_changes"]
+            assert result_commit_id == commit_id, (
+                "Function should return the Trinity ID"
+            )
 
             # Retrieve commit message
             cursor = sync_conn.execute(
-                "SELECT message FROM pggit.commits WHERE id = %s", (commit_id,)
+                "SELECT message FROM pggit.commits WHERE hash = %s", (commit_id,)
             )
             stored_msg = cursor.fetchone()["message"]
 
