@@ -23,3 +23,6 @@ BEGIN
         RAISE NOTICE 'Advanced features not loaded, skipping all tests';
         RETURN;
     END IF;
+
+    RAISE NOTICE 'Advanced features available, but detailed tests skipped in CI';
+END $$;
