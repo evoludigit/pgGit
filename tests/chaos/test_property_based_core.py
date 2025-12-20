@@ -8,16 +8,12 @@ to generate diverse test inputs and catch edge cases.
 import uuid
 
 import pytest
-from hypothesis import given, strategies as st, assume, settings, HealthCheck
-from hypothesis import Phase
 import psycopg
+from hypothesis import given, settings, HealthCheck, strategies as st
 
 from tests.chaos.strategies import (
     table_definition,
     git_branch_name,
-    commit_message,
-    version_triple,
-    version_increment_type,
 )
 
 
@@ -190,7 +186,7 @@ class TestTableVersioningProperties:
         minor=st.integers(min_value=0, max_value=100),
         patch=st.integers(min_value=0, max_value=100),
     )
-    @settings(max_examples=50, deadline=None)
+    @settings(max_examples=50, deadline=None,)
     def test_minor_increment_resets_patch(
         self, sync_conn: psycopg.Connection, major: int, minor: int, patch: int
     ):
@@ -218,7 +214,7 @@ class TestTableVersioningProperties:
         minor=st.integers(min_value=0, max_value=100),
         patch=st.integers(min_value=0, max_value=100),
     )
-    @settings(max_examples=50, deadline=None)
+    @settings(max_examples=50, deadline=None,)
     def test_major_increment_resets_minor_and_patch(
         self, sync_conn: psycopg.Connection, major: int, minor: int, patch: int
     ):
