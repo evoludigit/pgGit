@@ -33,96 +33,17 @@ jobs:
         echo "Creating extensions..."
         psql -h localhost -U postgres -d test_db -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
         
-    - name: Install minimal pgGit
-      env:
-        PGPASSWORD: postgres
-      run: |
-        echo "Installing minimal pgGit schema..."
-        psql -h localhost -U postgres -d test_db << 'EOF'
-        -- Create schema
-        CREATE SCHEMA IF NOT EXISTS pggit;
-        
-        -- Create basic enums
-        CREATE TYPE pggit.change_type AS ENUM (
-            'CREATE', 'ALTER', 'DROP', 'RENAME', 'COMMENT', 
-            'GRANT', 'REVOKE', 'TRUNCATE', 'INSERT', 'UPDATE', 
-            'DELETE', 'MERGE', 'CONFLICT'
-        );
-        
-        CREATE TYPE pggit.change_severity AS ENUM (
-            'BREAKING', 'MAJOR', 'MINOR', 'PATCH'
-        );
-        
-        CREATE TYPE pggit.merge_resolution AS ENUM (
-            'OURS', 'THEIRS', 'MANUAL', 'AUTO'
-        );
-        
-        -- Create core tables
-        CREATE TABLE pggit.branches (
-            id SERIAL PRIMARY KEY,
-            name TEXT UNIQUE NOT NULL
-        );
-        
-        CREATE TABLE pggit.objects (
-            id SERIAL PRIMARY KEY,
-            schema_name TEXT,
-            object_name TEXT,
-            object_type TEXT
-        );
-        
-        CREATE TABLE pggit.commits (
-            id SERIAL PRIMARY KEY,
-            commit_id uuid DEFAULT gen_random_uuid() UNIQUE NOT NULL,
-            hash TEXT NOT NULL UNIQUE,
-            branch_id INTEGER REFERENCES pggit.branches(id),
-            parent_commit_hash TEXT,
-            message TEXT,
-            author TEXT DEFAULT CURRENT_USER,
-            tree_hash TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        
-        CREATE TABLE pggit.trees (
-            tree_id uuid PRIMARY KEY DEFAULT gen_random_uuid()
-        );
-        
-        CREATE TABLE pggit.blobs (
-            blob_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            hash TEXT,
-            data BYTEA,
-            size BIGINT DEFAULT 0
-        );
-        
-        CREATE TABLE pggit.versioned_objects (
-            object_id serial PRIMARY KEY,
-            object_name text UNIQUE NOT NULL,
-            object_type text,
-            schema_name text
-        );
-        
-        CREATE TABLE pggit.version_history (
-            version_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            object_id integer REFERENCES pggit.versioned_objects(object_id),
-            is_current boolean DEFAULT false
-        );
-        
-        CREATE TABLE pggit.history (
-            id SERIAL PRIMARY KEY,
-            object_id INTEGER REFERENCES pggit.objects(id),
-            change_type pggit.change_type NOT NULL,
-            change_severity pggit.change_severity NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        
-        -- Stub functions
-        CREATE OR REPLACE FUNCTION pggit.get_current_version() 
-        RETURNS uuid AS $$ SELECT gen_random_uuid(); $$ LANGUAGE sql;
-        
-        CREATE OR REPLACE FUNCTION pggit.remove_orphaned_object(object_id integer) 
-        RETURNS boolean AS $$ SELECT true; $$ LANGUAGE sql;
-        
-        SELECT 'Core pgGit installed' as status;
-        EOF
+     - name: Install pgTAP
+       run: |
+         sudo apt-get update
+         sudo apt-get install -y postgresql-pgtap
+
+     - name: Install pgGit
+       env:
+         PGPASSWORD: postgres
+       run: |
+         echo "Installing pgGit..."
+         psql -h localhost -U postgres -d test_db -f pggit--0.1.0.sql
         
     - name: Install configuration module
       env:
@@ -148,33 +69,9 @@ jobs:
         cd sql
         psql -h localhost -U postgres -d test_db -f pggit_function_versioning.sql || echo "Some errors expected"
         
-    - name: Run basic tests
-      env:
-        PGPASSWORD: postgres
-      run: |
-        echo "Running basic tests..."
-        psql -h localhost -U postgres -d test_db << 'EOF'
-        -- Test configuration
-        SELECT pggit.configure_tracking(
-            track_schemas := ARRAY['public'],
-            ignore_schemas := ARRAY['pg_catalog']
-        );
-        
-        -- Test CQRS
-        DO $$
-        DECLARE
-            changeset_id uuid;
-        BEGIN
-            changeset_id := pggit.track_cqrs_change(
-                ROW(
-                    ARRAY['CREATE TABLE test1 (id int)'],
-                    ARRAY['CREATE VIEW test1_view AS SELECT * FROM test1'],
-                    'Test change',
-                    '1.0.0'
-                )::pggit.cqrs_change
-            );
-            RAISE NOTICE 'CQRS changeset created: %', changeset_id;
-        END $$;
-        
-        SELECT 'Tests completed' as status;
-        EOF
+     - name: Run pgTAP tests
+       env:
+         PGPASSWORD: postgres
+       run: |
+         echo "Running pgTAP tests..."
+         DB_NAME=test_db ./tests/test-runner.sh
