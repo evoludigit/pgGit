@@ -270,7 +270,7 @@ def table_definition(draw):
     return tbl_def
 
 
-# Git branch name strategy
+# Git branch name strategy (for general git operations)
 git_branch_name = st.builds(
     lambda parts, add_prefix: "/".join(parts)
     if not add_prefix
@@ -286,6 +286,16 @@ git_branch_name = st.builds(
     ),
     st.booleans(),
 )
+
+# PostgreSQL identifier branch name strategy (for data branching)
+# Must start with letter/underscore, contain only alphanumeric/underscore
+pg_branch_name = st.builds(
+    lambda start, rest: start + rest,
+    st.sampled_from(string.ascii_lowercase + "_"),
+    st.text(
+        alphabet=string.ascii_lowercase + string.digits + "_", min_size=0, max_size=20
+    ),
+).filter(lambda x: 1 <= len(x) <= 63)
 
 # Commit message strategy
 commit_message = st.builds(
