@@ -1,0 +1,45 @@
+Source: pggit
+Section: database
+Priority: optional
+Maintainer: pgGit Team <team@pggit.dev>
+Build-Depends: debhelper-compat (= 13), postgresql-server-dev-all (>= 217~)
+Standards-Version: 4.6.0
+Homepage: https://github.com/evoludigit/pgGit
+Vcs-Git: https://github.com/evoludigit/pgGit.git
+Vcs-Browser: https://github.com/evoludigit/pgGit
+
+Package: postgresql-15-pggit
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, postgresql-15, postgresql-15-pgcrypto
+Description: Git-like version control for PostgreSQL 15
+ pgGit provides Git-style version control for PostgreSQL schemas:
+   - Automatic DDL tracking
+   - Branch and merge database schemas
+   - Complete audit trail
+   - Time-travel queries
+ .
+ This package is for PostgreSQL 15.
+
+Package: postgresql-16-pggit
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, postgresql-16, postgresql-16-pgcrypto
+Description: Git-like version control for PostgreSQL 16
+ pgGit provides Git-style version control for PostgreSQL schemas:
+   - Automatic DDL tracking
+   - Branch and merge database schemas
+   - Complete audit trail
+   - Time-travel queries
+ .
+ This package is for PostgreSQL 16.
+
+Package: postgresql-17-pggit
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, postgresql-17, postgresql-17-pgcrypto
+Description: Git-like version control for PostgreSQL 17
+ pgGit provides Git-style version control for PostgreSQL schemas:
+   - Automatic DDL tracking
+   - Branch and merge database schemas
+   - Complete audit trail
+   - Time-travel queries
+ .
+ This package is for PostgreSQL 17.
