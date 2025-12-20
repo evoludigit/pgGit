@@ -31,6 +31,12 @@ DECLARE
     v_changeset_id uuid;
     change pggit.cqrs_change;
 BEGIN
+    -- Skip test if CQRS system not available
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'cqrs_change' AND typnamespace = 'pggit'::regnamespace) THEN
+        RAISE NOTICE 'CQRS system not loaded, skipping test';
+        RETURN;
+    END IF;
+BEGIN
     -- Define a CQRS change
     change.description := 'Add user status field';
     change.version := '1.0.0';

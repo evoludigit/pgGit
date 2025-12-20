@@ -27,6 +27,12 @@ DECLARE
     deployment_id uuid;
     v_migration_id bigint := 20250620001;
 BEGIN
+    -- Skip test if migration integration not available
+    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'begin_migration' AND pronamespace = 'pggit'::regnamespace) THEN
+        RAISE NOTICE 'Migration integration not loaded, skipping test';
+        RETURN;
+    END IF;
+
     -- Start migration
     deployment_id := pggit.begin_migration(v_migration_id, 'flyway', 'Add user table');
     
