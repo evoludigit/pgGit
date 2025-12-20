@@ -1,0 +1,148 @@
+name: Chaos Engineering Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run chaos tests weekly on Sundays at 2 AM
+    - cron: '0 2 * * 0'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  # Quick smoke tests - MUST pass for PR merge
+  chaos-smoke:
+    name: Chaos Smoke Tests (Must Pass)
+    runs-on: ubuntu-latest
+    continue-on-error: false  # MUST pass
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pggit_chaos_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install uv
+          uv pip install --system -e ".[chaos]"
+
+      - name: Install pggit extension
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-server-dev-17
+          make
+          sudo make install
+
+      - name: Run smoke tests
+        env:
+          PGHOST: localhost
+          PGPORT: 5432
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: pggit_chaos_test
+        run: |
+          # Only run fast, non-destructive tests
+          pytest tests/chaos/ -v \
+            --tb=short \
+            --timeout=60 \
+            -m "chaos and not slow and not destructive" \
+            --maxfail=5 \
+            --junit-xml=chaos-smoke-results.xml
+
+      - name: Upload smoke test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chaos-smoke-results
+          path: chaos-smoke-results.xml
+
+  # Full chaos test suite - allowed to fail initially
+  chaos-full:
+    name: Full Chaos Tests (Can Fail)
+    runs-on: ubuntu-latest
+    continue-on-error: true  # Initially allowed to fail
+    needs: chaos-smoke  # Only run if smoke tests pass
+
+    strategy:
+      matrix:
+        postgres-version: [15, 16, 17]
+
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgres-version }}
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pggit_chaos_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install uv
+          uv pip install --system -e ".[chaos]"
+
+      - name: Install pggit extension
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-server-dev-${{ matrix.postgres-version }}
+          make
+          sudo make install
+
+      - name: Run chaos tests
+        env:
+          PGHOST: localhost
+          PGPORT: 5432
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: pggit_chaos_test
+        run: |
+          pytest tests/chaos/ -v \
+            --tb=short \
+            --timeout=300 \
+            -m chaos \
+            --maxfail=10 \
+            --junit-xml=chaos-test-results-pg${{ matrix.postgres-version }}.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chaos-test-results-pg${{ matrix.postgres-version }}
+          path: chaos-test-results-pg${{ matrix.postgres-version }}.xml
+
+      - name: Generate test report
+        if: always()
+        run: |
+          echo "## Chaos Test Results (PostgreSQL ${{ matrix.postgres-version }})" >> $GITHUB_STEP_SUMMARY
+          pytest tests/chaos/ --collect-only -q -m chaos >> $GITHUB_STEP_SUMMARY || true
