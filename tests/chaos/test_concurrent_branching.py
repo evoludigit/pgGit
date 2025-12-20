@@ -368,14 +368,13 @@ class TestConcurrentBranching:
                 conn.commit()
 
                 cursor = conn.execute(
-                    "SELECT pggit.commit_changes(%s, %s, %s)",
+                    "SELECT pggit.commit_changes(%s, %s)",
                     (
                         branch_name,
                         f"Isolated work by worker {worker_id}",
-                        f"iso-{worker_id}",
                     ),
                 )
-                trinity_id = cursor.fetchone()["commit_changes"]
+                trinity_id = cursor.fetchone()
                 conn.commit()
 
                 # Verify worker's data is visible
@@ -415,7 +414,7 @@ class TestConcurrentBranching:
         )
 
         # All Trinity IDs should be unique
-        trinity_ids = [s["trinity_id"] for s in successes]
+        trinity_ids = [list(s["trinity_id"].values())[0] for s in successes]
         assert len(trinity_ids) == len(set(trinity_ids)), (
             "Trinity IDs should be unique across isolated branches"
         )
