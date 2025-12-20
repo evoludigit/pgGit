@@ -9,12 +9,22 @@ PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
 
 # Test targets
-.PHONY: test test-core test-enterprise test-ai test-podman test-all test-clean install clean
+.PHONY: test test-pgtap test-core test-enterprise test-ai test-podman test-all test-clean install clean
 
 # Run all tests locally
 test:
 	@echo "Running pgGit test suite..."
 	@./tests/test-full.sh
+
+# Run pgTAP tests
+test-pgtap:
+	@echo "Running pgTAP tests..."
+	@DB_NAME=pgtap_test ./tests/test-runner.sh
+
+# Generate test coverage report
+test-coverage:
+	@echo "Generating test coverage report..."
+	@psql -d pgtap_test -f tests/coverage-report.sql
 
 # Run all tests (alias for test)
 test-all: test

@@ -36,12 +36,15 @@ psql -c "SELECT * FROM pggit.get_version('users')"  # Version 1.0.0!
 
 - **New to pgGit?** → [Getting Started Guide](docs/getting-started/Getting_Started.md)
 - **Want details?** → [Architecture Overview](docs/Architecture_Decision.md)
+- **Module Structure** → [Module Architecture](docs/architecture/MODULES.md)
 
 ### 📖 Comprehensive Guides
 
 - [Performance Guide](docs/guides/Performance.md) - Optimize for large databases
 - [Security Guide](docs/guides/Security.md) - Secure your installation
+- [Security Policy](SECURITY.md) - Report vulnerabilities
 - [Operations Guide](docs/guides/Operations.md) - Production deployment
+- [Module Architecture](docs/architecture/MODULES.md) - Core vs extensions
 
 ### 🔧 Reference
 
