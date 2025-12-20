@@ -9,7 +9,6 @@ regression.diffs
 regression.out
 
 # Editor files
-.vscode/
 *.swp
 *.swo
 *~
