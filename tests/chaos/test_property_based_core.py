@@ -235,14 +235,15 @@ class TestTableVersioningProperties:
             # Expected to fail initially
             pytest.skip("increment_version function not implemented yet")
 
+    @settings(
+        max_examples=50,
+        deadline=None,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
     @given(
         major=st.integers(min_value=0, max_value=100),
         minor=st.integers(min_value=0, max_value=100),
         patch=st.integers(min_value=0, max_value=100),
-    )
-    @settings(
-        max_examples=50,
-        deadline=None,
     )
     def test_major_increment_resets_minor_and_patch(
         self, sync_conn: psycopg.Connection, major: int, minor: int, patch: int
@@ -250,12 +251,13 @@ class TestTableVersioningProperties:
         """Property: Major increment resets minor and patch to 0."""
         try:
             cursor = sync_conn.execute(
-                "SELECT pggit.increment_version(%s, %s, %s, 'major')",
+                "SELECT * FROM pggit.increment_version(%s, %s, %s, 'major')",
                 (major, minor, patch),
             )
-            new_version = cursor.fetchone()["increment_version"]
-
-            new_major, new_minor, new_patch = map(int, new_version.split("."))
+            result = cursor.fetchone()
+            new_major = result["major"]
+            new_minor = result["minor"]
+            new_patch = result["patch"]
 
             # Properties
             assert new_major == major + 1, "Major should increment by 1"
@@ -529,17 +531,20 @@ class TestBranchNamingProperties:
 class TestIdentifierValidationProperties:
     """Property-based tests for identifier validation."""
 
+    @settings(
+        max_examples=200,
+        deadline=None,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
     @given(
         st.text(
             alphabet=st.characters(
-                categories=["L", "N"],
-                exclude_categories=["C"],  # Exclude control characters
+                categories=["L", "N"],  # Letters and Numbers only
             ),
             min_size=1,
             max_size=100,
         )
     )
-    @settings(max_examples=200, deadline=None)
     def test_valid_identifiers_accepted(
         self, sync_conn: psycopg.Connection, identifier: str
     ):
@@ -553,8 +558,82 @@ class TestIdentifierValidationProperties:
             all(c.isalnum() or c == "_" for c in identifier)
         )  # Only alphanumeric + underscore
 
-        # Avoid reserved words
-        reserved = {"select", "from", "where", "table", "user", "group"}
+        # Avoid reserved words (expanded list)
+        reserved = {
+            "select",
+            "from",
+            "where",
+            "table",
+            "user",
+            "group",
+            "order",
+            "by",
+            "having",
+            "limit",
+            "offset",
+            "union",
+            "all",
+            "distinct",
+            "as",
+            "on",
+            "join",
+            "inner",
+            "outer",
+            "left",
+            "right",
+            "full",
+            "natural",
+            "cross",
+            "and",
+            "or",
+            "not",
+            "in",
+            "exists",
+            "between",
+            "like",
+            "ilike",
+            "is",
+            "true",
+            "false",
+            "null",
+            "case",
+            "when",
+            "then",
+            "else",
+            "end",
+            "begin",
+            "commit",
+            "rollback",
+            "savepoint",
+            "primary",
+            "foreign",
+            "unique",
+            "check",
+            "default",
+            "constraint",
+            "index",
+            "view",
+            "sequence",
+            "function",
+            "procedure",
+            "trigger",
+            "type",
+            "domain",
+            "rule",
+            "language",
+            "cast",
+            "operator",
+            "aggregate",
+            "collation",
+            "conversion",
+            "extension",
+            "foreign",
+            "server",
+            "wrapper",
+            "event",
+            "publication",
+            "subscription",
+        }
         assume(identifier.lower() not in reserved)
 
         try:
