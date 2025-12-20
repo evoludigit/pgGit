@@ -185,3 +185,52 @@ BEGIN
     RETURN QUERY SELECT 1, 0, 0, '1.0.0';
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function: pggit.increment_version
+-- Increments version numbers based on semantic versioning rules
+-- Parameters:
+--   p_current_major: Current major version
+--   p_current_minor: Current minor version
+--   p_current_patch: Current patch version
+--   p_increment_type: Type of increment ('major', 'minor', 'patch')
+-- Returns: TABLE with new version information (major, minor, patch, full_version)
+
+CREATE OR REPLACE FUNCTION pggit.increment_version(
+    p_current_major INTEGER,
+    p_current_minor INTEGER,
+    p_current_patch INTEGER,
+    p_increment_type TEXT
+) RETURNS TABLE (
+    major INTEGER,
+    minor INTEGER,
+    patch INTEGER,
+    full_version TEXT
+) AS $$
+DECLARE
+    v_new_major INTEGER := p_current_major;
+    v_new_minor INTEGER := p_current_minor;
+    v_new_patch INTEGER := p_current_patch;
+BEGIN
+    -- Increment version based on type
+    CASE LOWER(p_increment_type)
+        WHEN 'major' THEN
+            v_new_major := p_current_major + 1;
+            v_new_minor := 0;
+            v_new_patch := 0;
+        WHEN 'minor' THEN
+            v_new_minor := p_current_minor + 1;
+            v_new_patch := 0;
+        WHEN 'patch' THEN
+            v_new_patch := p_current_patch + 1;
+        ELSE
+            RAISE EXCEPTION 'Invalid increment type: %. Must be major, minor, or patch', p_increment_type;
+    END CASE;
+
+    -- Return new version
+    RETURN QUERY SELECT
+        v_new_major,
+        v_new_minor,
+        v_new_patch,
+        v_new_major || '.' || v_new_minor || '.' || v_new_patch;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
