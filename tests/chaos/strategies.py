@@ -114,7 +114,7 @@ commit_message = st.builds(
         alphabet=string.ascii_letters + string.digits + " _-.", min_size=10, max_size=72
     ),
     st.one_of(st.none(), st.text(min_size=10, max_size=200)),
-).filter(lambda x: x is not None)
+).filter(lambda x: x is not None and "\x00" not in x)
 
 # Version triple strategy
 version_triple = st.tuples(
