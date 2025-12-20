@@ -39,10 +39,16 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install uv and create test environment
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
       - name: Install dependencies
         run: |
-          pip install uv
-          uv pip install --system -e ".[chaos]"
+          uv venv /tmp/chaos-smoke-env
+          source /tmp/chaos-smoke-env/bin/activate
+          uv pip install -e ".[chaos]"
 
       - name: Install pggit extension
         run: |
@@ -59,6 +65,7 @@ jobs:
           PGPASSWORD: postgres
           PGDATABASE: pggit_chaos_test
         run: |
+          source /tmp/chaos-smoke-env/bin/activate
           # Only run fast, non-destructive tests
           pytest tests/chaos/ -v \
             --tb=short \
@@ -107,10 +114,16 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install uv and create test environment
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
       - name: Install dependencies
         run: |
-          pip install uv
-          uv pip install --system -e ".[chaos]"
+          uv venv /tmp/chaos-full-env
+          source /tmp/chaos-full-env/bin/activate
+          uv pip install -e ".[chaos]"
 
       - name: Install pggit extension
         run: |
@@ -127,6 +140,7 @@ jobs:
           PGPASSWORD: postgres
           PGDATABASE: pggit_chaos_test
         run: |
+          source /tmp/chaos-full-env/bin/activate
           pytest tests/chaos/ -v \
             --tb=short \
             --timeout=300 \

@@ -30,6 +30,7 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "destructive: mark test as potentially destructive"
     )
+    config.addinivalue_line("markers", "property: mark test as property-based test")
 
 
 @pytest.fixture(scope="session")

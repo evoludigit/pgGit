@@ -635,7 +635,9 @@ jobs:
 createdb pggit_chaos_test
 psql pggit_chaos_test -c "CREATE EXTENSION IF NOT EXISTS pggit"
 
-# Step 2: Install chaos testing dependencies
+# Step 2: Create uv environment and install dependencies
+uv venv /tmp/chaos-test-env
+source /tmp/chaos-test-env/bin/activate
 uv pip install -e ".[chaos]"
 
 # Step 3: Verify pytest can discover chaos tests
