@@ -3,12 +3,12 @@ name: Test with Fixes
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [ main, phase-1-critical-fixes ]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     services:
       postgres:
         image: postgres:15
@@ -25,53 +25,29 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Setup database
       env:
         PGPASSWORD: postgres
       run: |
         echo "Creating extensions..."
         psql -h localhost -U postgres -d test_db -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
-        
-     - name: Install pgTAP
-       run: |
-         sudo apt-get update
-         sudo apt-get install -y postgresql-pgtap
 
-     - name: Install pgGit
-       env:
-         PGPASSWORD: postgres
-       run: |
-         echo "Installing pgGit..."
-         psql -h localhost -U postgres -d test_db -f pggit--0.1.0.sql
-        
-    - name: Install configuration module
+    - name: Install pgTAP
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql-pgtap
+
+    - name: Install pgGit
       env:
         PGPASSWORD: postgres
       run: |
-        echo "Installing configuration module..."
-        cd sql
-        psql -h localhost -U postgres -d test_db -f pggit_configuration.sql
-        
-    - name: Install CQRS module
+        echo "Installing pgGit..."
+        psql -h localhost -U postgres -d test_db -f pggit--0.1.0.sql
+
+    - name: Run pgTAP tests
       env:
         PGPASSWORD: postgres
       run: |
-        echo "Installing CQRS module..."
-        cd sql
-        psql -h localhost -U postgres -d test_db -f pggit_cqrs_support.sql || echo "Some errors expected"
-        
-    - name: Install function versioning
-      env:
-        PGPASSWORD: postgres
-      run: |
-        echo "Installing function versioning..."
-        cd sql
-        psql -h localhost -U postgres -d test_db -f pggit_function_versioning.sql || echo "Some errors expected"
-        
-     - name: Run pgTAP tests
-       env:
-         PGPASSWORD: postgres
-       run: |
-         echo "Running pgTAP tests..."
-         DB_NAME=test_db ./tests/test-runner.sh
+        echo "Running pgTAP tests..."
+        DB_NAME=test_db ./tests/test-runner.sh

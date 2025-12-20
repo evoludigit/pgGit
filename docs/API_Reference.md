@@ -2,6 +2,14 @@
 
 **Complete function reference for PostgreSQL database branching**
 
+## ⚠️ Function Status Notice
+
+Many functions documented below are **planned for future versions** and do not currently exist in pgGit v0.1.x. Functions are marked with status badges:
+
+- ✅ **Implemented** - Available in current version
+- 🚧 **Planned** - Designed but not yet implemented
+- 🧪 **Experimental** - Implemented but may change
+
 ## Overview
 
 pgGit provides a comprehensive SQL API for database version control. All
@@ -447,7 +455,7 @@ SELECT * FROM pggit.analyze_migration_with_llm(
 -- risk_assessment: LOW
 ```
 
-### `ai_migrate_batch()`
+### `ai_migrate_batch()` 🚧 PLANNED
 
 Batch processes multiple migrations with AI analysis.
 
