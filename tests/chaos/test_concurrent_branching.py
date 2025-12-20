@@ -250,16 +250,19 @@ class TestConcurrentBranching:
                 conn.commit()
 
                 cursor = conn.execute(
-                    "SELECT pggit.commit_changes(%s, %s, %s)",
+                    "SELECT pggit.commit_changes(%s, %s)",
                     (
-                        f"init-{worker_id}",
                         branch_name,
                         f"Initialize branch {worker_id}",
                     ),
                 )
                 result = cursor.fetchone()
                 operations.append(
-                    {"op": "create_branch", "success": True, "trinity_id": result[0]}
+                    {
+                        "op": "create_branch",
+                        "success": True,
+                        "trinity_id": list(result.values())[0],
+                    }
                 )
 
                 # Operation 2: Add more data and commit again
@@ -269,12 +272,16 @@ class TestConcurrentBranching:
                 conn.commit()
 
                 cursor = conn.execute(
-                    "SELECT pggit.commit_changes(%s, %s, %s)",
-                    (f"update-{worker_id}", branch_name, f"Update branch {worker_id}"),
+                    "SELECT pggit.commit_changes(%s, %s)",
+                    (branch_name, f"Update branch {worker_id}"),
                 )
                 result = cursor.fetchone()
                 operations.append(
-                    {"op": "update_commit", "success": True, "trinity_id": result[0]}
+                    {
+                        "op": "update_commit",
+                        "success": True,
+                        "trinity_id": list(result.values())[0],
+                    }
                 )
 
                 conn.close()
