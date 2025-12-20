@@ -32,6 +32,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+asyncio_mode = "auto"
 markers = [
     "chaos: mark test as chaos engineering test",
     "slow: mark test as slow (may take >30s)",

@@ -167,7 +167,7 @@ async def async_conn(
             "WHERE schema_name = 'pggit')",
         )
         result = await cursor.fetchone()
-        if not result[0]:
+        if not list(result.values())[0]:
             msg = (
                 "pggit schema not found. Please install: cd sql && "
                 "psql -d pggit_chaos_test -f install.sql"
