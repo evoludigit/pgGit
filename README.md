@@ -20,6 +20,17 @@
 
 ```bash
 # Install pgGit
+
+## Option A: Package Installation (Recommended)
+
+### Debian/Ubuntu
+sudo apt install ./pggit_0.2.0-postgresql.deb
+
+### RHEL/Rocky Linux
+sudo rpm -i pggit-0.2.0.rpm
+
+## Option B: Manual Installation
+
 git clone https://github.com/evoludigit/pgGit.git
 cd pgGit
 make && sudo make install
@@ -43,7 +54,7 @@ psql -c "SELECT * FROM pggit.get_version('users')"  # Version 1.0.0!
 - [Performance Guide](docs/guides/Performance.md) - Optimize for large databases
 - [Security Guide](docs/guides/Security.md) - Secure your installation
 - [Security Policy](SECURITY.md) - Report vulnerabilities
-- [Operations Guide](docs/guides/Operations.md) - Production deployment
+- [Operations Guide](docs/operations/) - Production deployment, releases, upgrades
 - [Module Architecture](docs/architecture/MODULES.md) - Core vs extensions
 
 ### 🔧 Reference
