@@ -16,6 +16,7 @@ from tests.chaos.strategies import table_definition, git_branch_name, pg_branch_
 @pytest.mark.chaos
 @pytest.mark.property
 @pytest.mark.slow
+@pytest.mark.timeout(30)  # Prevent property tests from hanging
 class TestDataBranchingProperties:
     """Property-based tests for data branching (copy-on-write)."""
 
@@ -396,6 +397,7 @@ class TestDataBranchingProperties:
 
 @pytest.mark.chaos
 @pytest.mark.property
+@pytest.mark.timeout(30)  # Prevent property tests from hanging
 class TestConcurrentDataOperations:
     """Property-based tests for concurrent data operations."""
 
@@ -429,9 +431,9 @@ class TestConcurrentDataOperations:
                         db_connection_string, row_factory=dict_row
                     )
                     worker_conn.execute("BEGIN")
-                    # Read current value
+                    # Read current value with row lock to prevent lost updates
                     cursor = worker_conn.execute(
-                        f"SELECT counter FROM {table_name} WHERE id = 1"
+                        f"SELECT counter FROM {table_name} WHERE id = 1 FOR UPDATE"
                     )
                     current = cursor.fetchone()["counter"]
                     # Increment
@@ -473,6 +475,7 @@ class TestConcurrentDataOperations:
 
             # Verify final counter value reflects all successful increments
             final_conn = psycopg.connect(db_connection_string)
+            final_conn.row_factory = psycopg.rows.dict_row
             cursor = final_conn.execute(
                 f"SELECT counter FROM {table_name} WHERE id = 1"
             )
@@ -498,6 +501,7 @@ class TestConcurrentDataOperations:
 
 @pytest.mark.chaos
 @pytest.mark.property
+@pytest.mark.timeout(30)  # Prevent property tests from hanging
 class TestDataVersioningProperties:
     """Property-based tests for data versioning."""
 

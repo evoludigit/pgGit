@@ -20,6 +20,7 @@ from tests.chaos.strategies import (
 
 @pytest.mark.chaos
 @pytest.mark.property
+@pytest.mark.timeout(30)  # Prevent property tests from hanging
 class TestTableVersioningProperties:
     """Property-based tests for table versioning."""
 
@@ -272,6 +273,7 @@ class TestTableVersioningProperties:
 
 @pytest.mark.chaos
 @pytest.mark.property
+@pytest.mark.timeout(30)  # Prevent property tests from hanging
 class TestBranchNamingProperties:
     """Property-based tests for branch naming constraints."""
 
@@ -541,6 +543,7 @@ class TestBranchNamingProperties:
 
 @pytest.mark.chaos
 @pytest.mark.property
+@pytest.mark.timeout(30)  # Prevent property tests from hanging
 class TestIdentifierValidationProperties:
     """Property-based tests for identifier validation."""
 
