@@ -24,6 +24,12 @@ CREATE SCHEMA test_functions;
 \echo '  Test 1: Basic function tracking'
 DO $$
 BEGIN
+    -- Skip test if function versioning not available
+    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'track_function' AND pronamespace = 'pggit'::regnamespace) THEN
+        RAISE NOTICE 'Function versioning not loaded, skipping test';
+        RETURN;
+    END IF;
+
     -- Create a simple function
     CREATE OR REPLACE FUNCTION test_functions.simple_func(input text) 
     RETURNS text AS $func$

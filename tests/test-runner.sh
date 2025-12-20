@@ -28,12 +28,19 @@ fi
 echo "📦 Ensuring pgGit is installed..."
 if ! psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1 FROM information_schema.schemata WHERE schema_name = 'pggit'" &> /dev/null; then
     echo "   Installing pgGit..."
-    if [ -f "pggit--0.1.0.sql" ]; then
-        psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f pggit--0.1.0.sql >/dev/null 2>&1
+    if [ -f "sql/install.sql" ]; then
+        echo "   Using sql/install.sql..."
+        psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f sql/install.sql
+    elif [ -f "pggit--0.1.0.sql" ]; then
+        echo "   Using pggit--0.1.0.sql..."
+        psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f pggit--0.1.0.sql
     else
-        echo "   ❌ pgGit installation file not found."
+        echo "❌ No pgGit installation file found"
         exit 1
     fi
+    echo "   ✅ pgGit installed"
+else
+    echo "   ✅ pgGit already installed"
 fi
 
 # Check if pgTAP is available

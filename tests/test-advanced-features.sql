@@ -125,25 +125,19 @@ BEGIN
     END LOOP;
     
     -- Simulate ground truth (achieving ~91.7% accuracy)
-    UPDATE pggit.ai_predictions p
-    SET prediction_id = prediction_id -- dummy update to trigger
-    FROM (
-        SELECT prediction_id,
-               CASE 
-                   WHEN random() < 0.917 THEN predicted_value
-                   ELSE CASE predicted_value 
-                        WHEN 'LOW' THEN 'HIGH' 
-                        ELSE 'LOW' 
-                   END
-               END as actual_value
-        FROM pggit.ai_predictions
-        WHERE prediction_id NOT IN (
-            SELECT prediction_id FROM pggit.ai_ground_truth
-        )
-    ) truth
-    WHERE p.prediction_id = truth.prediction_id
-    RETURNING p.prediction_id, truth.actual_value
-    LIMIT 0; -- Just for syntax, real implementation would insert
+    INSERT INTO pggit.ai_ground_truth (prediction_id, actual_value)
+    SELECT prediction_id,
+           CASE
+               WHEN random() < 0.917 THEN predicted_value
+               ELSE CASE predicted_value
+                    WHEN 'LOW' THEN 'HIGH'
+                    ELSE 'LOW'
+               END
+           END as actual_value
+    FROM pggit.ai_predictions
+    WHERE prediction_id NOT IN (
+        SELECT prediction_id FROM pggit.ai_ground_truth
+    );
     
     -- Get accuracy report
     SELECT * INTO v_accuracy_report
