@@ -72,16 +72,19 @@ def cleanup_test_tables(db_connection_string: str):
     with psycopg.connect(db_connection_string, autocommit=True) as conn:
         try:
             # Drop tables that might be created by chaos tests
+            # Be very aggressive about cleaning up test tables
             cursor = conn.execute("""
                 SELECT tablename FROM pg_tables
                 WHERE schemaname = 'public'
                 AND (
                     tablename LIKE 'test_table_%' OR
                     tablename LIKE '%_%' OR  -- Tables with underscores (generated names)
-                    length(tablename) <= 10  -- Short table names
+                    tablename ~ '^[a-z_]+_[0-9]+$' OR  -- name_number pattern
+                    length(tablename) <= 15  -- Short table names
                 )
                 AND tablename NOT LIKE 'pg_%'  -- Don't drop system tables
                 AND tablename NOT LIKE 'pggit%'  -- Don't drop pggit tables
+                AND tablename NOT IN ('spatial_ref_sys')  -- Don't drop PostGIS tables
             """)
             test_tables = cursor.fetchall()
 
@@ -110,13 +113,42 @@ def sync_conn(db_connection_string: str) -> Generator[psycopg.Connection, None, 
                 "psql -d pggit_chaos_test -f install.sql"
             )
 
-    # Now create the actual connection with dict_row and autocommit
-    # Autocommit prevents transaction state issues between hypothesis examples
+    # Now create the actual connection with dict_row
+    # Note: autocommit=True is set to prevent transaction state issues between hypothesis examples,
+    # but tests can override this with explicit BEGIN/COMMIT if needed
     with psycopg.connect(
         db_connection_string,
         row_factory=dict_row,
-        autocommit=True,
     ) as conn:
+        # Set autocommit to avoid issues with hypothesis examples
+        conn.autocommit = True
+        yield conn
+
+
+@pytest.fixture
+def sync_conn_with_transactions(
+    db_connection_string: str,
+) -> Generator[psycopg.Connection, None, None]:
+    """Synchronous database connection that allows explicit transaction control."""
+    # First check schema without dict_row to avoid KeyError
+    with psycopg.connect(db_connection_string) as check_conn:
+        cursor = check_conn.execute(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.schemata "
+            "WHERE schema_name = 'pggit')"
+        )
+        if not cursor.fetchone()[0]:
+            raise RuntimeError(
+                "pggit schema not found. Please install: cd sql && "
+                "psql -d pggit_chaos_test -f install.sql"
+            )
+
+    # Create connection without autocommit for explicit transaction control
+    with psycopg.connect(
+        db_connection_string,
+        row_factory=dict_row,
+    ) as conn:
+        # Explicitly disable autocommit for transaction control
+        conn.autocommit = False
         yield conn
 
 

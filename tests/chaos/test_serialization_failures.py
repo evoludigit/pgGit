@@ -8,6 +8,7 @@ particularly SERIALIZABLE isolation which can fail with serialization errors.
 import pytest
 from concurrent.futures import ThreadPoolExecutor
 import psycopg
+from psycopg.rows import dict_row
 import time
 
 
@@ -198,14 +199,16 @@ class TestSerializationFailures:
         setup_conn.close()
 
         def isolation_worker(worker_id: int):
-            conn = psycopg.connect(db_connection_string)
+            # Create a new connection for this worker with proper transaction control
+            conn = psycopg.connect(db_connection_string, row_factory=dict_row)
+            conn.autocommit = False
 
             try:
                 conn.execute(f"BEGIN ISOLATION LEVEL {isolation_level}")
 
                 # Read current value
                 cursor = conn.execute(f"SELECT counter FROM {table_name} WHERE id = 1")
-                current = cursor.fetchone()[0]
+                current = cursor.fetchone()["counter"]
 
                 # Simulate work
                 time.sleep(0.1)
@@ -224,7 +227,10 @@ class TestSerializationFailures:
                 conn.rollback()
                 conn.close()
 
-                if "serialization" in str(e).lower():
+                if (
+                    "serialization" in str(e).lower()
+                    or "could not serialize" in str(e).lower()
+                ):
                     return {
                         "worker": worker_id,
                         "serialization_error": True,
