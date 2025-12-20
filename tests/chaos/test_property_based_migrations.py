@@ -14,6 +14,7 @@ from tests.chaos.strategies import table_definition
 
 @pytest.mark.chaos
 @pytest.mark.property
+@pytest.mark.timeout(30)  # Prevent property tests from hanging
 class TestMigrationIdempotency:
     """Property-based tests for migration idempotency."""
 
@@ -191,6 +192,7 @@ class TestMigrationIdempotency:
 
 @pytest.mark.chaos
 @pytest.mark.property
+@pytest.mark.timeout(30)  # Prevent property tests from hanging
 class TestMigrationRollbackProperties:
     """Property-based tests for migration rollback behavior."""
 
@@ -268,6 +270,7 @@ class TestMigrationRollbackProperties:
 
 @pytest.mark.chaos
 @pytest.mark.property
+@pytest.mark.timeout(30)  # Prevent property tests from hanging
 class TestMigrationValidationProperties:
     """Property-based tests for migration validation."""
 
@@ -338,6 +341,7 @@ class TestMigrationValidationProperties:
 
 @pytest.mark.chaos
 @pytest.mark.property
+@pytest.mark.timeout(30)  # Prevent property tests from hanging
 class TestSchemaEvolutionProperties:
     """Property-based tests for schema evolution."""
 

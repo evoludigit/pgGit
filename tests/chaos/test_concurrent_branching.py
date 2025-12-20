@@ -618,6 +618,7 @@ class TestConcurrentBranching:
 
     @pytest.mark.slow
     @pytest.mark.performance
+    @pytest.mark.timeout(60)  # Allow 60 seconds for performance test
     def test_branching_performance_under_load(self, db_connection_string: str):
         """
         Test: Performance validation under sustained branching load.
@@ -851,10 +852,11 @@ class TestConcurrentBranching:
             f"   Workers: {len(successes)}/{num_workers} succeeded ({len(successes) / num_workers * 100:.1f}%)"
         )
         print(f"   Total operations: {total_operations}")
-        print(f"   Errors/conflicts: {len(errors)}")
+        failures = [r for r in results if not r.get("success", False)]
+        print(f"   Errors/conflicts: {len(failures)}")
         print(f"   Average operations per worker: {total_operations / num_workers:.1f}")
-        if len(errors) > 0:
+        if len(failures) > 0:
             print(
-                f"   Note: {len(errors)} conflicts occurred as expected under mixed workload"
+                f"   Note: {len(failures)} conflicts occurred as expected under mixed workload"
             )
         print(f"   Average errors per worker: {total_errors / num_workers:.1f}")
