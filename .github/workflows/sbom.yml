@@ -1,0 +1,67 @@
+name: Generate SBOM
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+
+jobs:
+  generate-sbom:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      id-token: write  # For SLSA provenance
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Generate CycloneDX SBOM
+      run: |
+        # Create SBOM with current version and timestamp
+        cat > SBOM.json << 'EOF'
+        {
+          "bomFormat": "CycloneDX",
+          "specVersion": "1.5",
+          "serialNumber": "urn:uuid:$(uuidgen)",
+          "version": 1,
+          "metadata": {
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "component": {
+              "type": "application",
+              "name": "pgGit",
+              "version": "${{ github.ref_name }}",
+              "purl": "pkg:github/evoludigit/pgGit@${{ github.ref_name }}"
+            }
+          },
+          "components": [
+            {
+              "type": "library",
+              "bom-ref": "pkg:postgresql/extension/pgcrypto",
+              "name": "pgcrypto",
+              "version": "1.3",
+              "description": "PostgreSQL cryptographic functions",
+              "scope": "required"
+            },
+            {
+              "type": "library",
+              "bom-ref": "pkg:postgresql/extension/plpgsql",
+              "name": "PL/pgSQL",
+              "version": "1.0",
+              "description": "PostgreSQL procedural language",
+              "scope": "required"
+            }
+          ]
+        }
+        EOF
+
+    - name: Upload SBOM to release
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: SBOM.json
+        asset_name: pgGit-SBOM-${{ github.ref_name }}.json
+        asset_content_type: application/json
