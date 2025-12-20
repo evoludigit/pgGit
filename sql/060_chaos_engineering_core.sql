@@ -90,3 +90,63 @@ EXCEPTION
         RAISE EXCEPTION 'Failed to create data branch: %', SQLERRM;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function: pggit.calculate_schema_hash
+-- Calculates a deterministic hash of a table's schema
+-- Parameters:
+--   p_table_name: Name of the table to hash (assumes public schema)
+-- Returns: SHA-256 hash of the normalized schema DDL
+
+CREATE OR REPLACE FUNCTION pggit.calculate_schema_hash(
+    p_table_name TEXT
+) RETURNS TEXT AS $$
+BEGIN
+    -- Use existing compute_ddl_hash function with TABLE type and public schema
+    RETURN pggit.compute_ddl_hash('TABLE', 'public', p_table_name);
+
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Return NULL if table doesn't exist or hashing fails
+        RETURN NULL;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function: pggit.delete_branch_simple
+-- Marks a branch as deleted (soft delete) - simplified version for chaos tests
+-- Parameters:
+--   p_branch_name: Name of the branch to delete
+-- Returns: VOID
+
+CREATE OR REPLACE FUNCTION pggit.delete_branch_simple(
+    p_branch_name TEXT
+) RETURNS VOID AS $$
+DECLARE
+    v_branch_id INTEGER;
+BEGIN
+    -- Get branch ID
+    SELECT id INTO v_branch_id
+    FROM pggit.branches
+    WHERE name = p_branch_name AND status = 'ACTIVE';
+
+    -- If branch doesn't exist or is already deleted, do nothing
+    IF v_branch_id IS NULL THEN
+        RETURN;
+    END IF;
+
+    -- Don't allow deleting main/master branches
+    IF p_branch_name IN ('main', 'master') THEN
+        RAISE EXCEPTION 'Cannot delete protected branch %', p_branch_name;
+    END IF;
+
+    -- Mark branch as deleted
+    UPDATE pggit.branches
+    SET status = 'DELETED',
+        merged_at = CURRENT_TIMESTAMP,
+        merged_by = CURRENT_USER
+    WHERE id = v_branch_id;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'Failed to delete branch: %', SQLERRM;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
