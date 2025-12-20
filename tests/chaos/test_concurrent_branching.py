@@ -368,7 +368,7 @@ class TestConcurrentBranching:
                         f"Isolated work by worker {worker_id}",
                     ),
                 )
-                trinity_id = cursor.fetchone()[0]
+                trinity_id = cursor.fetchone()["commit_changes"]
                 conn.commit()
 
                 # Verify worker's data is visible

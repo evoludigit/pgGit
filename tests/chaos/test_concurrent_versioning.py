@@ -238,7 +238,7 @@ class TestConcurrentVersioning:
                         version_type,
                     ),
                 )
-                new_version_str = cursor.fetchone()[0]
+                new_version_str = cursor.fetchone()["increment_version"]
                 conn.commit()
 
                 # Parse version string

@@ -172,9 +172,9 @@ class TestDataIntegrityProperties:
                 # Commit changes
                 cursor = sync_conn.execute(
                     "SELECT pggit.commit_changes(%s, %s, %s)",
-                    (f"commit-{i}", "main", f"Modification {i}"),
+                    (f"data-test-{i}", "main", f"Data test commit {i}"),
                 )
-                commit_id = cursor.fetchone()[0]
+                commit_id = cursor.fetchone()["commit_changes"]
 
                 # Verify data integrity after each commit
                 cursor = sync_conn.execute(
@@ -381,7 +381,7 @@ class TestDataVersioningProperties:
                 "SELECT pggit.commit_changes(%s, %s, %s)",
                 ("v1", "main", "Initial version"),
             )
-            v1_commit = cursor.fetchone()[0]
+            v1_commit = cursor.fetchone()["commit_changes"]
 
             # Create additional versions
             for version in range(2, num_versions + 1):
@@ -398,7 +398,7 @@ class TestDataVersioningProperties:
                     "SELECT pggit.commit_changes(%s, %s, %s)",
                     (f"v{version}", "main", f"Version {version}"),
                 )
-                commit_id = cursor.fetchone()[0]
+                commit_id = cursor.fetchone()["commit_changes"]
 
                 # Verify current content
                 cursor = sync_conn.execute(

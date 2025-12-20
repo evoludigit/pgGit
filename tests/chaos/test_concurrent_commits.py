@@ -67,7 +67,7 @@ class TestConcurrentCommits:
 
                 return {
                     "worker_id": worker_id,
-                    "trinity_id": result[0] if result else None,
+                    "trinity_id": result["commit_changes"] if result else None,
                     "success": True,
                 }
 
@@ -221,7 +221,7 @@ class TestConcurrentCommits:
                     "SELECT pggit.commit_changes(%s, %s, %s)",
                     (f"prop-{worker_id}", branch, f"Property test {worker_id}"),
                 )
-                trinity_id = cursor.fetchone()[0]
+                trinity_id = cursor.fetchone()["commit_changes"]
                 conn.commit()
                 conn.close()
 
@@ -280,7 +280,7 @@ class TestConcurrentCommits:
                     "SELECT pggit.commit_changes(%s, %s, %s)",
                     (f"iso-{worker_id}", branch_name, f"Isolation test {worker_id}"),
                 )
-                trinity_id = cursor.fetchone()[0]
+                trinity_id = cursor.fetchone()["commit_changes"]
                 conn.commit()
                 conn.close()
 
