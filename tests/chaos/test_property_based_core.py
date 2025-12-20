@@ -154,7 +154,7 @@ class TestVersionIncrementProperties:
                 "SELECT pggit.increment_version(%s, %s, %s, 'patch')",
                 (major, minor, patch),
             )
-            new_version = cursor.fetchone()[0]
+            new_version = cursor.fetchone()["increment_version"]
 
             # Parse version string
             new_major, new_minor, new_patch = map(int, new_version.split("."))
@@ -183,7 +183,7 @@ class TestVersionIncrementProperties:
                 "SELECT pggit.increment_version(%s, %s, %s, 'minor')",
                 (major, minor, patch),
             )
-            new_version = cursor.fetchone()[0]
+            new_version = cursor.fetchone()["increment_version"]
 
             new_major, new_minor, new_patch = map(int, new_version.split("."))
 
@@ -211,7 +211,7 @@ class TestVersionIncrementProperties:
                 "SELECT pggit.increment_version(%s, %s, %s, 'major')",
                 (major, minor, patch),
             )
-            new_version = cursor.fetchone()[0]
+            new_version = cursor.fetchone()["increment_version"]
 
             new_major, new_minor, new_patch = map(int, new_version.split("."))
 
