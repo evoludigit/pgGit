@@ -2,31 +2,29 @@
 -- Testing blue-green deployments and shadow tables
 -- Enterprise-grade deployment strategies
 
-\set ECHO all
 \set ON_ERROR_STOP on
+\set QUIET on
 
 BEGIN;
 
--- Test Setup
-DO $$
+-- Test helper function
+CREATE OR REPLACE FUNCTION test_assert(condition boolean, message text) RETURNS void AS $$
 BEGIN
-    RAISE NOTICE '============================================';
-    RAISE NOTICE 'pgGit Zero-Downtime Deployment Tests';
-    RAISE NOTICE '============================================';
-    RAISE NOTICE '';
-    RAISE NOTICE 'Testing enterprise deployment strategies';
-END $$;
+    IF NOT condition THEN
+        RAISE EXCEPTION 'Test failed: %', message;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
 
--- Test 1: Shadow table deployment
+-- Skip entire test suite if zero-downtime features not available
 DO $$
 BEGIN
-    -- Check if zero-downtime features are available
     IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'start_zero_downtime_deployment' AND pronamespace = 'pggit'::regnamespace) THEN
         RAISE NOTICE 'Zero-downtime deployment features not loaded, skipping all tests';
         RETURN;
     END IF;
 
-    RAISE NOTICE 'Zero-downtime features available, but detailed tests skipped in CI';
+    RAISE NOTICE 'Zero-downtime deployment system available, but detailed tests skipped in CI';
 END $$;
     
     -- Create production table
