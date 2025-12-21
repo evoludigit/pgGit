@@ -33,7 +33,7 @@ jobs:
         sarif_file: 'trivy-results.sarif'
 
   # CodeQL scanning disabled: pgGit is a PostgreSQL extension (SQL/Python only)
-  # CodeQL v3 does not support SQL as a standalone language
+  # CodeQL v3 does not support SQL as a standalone language for analysis
   # Trivy scanning (filesystem vulnerability scanning) is sufficient for this project
 
   # dependency-review disabled: requires GitHub Advanced Security features
