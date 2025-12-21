@@ -5,9 +5,9 @@ rules:
   document-start: disable
   line-length:
     max: 160
-  indentation:
-    spaces: consistent
+  indentation: disable
   truthy:
     check-keys: false
   brackets: disable
   trailing-spaces: disable
+  new-line-at-end-of-file: disable
