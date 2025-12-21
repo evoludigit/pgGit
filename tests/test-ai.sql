@@ -103,8 +103,6 @@ BEGIN
                 'manual'
             );
             v_success_count := v_success_count + 1;
-        EXCEPTION WHEN OTHERS THEN
-            RAISE WARNING 'Failed to analyze: %', v_migration[1];
         END;
     END LOOP;
     

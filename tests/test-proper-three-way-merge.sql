@@ -37,8 +37,6 @@ BEGIN
     ASSERT v_commit_sha IS NOT NULL, 'Commit creation failed';
     
     RAISE NOTICE 'Test 1 PASSED: Git objects created successfully';
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'Test 1 FAILED: %', SQLERRM;
 END $$;
 
 -- ============================================
@@ -85,8 +83,6 @@ BEGIN
            format('Wrong merge base: expected %s, got %s', v_base_commit, v_merge_base);
     
     RAISE NOTICE 'Test 2 PASSED: Merge base correctly identified';
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'Test 2 FAILED: %', SQLERRM;
 END $$;
 
 -- ============================================
@@ -148,8 +144,6 @@ BEGIN
     ) = 2, 'Merge commit should have 2 parents';
     
     RAISE NOTICE 'Test 3 PASSED: Clean merge completed successfully';
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'Test 3 FAILED: %', SQLERRM;
 END $$;
 
 -- ============================================
@@ -203,8 +197,6 @@ BEGIN
     ASSERT v_conflict_detected, 'Conflict was not detected';
     
     RAISE NOTICE 'Test 4 PASSED: Conflicts correctly detected';
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'Test 4 FAILED: %', SQLERRM;
 END $$;
 
 -- ============================================
@@ -283,8 +275,6 @@ BEGIN
     ASSERT v_conflict_count = 1, format('Expected 1 conflict, got %s', v_conflict_count);
     
     RAISE NOTICE 'Test 5 PASSED: Three-way merge analysis correct';
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'Test 5 FAILED: %', SQLERRM;
 END $$;
 
 -- ============================================
@@ -348,8 +338,6 @@ BEGIN
     ASSERT v_duration_ms < 10, format('Merge base too slow: %s ms (should be <10ms)', v_duration_ms);
     
     RAISE NOTICE 'Test 6 PASSED: Performance within requirements';
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'Test 6 FAILED: %', SQLERRM;
 END $$;
 
 -- ============================================

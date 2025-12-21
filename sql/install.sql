@@ -11,6 +11,7 @@
 \i 001_schema.sql
 \i 002_event_triggers.sql
 \i 003_migration_functions.sql
+\i test_helpers.sql
 \i 004_utility_views.sql
 \i 009_ddl_hashing.sql
 \i 017_performance_optimizations.sql

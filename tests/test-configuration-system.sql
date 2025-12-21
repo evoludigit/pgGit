@@ -28,13 +28,10 @@ CREATE SCHEMA test_reference;
 -- Test 1: Default configuration (track everything)
 \echo '  Test 1: Default tracking behavior'
 
--- Skip test if configuration system not available
+-- Assert configuration system is available
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'pggit' AND tablename = 'versioned_objects') THEN
-        RAISE NOTICE 'Configuration system not loaded, skipping test';
-        RETURN;
-    END IF;
+    PERFORM pggit.assert_table_exists('versioned_objects');
 
     -- Create test table and verify tracking
     EXECUTE 'CREATE TABLE test_command.should_track (id int)';
@@ -49,13 +46,10 @@ END $$;
 -- Test 2: Configure selective schema tracking
 \echo '  Test 2: Selective schema tracking'
 
--- Skip entire test if configuration system not available
+-- Assert configuration system is available
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'configure_tracking' AND pronamespace = 'pggit'::regnamespace) THEN
-        RAISE NOTICE 'Configuration system not loaded, skipping all configuration tests';
-        RETURN;
-    END IF;
+    PERFORM pggit.assert_function_exists('configure_tracking');
 
     -- Create test tables
     EXECUTE 'CREATE TABLE test_command.tracked_table (id int)';

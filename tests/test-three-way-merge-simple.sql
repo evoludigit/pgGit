@@ -45,9 +45,7 @@ BEGIN
     -- Test three-way merge analysis
     PERFORM * FROM pggit_v2.three_way_merge(v_ours, v_theirs);
     RAISE NOTICE 'PASS: Three-way merge analysis completed';
-    
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'FAIL: %', SQLERRM;
+
 END $$;
 
 -- Test 2: Check merge results
@@ -70,9 +68,7 @@ BEGIN
     END LOOP;
     
     RAISE NOTICE 'Total conflicts: %', v_conflict_count;
-    
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'Error in merge analysis: %', SQLERRM;
+
 END $$;
 
 ROLLBACK;

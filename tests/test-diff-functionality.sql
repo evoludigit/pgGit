@@ -6,15 +6,11 @@
 
 \echo 'Starting pgGit diff functionality tests...'
 
--- Skip entire test suite if diff functionality not available
+-- Assert diff functionality is available
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'diff_schemas' AND pronamespace = 'pggit'::regnamespace) THEN
-        RAISE NOTICE 'Diff functionality not loaded, skipping all diff tests';
-        RETURN;
-    END IF;
-
-    RAISE NOTICE 'Diff functionality available, but detailed tests skipped in CI';
+    PERFORM pggit.assert_function_exists('diff_schemas');
+    RAISE NOTICE 'PASS: Diff functionality is loaded';
 END $$;
 
 -- Test setup - using separate transactions to avoid cascading failures

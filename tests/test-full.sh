@@ -112,13 +112,22 @@ setup_podman() {
         echo -e "${RED}❌ Could not find install.sql in container${NC}"
         exit 1
     fi
+
+    # Verify core installation
+    if ! podman exec "$CONTAINER_NAME" psql -U "$DB_USER" -d "$DB_NAME" -c "SELECT pggit.version()" > /dev/null; then
+        echo -e "${RED}❌ pggit core installation verification failed${NC}"
+        exit 1
+    fi
     
     # Install new feature modules
     echo "Installing new feature modules..."
     for module in pggit_configuration.sql pggit_conflict_resolution_api.sql pggit_cqrs_support.sql pggit_function_versioning.sql pggit_migration_integration.sql pggit_operations.sql pggit_enhanced_triggers.sql; do
         if podman exec "$CONTAINER_NAME" test -f "/pggit/sql/$module"; then
             echo "  Installing $module..."
-            podman exec "$CONTAINER_NAME" psql -U "$DB_USER" -d "$DB_NAME" -f "/pggit/sql/$module" 2>/dev/null || echo "    (Some warnings are expected)"
+            if ! podman exec "$CONTAINER_NAME" psql -U "$DB_USER" -d "$DB_NAME" -f "/pggit/sql/$module"; then
+                echo -e "${RED}❌ Failed to install module: $module${NC}"
+                exit 1
+            fi
         fi
     done
     

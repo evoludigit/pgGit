@@ -26,7 +26,10 @@ DECLARE
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '1. Testing basic data branching...';
-    
+
+    -- Assert required function exists
+    PERFORM pggit.assert_function_exists('create_data_branch');
+
     -- Create test table in main branch
     CREATE TABLE test_products (
         id SERIAL PRIMARY KEY,
@@ -61,11 +64,9 @@ BEGIN
     IF v_main_count = 1 AND v_branch_count = 1 THEN
         RAISE NOTICE 'PASS: Data properly isolated between branches';
     ELSE
-        RAISE WARNING 'FAIL: Data isolation not working correctly';
+        RAISE EXCEPTION 'FAIL: Data isolation not working correctly';
     END IF;
-    
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'WARN: Data branching not implemented (%)' , SQLERRM;
+
 END $$;
 
 -- Test 2: Copy-on-write efficiency
@@ -77,7 +78,10 @@ DECLARE
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '2. Testing copy-on-write efficiency...';
-    
+
+    -- Assert required function exists
+    PERFORM pggit.assert_function_exists('create_data_branch');
+
     -- Create large table
     CREATE TABLE test_large_data AS
     SELECT 
@@ -107,11 +111,9 @@ BEGIN
     IF v_cow_ratio < 1.1 THEN
         RAISE NOTICE 'PASS: Copy-on-write efficient (ratio: %)', v_cow_ratio;
     ELSE
-        RAISE WARNING 'FAIL: COW not efficient (ratio: %)', v_cow_ratio;
+        RAISE EXCEPTION 'FAIL: COW not efficient (ratio: %)', v_cow_ratio;
     END IF;
-    
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'WARN: COW efficiency test failed (%)' , SQLERRM;
+
 END $$;
 
 -- Test 3: Multi-table branching
@@ -121,7 +123,10 @@ DECLARE
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '3. Testing multi-table data branching...';
-    
+
+    -- Assert required function exists
+    PERFORM pggit.assert_function_exists('create_data_branch');
+
     -- Create related tables
     CREATE TABLE customers (
         id SERIAL PRIMARY KEY,
@@ -159,11 +164,9 @@ BEGIN
         RAISE NOTICE 'PASS: Multi-table branching with dependencies works';
         RAISE NOTICE 'Branched tables: %', v_branch_result.branched_tables;
     ELSE
-        RAISE WARNING 'FAIL: Dependencies not properly branched';
+        RAISE EXCEPTION 'FAIL: Dependencies not properly branched';
     END IF;
-    
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'WARN: Multi-table branching not implemented (%)' , SQLERRM;
+
 END $$;
 
 -- Test 4: Branch merging with data conflicts
@@ -173,7 +176,10 @@ DECLARE
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '4. Testing data merge with conflict resolution...';
-    
+
+    -- Assert required function exists
+    PERFORM pggit.assert_function_exists('create_data_branch');
+
     -- Create branches with conflicting data changes
     PERFORM pggit.create_data_branch('branch-1', 'main', ARRAY['customers']);
     PERFORM pggit.create_data_branch('branch-2', 'main', ARRAY['customers']);
@@ -197,11 +203,9 @@ BEGIN
         RAISE NOTICE 'PASS: Data conflicts detected';
         RAISE NOTICE 'Conflicts: %', v_merge_result.conflict_count;
     ELSE
-        RAISE WARNING 'FAIL: Should detect data conflicts';
+        RAISE EXCEPTION 'FAIL: Should detect data conflicts';
     END IF;
-    
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'WARN: Data merge not implemented (%)' , SQLERRM;
+
 END $$;
 
 -- Test 5: Temporal branching
@@ -212,7 +216,10 @@ DECLARE
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '5. Testing temporal data branching...';
-    
+
+    -- Assert required function exists
+    PERFORM pggit.assert_function_exists('create_temporal_branch');
+
     -- Create time-travel branch
     v_snapshot_id := pggit.create_temporal_branch(
         p_branch_name := 'snapshot/before-migration',
@@ -228,11 +235,9 @@ BEGIN
         RAISE NOTICE 'PASS: Temporal branching created';
         RAISE NOTICE 'Snapshot ID: %', v_snapshot_id;
     ELSE
-        RAISE WARNING 'FAIL: Temporal branch not created';
+        RAISE EXCEPTION 'FAIL: Temporal branch not created';
     END IF;
-    
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'WARN: Temporal branching not implemented (%)' , SQLERRM;
+
 END $$;
 
 -- Test 6: Branch storage optimization
@@ -242,7 +247,10 @@ DECLARE
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '6. Testing branch storage optimization...';
-    
+
+    -- Assert required function exists
+    PERFORM pggit.assert_function_exists('optimize_branch_storage');
+
     -- Run storage optimization
     SELECT * INTO v_optimization_result
     FROM pggit.optimize_branch_storage(
@@ -256,11 +264,9 @@ BEGIN
         RAISE NOTICE 'Space saved: % MB', v_optimization_result.space_saved_mb;
         RAISE NOTICE 'Compression ratio: %', v_optimization_result.compression_ratio;
     ELSE
-        RAISE WARNING 'WARN: No space saved by optimization';
+        RAISE EXCEPTION 'FAIL: No space saved by optimization';
     END IF;
-    
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'WARN: Storage optimization not implemented (%)' , SQLERRM;
+
 END $$;
 
 -- Summary

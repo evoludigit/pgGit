@@ -26,7 +26,10 @@ DECLARE
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '1. Testing storage tier classification...';
-    
+
+    -- Assert required function exists
+    PERFORM pggit.assert_function_exists('classify_storage_tier');
+
     -- Create test objects of various sizes
     CREATE TABLE test_hot_data (
         id BIGINT,
@@ -56,11 +59,9 @@ BEGIN
     IF v_tier_result.tier = 'COLD' THEN
         RAISE NOTICE 'PASS: Historical data classified as COLD';
     ELSE
-        RAISE WARNING 'FAIL: Historical data not classified correctly';
+        RAISE EXCEPTION 'FAIL: Historical data not classified correctly';
     END IF;
-    
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'WARN: Storage tier classification not implemented (%)' , SQLERRM;
+
 END $$;
 
 -- Test 2: Deduplication efficiency
@@ -72,7 +73,10 @@ DECLARE
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '2. Testing deduplication for large tables...';
-    
+
+    -- Assert required function exists
+    PERFORM pggit.assert_function_exists('deduplicate_blocks');
+
     -- Simulate large table with repetitive data
     CREATE TABLE test_large_table AS
     SELECT 
@@ -93,11 +97,9 @@ BEGIN
     IF v_dedup_ratio > 10 THEN
         RAISE NOTICE 'PASS: Deduplication achieved %x reduction', v_dedup_ratio;
     ELSE
-        RAISE WARNING 'FAIL: Insufficient deduplication ratio: %x', v_dedup_ratio;
+        RAISE EXCEPTION 'FAIL: Insufficient deduplication ratio: %x', v_dedup_ratio;
     END IF;
-    
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'WARN: Deduplication not implemented (%)' , SQLERRM;
+
 END $$;
 
 -- Test 3: Cold storage migration
@@ -109,7 +111,10 @@ DECLARE
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '3. Testing cold storage migration...';
-    
+
+    -- Assert required function exists
+    PERFORM pggit.assert_function_exists('migrate_to_cold_storage');
+
     -- Get hot storage usage before
     SELECT bytes_used INTO v_hot_usage_before
     FROM pggit.storage_tier_stats
@@ -135,15 +140,13 @@ BEGIN
     WHERE tier = 'HOT';
     
     IF v_hot_usage_after < v_hot_usage_before THEN
-        RAISE NOTICE 'PASS: Migrated % MB to cold storage', 
+        RAISE NOTICE 'PASS: Migrated % MB to cold storage',
             (v_hot_usage_before - v_hot_usage_after) / 1024 / 1024;
         RAISE NOTICE 'Objects migrated: %', v_migration_result.objects_migrated;
     ELSE
-        RAISE WARNING 'FAIL: No reduction in hot storage usage';
+        RAISE EXCEPTION 'FAIL: No reduction in hot storage usage';
     END IF;
-    
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'WARN: Cold storage migration not implemented (%)' , SQLERRM;
+
 END $$;
 
 -- Test 4: Smart prefetching
@@ -155,7 +158,10 @@ DECLARE
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '4. Testing smart prefetching from cold storage...';
-    
+
+    -- Assert required function exists
+    PERFORM pggit.assert_function_exists('predict_prefetch_candidates');
+
     -- Access pattern simulation
     PERFORM pggit.record_access_pattern('users_2024_01', 'branch_read');
     PERFORM pggit.record_access_pattern('users_2024_02', 'branch_read');
@@ -179,11 +185,9 @@ BEGIN
             RAISE NOTICE 'PASS: Prefetched data retrieved in %ms', v_response_time;
         END IF;
     ELSE
-        RAISE WARNING 'FAIL: Access pattern prediction failed';
+        RAISE EXCEPTION 'FAIL: Access pattern prediction failed';
     END IF;
-    
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'WARN: Smart prefetching not implemented (%)' , SQLERRM;
+
 END $$;
 
 -- Test 5: Branch creation with tiered storage
@@ -195,7 +199,10 @@ DECLARE
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '5. Testing branch creation with tiered storage...';
-    
+
+    -- Assert required function exists
+    PERFORM pggit.assert_function_exists('create_tiered_branch');
+
     -- Create branch from mixed hot/cold data
     SELECT * INTO v_branch_result
     FROM pggit.create_tiered_branch(
@@ -211,11 +218,9 @@ BEGIN
         RAISE NOTICE 'Cold references: %', v_branch_result.cold_reference_count;
         RAISE NOTICE 'Storage saved: % GB', v_branch_result.storage_saved_gb;
     ELSE
-        RAISE WARNING 'FAIL: Tiered branch creation failed';
+        RAISE EXCEPTION 'FAIL: Tiered branch creation failed';
     END IF;
-    
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'WARN: Tiered branching not implemented (%)' , SQLERRM;
+
 END $$;
 
 -- Test 6: Storage pressure handling
@@ -225,7 +230,10 @@ DECLARE
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '6. Testing storage pressure handling...';
-    
+
+    -- Assert required function exists
+    PERFORM pggit.assert_function_exists('handle_storage_pressure');
+
     -- Simulate storage pressure (90% full)
     PERFORM pggit.simulate_storage_pressure(0.9);
     
@@ -234,16 +242,14 @@ BEGIN
     FROM pggit.handle_storage_pressure();
     
     IF v_eviction_result.bytes_evicted > 0 THEN
-        RAISE NOTICE 'PASS: Evicted % GB to cold storage', 
+        RAISE NOTICE 'PASS: Evicted % GB to cold storage',
             v_eviction_result.bytes_evicted / 1024 / 1024 / 1024;
         RAISE NOTICE 'Strategy used: %', v_eviction_result.eviction_strategy;
         RAISE NOTICE 'Objects evicted: %', v_eviction_result.object_count;
     ELSE
-        RAISE WARNING 'FAIL: Storage pressure not handled';
+        RAISE EXCEPTION 'FAIL: Storage pressure not handled';
     END IF;
-    
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'WARN: Storage pressure handling not implemented (%)' , SQLERRM;
+
 END $$;
 
 -- Test 7: 10TB database simulation
@@ -254,7 +260,10 @@ DECLARE
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '7. Testing 10TB database simulation...';
-    
+
+    -- Assert required function exists
+    PERFORM pggit.assert_function_exists('initialize_massive_db_simulation');
+
     -- Initialize 10TB simulation with 100GB hot storage
     SELECT * INTO v_sim_result
     FROM pggit.initialize_massive_db_simulation(
@@ -282,12 +291,10 @@ BEGIN
             RAISE NOTICE 'PASS: Branch operations performant at scale';
             RAISE NOTICE 'Operations/sec: %', v_operations_per_sec;
         ELSE
-            RAISE WARNING 'WARN: Performance degraded at scale';
+            RAISE EXCEPTION 'FAIL: Performance degraded at scale';
         END IF;
     END IF;
-    
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'WARN: Massive database simulation not implemented (%)' , SQLERRM;
+
 END $$;
 
 -- Test 8: Compression and archival
@@ -297,7 +304,10 @@ DECLARE
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '8. Testing compression and archival...';
-    
+
+    -- Assert required function exists
+    PERFORM pggit.assert_function_exists('test_compression_algorithms');
+
     -- Test different compression algorithms
     FOR v_compression_result IN
         SELECT * FROM pggit.test_compression_algorithms(
@@ -323,9 +333,7 @@ BEGIN
         RAISE NOTICE 'PASS: Archived % branches', v_compression_result.branches_archived;
         RAISE NOTICE 'Space reclaimed: % GB', v_compression_result.space_reclaimed_gb;
     END IF;
-    
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'WARN: Compression/archival not implemented (%)' , SQLERRM;
+
 END $$;
 
 -- Summary
@@ -362,9 +370,7 @@ BEGIN
     RAISE NOTICE '  - Compression and archival';
     RAISE NOTICE '';
     RAISE NOTICE 'pgGit is now ready for massive databases!';
-    
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'Storage statistics not available';
+
 END $$;
 
 ROLLBACK;
