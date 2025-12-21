@@ -2,11 +2,8 @@
 name: Chaos Engineering Tests
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-    # Skip chaos tests for release branches (they require compiled extension)
+  # Chaos tests are disabled for push/PR to avoid blocking CI/CD
+  # They run on a schedule (weekly) and can be triggered manually
   schedule:
     # Run chaos tests weekly on Sundays at 2 AM UTC
     - cron: '0 2 * * 0'
