@@ -5,7 +5,6 @@ These tests validate fundamental properties of pggit operations using Hypothesis
 to generate diverse test inputs and catch edge cases.
 """
 
-
 import psycopg
 import pytest
 from hypothesis import HealthCheck, assume, given, settings
@@ -31,7 +30,9 @@ class TestTableVersioningProperties:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
     def test_create_table_always_gets_version(
-        self, sync_conn: psycopg.Connection, tbl_def: dict,
+        self,
+        sync_conn: psycopg.Connection,
+        tbl_def: dict,
     ):
         """Property: Creating any valid table assigns a version."""
         try:
@@ -42,7 +43,8 @@ class TestTableVersioningProperties:
             # Check version assigned - this will likely fail initially (RED phase)
             try:
                 cursor = sync_conn.execute(
-                    "SELECT * FROM pggit.get_version(%s)", (tbl_def["name"],),
+                    "SELECT * FROM pggit.get_version(%s)",
+                    (tbl_def["name"],),
                 )
                 version = cursor.fetchone()
 
@@ -73,7 +75,10 @@ class TestTableVersioningProperties:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
     def test_trinity_id_unique_across_branches(
-        self, sync_conn: psycopg.Connection, tbl_def: dict, branches: set,
+        self,
+        sync_conn: psycopg.Connection,
+        tbl_def: dict,
+        branches: set,
     ):
         """Property: Trinity IDs are unique across different branches."""
         branch1, branch2 = list(branches)  # Unpack the two unique branches
@@ -116,7 +121,9 @@ class TestTableVersioningProperties:
 
     @pytest.mark.parametrize("concurrency_level", [1, 5, 10])
     def test_trinity_id_uniqueness_under_concurrency(
-        self, sync_conn: psycopg.Connection, concurrency_level: int,
+        self,
+        sync_conn: psycopg.Connection,
+        concurrency_level: int,
     ):
         """Test that Trinity IDs remain unique under concurrent commit operations."""
         import queue
@@ -215,7 +222,11 @@ class TestTableVersioningProperties:
         patch=st.integers(min_value=0, max_value=100),
     )
     def test_minor_increment_resets_patch(
-        self, sync_conn: psycopg.Connection, major: int, minor: int, patch: int,
+        self,
+        sync_conn: psycopg.Connection,
+        major: int,
+        minor: int,
+        patch: int,
     ):
         """Property: Minor increment resets patch to 0."""
         try:
@@ -248,7 +259,11 @@ class TestTableVersioningProperties:
         patch=st.integers(min_value=0, max_value=100),
     )
     def test_major_increment_resets_minor_and_patch(
-        self, sync_conn: psycopg.Connection, major: int, minor: int, patch: int,
+        self,
+        sync_conn: psycopg.Connection,
+        major: int,
+        minor: int,
+        patch: int,
     ):
         """Property: Major increment resets minor and patch to 0."""
         try:
@@ -284,7 +299,9 @@ class TestBranchNamingProperties:
     )
     @given(branch=pg_branch_name)  # Use PostgreSQL-compatible branch names
     def test_valid_branch_names_accepted(
-        self, sync_conn: psycopg.Connection, branch: str,
+        self,
+        sync_conn: psycopg.Connection,
+        branch: str,
     ):
         """Property: All valid PostgreSQL identifier branch names should be accepted."""
         # Create a simple table first
@@ -326,7 +343,8 @@ class TestBranchNamingProperties:
         # Test commit_changes with very long message
         long_message = "x" * 1000
         cursor = sync_conn.execute(
-            "SELECT pggit.commit_changes(%s, %s)", ("main", long_message),
+            "SELECT pggit.commit_changes(%s, %s)",
+            ("main", long_message),
         )
         trinity_id = cursor.fetchone()["commit_changes"]
         assert trinity_id is not None
@@ -334,14 +352,16 @@ class TestBranchNamingProperties:
 
         # Verify the long message was stored
         cursor = sync_conn.execute(
-            "SELECT message FROM pggit.commits WHERE hash = %s", (trinity_id,),
+            "SELECT message FROM pggit.commits WHERE hash = %s",
+            (trinity_id,),
         )
         stored_message = cursor.fetchone()["message"]
         assert stored_message == long_message
 
         # Test get_version on non-existent table
         cursor = sync_conn.execute(
-            "SELECT * FROM pggit.get_version(%s)", ("non_existent_table",),
+            "SELECT * FROM pggit.get_version(%s)",
+            ("non_existent_table",),
         )
         result = cursor.fetchall()
         assert len(result) == 0  # Should return empty result set
@@ -359,7 +379,8 @@ class TestBranchNamingProperties:
 
         # Test calculate_schema_hash on non-existent table
         cursor = sync_conn.execute(
-            "SELECT pggit.calculate_schema_hash(%s)", ("non_existent_table",),
+            "SELECT pggit.calculate_schema_hash(%s)",
+            ("non_existent_table",),
         )
         result = cursor.fetchone()["calculate_schema_hash"]
         assert result is None  # Should return NULL for non-existent table
@@ -385,7 +406,8 @@ class TestBranchNamingProperties:
         start_time = time.time()
         for i in range(5):
             cursor = sync_conn.execute(
-                "SELECT pggit.commit_changes(%s, %s)", ("main", f"Performance test {i}"),
+                "SELECT pggit.commit_changes(%s, %s)",
+                ("main", f"Performance test {i}"),
             )
             result = cursor.fetchone()["commit_changes"]
             assert result is not None
@@ -560,7 +582,9 @@ class TestIdentifierValidationProperties:
         ),
     )
     def test_valid_identifiers_accepted(
-        self, sync_conn: psycopg.Connection, identifier: str,
+        self,
+        sync_conn: psycopg.Connection,
+        identifier: str,
     ):
         """Property: Valid identifiers should be accepted for table names."""
         # Filter out clearly invalid identifiers

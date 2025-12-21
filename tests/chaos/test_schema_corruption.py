@@ -43,8 +43,9 @@ class TestSchemaCorruption:
         updated_count = cursor.fetchone()["count"]
 
         # Verify change was detected
-        assert updated_count > initial_count, \
+        assert updated_count > initial_count, (
             "Schema drift should be detectable through column count"
+        )
 
         # Cleanup
         try:
@@ -86,9 +87,9 @@ class TestSchemaCorruption:
             if version is not None:
                 # Check if negative values are accepted
                 has_corruption = (
-                    version.get("major", 0) < 0 or
-                    version.get("minor", 0) < 0 or
-                    version.get("patch", 0) < 0
+                    version.get("major", 0) < 0
+                    or version.get("minor", 0) < 0
+                    or version.get("patch", 0) < 0
                 )
                 assert has_corruption, "Corrupted metadata should be visible"
 
@@ -117,6 +118,7 @@ class TestSchemaCorruption:
         # Check if pggit tables exist
         try:
             import uuid
+
             unique_id = uuid.uuid4().hex[:8]
 
             cursor = sync_conn.execute("SELECT COUNT(*) FROM pggit.commits")
@@ -136,10 +138,13 @@ class TestSchemaCorruption:
             assert new_count > initial_commit_count, "Commit should be created"
 
             # Try to delete Trinity ID (simulate corruption)
-            sync_conn.execute("""
+            sync_conn.execute(
+                """
                 DELETE FROM pggit.trinity_ids
                 WHERE id LIKE %s
-            """, (f"trinity-orphan-{unique_id}%",))
+            """,
+                (f"trinity-orphan-{unique_id}%",),
+            )
             sync_conn.commit()
 
             # Check for orphaned commits

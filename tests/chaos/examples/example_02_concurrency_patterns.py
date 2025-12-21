@@ -226,7 +226,9 @@ class TestConcurrencyEdgeCases:
             [f.result() for f in as_completed(futures)]
 
         # Each thread sees its own value
-        assert sorted(results) == [0, 1, 2, 3, 4], "Each thread should see its own value"
+        assert sorted(results) == [0, 1, 2, 3, 4], (
+            "Each thread should see its own value"
+        )
 
     @pytest.mark.chaos
     @pytest.mark.concurrent
@@ -279,7 +281,11 @@ class TestConcurrencyBoundaries:
             results = [f.result() for f in as_completed(futures)]
 
         # All workers should complete
-        assert len(results) == num_workers, f"Expected {num_workers} results, got {len(results)}"
+        assert len(results) == num_workers, (
+            f"Expected {num_workers} results, got {len(results)}"
+        )
 
         # Results should be correct
-        assert sorted(results) == [i * 2 for i in range(num_workers)], "Results should be correct"
+        assert sorted(results) == [i * 2 for i in range(num_workers)], (
+            "Results should be correct"
+        )

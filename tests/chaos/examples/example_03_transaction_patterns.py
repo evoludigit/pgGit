@@ -43,10 +43,14 @@ class TestTransactionAtomicity:
             sync_conn.execute("BEGIN")
 
             # First insert succeeds
-            sync_conn.execute("INSERT INTO users (email) VALUES (%s)", ("user1@example.com",))
+            sync_conn.execute(
+                "INSERT INTO users (email) VALUES (%s)", ("user1@example.com",)
+            )
 
             # Second insert would violate constraint
-            sync_conn.execute("INSERT INTO users (email) VALUES (%s)", ("user1@example.com",))
+            sync_conn.execute(
+                "INSERT INTO users (email) VALUES (%s)", ("user1@example.com",)
+            )
 
             # This would commit if we reached it
             sync_conn.commit()
@@ -81,10 +85,14 @@ class TestTransactionAtomicity:
             sync_conn.execute("BEGIN")
 
             # First operation: debit from account 1
-            sync_conn.execute("UPDATE accounts SET balance = balance - 100 WHERE id = 1")
+            sync_conn.execute(
+                "UPDATE accounts SET balance = balance - 100 WHERE id = 1"
+            )
 
             # Second operation: credit to account 2
-            sync_conn.execute("UPDATE accounts SET balance = balance + 100 WHERE id = 2")
+            sync_conn.execute(
+                "UPDATE accounts SET balance = balance + 100 WHERE id = 2"
+            )
 
             # Third operation: record transfer (intentional error)
             sync_conn.execute("INSERT INTO transfers (amount) VALUES (%s)", (100,))
@@ -98,8 +106,12 @@ class TestTransactionAtomicity:
             sync_conn.rollback()
 
         # Verify BOTH operations rolled back (not just one)
-        account1 = sync_conn.execute("SELECT balance FROM accounts WHERE id = 1").fetchone()[0]
-        account2 = sync_conn.execute("SELECT balance FROM accounts WHERE id = 2").fetchone()[0]
+        account1 = sync_conn.execute(
+            "SELECT balance FROM accounts WHERE id = 1"
+        ).fetchone()[0]
+        account2 = sync_conn.execute(
+            "SELECT balance FROM accounts WHERE id = 2"
+        ).fetchone()[0]
         transfers = sync_conn.execute("SELECT COUNT(*) FROM transfers").fetchone()[0]
 
         assert account1 == 1000, "Account 1 should be unchanged"
@@ -150,14 +162,18 @@ class TestTransactionIsolation:
         sync_conn.execute("UPDATE products SET price = 200 WHERE id = 1")
 
         # In same transaction, we see the change
-        new_price = sync_conn.execute("SELECT price FROM products WHERE id = 1").fetchone()[0]
+        new_price = sync_conn.execute(
+            "SELECT price FROM products WHERE id = 1"
+        ).fetchone()[0]
         assert new_price == 200, "Uncommitted changes visible within transaction"
 
         # Rollback the change
         sync_conn.execute("ROLLBACK")
 
         # After rollback, original value restored
-        restored_price = sync_conn.execute("SELECT price FROM products WHERE id = 1").fetchone()[0]
+        restored_price = sync_conn.execute(
+            "SELECT price FROM products WHERE id = 1"
+        ).fetchone()[0]
         assert restored_price == 100, "Rollback should restore original value"
 
     @pytest.mark.chaos
@@ -273,15 +289,18 @@ class TestConstraintHandling:
         sync_conn.commit()
 
         # Insert product with valid FK - succeeds
-        sync_conn.execute("INSERT INTO products (name, category_id) VALUES (%s, %s)",
-                         ("laptop", 1))
+        sync_conn.execute(
+            "INSERT INTO products (name, category_id) VALUES (%s, %s)", ("laptop", 1)
+        )
         sync_conn.commit()
 
         # Try to insert product with invalid FK - should fail
         try:
             sync_conn.execute("BEGIN")
-            sync_conn.execute("INSERT INTO products (name, category_id) VALUES (%s, %s)",
-                             ("phone", 999))  # Non-existent category
+            sync_conn.execute(
+                "INSERT INTO products (name, category_id) VALUES (%s, %s)",
+                ("phone", 999),
+            )  # Non-existent category
             sync_conn.commit()
             assert False, "Should have raised error"
         except Exception:
@@ -332,5 +351,7 @@ class TestConstraintHandling:
             sync_conn.rollback()
 
         # Verify value unchanged
-        balance = sync_conn.execute("SELECT balance FROM accounts WHERE id = 1").fetchone()[0]
+        balance = sync_conn.execute(
+            "SELECT balance FROM accounts WHERE id = 1"
+        ).fetchone()[0]
         assert balance == 100, "CHECK constraint should prevent negative balance"

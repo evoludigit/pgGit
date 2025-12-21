@@ -49,8 +49,9 @@ class TestMigrationFailures:
             AND column_name = 'valid_col'
         """)
 
-        assert cursor.fetchone() is None, \
+        assert cursor.fetchone() is None, (
             "Migration with error should rollback all changes, not just failed part"
+        )
 
         # Cleanup
         try:
@@ -128,8 +129,9 @@ class TestMigrationFailures:
 
             # Expected error
             error_msg = str(e).lower()
-            assert "already exists" in error_msg or "duplicate" in error_msg, \
+            assert "already exists" in error_msg or "duplicate" in error_msg, (
                 f"Expected duplicate column error, got: {e}"
+            )
 
         # Cleanup
         try:
@@ -181,8 +183,9 @@ class TestMigrationFailures:
         """)
         final_cols = cursor.fetchone()["count"]
 
-        assert initial_cols == final_cols, \
+        assert initial_cols == final_cols, (
             f"Rollback should restore original state. Before: {initial_cols}, After: {final_cols}"
+        )
 
         # Cleanup
         try:
@@ -200,7 +203,9 @@ class TestMigrationFailures:
         Expected: Both schema and data changes are rolled back on error.
         """
         # Create table with data
-        sync_conn.execute("CREATE TABLE data_migration_test (id INT PRIMARY KEY, value TEXT)")
+        sync_conn.execute(
+            "CREATE TABLE data_migration_test (id INT PRIMARY KEY, value TEXT)"
+        )
         sync_conn.commit()
 
         # Insert initial data
@@ -240,9 +245,12 @@ class TestMigrationFailures:
         final_count = cursor.fetchone()["count"]
 
         # Should be back to 2 columns (id, value) and 1 row
-        assert final_cols == 2, f"Schema should rollback, expected 2 cols, got {final_cols}"
-        assert final_count == initial_count, \
+        assert final_cols == 2, (
+            f"Schema should rollback, expected 2 cols, got {final_cols}"
+        )
+        assert final_count == initial_count, (
             f"Data should rollback, expected {initial_count} rows, got {final_count}"
+        )
 
         # Cleanup
         try:

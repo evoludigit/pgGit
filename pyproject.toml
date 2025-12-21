@@ -62,7 +62,8 @@ select = ["E", "F", "W", "C90", "I", "N", "UP", "YTT", "S", "BLE", "FBT", "B", "
 ignore = ["S101", "S104"]  # Allow assert statements and hardcoded passwords in tests
 
 [tool.ruff.lint.per-file-ignores]
-"tests/chaos/**" = ["S101", "S608", "S311"]  # Allow asserts, controlled SQL, and non-crypto random in chaos tests
+"tests/chaos/**" = ["S101", "S608", "S311", "S110", "PLR2004"]  # Allow asserts, controlled SQL, non-crypto random, silent cleanup, and magic values in chaos tests
+"scripts/ai/**" = ["T201", "BLE001", "TRY300"]  # Allow print statements, broad exception handling, and try-else patterns in AI scripts
 
 [tool.uv]
 dev-dependencies = [

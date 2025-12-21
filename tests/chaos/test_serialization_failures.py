@@ -178,10 +178,13 @@ class TestSerializationFailures:
             pytest.fail(f"Unexpected result: {result1}, {result2}")
 
     @pytest.mark.parametrize(
-        "isolation_level", ["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"],
+        "isolation_level",
+        ["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"],
     )
     def test_isolation_levels_behavior(
-        self, db_connection_string: str, isolation_level: str,
+        self,
+        db_connection_string: str,
+        isolation_level: str,
     ):
         """
         Test: Same concurrent scenario under different isolation levels.
@@ -216,7 +219,8 @@ class TestSerializationFailures:
 
                 # Increment
                 conn.execute(
-                    f"UPDATE {table_name} SET counter = %s WHERE id = 1", (current + 1,),
+                    f"UPDATE {table_name} SET counter = %s WHERE id = 1",
+                    (current + 1,),
                 )
 
                 conn.commit()
@@ -462,7 +466,8 @@ class TestSerializationFailures:
         setup_conn = psycopg.connect(db_connection_string)
         try:
             setup_conn.execute(
-                "SELECT pggit.commit_changes(%s, %s)", (branch_name, "Initial commit"),
+                "SELECT pggit.commit_changes(%s, %s)",
+                (branch_name, "Initial commit"),
             )
             setup_conn.commit()
         except Exception as e:
@@ -479,7 +484,8 @@ class TestSerializationFailures:
 
                 # Get branch ID
                 cursor = conn.execute(
-                    "SELECT id FROM pggit.branches WHERE name = %s", (branch_name,),
+                    "SELECT id FROM pggit.branches WHERE name = %s",
+                    (branch_name,),
                 )
                 result = cursor.fetchone()
                 if not result:
@@ -622,7 +628,8 @@ class TestSerializationFailures:
                 # Try to update (may conflict)
                 new_data = f"modified_by_{worker_id}"
                 conn.execute(
-                    f"UPDATE {table_name} SET data = %s WHERE id = 1", (new_data,),
+                    f"UPDATE {table_name} SET data = %s WHERE id = 1",
+                    (new_data,),
                 )
 
                 conn.commit()

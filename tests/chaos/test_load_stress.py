@@ -37,7 +37,9 @@ class TestLoadStress:
                 conn = psycopg.connect(db_connection_string)
 
                 # Execute simple query
-                cursor = conn.execute("SELECT %s as worker_id, NOW() as timestamp", (worker_id,))
+                cursor = conn.execute(
+                    "SELECT %s as worker_id, NOW() as timestamp", (worker_id,)
+                )
                 result = cursor.fetchone()
 
                 conn.close()
@@ -45,18 +47,18 @@ class TestLoadStress:
                 elapsed = time.time() - start
 
                 return {
-                    'worker': worker_id,
-                    'success': True,
-                    'elapsed': elapsed,
+                    "worker": worker_id,
+                    "success": True,
+                    "elapsed": elapsed,
                 }
 
             except Exception as e:
                 elapsed = time.time() - start
                 return {
-                    'worker': worker_id,
-                    'success': False,
-                    'error': str(e),
-                    'elapsed': elapsed,
+                    "worker": worker_id,
+                    "success": False,
+                    "error": str(e),
+                    "elapsed": elapsed,
                 }
 
         # Execute load test
@@ -68,15 +70,15 @@ class TestLoadStress:
             for future in as_completed(futures):
                 result = future.result()
 
-                if result['success']:
+                if result["success"]:
                     results.append(result)
                 else:
                     errors.append(result)
 
         # Analysis
         success_rate = len(results) / num_workers if num_workers > 0 else 0
-        avg_time = sum(r['elapsed'] for r in results) / len(results) if results else 0
-        max_time = max(r['elapsed'] for r in results) if results else 0
+        avg_time = sum(r["elapsed"] for r in results) / len(results) if results else 0
+        max_time = max(r["elapsed"] for r in results) if results else 0
 
         print(f"\n✅ Concurrent connection test results:")
         print(f"   Success rate: {success_rate:.1%} ({len(results)}/{num_workers})")
@@ -85,8 +87,9 @@ class TestLoadStress:
         print(f"   Errors: {len(errors)}")
 
         # Validation: At least 80% success rate
-        assert success_rate >= 0.8, \
+        assert success_rate >= 0.8, (
             f"Success rate should be >= 80%, got {success_rate:.1%}"
+        )
 
     @pytest.mark.timeout(120)
     def test_rapid_query_execution(self, db_connection_string: str):
@@ -127,7 +130,9 @@ class TestLoadStress:
         print(f"   {queries_per_second:.1f} queries/second")
         print(f"   Successful: {successful}, Failed: {failed}")
 
-        assert successful >= (num_queries * 0.95), "Should succeed for at least 95% of queries"
+        assert successful >= (num_queries * 0.95), (
+            "Should succeed for at least 95% of queries"
+        )
 
     @pytest.mark.timeout(180)
     def test_performance_stability_over_iterations(self, db_connection_string: str):
@@ -145,14 +150,18 @@ class TestLoadStress:
         measurements = []
         iterations_per_batch = 50
 
-        print(f"\n📊 Performance stability test (10 batches, {iterations_per_batch} iterations each):")
+        print(
+            f"\n📊 Performance stability test (10 batches, {iterations_per_batch} iterations each):"
+        )
 
         for batch in range(10):
             batch_start = time.time()
 
             for i in range(iterations_per_batch):
                 try:
-                    cursor = conn.execute("SELECT %s", (batch * iterations_per_batch + i,))
+                    cursor = conn.execute(
+                        "SELECT %s", (batch * iterations_per_batch + i,)
+                    )
                     cursor.fetchone()
                 except Exception:
                     pass  # Ignore errors, just measure throughput
@@ -161,7 +170,9 @@ class TestLoadStress:
             measurements.append(batch_time)
 
             total_so_far = (batch + 1) * iterations_per_batch
-            print(f"   Batch {batch}: {batch_time:.3f}s (total operations: {total_so_far})")
+            print(
+                f"   Batch {batch}: {batch_time:.3f}s (total operations: {total_so_far})"
+            )
 
         conn.close()
 
@@ -174,8 +185,9 @@ class TestLoadStress:
             print(f"\n📈 Performance degradation factor: {degradation_factor:.2f}x")
 
             # Validation: Less than 2x degradation over 500 operations
-            assert degradation_factor < 2.0, \
+            assert degradation_factor < 2.0, (
                 f"Performance degraded too much: {degradation_factor:.2f}x"
+            )
 
         print(f"✅ Performance remained stable throughout test")
 
@@ -212,15 +224,15 @@ class TestLoadStress:
                 conn.close()
 
                 return {
-                    'worker': worker_id,
-                    'success': exists,
+                    "worker": worker_id,
+                    "success": exists,
                 }
 
             except Exception as e:
                 return {
-                    'worker': worker_id,
-                    'success': False,
-                    'error': str(e),
+                    "worker": worker_id,
+                    "success": False,
+                    "error": str(e),
                 }
 
         # Execute concurrent table creation
@@ -231,7 +243,7 @@ class TestLoadStress:
 
             for future in as_completed(futures):
                 result = future.result()
-                if result['success']:
+                if result["success"]:
                     results.append(result)
                 else:
                     errors.append(result)

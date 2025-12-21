@@ -12,7 +12,9 @@ import pytest
 @pytest.mark.chaos
 @pytest.mark.resource
 @pytest.mark.destructive
-@pytest.mark.skip(reason="Requires ability to control/limit disk space in test environment")
+@pytest.mark.skip(
+    reason="Requires ability to control/limit disk space in test environment"
+)
 class TestDiskSpace:
     """
     Test disk space exhaustion handling.
@@ -78,14 +80,18 @@ class TestDiskSpace:
 class TestStorageConstraints:
     """Test storage-related constraints that don't require disk full conditions."""
 
-    def test_table_creation_under_normal_conditions(self, sync_conn: psycopg.Connection):
+    def test_table_creation_under_normal_conditions(
+        self, sync_conn: psycopg.Connection
+    ):
         """
         Test: Can create and use tables normally without storage constraints.
 
         Expected: Normal table operations work reliably.
         """
         # Create table
-        sync_conn.execute("CREATE TABLE storage_test (id SERIAL PRIMARY KEY, data TEXT)")
+        sync_conn.execute(
+            "CREATE TABLE storage_test (id SERIAL PRIMARY KEY, data TEXT)"
+        )
         sync_conn.commit()
 
         # Insert data
@@ -118,7 +124,9 @@ class TestStorageConstraints:
         Expected: Can handle multi-kilobyte text fields.
         """
         # Create table
-        sync_conn.execute("CREATE TABLE large_text_test (id SERIAL PRIMARY KEY, content TEXT)")
+        sync_conn.execute(
+            "CREATE TABLE large_text_test (id SERIAL PRIMARY KEY, content TEXT)"
+        )
         sync_conn.commit()
 
         # Create large text (1MB)
@@ -138,7 +146,9 @@ class TestStorageConstraints:
 
             assert length == len(large_text), "Large text should be stored completely"
 
-            print(f"\n✅ Large text field ({length:,} chars) stored and retrieved successfully")
+            print(
+                f"\n✅ Large text field ({length:,} chars) stored and retrieved successfully"
+            )
 
         except psycopg.Error as e:
             if "too large" in str(e).lower() or "limit" in str(e).lower():
@@ -161,7 +171,9 @@ class TestStorageConstraints:
         Expected: Can handle 10,000+ rows without slowdown.
         """
         # Create table
-        sync_conn.execute("CREATE TABLE many_rows_test (id SERIAL PRIMARY KEY, value INT)")
+        sync_conn.execute(
+            "CREATE TABLE many_rows_test (id SERIAL PRIMARY KEY, value INT)"
+        )
         sync_conn.commit()
 
         num_rows = 1000

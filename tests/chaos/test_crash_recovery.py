@@ -186,12 +186,15 @@ class TestCrashRecovery:
             conn.execute("BEGIN")
 
             # Do some work
-            conn.execute("INSERT INTO isolation_test (data) VALUES (%s)", ("in_transaction",))
+            conn.execute(
+                "INSERT INTO isolation_test (data) VALUES (%s)", ("in_transaction",)
+            )
 
             # Create another connection to verify it can still access the table
             try:
                 import psycopg
                 from psycopg.rows import dict_row
+
                 other_conn = psycopg.connect(
                     "host=localhost port=5432 dbname=pggit_chaos_test user=postgres",
                     row_factory=dict_row,
@@ -202,7 +205,9 @@ class TestCrashRecovery:
                 count = cursor.fetchone()["count"]
 
                 # Count should be at least 1 (the initial row)
-                assert count >= 1, "Other connections should be able to read during transaction"
+                assert count >= 1, (
+                    "Other connections should be able to read during transaction"
+                )
 
                 other_conn.close()
 
@@ -224,7 +229,9 @@ class TestCrashRecovery:
         except psycopg.Error:
             pass
 
-    @pytest.mark.skip(reason="Requires PostgreSQL restart privileges - not available in test environment")
+    @pytest.mark.skip(
+        reason="Requires PostgreSQL restart privileges - not available in test environment"
+    )
     def test_database_crash_recovery(self, sync_conn: psycopg.Connection):
         """
         Test: Database recovers from crash and uncommitted transactions are cleaned.

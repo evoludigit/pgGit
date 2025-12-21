@@ -5,7 +5,6 @@ These tests validate that pggit handles connection pool limits gracefully,
 including timeout behavior, leak detection, and recovery mechanisms.
 """
 
-
 import psycopg
 import pytest
 
