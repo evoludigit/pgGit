@@ -36,15 +36,6 @@ jobs:
   # CodeQL v3 does not support SQL as a standalone language
   # Trivy scanning (filesystem vulnerability scanning) is sufficient for this project
 
-  dependency-review:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Dependency Review
-      uses: actions/dependency-review-action@v3
-      with:
-        fail-on-severity: moderate
-        deny-licenses: GPL-3.0, AGPL-3.0
+  # dependency-review disabled: requires GitHub Advanced Security features
+  # This repository does not have GitHub Advanced Security enabled
+  # Alternative: Use Trivy scanning for vulnerability detection (already enabled above)
