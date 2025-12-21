@@ -15,7 +15,7 @@
 -- ============================================
 
 -- Function: Create a feature branch with metadata
-CREATE OR REPLACE FUNCTION pggit_v2.create_feature_branch(
+CREATE OR REPLACE FUNCTION pggit_v0.create_feature_branch(
     p_feature_name TEXT,
     p_description TEXT DEFAULT NULL
 ) RETURNS TEXT AS $$
@@ -33,8 +33,8 @@ BEGIN
     END IF;
 
     -- Get current HEAD
-    SELECT commit_sha INTO v_head_sha
-    FROM pggit_v2.commit_graph
+    SELECT target_sha INTO v_head_sha
+    FROM pggit_v0.commit_graph
     ORDER BY committed_at DESC
     LIMIT 1;
 
@@ -44,8 +44,8 @@ BEGIN
 
     -- Check if branch exists
     v_exists := EXISTS (
-        SELECT 1 FROM pggit_v2.refs
-        WHERE ref_name = v_branch_name AND ref_type = 'branch'
+        SELECT 1 FROM pggit_v0.refs
+        WHERE name = v_branch_name AND type = 'branch'
     );
 
     IF v_exists THEN
@@ -53,12 +53,12 @@ BEGIN
     END IF;
 
     -- Create branch with metadata in description
-    INSERT INTO pggit_v2.refs (ref_name, ref_type, commit_sha)
+    INSERT INTO pggit_v0.refs (name, type, target_sha)
     VALUES (v_branch_name, 'branch', v_head_sha);
 
     -- Store feature metadata (if table exists)
     INSERT INTO pggit_audit.changes (
-        commit_sha, object_schema, object_name, object_type,
+        target_sha, object_schema, object_name, object_type,
         change_type, old_definition, new_definition, author
     ) VALUES (
         v_head_sha, 'pggit', 'feature_' || p_feature_name, 'METADATA',
@@ -69,16 +69,16 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION pggit_v2.create_feature_branch(TEXT, TEXT) IS
+COMMENT ON FUNCTION pggit_v0.create_feature_branch(TEXT, TEXT) IS
 'Create a feature branch with optional description. Branch name is prefixed with "feature/".';
 
 -- Function: Advanced merge with strategy selection
-CREATE OR REPLACE FUNCTION pggit_v2.merge_branch(
+CREATE OR REPLACE FUNCTION pggit_v0.merge_branch(
     p_source_branch TEXT,
     p_target_branch TEXT,
     p_merge_strategy TEXT DEFAULT 'recursive'
 ) RETURNS TABLE (
-    merge_commit_sha TEXT,
+    merge_target_sha TEXT,
     conflicts BOOLEAN,
     conflict_objects TEXT[]
 ) AS $$
@@ -86,7 +86,7 @@ DECLARE
     v_source_sha TEXT;
     v_target_sha TEXT;
     v_common_ancestor_sha TEXT;
-    v_merge_commit_sha TEXT;
+    v_merge_target_sha TEXT;
     v_conflict_objects TEXT[];
     v_conflict_count INTEGER := 0;
 BEGIN
@@ -96,17 +96,17 @@ BEGIN
     END IF;
 
     -- Get branch commits
-    SELECT commit_sha INTO v_source_sha
-    FROM pggit_v2.refs
-    WHERE ref_name = p_source_branch AND ref_type = 'branch';
+    SELECT target_sha INTO v_source_sha
+    FROM pggit_v0.refs
+    WHERE name = p_source_branch AND type = 'branch';
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Source branch % not found', p_source_branch;
     END IF;
 
-    SELECT commit_sha INTO v_target_sha
-    FROM pggit_v2.refs
-    WHERE ref_name = p_target_branch AND ref_type = 'branch';
+    SELECT target_sha INTO v_target_sha
+    FROM pggit_v0.refs
+    WHERE name = p_target_branch AND type = 'branch';
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Target branch % not found', p_target_branch;
@@ -114,18 +114,18 @@ BEGIN
 
     -- Find common ancestor (simplified - would need proper LCA algorithm)
     -- For now, we detect conflicts and provide merge commit SHA
-    v_merge_commit_sha := gen_random_uuid()::text;
+    v_merge_target_sha := gen_random_uuid()::text;
 
     -- Detect conflicts using the diff
     WITH source_changes AS (
         SELECT object_schema, object_name, change_type
         FROM pggit_audit.changes
-        WHERE commit_sha = v_source_sha
+        WHERE target_sha = v_source_sha
     ),
     target_changes AS (
         SELECT object_schema, object_name, change_type
         FROM pggit_audit.changes
-        WHERE commit_sha = v_target_sha
+        WHERE target_sha = v_target_sha
     )
     SELECT
         COALESCE(array_agg(sc.object_schema || '.' || sc.object_name), ARRAY[]::TEXT[])
@@ -138,21 +138,21 @@ BEGIN
     v_conflict_count := COALESCE(array_length(v_conflict_objects, 1), 0);
 
     RETURN QUERY SELECT
-        v_merge_commit_sha,
+        v_merge_target_sha,
         v_conflict_count > 0,
         v_conflict_objects;
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION pggit_v2.merge_branch(TEXT, TEXT, TEXT) IS
+COMMENT ON FUNCTION pggit_v0.merge_branch(TEXT, TEXT, TEXT) IS
 'Merge source branch into target with specified strategy (recursive/ours/theirs). Detects conflicts.';
 
 -- Function: Rebase branch onto another
-CREATE OR REPLACE FUNCTION pggit_v2.rebase_branch(
+CREATE OR REPLACE FUNCTION pggit_v0.rebase_branch(
     p_branch_name TEXT,
-    p_onto_commit_sha TEXT DEFAULT NULL
+    p_onto_target_sha TEXT DEFAULT NULL
 ) RETURNS TABLE (
-    rebased_commit_sha TEXT,
+    rebased_target_sha TEXT,
     conflicts BOOLEAN,
     conflict_objects TEXT[]
 ) AS $$
@@ -165,37 +165,37 @@ DECLARE
     v_conflicts TEXT[];
 BEGIN
     -- Get branch commit
-    SELECT commit_sha INTO v_branch_sha
-    FROM pggit_v2.refs
-    WHERE ref_name = p_branch_name AND ref_type = 'branch';
+    SELECT target_sha INTO v_branch_sha
+    FROM pggit_v0.refs
+    WHERE name = p_branch_name AND type = 'branch';
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Branch % not found', p_branch_name;
     END IF;
 
     -- Use HEAD if no target specified
-    v_onto_sha := COALESCE(p_onto_commit_sha,
-        (SELECT commit_sha FROM pggit_v2.commit_graph ORDER BY committed_at DESC LIMIT 1)
+    v_onto_sha := COALESCE(p_onto_target_sha,
+        (SELECT target_sha FROM pggit_v0.commit_graph ORDER BY committed_at DESC LIMIT 1)
     );
 
     -- Get tree SHAs
     SELECT tree_sha INTO v_branch_tree_sha
-    FROM pggit_v2.commit_graph
-    WHERE commit_sha = v_branch_sha;
+    FROM pggit_v0.commit_graph
+    WHERE target_sha = v_branch_sha;
 
     SELECT tree_sha INTO v_onto_tree_sha
-    FROM pggit_v2.commit_graph
-    WHERE commit_sha = v_onto_sha;
+    FROM pggit_v0.commit_graph
+    WHERE target_sha = v_onto_sha;
 
     -- Simulate rebase (in real system, would replay commits)
     v_rebased_sha := gen_random_uuid()::text;
 
     -- Detect conflicts using tree diff
     WITH branch_objects AS (
-        SELECT DISTINCT path FROM pggit_v2.tree_entries WHERE tree_sha = v_branch_tree_sha
+        SELECT DISTINCT path FROM pggit_v0.tree_entries WHERE tree_sha = v_branch_tree_sha
     ),
     onto_objects AS (
-        SELECT DISTINCT path FROM pggit_v2.tree_entries WHERE tree_sha = v_onto_tree_sha
+        SELECT DISTINCT path FROM pggit_v0.tree_entries WHERE tree_sha = v_onto_tree_sha
     )
     SELECT
         COALESCE(array_agg(DISTINCT bo.path), ARRAY[]::TEXT[])
@@ -210,7 +210,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION pggit_v2.rebase_branch(TEXT, TEXT) IS
+COMMENT ON FUNCTION pggit_v0.rebase_branch(TEXT, TEXT) IS
 'Rebase branch onto another commit or HEAD. Returns rebased commit and any conflicts.';
 
 -- ============================================
@@ -218,7 +218,7 @@ COMMENT ON FUNCTION pggit_v2.rebase_branch(TEXT, TEXT) IS
 -- ============================================
 
 -- Function: Detect merge conflicts before merge
-CREATE OR REPLACE FUNCTION pggit_v2.detect_merge_conflicts(
+CREATE OR REPLACE FUNCTION pggit_v0.detect_merge_conflicts(
     p_source_branch TEXT,
     p_target_branch TEXT
 ) RETURNS TABLE (
@@ -232,17 +232,17 @@ DECLARE
     v_target_sha TEXT;
 BEGIN
     -- Get branch commits
-    SELECT commit_sha INTO v_source_sha
-    FROM pggit_v2.refs
-    WHERE ref_name = p_source_branch AND ref_type = 'branch';
+    SELECT target_sha INTO v_source_sha
+    FROM pggit_v0.refs
+    WHERE name = p_source_branch AND type = 'branch';
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Source branch % not found', p_source_branch;
     END IF;
 
-    SELECT commit_sha INTO v_target_sha
-    FROM pggit_v2.refs
-    WHERE ref_name = p_target_branch AND ref_type = 'branch';
+    SELECT target_sha INTO v_target_sha
+    FROM pggit_v0.refs
+    WHERE name = p_target_branch AND type = 'branch';
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Target branch % not found', p_target_branch;
@@ -256,7 +256,7 @@ BEGIN
             'MODIFIED' as change_type,
             new_definition
         FROM pggit_audit.changes
-        WHERE commit_sha = v_source_sha
+        WHERE target_sha = v_source_sha
           AND change_type IN ('ALTER', 'CREATE')
     ),
     target_changes AS (
@@ -265,7 +265,7 @@ BEGIN
             'MODIFIED' as change_type,
             new_definition
         FROM pggit_audit.changes
-        WHERE commit_sha = v_target_sha
+        WHERE target_sha = v_target_sha
           AND change_type IN ('ALTER', 'CREATE')
     )
     SELECT
@@ -280,11 +280,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION pggit_v2.detect_merge_conflicts(TEXT, TEXT) IS
+COMMENT ON FUNCTION pggit_v0.detect_merge_conflicts(TEXT, TEXT) IS
 'Detect conflicts before merge: objects modified in both branches with different definitions.';
 
 -- Function: Resolve a conflict
-CREATE OR REPLACE FUNCTION pggit_v2.resolve_conflict(
+CREATE OR REPLACE FUNCTION pggit_v0.resolve_conflict(
     p_object_path TEXT,
     p_resolution_strategy TEXT,
     p_manual_ddl TEXT DEFAULT NULL
@@ -328,7 +328,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION pggit_v2.resolve_conflict(TEXT, TEXT, TEXT) IS
+COMMENT ON FUNCTION pggit_v0.resolve_conflict(TEXT, TEXT, TEXT) IS
 'Resolve a conflict using specified strategy: source, target, or manual DDL.';
 
 -- ============================================
@@ -336,7 +336,7 @@ COMMENT ON FUNCTION pggit_v2.resolve_conflict(TEXT, TEXT, TEXT) IS
 -- ============================================
 
 -- Table: Store merge request metadata (if not exists)
-CREATE TABLE IF NOT EXISTS pggit_v2.merge_requests (
+CREATE TABLE IF NOT EXISTS pggit_v0.merge_requests (
     mr_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     source_branch TEXT NOT NULL,
     target_branch TEXT NOT NULL,
@@ -351,11 +351,11 @@ CREATE TABLE IF NOT EXISTS pggit_v2.merge_requests (
 );
 
 -- Index for common queries
-CREATE INDEX IF NOT EXISTS idx_mr_status ON pggit_v2.merge_requests(status);
-CREATE INDEX IF NOT EXISTS idx_mr_branches ON pggit_v2.merge_requests(source_branch, target_branch);
+CREATE INDEX IF NOT EXISTS idx_mr_status ON pggit_v0.merge_requests(status);
+CREATE INDEX IF NOT EXISTS idx_mr_branches ON pggit_v0.merge_requests(source_branch, target_branch);
 
 -- Function: Create a merge request
-CREATE OR REPLACE FUNCTION pggit_v2.create_merge_request(
+CREATE OR REPLACE FUNCTION pggit_v0.create_merge_request(
     p_source_branch TEXT,
     p_target_branch TEXT,
     p_title TEXT,
@@ -372,22 +372,22 @@ DECLARE
     v_conflict_count INTEGER;
 BEGIN
     -- Validate branches exist
-    IF NOT EXISTS (SELECT 1 FROM pggit_v2.refs WHERE ref_name = p_source_branch AND ref_type = 'branch') THEN
+    IF NOT EXISTS (SELECT 1 FROM pggit_v0.refs WHERE name = p_source_branch AND type = 'branch') THEN
         RAISE EXCEPTION 'Source branch % does not exist', p_source_branch;
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pggit_v2.refs WHERE ref_name = p_target_branch AND ref_type = 'branch') THEN
+    IF NOT EXISTS (SELECT 1 FROM pggit_v0.refs WHERE name = p_target_branch AND type = 'branch') THEN
         RAISE EXCEPTION 'Target branch % does not exist', p_target_branch;
     END IF;
 
     -- Detect conflicts
     SELECT COUNT(*) INTO v_conflict_count
-    FROM pggit_v2.detect_merge_conflicts(p_source_branch, p_target_branch);
+    FROM pggit_v0.detect_merge_conflicts(p_source_branch, p_target_branch);
 
     v_has_conflicts := v_conflict_count > 0;
 
     -- Create merge request
-    INSERT INTO pggit_v2.merge_requests (
+    INSERT INTO pggit_v0.merge_requests (
         source_branch, target_branch, title, description,
         status, conflicts_found
     ) VALUES (
@@ -399,11 +399,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION pggit_v2.create_merge_request(TEXT, TEXT, TEXT, TEXT, TEXT) IS
+COMMENT ON FUNCTION pggit_v0.create_merge_request(TEXT, TEXT, TEXT, TEXT, TEXT) IS
 'Create a merge request. Detects conflicts and stores MR metadata for workflow tracking.';
 
 -- Function: Approve a merge request
-CREATE OR REPLACE FUNCTION pggit_v2.approve_merge_request(
+CREATE OR REPLACE FUNCTION pggit_v0.approve_merge_request(
     p_mr_id UUID,
     p_approved_by TEXT,
     p_notes TEXT DEFAULT NULL
@@ -413,7 +413,7 @@ DECLARE
 BEGIN
     -- Get MR record
     SELECT * INTO v_mr_record
-    FROM pggit_v2.merge_requests
+    FROM pggit_v0.merge_requests
     WHERE mr_id = p_mr_id;
 
     IF NOT FOUND THEN
@@ -426,7 +426,7 @@ BEGIN
     END IF;
 
     -- Update status to OPEN and ready for merge
-    UPDATE pggit_v2.merge_requests
+    UPDATE pggit_v0.merge_requests
     SET status = 'OPEN'  -- Mark as ready for merge
     WHERE mr_id = p_mr_id;
 
@@ -437,11 +437,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION pggit_v2.approve_merge_request(UUID, TEXT, TEXT) IS
+COMMENT ON FUNCTION pggit_v0.approve_merge_request(UUID, TEXT, TEXT) IS
 'Approve a merge request. Marks as ready for merging. Stores approval metadata for audit.';
 
 -- Function: Get merge request status
-CREATE OR REPLACE FUNCTION pggit_v2.get_merge_request_status(p_mr_id UUID)
+CREATE OR REPLACE FUNCTION pggit_v0.get_merge_request_status(p_mr_id UUID)
 RETURNS TABLE (
     mr_id UUID,
     source_branch TEXT,
@@ -465,19 +465,19 @@ BEGIN
         mr.created_by,
         mr.created_at,
         EXTRACT(DAY FROM (CURRENT_TIMESTAMP - mr.created_at))::INTEGER
-    FROM pggit_v2.merge_requests mr
+    FROM pggit_v0.merge_requests mr
     WHERE mr.mr_id = p_mr_id;
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION pggit_v2.get_merge_request_status(UUID) IS
+COMMENT ON FUNCTION pggit_v0.get_merge_request_status(UUID) IS
 'Get detailed status of a merge request including age and conflict status.';
 
 -- ============================================
 -- METADATA
 -- ============================================
 
-COMMENT ON TABLE pggit_v2.merge_requests IS 'Stores merge request metadata for workflow tracking and approval process.';
+COMMENT ON TABLE pggit_v0.merge_requests IS 'Stores merge request metadata for workflow tracking and approval process.';
 
 DO $$
 BEGIN

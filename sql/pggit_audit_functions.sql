@@ -1,14 +1,14 @@
 -- ============================================
 -- pgGit Audit Layer: Extraction Functions
 -- ============================================
--- Functions to extract DDL changes from pggit_v2 commits
+-- Functions to extract DDL changes from pggit_v0 commits
 
 -- ============================================
 -- EXTRACTION FUNCTIONS
 -- ============================================
 
 -- Function: Extract changes between two commits
--- This is the core function that analyzes pggit_v2 commits and extracts DDL changes
+-- This is the core function that analyzes pggit_v0 commits and extracts DDL changes
 CREATE OR REPLACE FUNCTION pggit_audit.extract_changes_between_commits(
     p_old_commit_sha TEXT,
     p_new_commit_sha TEXT
@@ -45,24 +45,24 @@ BEGIN
 
     -- Get tree SHAs from commits with validation
     SELECT tree_sha INTO v_old_tree_sha
-    FROM pggit_v2.commit_graph
+    FROM pggit_v0.commit_graph
     WHERE commit_sha = p_old_commit_sha;
 
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'Old commit SHA % not found in pggit_v2.commit_graph', p_old_commit_sha;
+        RAISE EXCEPTION 'Old commit SHA % not found in pggit_v0.commit_graph', p_old_commit_sha;
     END IF;
 
     SELECT tree_sha INTO v_new_tree_sha
-    FROM pggit_v2.commit_graph
+    FROM pggit_v0.commit_graph
     WHERE commit_sha = p_new_commit_sha;
 
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'New commit SHA % not found in pggit_v2.commit_graph', p_new_commit_sha;
+        RAISE EXCEPTION 'New commit SHA % not found in pggit_v0.commit_graph', p_new_commit_sha;
     END IF;
 
     -- Get commit metadata once (more efficient)
     SELECT author, committed_at, message INTO v_commit_author, v_commit_timestamp, v_commit_message
-    FROM pggit_v2.commit_graph
+    FROM pggit_v0.commit_graph
     WHERE commit_sha = p_new_commit_sha;
 
     -- If old tree doesn't exist, treat as initial commit (all objects are CREATE)
@@ -72,8 +72,8 @@ BEGIN
             SELECT
                 te.path,
                 o.content as new_definition
-            FROM pggit_v2.tree_entries te
-            JOIN pggit_v2.objects o ON o.sha = te.object_sha AND o.type = 'blob'
+            FROM pggit_v0.tree_entries te
+            JOIN pggit_v0.objects o ON o.sha = te.object_sha AND o.type = 'blob'
             WHERE te.tree_sha = v_new_tree_sha
         LOOP
             -- Parse path to get schema and object name
@@ -96,7 +96,7 @@ BEGIN
     ELSE
         -- Compare trees to find changes
         FOR v_change_record IN
-            SELECT * FROM pggit_v2.diff_trees(v_old_tree_sha, v_new_tree_sha)
+            SELECT * FROM pggit_v0.diff_trees(v_old_tree_sha, v_new_tree_sha)
         LOOP
             v_new_change_id := gen_random_uuid();
 
@@ -108,8 +108,8 @@ BEGIN
                 split_part(v_change_record.path, '.', 2),
                 pggit_audit.determine_object_type(
                     COALESCE(
-                        (SELECT content FROM pggit_v2.objects WHERE sha = v_change_record.new_sha),
-                        (SELECT content FROM pggit_v2.objects WHERE sha = v_change_record.old_sha)
+                        (SELECT content FROM pggit_v0.objects WHERE sha = v_change_record.new_sha),
+                        (SELECT content FROM pggit_v0.objects WHERE sha = v_change_record.old_sha)
                     )
                 ),
                 CASE
@@ -119,11 +119,11 @@ BEGIN
                     ELSE 'UNKNOWN'
                 END,
                 CASE WHEN v_change_record.change_type IN ('modify', 'delete')
-                     THEN (SELECT content FROM pggit_v2.objects WHERE sha = v_change_record.old_sha)
+                     THEN (SELECT content FROM pggit_v0.objects WHERE sha = v_change_record.old_sha)
                      ELSE NULL
                 END,
                 CASE WHEN v_change_record.change_type IN ('modify', 'add')
-                     THEN (SELECT content FROM pggit_v2.objects WHERE sha = v_change_record.new_sha)
+                     THEN (SELECT content FROM pggit_v0.objects WHERE sha = v_change_record.new_sha)
                      ELSE NULL
                 END,
                 v_commit_author,
@@ -445,8 +445,8 @@ BEGIN
 
     -- Validate commit_sha references
     IF v_change.commit_sha != 'unknown' THEN
-        IF NOT EXISTS (SELECT 1 FROM pggit_v2.objects WHERE sha = v_change.commit_sha AND type = 'commit') THEN
-            v_issues := array_append(v_issues, 'commit_sha does not reference a valid pggit_v2 commit');
+        IF NOT EXISTS (SELECT 1 FROM pggit_v0.objects WHERE sha = v_change.commit_sha AND type = 'commit') THEN
+            v_issues := array_append(v_issues, 'commit_sha does not reference a valid pggit_v0 commit');
         END IF;
     END IF;
 
@@ -472,7 +472,7 @@ DECLARE
 BEGIN
     -- Get tree SHA for commit
     SELECT tree_sha INTO v_tree_sha
-    FROM pggit_v2.commit_graph
+    FROM pggit_v0.commit_graph
     WHERE commit_sha = p_commit_sha;
 
     IF v_tree_sha IS NULL THEN
@@ -481,7 +481,7 @@ BEGIN
 
     -- Get blob SHA for object
     SELECT object_sha INTO v_blob_sha
-    FROM pggit_v2.tree_entries
+    FROM pggit_v0.tree_entries
     WHERE tree_sha = v_tree_sha
       AND path = p_schema_name || '.' || p_object_name;
 
@@ -491,7 +491,7 @@ BEGIN
 
     -- Get DDL content
     SELECT content INTO v_ddl
-    FROM pggit_v2.objects
+    FROM pggit_v0.objects
     WHERE sha = v_blob_sha AND type = 'blob';
 
     RETURN v_ddl;
@@ -609,7 +609,7 @@ BEGIN
         END
     FROM pggit_audit.changes c
     WHERE c.commit_sha != 'unknown'
-      AND NOT EXISTS (SELECT 1 FROM pggit_v2.objects WHERE sha = c.commit_sha AND type = 'commit');
+      AND NOT EXISTS (SELECT 1 FROM pggit_v0.objects WHERE sha = c.commit_sha AND type = 'commit');
 
     -- Check 2: No orphaned compliance logs
     RETURN QUERY
@@ -861,7 +861,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION pggit_audit.extract_changes_between_commits IS 'Extract DDL changes between two pggit_v2 commits';
+COMMENT ON FUNCTION pggit_audit.extract_changes_between_commits IS 'Extract DDL changes between two pggit_v0 commits';
 COMMENT ON FUNCTION pggit_audit.backfill_from_v1_history IS 'Convert pggit v1 history to audit records';
 COMMENT ON FUNCTION pggit_audit.get_object_ddl_at_commit IS 'Get DDL definition for object at specific commit';
 COMMENT ON FUNCTION pggit_audit.compare_object_versions IS 'Compare object DDL between two commits';

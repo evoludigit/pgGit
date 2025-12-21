@@ -28,7 +28,7 @@ FOR EACH v1 history record (chronological order):
 ### Detailed Algorithm
 
 ```sql
-CREATE OR REPLACE FUNCTION pggit_v2.backfill_from_v1_history()
+CREATE OR REPLACE FUNCTION pggit_v0.backfill_from_v1_history()
 RETURNS TABLE(processed INT, errors INT) AS $$
 DECLARE
     v_history_record RECORD;
@@ -72,15 +72,15 @@ BEGIN
                 jsonb_build_object(
                     'path', (obj->>'schema') || '.' || (obj->>'name'),
                     'mode', '100644',
-                    'sha', pggit_v2.create_blob(obj->>'ddl')
+                    'sha', pggit_v0.create_blob(obj->>'ddl')
                 )
             ) INTO v_tree_entries
             FROM jsonb_array_elements(v_current_objects) obj
             WHERE obj->>'ddl' != 'UNSUPPORTED';
 
             -- 4. Create v2 tree and commit
-            v_commit_sha := pggit_v2.create_commit(
-                pggit_v2.create_tree(v_tree_entries),
+            v_commit_sha := pggit_v0.create_commit(
+                pggit_v0.create_tree(v_tree_entries),
                 CASE WHEN v_processed_count = 0 THEN '{}'::TEXT[]
                      ELSE ARRAY['previous_commit_sha'] END,  -- Link to previous
                 'Backfill: ' || v_history_record.change_description,
@@ -186,7 +186,7 @@ $$ LANGUAGE plpgsql;
 
 **Mitigation**:
 1. **Batch processing**: Process in chunks with progress tracking
-2. **Index optimization**: Ensure pggit_v2 tables are properly indexed
+2. **Index optimization**: Ensure pggit_v0 tables are properly indexed
 3. **Parallel processing**: Potential for concurrent object processing
 
 ### 🟡 **Risk 6: Unsupported Object Types**

@@ -728,24 +728,24 @@ BEGIN
 
     -- Get tree SHAs with validation
     SELECT tree_sha INTO v_old_tree_sha
-    FROM pggit_v2.commit_graph
+    FROM pggit_v0.commit_graph
     WHERE commit_sha = p_old_commit_sha;
 
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'Old commit SHA % not found in pggit_v2.commit_graph', p_old_commit_sha;
+        RAISE EXCEPTION 'Old commit SHA % not found in pggit_v0.commit_graph', p_old_commit_sha;
     END IF;
 
     SELECT tree_sha INTO v_new_tree_sha
-    FROM pggit_v2.commit_graph
+    FROM pggit_v0.commit_graph
     WHERE commit_sha = p_new_commit_sha;
 
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'New commit SHA % not found in pggit_v2.commit_graph', p_new_commit_sha;
+        RAISE EXCEPTION 'New commit SHA % not found in pggit_v0.commit_graph', p_new_commit_sha;
     END IF;
 
     -- Get commit metadata
     SELECT author, committed_at, message INTO v_commit_author, v_commit_timestamp, v_commit_message
-    FROM pggit_v2.commit_graph
+    FROM pggit_v0.commit_graph
     WHERE commit_sha = p_new_commit_sha;
 
     -- Handle initial commit (all objects are CREATE)
@@ -754,8 +754,8 @@ BEGIN
             SELECT
                 te.path,
                 o.content as new_definition
-            FROM pggit_v2.tree_entries te
-            JOIN pggit_v2.objects o ON o.sha = te.object_sha AND o.type = 'blob'
+            FROM pggit_v0.tree_entries te
+            JOIN pggit_v0.objects o ON o.sha = te.object_sha AND o.type = 'blob'
             WHERE te.tree_sha = v_new_tree_sha
         LOOP
             v_new_change_id := gen_random_uuid();
@@ -797,7 +797,7 @@ BEGIN
     ELSE
         -- Process tree differences
         FOR v_change_record IN
-            SELECT * FROM pggit_v2.diff_trees(v_old_tree_sha, v_new_tree_sha)
+            SELECT * FROM pggit_v0.diff_trees(v_old_tree_sha, v_new_tree_sha)
         LOOP
             v_new_change_id := gen_random_uuid();
             v_dependencies := '[]'::JSONB;
@@ -806,8 +806,8 @@ BEGIN
             SELECT * INTO v_alter_operations
             FROM pggit_audit.parse_alter_statement(
                 COALESCE(
-                    (SELECT content FROM pggit_v2.objects WHERE sha = v_change_record.new_sha),
-                    (SELECT content FROM pggit_v2.objects WHERE sha = v_change_record.old_sha)
+                    (SELECT content FROM pggit_v0.objects WHERE sha = v_change_record.new_sha),
+                    (SELECT content FROM pggit_v0.objects WHERE sha = v_change_record.old_sha)
                 )
             )
             LIMIT 1;
@@ -824,8 +824,8 @@ BEGIN
                 INTO v_dependencies
                 FROM pggit_audit.parse_alter_statement(
                     COALESCE(
-                        (SELECT content FROM pggit_v2.objects WHERE sha = v_change_record.new_sha),
-                        (SELECT content FROM pggit_v2.objects WHERE sha = v_change_record.old_sha)
+                        (SELECT content FROM pggit_v0.objects WHERE sha = v_change_record.new_sha),
+                        (SELECT content FROM pggit_v0.objects WHERE sha = v_change_record.old_sha)
                     )
                 ) dep;
             END IF;
@@ -838,8 +838,8 @@ BEGIN
                 split_part(v_change_record.path, '.', 2),
                 (SELECT object_type FROM pggit_audit.advanced_determine_object_type(
                     COALESCE(
-                        (SELECT content FROM pggit_v2.objects WHERE sha = v_change_record.new_sha),
-                        (SELECT content FROM pggit_v2.objects WHERE sha = v_change_record.old_sha)
+                        (SELECT content FROM pggit_v0.objects WHERE sha = v_change_record.new_sha),
+                        (SELECT content FROM pggit_v0.objects WHERE sha = v_change_record.old_sha)
                     ),
                     v_change_record.path
                 ) LIMIT 1),
@@ -852,11 +852,11 @@ BEGIN
                 v_alter_operations.operation_type,
                 v_alter_operations.parent_object,
                 CASE WHEN v_change_record.change_type IN ('modify', 'delete')
-                     THEN (SELECT content FROM pggit_v2.objects WHERE sha = v_change_record.old_sha)
+                     THEN (SELECT content FROM pggit_v0.objects WHERE sha = v_change_record.old_sha)
                      ELSE NULL
                 END,
                 CASE WHEN v_change_record.change_type IN ('modify', 'add')
-                     THEN (SELECT content FROM pggit_v2.objects WHERE sha = v_change_record.new_sha)
+                     THEN (SELECT content FROM pggit_v0.objects WHERE sha = v_change_record.new_sha)
                      ELSE NULL
                 END,
                 v_dependencies,
@@ -1405,8 +1405,8 @@ $$ LANGUAGE plpgsql;
 -- INTEGRATION HELPERS
 -- ============================================
 
--- Function: Full sync from pggit_v2 (for initial population)
-CREATE OR REPLACE FUNCTION pggit_audit.full_sync_from_pggit_v2(
+-- Function: Full sync from pggit_v0 (for initial population)
+CREATE OR REPLACE FUNCTION pggit_audit.full_sync_from_pggit_v0(
     p_start_commit_sha TEXT DEFAULT NULL,
     p_end_commit_sha TEXT DEFAULT NULL,
     p_batch_size INT DEFAULT 10
@@ -1429,7 +1429,7 @@ BEGIN
     -- Build commit ranges for batch processing
     FOR v_last_commit IN
         SELECT commit_sha
-        FROM pggit_v2.commit_graph
+        FROM pggit_v0.commit_graph
         WHERE (p_start_commit_sha IS NULL OR commit_sha >= p_start_commit_sha)
           AND (p_end_commit_sha IS NULL OR commit_sha <= p_end_commit_sha)
         ORDER BY committed_at
@@ -1472,4 +1472,4 @@ COMMENT ON FUNCTION pggit_audit.extract_changes_extended IS 'Extended change ext
 COMMENT ON FUNCTION pggit_audit.test_ddl_parsing IS 'Enterprise-grade DDL parsing and dependency testing with detailed diagnostics';
 COMMENT ON FUNCTION pggit_audit.comprehensive_validation IS 'Enterprise-grade comprehensive validation with severity levels and recommendations';
 COMMENT ON FUNCTION pggit_audit.batch_process_commits IS 'Efficient batch processing of multiple commit ranges with error recovery';
-COMMENT ON FUNCTION pggit_audit.full_sync_from_pggit_v2 IS 'Complete synchronization from pggit_v2 commit history with resumable operation';
+COMMENT ON FUNCTION pggit_audit.full_sync_from_pggit_v0 IS 'Complete synchronization from pggit_v0 commit history with resumable operation';

@@ -6,24 +6,24 @@
 
 ## Executive Summary
 
-✅ **DDL extraction from pggit_v2 is feasible and performant.**
+✅ **DDL extraction from pggit_v0 is feasible and performant.**
 
-Core extraction function developed and tested successfully. The approach leverages pggit_v2's tree comparison capabilities to identify changes and extract DDL differences between commits.
+Core extraction function developed and tested successfully. The approach leverages pggit_v0's tree comparison capabilities to identify changes and extract DDL differences between commits.
 
 ## Core Extraction Algorithm
 
-### Function: `pggit_v2.extract_ddl_changes(old_commit_sha, new_commit_sha)`
+### Function: `pggit_v0.extract_ddl_changes(old_commit_sha, new_commit_sha)`
 
 **Algorithm**:
 1. Get tree SHA from old commit and new commit
 2. Use `diff_trees()` to identify added/modified/deleted objects
-3. For each change, extract DDL from pggit_v2.objects
+3. For each change, extract DDL from pggit_v0.objects
 4. Parse object type from DDL content
 5. Return structured change information
 
 **Implementation**:
 ```sql
-CREATE OR REPLACE FUNCTION pggit_v2.extract_ddl_changes(
+CREATE OR REPLACE FUNCTION pggit_v0.extract_ddl_changes(
     p_old_commit_sha TEXT,
     p_new_commit_sha TEXT
 ) RETURNS TABLE (
