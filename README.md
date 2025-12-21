@@ -1,10 +1,6 @@
 # pgGit: Git for PostgreSQL Databases 🚀
 
-# ⚠️ IMPORTANT NOTICE
-
-**This version contains known bugs and is NOT production ready.** The v0.1.1 release has been withdrawn due to 16 critical bug categories affecting all test files. Installation for testing purposes only - do not use in production.
-
-See [BUG_FIX_PLAN.md](BUG_FIX_PLAN.md) and [BUG_INVENTORY.md](BUG_INVENTORY.md) for current issues.
+**Git-like version control for PostgreSQL schemas. Track, branch, and manage database changes like code.**
 
 ---
 
@@ -12,19 +8,8 @@ See [BUG_FIX_PLAN.md](BUG_FIX_PLAN.md) and [BUG_INVENTORY.md](BUG_INVENTORY.md) 
 [![Tests](https://github.com/evoludigit/pgGit/actions/workflows/test-with-fixes.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/test-with-fixes.yml)
 [![Security Scanning](https://github.com/evoludigit/pgGit/actions/workflows/security-scan.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/security-scan.yml)
 [![PostgreSQL 15-17](https://img.shields.io/badge/PostgreSQL-15--17-blue.svg)](https://www.postgresql.org/)
-[![Status: Bug Fixes In Progress](https://img.shields.io/badge/status-bug%20fixes%20in%20progress-orange)](BUG_FIX_PLAN.md)
-[![SBOM](https://img.shields.io/badge/SBOM-CycloneDX-blue)](SBOM.json)
+[![Version: 0.1.1](https://img.shields.io/badge/version-0.1.1-green.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-> [!WARNING]
-> **🚨 BUG FIXES IN PROGRESS**
->
-> The v0.1.1 release has been withdrawn due to critical bugs. Current status:
-> - ❌ **16 bug categories** affecting all 14 test files
-> - ❌ **Critical blockers** prevent basic DDL operations
-> - 🔄 **Active fixes** underway (see BUG_FIX_PLAN.md)
->
-> **Do not use in production.** Testing and development only.
 
 **Git-like version control for PostgreSQL schemas. Track, branch, and manage database changes like code.**
 
@@ -55,13 +40,26 @@ psql -c "CREATE TABLE users (id SERIAL PRIMARY KEY, name TEXT)"
 psql -c "SELECT * FROM pggit.get_version('users')"  # Version 1.0.0!
 ```
 
+## 🚀 Getting Started in 5 Minutes
+
+1. **Install pgGit** (choose one method below)
+2. **Create extension**: `CREATE EXTENSION pggit;`
+3. **Create a table**: `CREATE TABLE users (id SERIAL PRIMARY KEY, name TEXT);`
+4. **Check version**: `SELECT pggit.get_version('users');` → Returns `1.0.0`
+5. **You're done!** 🎉
+
 ## 📚 Documentation
 
-### 🎯 Get Started
+### 🎯 Quick Start Guides
 
-- **New to pgGit?** → [Getting Started Guide](docs/getting-started/Getting_Started.md)
-- **Want details?** → [Architecture Overview](docs/Architecture_Decision.md)
-- **Module Structure** → [Module Architecture](docs/architecture/MODULES.md)
+- **[Getting Started in 5 Minutes](docs/Getting_Started.md)** - Essential setup and first steps
+- **[User Guide](docs/USER_GUIDE.md)** - Complete user manual
+- **[API Reference](docs/API_Reference.md)** - All functions and features
+
+### 🏗️ Architecture & Design
+
+- **Architecture Overview** → [Design Decisions](docs/Architecture_Decision.md)
+- **Module Structure** → [Architecture](docs/architecture/MODULES.md)
 
 ### 📖 Comprehensive Guides
 
@@ -88,10 +86,13 @@ psql -c "SELECT * FROM pggit.get_version('users')"  # Version 1.0.0!
 
 ### 🔧 Additional Resources
 
-- [Contributing Guide](docs/contributing/README.md) - Help improve pgGit
-- [Troubleshooting](docs/getting-started/Troubleshooting.md) - Fix common issues
-- [Quality Reports](.phases/) - Phase 1-4 implementation and QA reports
-- [SBOM](SBOM.json) - Software Bill of Materials (CycloneDX 1.5)
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment and scaling
+- **[Support & Help](SUPPORT.md)** - Get help, report issues, community resources
+- **[Contributing Guide](CONTRIBUTING.md)** - Help improve pgGit
+- **[Troubleshooting](docs/getting-started/Troubleshooting.md)** - Fix common issues
+- **[Release Process](RELEASING.md)** - How releases are made
+- **[Release Notes](CHANGELOG.md)** - Version history and updates
+- **[Development Archive](_archive/README.md)** - Historical development process (for curious developers)
 
 ## ⚡ Instant Demo
 
