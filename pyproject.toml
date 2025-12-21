@@ -21,6 +21,7 @@ chaos = [
     "pytest-asyncio>=0.23.0",
     "pytest-timeout>=2.2.0",
     "pytest-xdist>=3.5.0",
+    "pytest-html>=4.1.0",
     "psycopg>=3.1.0",
     "psutil>=5.9.0",
 ]
@@ -35,10 +36,16 @@ python_functions = ["test_*"]
 asyncio_mode = "auto"
 markers = [
     "chaos: mark test as chaos engineering test",
-    "slow: mark test as slow (may take >30s)",
-    "concurrent: mark test as testing concurrency",
-    "destructive: mark test as potentially destructive",
     "property: mark test as property-based test",
+    "concurrent: mark test as concurrency test",
+    "transaction: mark test as transaction test",
+    "resource: mark test as resource exhaustion test",
+    "corruption: mark test as corruption test",
+    "recovery: mark test as recovery procedure test",
+    "migration: mark test as migration test",
+    "load: mark test as load/stress test",
+    "slow: mark test as slow (>30s)",
+    "destructive: mark test as potentially destructive",
 ]
 
 [tool.hypothesis]
