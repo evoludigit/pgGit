@@ -6,6 +6,7 @@ including PostgreSQL identifiers, table definitions, Git-like branch names, and 
 """
 
 import string
+from typing import Any, Dict, List
 
 from hypothesis import strategies as st
 
@@ -230,7 +231,7 @@ column_definition = st.builds(
 )
 
 
-def _validate_table_definition(tbl):
+def _validate_table_definition(tbl) -> bool:
     """Validate that a table definition generates valid PostgreSQL DDL."""
     try:
         # PostgreSQL reserved keywords that can't be used as identifiers
@@ -302,7 +303,7 @@ def _validate_table_definition(tbl):
 
 # Table definition strategy
 @st.composite
-def table_definition(draw):
+def table_definition(draw) -> Dict[str, Any]:
     """Generate complete table definition."""
     # Generate more unique table names to avoid collisions
     base_name = draw(table_name)
@@ -371,7 +372,9 @@ pg_branch_name = st.builds(
     lambda start, rest: start + rest,
     st.sampled_from(string.ascii_lowercase + "_"),
     st.text(
-        alphabet=string.ascii_lowercase + string.digits + "_", min_size=0, max_size=20,
+        alphabet=string.ascii_lowercase + string.digits + "_",
+        min_size=0,
+        max_size=20,
     ),
 ).filter(lambda x: 1 <= len(x) <= 63)
 
@@ -379,7 +382,9 @@ pg_branch_name = st.builds(
 commit_message = st.builds(
     lambda subject, body: f"{subject}\n\n{body}" if body else subject,
     st.text(
-        alphabet=string.ascii_letters + string.digits + " _-.", min_size=10, max_size=72,
+        alphabet=string.ascii_letters + string.digits + " _-.",
+        min_size=10,
+        max_size=72,
     ),
     st.one_of(st.none(), st.text(min_size=10, max_size=200)),
 ).filter(lambda x: x is not None and "\x00" not in x)
@@ -397,7 +402,7 @@ version_increment_type = st.sampled_from(["major", "minor", "patch"])
 
 # Data row strategy (simplified)
 @st.composite
-def data_row(draw, columns=None):
+def data_row(draw, columns=None) -> Dict[str, Any]:
     """Generate data row. If columns provided, match their types."""
     if columns is None:
         # Simple case: just generate some basic data
