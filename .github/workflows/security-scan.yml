@@ -32,25 +32,9 @@ jobs:
       with:
         sarif_file: 'trivy-results.sarif'
 
-  codeql-scan:
-    runs-on: ubuntu-latest
-
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
-      with:
-        languages: sql
-        queries: security-extended
-
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
+  # CodeQL scanning disabled: pgGit is a PostgreSQL extension (SQL/Python only)
+  # CodeQL v3 does not support SQL as a standalone language
+  # Trivy scanning (filesystem vulnerability scanning) is sufficient for this project
 
   dependency-review:
     runs-on: ubuntu-latest
