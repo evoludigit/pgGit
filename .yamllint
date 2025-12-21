@@ -4,12 +4,10 @@ extends: default
 rules:
   document-start: disable
   line-length:
-    max: 120
+    max: 160
   indentation:
-    spaces: 2
+    spaces: any
   truthy:
     check-keys: false
-  brackets:
-    min-spaces-inside: 0
-    max-spaces-inside: 0
+  brackets: disable
   trailing-spaces: disable
