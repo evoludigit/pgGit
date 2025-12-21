@@ -62,7 +62,7 @@ select = ["E", "F", "W", "C90", "I", "N", "UP", "YTT", "S", "BLE", "FBT", "B", "
 ignore = ["S101", "S104"]  # Allow assert statements and hardcoded passwords in tests
 
 [tool.ruff.lint.per-file-ignores]
-"tests/chaos/**" = ["S101"]  # Allow asserts in chaos tests
+"tests/chaos/**" = ["S101", "S608", "S311"]  # Allow asserts, controlled SQL, and non-crypto random in chaos tests
 
 [tool.uv]
 dev-dependencies = [
