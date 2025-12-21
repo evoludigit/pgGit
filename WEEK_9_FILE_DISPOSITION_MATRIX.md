@@ -128,7 +128,7 @@ Archive to: `_archive/quality-reports/`
 
 **Rationale**: Historical quality assessments. Current state documented in README and docs.
 
-#### Miscellaneous Development Files (4 files)
+#### Miscellaneous Development Files (7 files)
 Archive to: `_archive/development/`
 
 | File | Archive Path | Rationale |
@@ -136,6 +136,15 @@ Archive to: `_archive/development/`
 | RELEASE_READINESS_v0.1.1.md | .../development/ | Release readiness checklist |
 | MIGRATION_DOCS_INDEX.md | .../planning/ | Migration docs index |
 | SBOM.json | .../development/ | Software Bill of Materials |
+| PGGIT_SCHEMA_FIX_PLAN.md | .../bug-tracking/ | Schema fix plan (critical bug) |
+| PGGIT_V2_FULL_IMPLEMENTATION_PLAN.md | .../planning/architectural-decisions/ | Implementation plan for v0 |
+
+#### Operations Documentation (1 file)
+Move to: `docs/operations/`
+
+| File | Destination | Rationale |
+|------|-------------|-----------|
+| OPERATIONS_RUNBOOK.md | docs/operations/OPERATIONS_RUNBOOK.md | User-facing operations guide |
 
 **Rationale**: Snapshot of v0.1.1 release state. Useful for retrospectives.
 
@@ -169,6 +178,7 @@ docs/
 | API_REFERENCE.md (root) | docs/API_REFERENCE.md | Move (already exists in docs) |
 | USER_GUIDE.md (root) | docs/USER_GUIDE.md | Move (already exists in docs) |
 | DEVELOPER_TRAINING_COURSE.md (root) | docs/DEVELOPER_TRAINING_COURSE.md | Move |
+| OPERATIONS_RUNBOOK.md (root) | docs/operations/OPERATIONS_RUNBOOK.md | Move (user-facing operations guide) |
 
 **Note**: Some of these may already be in docs/. Verify before moving.
 
@@ -257,14 +267,16 @@ _archive/
 │   │   ├── PATH_A_DETAILED_IMPLEMENTATION_PLAN.md
 │   │   ├── PATH_A_EXECUTIVE_SUMMARY.md
 │   │   ├── PATH_A_SIMPLIFIED_NO_DEPRECATION.md
-│   │   └── SIMPLIFIED_PATH_A_EXECUTION_ROADMAP.md
+│   │   ├── SIMPLIFIED_PATH_A_EXECUTION_ROADMAP.md
+│   │   └── PGGIT_V2_FULL_IMPLEMENTATION_PLAN.md
 │   │
 │   ├── bug-tracking/
 │   │   ├── BUG_INVENTORY.md
 │   │   ├── BUG_FIX_PLAN.md
 │   │   ├── SILENT_TEST_FAILURES_FIX_PLAN.md
 │   │   ├── QA_REPORT_SILENT_FAILURES_FIX.md
-│   │   └── QA_INDEX.md
+│   │   ├── QA_INDEX.md
+│   │   └── PGGIT_SCHEMA_FIX_PLAN.md
 │   │
 │   └── project-status/
 │       ├── PLAN_IMPROVEMENT_QUICK_REFERENCE.md
@@ -480,8 +492,8 @@ How to deploy pgGit in production environments.
 | Action | Count | Examples |
 |--------|-------|----------|
 | **Keep in Root** | 13 | README.md, LICENSE, Makefile, etc. |
-| **Archive** | 35+ | All WEEK_*.md, PLAN_*.md, etc. |
-| **Move to docs/** | 3 | USER_GUIDE.md, API_REFERENCE.md (if in root) |
+| **Archive** | 37+ | All WEEK_*.md, PLAN_*.md, PGGIT_*.md, etc. |
+| **Move to docs/** | 4 | USER_GUIDE.md, API_REFERENCE.md, OPERATIONS_RUNBOOK.md |
 | **Create New** | 3 | RELEASING.md, SUPPORT.md, DEPLOYMENT.md |
 | **Keep unchanged** | 50+ | All docs/, sql/, src/, tests/ |
 | | | |
@@ -593,11 +605,11 @@ git checkout HEAD~1 -- <filename>
 | Day | Task | Files | Time |
 |-----|------|-------|------|
 | 1 | Planning & Classification | This document | 2h |
-| 2 | Archive Creation | 35+ files → _archive/ | 3h |
+| 2 | Archive Creation | 37+ files → _archive/ | 3h |
 | 3 | Root Cleanup | 50+ files → organized | 2h |
 | 4 | Documentation Updates | 5+ files | 3h |
 | 5 | Verification | Checklist verification | 2h |
-| | **TOTAL** | **40+ files processed** | **12h** |
+| | **TOTAL** | **42+ files processed** | **12h** |
 
 ---
 
