@@ -1,12 +1,12 @@
-# pgGit v2 User Guide
+# pgGit User Guide
 
-**Getting Started with Database Version Control**
+**Database Version Control for PostgreSQL**
 
 ---
 
-## Welcome to pgGit v2
+## Welcome to pgGit
 
-pgGit v2 brings Git-like version control to PostgreSQL databases. This guide will help you get started with branching, committing, and collaborating on database schema changes.
+pgGit is a PostgreSQL extension that brings version control to your database schema. Unlike traditional Git which versions files, pgGit versions database objects like tables, views, and functions.
 
 ---
 
@@ -14,66 +14,63 @@ pgGit v2 brings Git-like version control to PostgreSQL databases. This guide wil
 
 ### 1. Installation Check
 ```sql
--- Verify pggit_v0 is installed
-SELECT pggit_v0.get_head_sha() as status;
--- Should return a SHA or empty string (no commits yet)
+-- Verify pggit is installed
+SELECT * FROM pggit.health_check() LIMIT 3;
+-- Should show system status
 ```
 
-### 2. Create Your First Commit
+### 2. Create Your First Objects
 ```sql
--- Create initial schema
+-- Create a simple table
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Commit the changes
-SELECT pggit_v0.create_basic_commit('Add users table');
+-- Check that it's versioned
+SELECT pggit.get_version('users');
 ```
 
-### 3. Start Branching
+### 3. Explore Version History
+```sql
+-- See recent changes
+SELECT * FROM pggit.recent_changes LIMIT 5;
+
+-- View object versions
+SELECT * FROM pggit.object_versions LIMIT 5;
+```
+
+### 4. Branch Management
 ```sql
 -- Create a feature branch
-SELECT pggit_v0.create_branch('feature/user-profiles', 'Add user profile features');
+SELECT pggit.create_branch('feature/user-profiles');
 
--- Add more schema changes
-ALTER TABLE users ADD COLUMN first_name VARCHAR(100);
-ALTER TABLE users ADD COLUMN last_name VARCHAR(100);
-
--- Commit feature changes
-SELECT pggit_v0.create_basic_commit('Add user profile fields');
-```
-
-### 4. Check Your Work
-```sql
--- View all branches
-SELECT * FROM pggit_v0.list_branches();
-
--- View commit history
-SELECT commit_sha, author, message FROM pggit_v0.get_commit_history(5);
-
--- Get system health
-SELECT * FROM pggit_v0.get_dashboard_summary();
+-- List all branches
+SELECT * FROM pggit.list_branches();
 ```
 
 ---
 
 ## Core Concepts
 
-### Git-like Workflow
-pgGit v2 follows Git principles adapted for databases:
+### How pgGit Works
 
-- **Commits**: Snapshots of schema state with messages
-- **Branches**: Parallel development lines
-- **HEAD**: Points to current commit
-- **History**: Complete audit trail of changes
+pgGit automatically tracks DDL changes through:
+- **Event Triggers**: Capture all CREATE, ALTER, DROP statements
+- **Version History**: Maintain complete change log for each object
+- **Dependency Tracking**: Understand object relationships
+- **Branch Isolation**: Separate development lines
 
 ### Key Differences from Git
-- **Automatic Tracking**: DDL changes are tracked automatically
-- **Schema Focus**: Tracks table structures, not data
-- **Live System**: Works on active databases
-- **No Staging**: Changes commit immediately
+
+| Git | pgGit | Purpose |
+|-----|-------|---------|
+| Files | Database Objects | What gets versioned |
+| Commits | DDL Changes | Version checkpoints |
+| Branches | Schema Branches | Parallel development |
+| Diff | Schema Comparison | Change visualization |
+| Clone | Branch Checkout | Environment setup |
 
 ---
 
@@ -81,165 +78,212 @@ pgGit v2 follows Git principles adapted for databases:
 
 ### Morning: Check System Status
 ```sql
--- Quick health check
-SELECT * FROM pggit_v0.check_for_alerts();
+-- Health overview
+SELECT * FROM pggit.health_check();
 
--- View recent activity
-SELECT * FROM pggit_v0.get_dashboard_summary();
+-- Recent activity
+SELECT * FROM pggit.recent_changes ORDER BY changed_at DESC LIMIT 10;
+
+-- Size monitoring
+SELECT * FROM pggit.database_size_overview;
 ```
 
-### Development: Feature Branches
+### Development: Schema Changes
 ```sql
--- 1. Create feature branch
-SELECT pggit_v0.create_branch('feature/new-api-endpoint', 'Add REST API for orders');
+-- Make changes (automatically tracked)
+ALTER TABLE users ADD COLUMN first_name VARCHAR(100);
+ALTER TABLE users ADD COLUMN last_name VARCHAR(100);
 
--- 2. Make schema changes
-CREATE TABLE api_logs (
-    id SERIAL PRIMARY KEY,
-    endpoint VARCHAR(255),
-    method VARCHAR(10),
-    response_time INTEGER,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 3. Commit with descriptive message
-SELECT pggit_v0.create_basic_commit('Add API logging table for performance monitoring');
-
--- 4. Continue development
-ALTER TABLE api_logs ADD COLUMN user_id INTEGER REFERENCES users(id);
-SELECT pggit_v0.create_basic_commit('Link API logs to users for audit trail');
+-- Verify tracking
+SELECT * FROM pggit.get_history('users') ORDER BY version DESC LIMIT 3;
 ```
 
-### Review: Branch Comparison
+### Review: Impact Analysis
 ```sql
--- Compare your branch with main
-SELECT * FROM pggit_v0.diff_branches('main', 'feature/new-api-endpoint');
+-- Check dependencies
+SELECT * FROM pggit.get_dependency_order();
 
--- View detailed commit history
-SELECT * FROM pggit_v0.get_commit_history(10);
+-- Performance impact
+SELECT * FROM pggit.performance_report();
 ```
 
-### Merge: Feature Complete
+### Cleanup: Branch Management
 ```sql
--- Merge back to main (simulated)
-SELECT pggit_v0.create_basic_commit('Merge feature/new-api-endpoint - API logging system');
+-- Remove old branches
+SELECT * FROM pggit.generate_pruning_recommendations();
 
--- Clean up branch
-SELECT pggit_v0.delete_branch('feature/new-api-endpoint');
+-- Clean up if needed
+SELECT pggit.delete_branch('old-branch-name');
 ```
 
 ---
 
-## Advanced Usage Patterns
+## Branching and Merging
 
-### Schema Evolution Tracking
+### Creating Branches
 ```sql
--- Track object history
-SELECT * FROM pggit_v0.get_object_history('public', 'users', 10);
+-- Create feature branch
+SELECT pggit.create_branch('feature/new-api');
 
--- Get current DDL
-SELECT pggit_v0.get_object_definition('public', 'users');
+-- Create release branch
+SELECT pggit.create_branch('release/v1.2.0');
 
--- View metadata
-SELECT * FROM pggit_v0.get_object_metadata('public', 'users');
+-- Create hotfix branch
+SELECT pggit.create_branch('hotfix/security-patch');
 ```
 
-### Performance Monitoring
+### Working with Branches
 ```sql
--- System performance analysis
-SELECT * FROM pggit_v0.analyze_query_performance();
+-- Switch to branch
+SELECT pggit.checkout_branch('feature/new-api');
 
--- Storage optimization insights
-SELECT * FROM pggit_v0.estimate_storage_growth();
+-- Check current branch status
+SELECT * FROM pggit.status();
 
--- Size distribution analysis
-SELECT * FROM pggit_v0.get_object_size_distribution();
+-- List available branches
+SELECT * FROM pggit.list_branches();
 ```
 
-### Data Integrity Assurance
+### Merging Branches
 ```sql
--- Regular integrity checks
-SELECT * FROM pggit_v0.validate_data_integrity();
+-- Merge feature into main
+SELECT pggit.merge_branches('feature/new-api', 'main');
 
--- Anomaly detection
-SELECT * FROM pggit_v0.detect_anomalies();
-
--- Comprehensive monitoring report
-SELECT * FROM pggit_v0.generate_monitoring_report();
+-- Check merge results
+SELECT * FROM pggit.recent_changes ORDER BY changed_at DESC LIMIT 5;
 ```
 
 ---
 
-## Branching Strategies
+## Schema Analysis and Diffing
 
-### Feature Branches (Recommended)
+### Comparing Schemas
 ```sql
--- For new features
-SELECT pggit_v0.create_branch('feature/user-authentication');
--- Develop feature
--- Commit changes
--- Merge when complete
-SELECT pggit_v0.delete_branch('feature/user-authentication');
+-- Compare two schema states
+SELECT * FROM pggit.diff_schemas('dev', 'staging');
+
+-- Compare table structures
+SELECT pggit.diff_table_structure('users', 1, 3);
 ```
 
-### Release Branches
+### Change Detection
 ```sql
--- For production releases
-SELECT pggit_v0.create_branch('release/v2.1.0');
--- Final testing and stabilization
--- Tag for production
-SELECT pggit_v0.create_basic_commit('Release v2.1.0 - production ready');
+-- Find schema changes
+SELECT * FROM pggit.detect_schema_changes('production');
+
+-- View object history
+SELECT * FROM pggit.get_history('users');
 ```
 
-### Hotfix Branches
+---
+
+## Size Management and Optimization
+
+### Monitoring Database Size
 ```sql
--- For urgent production fixes
-SELECT pggit_v0.create_branch('hotfix/security-patch');
--- Implement fix
-SELECT pggit_v0.create_basic_commit('Fix critical security vulnerability');
--- Deploy immediately
+-- Overall size breakdown
+SELECT * FROM pggit.database_size_overview;
+
+-- Branch-specific sizes
+SELECT * FROM pggit.calculate_branch_size('main');
+
+-- Top space consumers
+SELECT * FROM pggit.top_space_consumers LIMIT 10;
+```
+
+### Cleanup and Optimization
+```sql
+-- Find unused data
+SELECT * FROM pggit.find_unreferenced_blobs();
+
+-- Get cleanup recommendations
+SELECT * FROM pggit.generate_pruning_recommendations();
+
+-- Run automated cleanup
+SELECT pggit.run_size_maintenance();
+```
+
+---
+
+## Migration and Deployment
+
+### Generating Migrations
+```sql
+-- Create migration between versions
+SELECT pggit.generate_migration(1, 5);
+
+-- Apply migration
+SELECT pggit.apply_migration('ALTER TABLE users ADD COLUMN phone TEXT;');
+```
+
+### Migration Integration
+```sql
+-- Check pending migrations
+SELECT * FROM pggit.pending_migrations;
+
+-- Validate migration impact
+SELECT * FROM pggit.analyze_migration_impact('migration_id', 'SQL');
+```
+
+---
+
+## Monitoring and Health Checks
+
+### System Health
+```sql
+-- Comprehensive health check
+SELECT * FROM pggit.health_check();
+
+-- Performance metrics
+SELECT * FROM pggit.performance_report();
+
+-- System status
+SELECT * FROM pggit.status();
+```
+
+### Automated Monitoring
+```sql
+-- Set up monitoring view
+CREATE VIEW system_health AS
+SELECT
+    'pggit_system' as service,
+    (SELECT COUNT(*) FROM pggit.health_check() WHERE status = 'OK') as healthy_components,
+    (SELECT COUNT(*) FROM pggit.recent_changes WHERE changed_at > NOW() - INTERVAL '1 day') as daily_changes,
+    NOW() as last_check
+;
 ```
 
 ---
 
 ## Best Practices
 
-### Commit Messages
-```sql
--- Good: Descriptive and actionable
-SELECT pggit_v0.create_basic_commit('Add user authentication with JWT tokens');
+### Development Workflow
+1. **Create Feature Branches**: Always work on feature branches
+2. **Regular Commits**: Make schema changes incrementally
+3. **Test Migrations**: Always test migrations before production
+4. **Monitor Performance**: Keep an eye on system performance
+5. **Regular Cleanup**: Clean up old branches and unused data
 
--- Bad: Vague or unhelpful
-SELECT pggit_v0.create_basic_commit('Changes');
-```
-
-### Branch Naming
+### Branch Naming Conventions
 ```sql
--- Good: Descriptive and categorized
-'feature/user-registration'
-'bugfix/login-validation'
-'release/v2.1.0'
+-- Feature branches
+'feature/user-authentication'
+'feature/payment-integration'
+
+-- Release branches
+'release/v1.2.0'
+'release/v2.0.0-beta'
+
+-- Hotfix branches
 'hotfix/security-patch'
-
--- Bad: Unclear or inconsistent
-'my-branch'
-'fix'
-'new-stuff'
+'hotfix/critical-bug'
 ```
 
-### Regular Maintenance
-```sql
--- Daily: Check system health
-SELECT * FROM pggit_v0.check_for_alerts();
-
--- Weekly: Review old branches
-SELECT name FROM pggit_v0.list_branches()
-WHERE name LIKE 'feature/%'
-  AND last_commit < CURRENT_TIMESTAMP - INTERVAL '30 days';
-
--- Monthly: Performance review
-SELECT * FROM pggit_v0.analyze_query_performance();
-```
+### Performance Guidelines
+- **Monitor Size Growth**: Use `database_size_overview` weekly
+- **Clean Regularly**: Run pruning recommendations monthly
+- **Optimize Queries**: Review performance reports regularly
+- **Archive Old Data**: Implement retention policies
 
 ---
 
@@ -247,233 +291,169 @@ SELECT * FROM pggit_v0.analyze_query_performance();
 
 ### Common Issues
 
-#### "No commits found" Error
+#### Schema Changes Not Tracking
 ```sql
--- Solution: Create initial commit first
-SELECT pggit_v0.create_basic_commit('Initial schema setup');
+-- Check if triggers are active
+SELECT * FROM pggit.status() WHERE component = 'triggers';
+
+-- Verify trigger installation
+SELECT * FROM pg_trigger WHERE tgname LIKE 'pggit%';
 ```
 
-#### Branch Already Exists
+#### Performance Problems
 ```sql
--- Solution: Use unique branch names
-SELECT pggit_v0.create_branch('feature/new-feature-v2');
+-- Check performance metrics
+SELECT * FROM pggit.performance_report();
+
+-- Review recent changes
+SELECT * FROM pggit.recent_changes ORDER BY changed_at DESC LIMIT 10;
+
+-- Analyze query plans
+EXPLAIN ANALYZE SELECT * FROM pggit.object_versions;
 ```
 
-#### Cannot Delete Main Branch
+#### Branch Conflicts
 ```sql
--- Solution: Main branch is protected
--- Create other branches for development
+-- Detect conflicts before merging
+SELECT * FROM pggit.detect_data_conflicts('source_branch', 'target_branch');
+
+-- Resolve conflicts
+SELECT pggit.resolve_conflict('conflict_id', 'resolution_strategy');
 ```
 
-### Performance Issues
+#### Storage Issues
 ```sql
--- Check query performance
-SELECT * FROM pggit_v0.analyze_query_performance();
+-- Check size breakdown
+SELECT * FROM pggit.database_size_overview;
 
--- Review system recommendations
-SELECT * FROM pggit_v0.get_recommendations();
-```
+-- Find cleanup opportunities
+SELECT * FROM pggit.generate_pruning_recommendations();
 
-### Data Integrity Problems
-```sql
--- Run integrity validation
-SELECT * FROM pggit_v0.validate_data_integrity();
-
--- Check for anomalies
-SELECT * FROM pggit_v0.detect_anomalies();
+-- Run cleanup
+SELECT pggit.run_size_maintenance();
 ```
 
 ---
 
 ## Integration Examples
 
-### CI/CD Pipeline Integration
+### CI/CD Pipeline
 ```bash
 #!/bin/bash
-# Pre-deployment validation
-psql -c "SELECT * FROM pggit_v0.validate_data_integrity()" > integrity_check.txt
+# Schema validation in CI/CD
+psql -c "SELECT * FROM pggit.health_check()" > health_report.txt
 
-# Schema diff for migration
-psql -c "SELECT * FROM pggit_v0.diff_branches('staging', 'production')" > schema_diff.sql
+# Migration testing
+psql -c "SELECT pggit.generate_migration(1, CURRENT_VERSION)" > migration.sql
 
-# Generate deployment report
-psql -c "SELECT * FROM pggit_v0.generate_monitoring_report()" > deployment_report.txt
+# Size monitoring
+psql -c "SELECT * FROM pggit.database_size_overview" > size_report.txt
 ```
 
-### Application Integration
+### Application Monitoring
 ```python
-import psycopg2
+def check_database_health():
+    # Health check before app operations
+    health = query("SELECT * FROM pggit.health_check()")
+    if not all(row['status'] == 'OK' for row in health):
+        alert_admin("Database health issues detected")
 
-def check_schema_health():
-    with psycopg2.connect(database="mydb") as conn:
-        with conn.cursor() as cur:
-            # Check for alerts
-            cur.execute("SELECT * FROM pggit_v0.check_for_alerts()")
-            alerts = cur.fetchall()
-
-            # Get dashboard summary
-            cur.execute("SELECT * FROM pggit_v0.get_dashboard_summary()")
-            dashboard = cur.fetchall()
-
-            return {"alerts": alerts, "dashboard": dashboard}
+    # Monitor recent changes
+    changes = query("SELECT COUNT(*) FROM pggit.recent_changes WHERE changed_at > NOW() - INTERVAL '1 hour'")
+    if changes[0]['count'] > 10:
+        log_info(f"High change volume: {changes[0]['count']} changes in last hour")
 ```
 
-### Monitoring Dashboard
+### Dashboard Creation
 ```sql
--- Create monitoring view for Grafana/monitoring
-CREATE VIEW system_health AS
+-- Executive dashboard
+CREATE VIEW schema_dashboard AS
 SELECT
-    'pggit_system' as service,
-    (SELECT COUNT(*) FROM pggit_v0.check_for_alerts() WHERE severity = 'OK') as healthy_checks,
-    (SELECT COUNT(*) FROM pggit_v0.commit_graph) as total_commits,
-    (SELECT COUNT(*) FROM pggit_v0.refs WHERE type = 'branch') as active_branches,
-    CURRENT_TIMESTAMP as checked_at
-FROM pggit_v0.get_dashboard_summary()
-LIMIT 1;
-```
-
----
-
-## Migration from Legacy Systems
-
-### From Manual Schema Tracking
-```sql
--- 1. Install pggit_v0
--- 2. Create baseline commit
-SELECT pggit_v0.create_basic_commit('Baseline schema - migrating from manual tracking');
-
--- 3. Enable automatic tracking (already active)
--- 4. Train team on new workflow
-```
-
-### From Other Version Control Tools
-```sql
--- 1. Export current schema state
--- 2. Create initial pggit_v0 commit
-SELECT pggit_v0.create_basic_commit('Migrated from [old_tool] - initial schema state');
-
--- 3. Import existing change history (if available)
--- 4. Update CI/CD pipelines
-```
-
----
-
-## Team Collaboration
-
-### Code Reviews for Schema Changes
-```sql
--- Reviewer workflow
--- 1. Check branch diff
-SELECT * FROM pggit_v0.diff_branches('main', 'feature/new-table');
-
--- 2. Review commit messages
-SELECT * FROM pggit_v0.get_commit_history(10);
-
--- 3. Validate schema integrity
-SELECT * FROM pggit_v0.validate_data_integrity();
-```
-
-### Branch Protection Rules
-```sql
--- Implement branch protection in application code
-CREATE OR REPLACE FUNCTION check_branch_protection()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- Prevent direct commits to main
-    IF NEW.name = 'main' AND NEW.type = 'branch' THEN
-        -- Require pull request approval
-        RAISE EXCEPTION 'Direct commits to main not allowed';
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER protect_main_branch
-    BEFORE UPDATE ON pggit_v0.refs
-    FOR EACH ROW EXECUTE FUNCTION check_branch_protection();
+    (SELECT COUNT(*) FROM pggit.object_versions) as total_objects,
+    (SELECT COUNT(*) FROM pggit.list_branches()) as active_branches,
+    (SELECT SUM(size_mb) FROM pggit.database_size_overview) as total_size_mb,
+    (SELECT COUNT(*) FROM pggit.recent_changes WHERE changed_at > CURRENT_DATE) as changes_today,
+    (SELECT COUNT(*) FROM pggit.health_check() WHERE status = 'OK') as healthy_components,
+    CURRENT_TIMESTAMP as last_updated
+;
 ```
 
 ---
 
 ## Advanced Features
 
-### Custom Analytics
+### AI-Powered Analysis
 ```sql
--- Create team-specific monitoring views
-CREATE VIEW team_schema_changes AS
-SELECT
-    author,
-    COUNT(*) as changes_today,
-    MAX(committed_at) as last_change
-FROM pggit_v0.commit_graph
-WHERE committed_at >= CURRENT_DATE
-GROUP BY author
-ORDER BY changes_today DESC;
+-- AI migration analysis
+SELECT * FROM pggit.analyze_migration_with_ai_enhanced('migration_id', 'SQL');
+
+-- AI accuracy tracking
+SELECT * FROM pggit.ai_accuracy_dashboard;
 ```
 
-### Automated Cleanup
+### CQRS Support
 ```sql
--- Clean up old feature branches
-DO $$
-DECLARE
-    old_branch RECORD;
-BEGIN
-    FOR old_branch IN
-        SELECT name FROM pggit_v0.list_branches()
-        WHERE branch_name LIKE 'feature/%'
-        AND last_commit < CURRENT_TIMESTAMP - INTERVAL '90 days'
-    LOOP
-        PERFORM pggit_v0.delete_branch(old_branch.name);
-        RAISE NOTICE 'Deleted old branch: %', old_branch.name;
-    END LOOP;
-END $$;
+-- CQRS event tracking
+SELECT * FROM pggit.cqrs_history;
+
+-- Command-query separation
+SELECT * FROM pggit.cqrs_command_log;
+```
+
+### Conflict Resolution
+```sql
+-- Advanced conflict detection
+SELECT * FROM pggit.detect_data_conflicts('branch_a', 'branch_b');
+
+-- Automated resolution
+SELECT pggit.apply_data_merge('conflict_id', 'merge_strategy');
 ```
 
 ---
 
-## Support and Resources
+## Community and Support
 
 ### Getting Help
-- **API Reference**: Complete function documentation
-- **Troubleshooting Guide**: Common issues and solutions
-- **Community Forum**: Share experiences and ask questions
-- **Professional Services**: Enterprise support available
+- **GitHub Issues**: Bug reports and feature requests
+- **GitHub Discussions**: General questions and troubleshooting
+- **Documentation**: Self-service guides and tutorials
+- **Stack Overflow**: Community-driven Q&A (tag: pggit)
 
-### Training Resources
-- **Quick Start Guide**: This document
-- **Video Tutorials**: Step-by-step walkthroughs
-- **Interactive Labs**: Hands-on practice environments
-- **Certification Program**: Advanced user certification
-
-### Performance Tuning
-- **Query Optimization**: Index recommendations
-- **Storage Management**: Cleanup and archiving strategies
-- **Monitoring Setup**: Alert configuration guides
-- **Scalability Guide**: Large database optimization
+### Contributing
+- **Pull Requests**: Code contributions welcome
+- **Documentation**: Help improve guides and tutorials
+- **Testing**: Report bugs and edge cases
+- **Feedback**: Share your experience and suggestions
 
 ---
 
-## Success Metrics
+## Migration from Other Tools
 
-Track these KPIs to measure pgGit v2 success:
+### From Manual Tracking
+```sql
+-- Install pgGit
+psql -f install.sql
 
-### Development Velocity
-- **Schema Changes**: Time to deploy schema changes
-- **Branch Lifetime**: Average time from branch creation to merge
-- **Rollback Frequency**: How often rollbacks are needed
+-- Verify installation
+SELECT * FROM pggit.health_check();
 
-### System Reliability
-- **Uptime**: System availability percentage
-- **Alert Response**: Time to resolve system alerts
-- **Data Integrity**: Percentage of successful integrity checks
+-- Start using immediately - existing DDL is automatically tracked
+```
 
-### Team Adoption
-- **Training Completion**: Percentage of team trained
-- **Usage Frequency**: Daily active users of pgGit functions
-- **Error Reduction**: Decrease in schema-related incidents
+### From Other Version Control
+```sql
+-- Export current schema
+pg_dump --schema-only > current_schema.sql
+
+-- Install pgGit
+psql -f install.sql
+
+-- Create baseline
+-- (pgGit automatically starts tracking from this point)
+```
 
 ---
 
-*Remember: pgGit v2 is your database's version control system. Use it consistently, commit often, and branch strategically for successful database development workflows.*
+*pgGit brings the power of version control to your database schema. Use it consistently to maintain clean, versioned, and collaborative database development.*
 
-**Happy versioning! 🚀**
+**Happy versioning! 🎉**
