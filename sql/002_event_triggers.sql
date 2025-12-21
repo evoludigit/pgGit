@@ -79,7 +79,7 @@ BEGIN
                     v_object_name := v_object.object_identity;
             END;
         ELSE
-            v_schema_name := '';
+            v_schema_name := 'public';
             v_object_name := v_object.object_identity;
         END IF;
         
@@ -145,26 +145,31 @@ BEGIN
                 
             WHEN 'index' THEN
                 -- Get parent table for index
-                SELECT 
+                SELECT
                     schemaname,
                     tablename
-                INTO 
+                INTO
                     v_schema_name,
                     v_parent_name
                 FROM pg_indexes
                 WHERE indexname = v_object_name
                 AND schemaname = v_schema_name;
-                
+
+                -- Ensure schema_name is not NULL (fallback to 'public')
+                IF v_schema_name IS NULL THEN
+                    v_schema_name := 'public';
+                END IF;
+
                 v_metadata := jsonb_build_object(
                     'table', v_parent_name,
                     'oid', v_object.objid
                 );
-                
+
                 v_object_id := pggit.ensure_object(
                     'INDEX'::pggit.object_type,
                     v_schema_name,
                     v_object_name,
-                    v_schema_name || '.' || v_parent_name,
+                    v_schema_name || '.' || COALESCE(v_parent_name, 'unknown'),
                     v_metadata
                 );
                 
