@@ -1,0 +1,131 @@
+name: Version Alignment Check
+
+on:
+  pull_request:
+    paths:
+      - 'pyproject.toml'
+      - 'pggit--*.sql'
+      - 'docs/**/*.md'
+      - 'tests/**/*.sql'
+      - 'CHANGELOG.md'
+  push:
+    branches:
+      - main
+      - release/**
+    paths:
+      - 'pyproject.toml'
+      - 'pggit--*.sql'
+      - 'docs/**/*.md'
+      - 'tests/**/*.sql'
+      - 'CHANGELOG.md'
+
+jobs:
+  version-alignment:
+    name: Check Version Alignment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from pyproject.toml
+        id: pyproject_version
+        run: |
+          VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\([^"]*\)"/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version from pyproject.toml: $VERSION"
+
+      - name: Check SQL extension file naming
+        id: sql_version
+        run: |
+          SQL_FILES=$(ls pggit--*.sql 2>/dev/null | head -1)
+          if [ -z "$SQL_FILES" ]; then
+            echo "❌ No pggit--*.sql file found"
+            exit 1
+          fi
+
+          # Extract version from SQL filename (e.g., pggit--0.1.1.sql)
+          SQL_VERSION=$(echo "$SQL_FILES" | sed 's/pggit--\([^.]*\.[^.]*\.[^.]*\)\.sql/\1/')
+          echo "version=$SQL_VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version from SQL file: $SQL_VERSION"
+          echo "SQL file: $SQL_FILES"
+
+      - name: Check version in CHANGELOG.md
+        id: changelog_version
+        run: |
+          # Check if CHANGELOG.md mentions the version
+          if grep -q "## \[${{ steps.pyproject_version.outputs.version }}\]" CHANGELOG.md; then
+            echo "✓ CHANGELOG.md has entry for v${{ steps.pyproject_version.outputs.version }}"
+          else
+            echo "⚠️  Warning: CHANGELOG.md may not have an entry for v${{ steps.pyproject_version.outputs.version }}"
+            echo "See CHANGELOG.md for details"
+          fi
+
+      - name: Check documentation version references
+        run: |
+          VERSION="${{ steps.pyproject_version.outputs.version }}"
+          ERRORS=0
+
+          echo "Checking documentation for version consistency..."
+
+          # Check API Reference
+          if grep -q "pgGit v$VERSION" docs/API_Reference.md; then
+            echo "✓ docs/API_Reference.md has correct version"
+          else
+            echo "⚠️  docs/API_Reference.md may need version update to $VERSION"
+          fi
+
+          # Check reference README
+          if grep -q "\"pggit_version\": \"$VERSION\"" docs/reference/README.md; then
+            echo "✓ docs/reference/README.md has correct version"
+          else
+            echo "⚠️  docs/reference/README.md may need version update to $VERSION"
+          fi
+
+          # Check benchmarks
+          if grep -q "pgGit Version.*$VERSION" docs/benchmarks/BASELINE.md; then
+            echo "✓ docs/benchmarks/BASELINE.md has correct version"
+          else
+            echo "⚠️  docs/benchmarks/BASELINE.md may need version update to $VERSION"
+          fi
+
+      - name: Verify version alignment
+        run: |
+          PYPROJECT_VER="${{ steps.pyproject_version.outputs.version }}"
+          SQL_VER="${{ steps.sql_version.outputs.version }}"
+
+          echo "=== Version Alignment Check ==="
+          echo "pyproject.toml version: $PYPROJECT_VER"
+          echo "SQL file version:       $SQL_VER"
+
+          if [ "$PYPROJECT_VER" != "$SQL_VER" ]; then
+            echo ""
+            echo "❌ MISMATCH: pyproject.toml and SQL extension versions differ!"
+            echo "   Expected: pggit--$PYPROJECT_VER.sql"
+            echo "   Got: pggit--$SQL_VER.sql"
+            exit 1
+          else
+            echo ""
+            echo "✓ All versions are aligned: $PYPROJECT_VER"
+          fi
+
+      - name: Comment on PR (if applicable)
+        if: github.event_name == 'pull_request' && failure()
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## ⚠️ Version Alignment Issues Found\n\nPlease ensure all version numbers are aligned:\n- **pyproject.toml**: version = "${{ steps.pyproject_version.outputs.version }}"\n- **SQL file**: pggit--${{ steps.sql_version.outputs.version }}.sql\n- **Documentation**: Update all version references\n\n### Files to Check:\n- [ ] pggit--*.sql (should match pyproject.toml version)\n- [ ] docs/API_Reference.md\n- [ ] docs/reference/README.md\n- [ ] docs/benchmarks/BASELINE.md\n- [ ] CHANGELOG.md\n- [ ] Any other documentation with version references`
+            })
+
+      - name: Print summary
+        if: success()
+        run: |
+          echo "✅ All version checks passed!"
+          echo "Version: ${{ steps.pyproject_version.outputs.version }}"
+          echo "SQL Extension: pggit--${{ steps.sql_version.outputs.version }}.sql"

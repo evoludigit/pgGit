@@ -1006,5 +1006,5 @@ def deploy_feature(feature_name, migration_sql):
 
 ---
 
-*This API reference covers pgGit v0.1.0+. For the latest updates, see our
+*This API reference covers pgGit v0.1.1+. For the latest updates, see our
 [GitHub repository](https://github.com/evoludigit/pggit).*
