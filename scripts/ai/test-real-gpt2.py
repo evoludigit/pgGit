@@ -5,6 +5,7 @@ Fixed version with proper imports and error handling
 """
 
 import json
+import os
 import re
 import time
 
@@ -43,7 +44,10 @@ This migration does:"""
 
         # Tokenize and generate
         inputs = tokenizer.encode(
-            prompt, return_tensors="pt", max_length=200, truncation=True,
+            prompt,
+            return_tensors="pt",
+            max_length=200,
+            truncation=True,
         )
 
         with torch.no_grad():
@@ -168,7 +172,10 @@ def test_real_ai_migrations():
 
     try:
         conn = psycopg.connect(
-            host="localhost", dbname="pggit_test", user="postgres", password="test123",
+            host="localhost",
+            dbname="pggit_test",
+            user="postgres",
+            password=os.getenv("PGPASSWORD", "test123"),
         )
         cur = conn.cursor()
 
@@ -207,7 +214,9 @@ def test_real_ai_migrations():
 
             # Real GPT-2 analysis
             ai_result = analyze_migration_with_gpt2(
-                test_case["content"], model, tokenizer,
+                test_case["content"],
+                model,
+                tokenizer,
             )
 
             end_time = time.time()
