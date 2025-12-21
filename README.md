@@ -1,24 +1,30 @@
 # pgGit: Git for PostgreSQL Databases 🚀
 
+# ⚠️ IMPORTANT NOTICE
+
+**This version contains known bugs and is NOT production ready.** The v0.1.1 release has been withdrawn due to 16 critical bug categories affecting all test files. Installation for testing purposes only - do not use in production.
+
+See [BUG_FIX_PLAN.md](BUG_FIX_PLAN.md) and [BUG_INVENTORY.md](BUG_INVENTORY.md) for current issues.
+
+---
+
 [![Build](https://github.com/evoludigit/pgGit/actions/workflows/build.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/build.yml)
 [![Tests](https://github.com/evoludigit/pgGit/actions/workflows/test-with-fixes.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/test-with-fixes.yml)
 [![Security Scanning](https://github.com/evoludigit/pgGit/actions/workflows/security-scan.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/security-scan.yml)
 [![PostgreSQL 15-17](https://img.shields.io/badge/PostgreSQL-15--17-blue.svg)](https://www.postgresql.org/)
-[![Production Ready](https://img.shields.io/badge/status-production%20ready-green)](RELEASE_READINESS_v0.1.1.md)
+[![Status: Bug Fixes In Progress](https://img.shields.io/badge/status-bug%20fixes%20in%20progress-orange)](BUG_FIX_PLAN.md)
 [![SBOM](https://img.shields.io/badge/SBOM-CycloneDX-blue)](SBOM.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> [!NOTE]
-> **✅ PRODUCTION READY - v0.1.1 Release**
+> [!WARNING]
+> **🚨 BUG FIXES IN PROGRESS**
 >
-> pgGit v0.1.1 includes:
-> - ✅ **Comprehensive Testing**: 133 chaos engineering tests (88% pass rate)
-> - ✅ **Professional Code**: 100% Python 3.10+ type hints, zero critical errors
-> - ✅ **Enterprise Metadata**: Authors, license, keywords, classifiers per PyPI standards
-> - ✅ **CI/CD Integration**: Smoke tests, full suite, weekly comprehensive runs
-> - ✅ **Documentation**: Complete guides, patterns, troubleshooting, and examples
+> The v0.1.1 release has been withdrawn due to critical bugs. Current status:
+> - ❌ **16 bug categories** affecting all 14 test files
+> - ❌ **Critical blockers** prevent basic DDL operations
+> - 🔄 **Active fixes** underway (see BUG_FIX_PLAN.md)
 >
-> See [Release Notes](RELEASE_READINESS_v0.1.1.md) for complete details.
+> **Do not use in production.** Testing and development only.
 
 **Git-like version control for PostgreSQL schemas. Track, branch, and manage database changes like code.**
 

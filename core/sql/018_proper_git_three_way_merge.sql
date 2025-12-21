@@ -111,30 +111,30 @@ DECLARE
     v_size INTEGER;
 BEGIN
     -- Build tree content (Git format)
-    FOR v_entry IN 
-        SELECT value::jsonb as entry_data 
-        FROM jsonb_array_elements(p_entries) 
-        ORDER BY value->>'path'
+    FOR v_entry IN
+        SELECT value as entry_data
+        FROM jsonb_array_elements(p_entries)
+        ORDER BY (value->>'path')::text
     LOOP
-        v_content := v_content || 
-                    format('%s %s|', v_entry.entry_data->>'mode', v_entry.entry_data->>'path') || 
-                    v_entry.entry_data->>'sha' || '|';
+        v_content := v_content ||
+                    format('%s %s|', v_entry.entry_data->>'mode', v_entry.entry_data->>'path') ||
+                    (v_entry.entry_data->>'sha') || '|';
     END LOOP;
-    
+
     v_size := length(v_content);
     v_sha := encode(sha256(('tree ' || v_size || ':' || v_content)::bytea), 'hex');
-    
+
     -- Store tree object
     INSERT INTO pggit_v2.objects (sha, type, size, content)
     VALUES (v_sha, 'tree', v_size, encode(v_content::bytea, 'base64'))
     ON CONFLICT (sha) DO NOTHING;
-    
+
     -- Cache tree entries
     INSERT INTO pggit_v2.tree_entries (tree_sha, path, mode, object_sha)
     SELECT v_sha, value->>'path', value->>'mode', value->>'sha'
     FROM jsonb_array_elements(p_entries)
     ON CONFLICT DO NOTHING;
-    
+
     RETURN v_sha;
 END;
 $$ LANGUAGE plpgsql;
@@ -286,16 +286,16 @@ CREATE OR REPLACE FUNCTION pggit_v2.diff_trees(
 BEGIN
     RETURN QUERY
     WITH tree1 AS (
-        SELECT path, mode, object_sha 
-        FROM pggit_v2.tree_entries 
-        WHERE tree_sha = p_tree1_sha
+        SELECT te.path, te.mode, te.object_sha
+        FROM pggit_v2.tree_entries te
+        WHERE te.tree_sha = p_tree1_sha
     ),
     tree2 AS (
-        SELECT path, mode, object_sha 
-        FROM pggit_v2.tree_entries 
-        WHERE tree_sha = p_tree2_sha
+        SELECT te.path, te.mode, te.object_sha
+        FROM pggit_v2.tree_entries te
+        WHERE te.tree_sha = p_tree2_sha
     )
-    SELECT 
+    SELECT
         COALESCE(t1.path, t2.path) as path,
         CASE
             WHEN t1.path IS NULL THEN 'add'
