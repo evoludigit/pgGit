@@ -7,7 +7,7 @@ including concurrent execution helpers, delay injection, and transaction monitor
 
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Callable
+from typing import Any, Callable, Generator
 
 import psycopg
 import pytest
@@ -16,7 +16,7 @@ from tests.chaos.utils import AsyncTransactionMonitor, ChaosInjector, Transactio
 
 
 @pytest.fixture
-def concurrent_executor():
+def concurrent_executor() -> Generator[ThreadPoolExecutor, None, None]:
     """Thread pool executor for running concurrent database operations."""
     with ThreadPoolExecutor(max_workers=20) as executor:
         yield executor
@@ -40,7 +40,7 @@ async def async_concurrent_executor():
 
 
 @pytest.fixture
-def pg_sleep_injector(sync_conn: psycopg.Connection):
+def pg_sleep_injector(sync_conn: psycopg.Connection) -> Callable[[float, str], Any]:
     """Inject delays using PostgreSQL's pg_sleep for realistic testing."""
 
     def inject_delay(seconds: float, query: str) -> Any:
@@ -64,28 +64,32 @@ async def async_pg_sleep_injector(async_conn: psycopg.AsyncConnection):
 
 
 @pytest.fixture
-def transaction_monitor(sync_conn: psycopg.Connection):
+def transaction_monitor(sync_conn: psycopg.Connection) -> TransactionMonitor:
     """Monitor active transactions and locks."""
     return TransactionMonitor(sync_conn)
 
 
 @pytest.fixture
-async def async_transaction_monitor(async_conn: psycopg.AsyncConnection):
+async def async_transaction_monitor(
+    async_conn: psycopg.AsyncConnection,
+) -> AsyncTransactionMonitor:
     """Async version of transaction monitor."""
     return AsyncTransactionMonitor(async_conn)
 
 
 @pytest.fixture
-def chaos_injector():
+def chaos_injector() -> ChaosInjector:
     """Provide access to chaos injection utilities."""
     return ChaosInjector()
 
 
 @pytest.fixture
-def deadlock_setup():
+def deadlock_setup() -> Callable:
     """Set up connections for deadlock testing."""
 
-    def create_deadlock_pair(conn1: psycopg.Connection, conn2: psycopg.Connection):
+    def create_deadlock_pair(
+        conn1: psycopg.Connection, conn2: psycopg.Connection
+    ) -> tuple[psycopg.Connection, psycopg.Connection]:
         """Create a deadlock scenario between two connections."""
         # Start transaction on conn1 and lock resource A
         conn1.execute("BEGIN")
@@ -99,7 +103,7 @@ def deadlock_setup():
 
         return conn1, conn2
 
-    def cleanup_deadlock(conn1: psycopg.Connection, conn2: psycopg.Connection):
+    def cleanup_deadlock(conn1: psycopg.Connection, conn2: psycopg.Connection) -> None:
         """Clean up deadlock test state."""
         try:
             conn1.execute("SELECT pg_advisory_unlock_all()")
@@ -120,7 +124,8 @@ async def async_deadlock_setup():
     """Set up async connections for deadlock testing."""
 
     async def create_deadlock_pair(
-        conn1: psycopg.AsyncConnection, conn2: psycopg.AsyncConnection,
+        conn1: psycopg.AsyncConnection,
+        conn2: psycopg.AsyncConnection,
     ):
         """Create a deadlock scenario between two async connections."""
         # Start transaction on conn1 and lock resource A
@@ -136,7 +141,8 @@ async def async_deadlock_setup():
         return conn1, conn2
 
     async def cleanup_deadlock(
-        conn1: psycopg.AsyncConnection, conn2: psycopg.AsyncConnection,
+        conn1: psycopg.AsyncConnection,
+        conn2: psycopg.AsyncConnection,
     ):
         """Clean up async deadlock test state."""
         try:
@@ -154,10 +160,12 @@ async def async_deadlock_setup():
 
 
 @pytest.fixture
-def load_generator(sync_conn: psycopg.Connection):
+def load_generator(sync_conn: psycopg.Connection) -> dict:
     """Generate database load for stress testing."""
 
-    def create_load_tables(num_tables: int = 5, rows_per_table: int = 1000):
+    def create_load_tables(
+        num_tables: int = 5, rows_per_table: int = 1000
+    ) -> list[str]:
         """Create tables with test data for load generation."""
         tables = []
 
@@ -238,7 +246,7 @@ async def async_load_generator(async_conn: psycopg.AsyncConnection):
 
 
 @pytest.fixture
-def connection_stressor():
+def connection_stressor() -> dict:
     """Utilities for stressing database connections."""
 
     def exhaust_connection_pool(max_connections: int = 50):
@@ -264,7 +272,7 @@ def connection_stressor():
 
 
 @pytest.fixture
-def schema_isolator(sync_conn: psycopg.Connection):
+def schema_isolator(sync_conn: psycopg.Connection) -> dict:
     """Create isolated schemas for testing schema-level operations."""
     schemas_created = []
 
