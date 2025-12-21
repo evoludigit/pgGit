@@ -8,13 +8,14 @@ import json
 import os
 import re
 import time
+from typing import Any, Dict, Optional, Tuple
 
 import psycopg
 import torch
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 
 
-def initialize_gpt2():
+def initialize_gpt2() -> Tuple[Optional[Any], Optional[Any]]:
     """Initialize GPT-2 model - smallest real AI model"""
     try:
         print("📥 Loading GPT-2 (124M parameters)...")
@@ -33,7 +34,9 @@ def initialize_gpt2():
         return None, None
 
 
-def analyze_migration_with_gpt2(migration_content, model, tokenizer):
+def analyze_migration_with_gpt2(
+    migration_content: str, model: Any, tokenizer: Any
+) -> Dict[str, Any]:
     """Analyze migration using real GPT-2 model"""
     try:
         # Create a focused prompt for SQL analysis
@@ -89,7 +92,7 @@ This migration does:"""
         return fallback_analysis(migration_content)
 
 
-def calculate_confidence(migration_content, ai_response):
+def calculate_confidence(migration_content: str, ai_response: str) -> float:
     """Calculate confidence based on migration complexity and AI response quality"""
     confidence = 0.8  # Base confidence
 
@@ -108,7 +111,7 @@ def calculate_confidence(migration_content, ai_response):
     return max(0.1, min(0.99, confidence))
 
 
-def extract_intent(migration_content, ai_response):
+def extract_intent(migration_content: str, ai_response: str) -> str:
     """Extract intent from migration content and AI response"""
     content_upper = migration_content.upper()
 
@@ -132,7 +135,7 @@ def extract_intent(migration_content, ai_response):
         return f"Database modification{ai_insight}"
 
 
-def assess_risk(migration_content):
+def assess_risk(migration_content: str) -> str:
     """Assess risk level of migration"""
     content_upper = migration_content.upper()
 
@@ -146,7 +149,7 @@ def assess_risk(migration_content):
         return "LOW"
 
 
-def fallback_analysis(migration_content):
+def fallback_analysis(migration_content: str) -> Dict[str, Any]:
     """Fallback analysis if GPT-2 fails"""
     return {
         "intent": extract_intent(migration_content, ""),
@@ -157,7 +160,7 @@ def fallback_analysis(migration_content):
     }
 
 
-def test_real_ai_migrations():
+def test_real_ai_migrations() -> bool:
     """Test real AI migration analysis"""
     print("🤖 Testing REAL GPT-2 AI Migration Analysis")
     print("==========================================")
