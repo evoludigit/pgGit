@@ -75,7 +75,8 @@ class ChaosInjector:
 
     @staticmethod
     async def simulate_deadlock(
-        conn1: psycopg.AsyncConnection, conn2: psycopg.AsyncConnection,
+        conn1: psycopg.AsyncConnection,
+        conn2: psycopg.AsyncConnection,
     ) -> None:
         """Simulate a deadlock scenario between two connections."""
         # Start transaction on conn1 and lock resource A
@@ -109,7 +110,7 @@ class ChaosInjector:
 class DatabaseStateSnapshot:
     """Capture and compare database state for validation."""
 
-    def __init__(self, conn: psycopg.Connection):
+    def __init__(self, conn: psycopg.Connection) -> None:
         self.conn = conn
         self.snapshots: dict[str, list[dict]] = {}
 
@@ -144,7 +145,7 @@ class DatabaseStateSnapshot:
 class AsyncDatabaseStateSnapshot:
     """Async version of DatabaseStateSnapshot."""
 
-    def __init__(self, conn: psycopg.AsyncConnection):
+    def __init__(self, conn: psycopg.AsyncConnection) -> None:
         self.conn = conn
         self.snapshots: dict[str, list[dict]] = {}
 
@@ -202,7 +203,7 @@ def measure_performance(func: Callable) -> Callable:
 class TransactionMonitor:
     """Monitor active transactions and locks."""
 
-    def __init__(self, conn: psycopg.Connection):
+    def __init__(self, conn: psycopg.Connection) -> None:
         self.conn = conn
 
     def get_active_transactions(self) -> list[dict]:
@@ -258,7 +259,7 @@ class TransactionMonitor:
 class AsyncTransactionMonitor:
     """Async version of TransactionMonitor."""
 
-    def __init__(self, conn: psycopg.AsyncConnection):
+    def __init__(self, conn: psycopg.AsyncConnection) -> None:
         self.conn = conn
 
     async def get_active_transactions(self) -> list[dict]:

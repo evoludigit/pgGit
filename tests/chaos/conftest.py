@@ -21,7 +21,7 @@ from psycopg.rows import dict_row
 
 
 # Pytest configuration
-def pytest_configure(config):
+def pytest_configure(config) -> None:
     """Register custom markers for chaos tests."""
     config.addinivalue_line("markers", "chaos: mark test as chaos engineering test")
     config.addinivalue_line("markers", "slow: mark test as slow (may take >30s)")
@@ -35,11 +35,17 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "transaction: mark test as transaction test")
     config.addinivalue_line("markers", "constraints: mark test as constraint test")
     config.addinivalue_line("markers", "crash: mark test as crash recovery test")
-    config.addinivalue_line("markers", "partial_failure: mark test as partial failure test")
-    config.addinivalue_line("markers", "resource: mark test as resource exhaustion test")
+    config.addinivalue_line(
+        "markers", "partial_failure: mark test as partial failure test"
+    )
+    config.addinivalue_line(
+        "markers", "resource: mark test as resource exhaustion test"
+    )
     config.addinivalue_line("markers", "load: mark test as load stress test")
     config.addinivalue_line("markers", "migration: mark test as migration failure test")
-    config.addinivalue_line("markers", "corruption: mark test as schema corruption test")
+    config.addinivalue_line(
+        "markers", "corruption: mark test as schema corruption test"
+    )
     config.addinivalue_line("markers", "integrity: mark test as data integrity test")
     config.addinivalue_line("markers", "recovery: mark test as recovery procedure test")
 
@@ -78,7 +84,7 @@ def db_connection_string(db_config: dict[str, str | None]) -> str:
 
 
 @pytest.fixture(scope="function", autouse=True)
-def cleanup_test_tables(db_connection_string: str):
+def cleanup_test_tables(db_connection_string: str) -> None:
     """Clean up test tables before each test function runs."""
     with psycopg.connect(db_connection_string, autocommit=True) as conn:
         try:
@@ -342,7 +348,7 @@ async def async_temp_table(
 
 
 @pytest.fixture(scope="session")
-def chaos_test_db_setup(db_connection_string: str):
+def chaos_test_db_setup(db_connection_string: str) -> None:
     """Set up the chaos test database once per session."""
     # Create database if it doesn't exist
     admin_conn_string = db_connection_string.replace("pggit_chaos_test", "postgres")
@@ -362,7 +368,7 @@ def chaos_test_db_setup(db_connection_string: str):
 
 
 @pytest.fixture
-def chaos_cleanup(sync_conn: psycopg.Connection):
+def chaos_cleanup(sync_conn: psycopg.Connection) -> None:
     """Ensure clean state for each chaos test."""
     # Reset any session-level state
     sync_conn.execute("RESET ALL")
