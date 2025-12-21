@@ -32,6 +32,10 @@ def pytest_configure(config):
     )
     config.addinivalue_line("markers", "property: mark test as property-based test")
     config.addinivalue_line("markers", "performance: mark test as performance test")
+    config.addinivalue_line("markers", "transaction: mark test as transaction test")
+    config.addinivalue_line("markers", "constraints: mark test as constraint test")
+    config.addinivalue_line("markers", "crash: mark test as crash recovery test")
+    config.addinivalue_line("markers", "partial_failure: mark test as partial failure test")
 
 
 def function_exists(db_connection_string: str, function_name: str) -> bool:
