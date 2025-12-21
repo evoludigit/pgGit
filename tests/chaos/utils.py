@@ -49,7 +49,7 @@ class ChaosInjector:
         for attempt in range(max_attempts):
             try:
                 return await func(*args, **kwargs)
-            except Exception as e:
+            except Exception:
                 if attempt < max_attempts - 1:
                     await asyncio.sleep(backoff * (2**attempt))
                 else:
@@ -67,7 +67,7 @@ class ChaosInjector:
         for attempt in range(max_attempts):
             try:
                 return func(*args, **kwargs)
-            except Exception as e:
+            except Exception:
                 if attempt < max_attempts - 1:
                     time.sleep(backoff * (2**attempt))
                 else:
@@ -130,8 +130,7 @@ class DatabaseStateSnapshot:
 
         if current == expected:
             return True, "States match"
-        else:
-            return False, f"Expected {len(expected)} rows, got {len(current)} rows"
+        return False, f"Expected {len(expected)} rows, got {len(current)} rows"
 
     def get_snapshot(self, name: str) -> list[dict] | None:
         """Get a stored snapshot."""
@@ -165,8 +164,7 @@ class AsyncDatabaseStateSnapshot:
 
         if current == expected:
             return True, "States match"
-        else:
-            return False, f"Expected {len(expected)} rows, got {len(current)} rows"
+        return False, f"Expected {len(expected)} rows, got {len(current)} rows"
 
     def get_snapshot(self, name: str) -> list[dict] | None:
         """Get a stored snapshot."""
@@ -196,8 +194,7 @@ def measure_performance(func: Callable) -> Callable:
 
     if asyncio.iscoroutinefunction(func):
         return async_wrapper
-    else:
-        return sync_wrapper
+    return sync_wrapper
 
 
 class TransactionMonitor:

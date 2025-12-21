@@ -40,7 +40,7 @@ def initialize_gpt2() -> Tuple[Optional[Any], Optional[Any]]:
 
 
 def analyze_migration_with_gpt2(
-    migration_content: str, model: Any, tokenizer: Any
+    migration_content: str, model: Any, tokenizer: Any,
 ) -> Dict[str, Any]:
     """Analyze migration using real GPT-2 model"""
     try:
@@ -128,16 +128,15 @@ def extract_intent(migration_content: str, ai_response: str) -> str:
 
     if "CREATE TABLE" in content_upper:
         return f"Create new table{ai_insight}"
-    elif "ALTER TABLE" in content_upper and "ADD COLUMN" in content_upper:
+    if "ALTER TABLE" in content_upper and "ADD COLUMN" in content_upper:
         return f"Add column to table{ai_insight}"
-    elif "CREATE INDEX" in content_upper:
+    if "CREATE INDEX" in content_upper:
         return f"Create performance index{ai_insight}"
-    elif "DROP" in content_upper:
+    if "DROP" in content_upper:
         return f"Remove database object{ai_insight}"
-    elif "UPDATE" in content_upper:
+    if "UPDATE" in content_upper:
         return f"Data modification{ai_insight}"
-    else:
-        return f"Database modification{ai_insight}"
+    return f"Database modification{ai_insight}"
 
 
 def assess_risk(migration_content: str) -> str:
@@ -146,12 +145,11 @@ def assess_risk(migration_content: str) -> str:
 
     if "DROP TABLE" in content_upper or "DROP DATABASE" in content_upper:
         return "HIGH"
-    elif "DELETE FROM" in content_upper or "UPDATE" in content_upper:
+    if "DELETE FROM" in content_upper or "UPDATE" in content_upper:
         return "MEDIUM"
-    elif "ALTER TABLE" in content_upper and "DROP COLUMN" in content_upper:
+    if "ALTER TABLE" in content_upper and "DROP COLUMN" in content_upper:
         return "MEDIUM"
-    else:
-        return "LOW"
+    return "LOW"
 
 
 def fallback_analysis(migration_content: str) -> Dict[str, Any]:

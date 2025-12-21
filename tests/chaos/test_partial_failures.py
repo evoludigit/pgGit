@@ -184,7 +184,7 @@ class TestPartialFailures:
         # Cleanup
         try:
             sync_conn.execute(
-                "DROP TRIGGER IF EXISTS trigger_test_insert ON trigger_test"
+                "DROP TRIGGER IF EXISTS trigger_test_insert ON trigger_test",
             )
             sync_conn.execute("DROP FUNCTION IF EXISTS trigger_test_check()")
             sync_conn.execute("DROP TABLE IF EXISTS trigger_test CASCADE")
@@ -356,7 +356,7 @@ class TestPartialFailures:
             pass
 
     def test_transaction_with_pggit_partial_failure(
-        self, sync_conn: psycopg.Connection
+        self, sync_conn: psycopg.Connection,
     ):
         """
         Test: Failure during pggit operation causes complete rollback.

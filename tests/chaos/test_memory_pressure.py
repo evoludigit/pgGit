@@ -48,7 +48,7 @@ class TestMemoryPressure:
         except psycopg.Error:
             pass
 
-        print(f"\n✅ Large table with 50 columns versioned successfully")
+        print("\n✅ Large table with 50 columns versioned successfully")
 
     def test_large_commit_message_handling(self, sync_conn: psycopg.Connection):
         """
@@ -78,7 +78,7 @@ class TestMemoryPressure:
             # If successful, verify message stored
             if result is not None:
                 print(
-                    f"\n✅ Commit message ({len(commit_message)} chars) handled successfully"
+                    f"\n✅ Commit message ({len(commit_message)} chars) handled successfully",
                 )
 
         except psycopg.Error as e:
@@ -90,12 +90,12 @@ class TestMemoryPressure:
                 or "exceed" in error_msg
             ):
                 print(
-                    f"\n✅ Commit message rejected gracefully (expected size limit): {error_msg[:60]}"
+                    f"\n✅ Commit message rejected gracefully (expected size limit): {error_msg[:60]}",
                 )
             elif "already exists" in error_msg:
                 # Trinity ID collision despite UUID - skip test
                 pytest.skip(
-                    "Trinity ID collision detected despite UUID (test isolation issue)"
+                    "Trinity ID collision detected despite UUID (test isolation issue)",
                 )
             else:
                 pytest.fail(f"Unexpected error with commit message: {e}")
@@ -182,4 +182,4 @@ class TestMemoryPressure:
         except psycopg.Error:
             pass
 
-        print(f"\n✅ Table with 100 columns handled efficiently")
+        print("\n✅ Table with 100 columns handled efficiently")

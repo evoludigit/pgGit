@@ -13,7 +13,7 @@ import pytest
 @pytest.mark.resource
 @pytest.mark.destructive
 @pytest.mark.skip(
-    reason="Requires ability to control/limit disk space in test environment"
+    reason="Requires ability to control/limit disk space in test environment",
 )
 class TestDiskSpace:
     """
@@ -81,7 +81,7 @@ class TestStorageConstraints:
     """Test storage-related constraints that don't require disk full conditions."""
 
     def test_table_creation_under_normal_conditions(
-        self, sync_conn: psycopg.Connection
+        self, sync_conn: psycopg.Connection,
     ):
         """
         Test: Can create and use tables normally without storage constraints.
@@ -90,7 +90,7 @@ class TestStorageConstraints:
         """
         # Create table
         sync_conn.execute(
-            "CREATE TABLE storage_test (id SERIAL PRIMARY KEY, data TEXT)"
+            "CREATE TABLE storage_test (id SERIAL PRIMARY KEY, data TEXT)",
         )
         sync_conn.commit()
 
@@ -125,7 +125,7 @@ class TestStorageConstraints:
         """
         # Create table
         sync_conn.execute(
-            "CREATE TABLE large_text_test (id SERIAL PRIMARY KEY, content TEXT)"
+            "CREATE TABLE large_text_test (id SERIAL PRIMARY KEY, content TEXT)",
         )
         sync_conn.commit()
 
@@ -147,7 +147,7 @@ class TestStorageConstraints:
             assert length == len(large_text), "Large text should be stored completely"
 
             print(
-                f"\n✅ Large text field ({length:,} chars) stored and retrieved successfully"
+                f"\n✅ Large text field ({length:,} chars) stored and retrieved successfully",
             )
 
         except psycopg.Error as e:
@@ -172,7 +172,7 @@ class TestStorageConstraints:
         """
         # Create table
         sync_conn.execute(
-            "CREATE TABLE many_rows_test (id SERIAL PRIMARY KEY, value INT)"
+            "CREATE TABLE many_rows_test (id SERIAL PRIMARY KEY, value INT)",
         )
         sync_conn.commit()
 

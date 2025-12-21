@@ -187,7 +187,7 @@ class TestCrashRecovery:
 
             # Do some work
             conn.execute(
-                "INSERT INTO isolation_test (data) VALUES (%s)", ("in_transaction",)
+                "INSERT INTO isolation_test (data) VALUES (%s)", ("in_transaction",),
             )
 
             # Create another connection to verify it can still access the table
@@ -230,7 +230,7 @@ class TestCrashRecovery:
             pass
 
     @pytest.mark.skip(
-        reason="Requires PostgreSQL restart privileges - not available in test environment"
+        reason="Requires PostgreSQL restart privileges - not available in test environment",
     )
     def test_database_crash_recovery(self, sync_conn: psycopg.Connection):
         """

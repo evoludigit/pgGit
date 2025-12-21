@@ -204,7 +204,7 @@ class TestMigrationFailures:
         """
         # Create table with data
         sync_conn.execute(
-            "CREATE TABLE data_migration_test (id INT PRIMARY KEY, value TEXT)"
+            "CREATE TABLE data_migration_test (id INT PRIMARY KEY, value TEXT)",
         )
         sync_conn.commit()
 

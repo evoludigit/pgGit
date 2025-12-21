@@ -56,7 +56,7 @@ class TestCorruptionDetection:
         print("\n✅ Schema inconsistencies are detectable")
 
     def test_detect_referential_integrity_violation(
-        self, sync_conn: psycopg.Connection
+        self, sync_conn: psycopg.Connection,
     ):
         """
         Test: Detect orphaned foreign key references.
