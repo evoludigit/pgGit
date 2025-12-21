@@ -176,50 +176,92 @@ Other dev docs (4 files)           → Archive
    └── .venv/                       (virtual environment)
    ```
 
-4. Add git commit: "chore: Reorganize root directory for production"
+4. **Archive Week 9 planning documents themselves** (CRITICAL):
+   - After the above cleanup is complete, archive the planning documents to create a historical record:
+     - `WEEK_9_REPOSITORY_REORGANIZATION.md` → `_archive/development/week-9-cleanup/`
+     - `WEEK_9_FILE_DISPOSITION_MATRIX.md` → `_archive/development/week-9-cleanup/`
+     - `WEEK_9_QA_REVIEW.md` → `_archive/quality-reports/qa-reports/`
+   - These documents describe the cleanup process, so archiving them after execution creates a complete record of:
+     - How the repository was organized
+     - What decisions were made about each file
+     - What QA was performed
+   - This can be done in Day 3 (after cleanup) or Day 5 (after final verification), either timing works
+
+5. Add git commits:
+   - After initial cleanup: `git add _archive/ && git commit -m "chore(archive): Move development artifacts to archive"`
+   - After Week 9 docs archival: `git add _archive/development/week-9-cleanup/ _archive/quality-reports/ && git commit -m "chore(archive): Archive Week 9 cleanup planning documents"`
+   - Final cleanup: `git add -A && git commit -m "chore: Reorganize root directory for production - greenfield appearance"`
 
 **Deliverables**:
-- Clean root directory (13 files max)
-- All development docs archived
-- Professional appearance for users
+- ✅ Clean root directory (13 essential files only)
+- ✅ All development docs archived in proper structure
+- ✅ Week 9 planning documents archived (complete historical record)
+- ✅ Professional, greenfield-ready appearance for end users
+- ✅ Transparent historical record in _archive/ (for those who want to understand process)
 
 ---
 
 ### Day 4: Documentation Alignment & Standardization
 **Objective**: Ensure all remaining documentation aligns to pggit_v0
+**Duration**: 3.5-4 hours (expanded from 3 hours to accommodate new file content)
 
 **Tasks**:
-1. Verify all remaining .md files reference pggit_v0 (not v2)
-2. Remove comments/notes about development process:
-   - Search for "TODO:" / "FIXME:" / "NOTE:" / "HACK:"
-   - Remove development-specific comments
-   - Keep only user-facing content
 
-3. Standardize documentation structure:
-   - All docs should have: title, overview, quick start, examples, references
+1. **Create new essential documentation files** (1.5 hours):
+   - `RELEASING.md` - Complete release procedures with version management, testing checklist, deployment steps, rollback procedures, troubleshooting (template: `ARCHIVE_README_TEMPLATE.md`)
+   - `SUPPORT.md` - How to get help, report bugs, submit features, learning resources, FAQ, troubleshooting steps
+   - `DEPLOYMENT.md` - Production deployment guide including pre-deployment checklist, deployment methods (Docker, Kubernetes, Terraform), health checks, monitoring
+   - Note: These files are pre-written, copy from templates and customize if needed
+
+2. **Verify all remaining .md files reference pggit_v0** (30 min):
+   - Run: `grep -r "pggit_v2" docs/ --include="*.md"` (should return nothing)
+   - Fix any remaining v2 references to v0
+   - Run: `grep -r "pggit_v0" docs/ --include="*.md" | head -20` (verify v0 references exist)
+
+3. **Remove development artifacts and comments** (45 min):
+   - Search and remove: `TODO:` / `FIXME:` / `HACK:` / `NOTE: This was implemented in Week X`
+   - Command: `grep -rn "TODO\|FIXME\|HACK" docs/ src/ --include="*.md" --include="*.py"`
+   - Keep user-facing guidance, remove process/history references
+   - Example removals:
+     - ❌ "This feature was added in Week 4 to solve..."
+     - ✅ "This feature allows you to..."
+     - ❌ "TODO: Update after Phase 1 complete"
+     - ✅ "See API Reference for complete documentation"
+
+4. **Standardize documentation structure** (30 min):
+   - All user-facing docs should follow: Title → Overview → Quick Start → Examples → References
    - Remove "under construction" language
-   - Update all relative links to match new structure
-   - Verify all internal links work
+   - Update internal links to match new directory structure
+   - Verify all cross-document links work (e.g., docs/API_Reference.md → docs/Pattern_Examples.md)
 
-4. Update README.md for v0.1.1 launch:
-   - Remove "BUG FIXES IN PROGRESS" warning
-   - Update feature status to reflect actual v0.1.1 state
-   - Add "Getting Started" section (link to docs/Getting_Started.md)
-   - Add "Deployment" section (production installation)
-   - Clean up badges/status indicators
+5. **Update README.md for v0.1.1 production launch** (30 min):
+   - Remove "BUG FIXES IN PROGRESS" warning (if present)
+   - Update feature status to reflect v0.1.1 production readiness
+   - Add "Getting Started in 5 Minutes" section linking to docs/Getting_Started.md
+   - Add "Deployment" section with link to new DEPLOYMENT.md
+   - Add "Support" section with link to new SUPPORT.md
+   - Update "Release History" section with link to CHANGELOG.md
+   - Clean up badges/status indicators for production appearance
 
-5. Create new docs as needed:
-   - `RELEASING.md` (how to make releases)
-   - `SUPPORT.md` (how to get help)
-   - Update `README.md` with v0.1.1 final status
+6. **Link verification** (15 min):
+   - Test links in README.md manually (click or verify with grep)
+   - Verify all `[text](path/to/file.md)` links are correct
+   - Use: `grep -rn "\[.*\](.*\.md)" README.md | head -20`
+   - Fix any broken paths
 
-6. Add git commit: "docs: Final alignment and standardization for v0.1.1"
+7. **Add git commits** (as each section completes):
+   - After new files: `git add RELEASING.md SUPPORT.md DEPLOYMENT.md && git commit -m "docs: Add release, support, and deployment documentation for v0.1.1"`
+   - After alignment: `git add docs/ README.md && git commit -m "docs: Align all documentation to pggit_v0 and v0.1.1 production standards"`
 
 **Deliverables**:
-- Clean README.md (v0.1.1 final)
-- All docs aligned to pggit_v0
-- RELEASING.md (release procedures)
-- SUPPORT.md (support/help documentation)
+- ✅ RELEASING.md (release procedures, version management, rollback)
+- ✅ SUPPORT.md (help resources, bug reporting, FAQ)
+- ✅ DEPLOYMENT.md (production deployment guide, health checks, monitoring)
+- ✅ Clean README.md (v0.1.1 final status, professional appearance)
+- ✅ All docs aligned to pggit_v0 (zero v2 references remaining)
+- ✅ All development comments removed
+- ✅ All internal links verified working
+- ✅ Professional, production-ready documentation
 
 ---
 
