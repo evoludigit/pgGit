@@ -1,4 +1,4 @@
-# pgGit v2 Integration Guide
+# pgGit v0 Integration Guide
 
 **Date**: December 21, 2025
 **Version**: 1.0 - Week 4 Greenfield Features
@@ -8,7 +8,7 @@
 
 ## Introduction
 
-This guide shows developers how to use pgGit v2 for schema versioning, change tracking, and collaborative development. All examples are copy-paste ready and use the functions/views created in Week 4.
+This guide shows developers how to use pgGit v0 for schema versioning, change tracking, and collaborative development. All examples are copy-paste ready and use the functions/views created in Week 4.
 
 ## Table of Contents
 
