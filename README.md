@@ -65,7 +65,9 @@ psql -c "SELECT * FROM pggit.get_version('users')"  # Version 1.0.0!
 - [Performance Tuning Guide](docs/guides/PERFORMANCE_TUNING.md) - Advanced optimization, 100GB+ support
 - [Operations Runbook](docs/operations/RUNBOOK.md) - Incident response (P1-P4), maintenance
 - [SLO Guide](docs/operations/SLO.md) - 99.9% uptime targets, monitoring
-- [Chaos Testing](docs/operations/CHAOS_TESTING.md) - Resilience validation
+- [Chaos Engineering Guide](docs/testing/CHAOS_ENGINEERING.md) - Property-based tests, concurrency, resilience
+  - [Patterns & Examples](docs/testing/PATTERNS.md) - Common test patterns with code examples
+  - [Troubleshooting Guide](docs/testing/TROUBLESHOOTING.md) - Common issues and solutions
 - [Monitoring Guide](docs/operations/MONITORING.md) - Health checks, Prometheus integration
 
 **Security & Compliance**:

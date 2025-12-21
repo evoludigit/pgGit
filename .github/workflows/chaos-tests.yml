@@ -6,9 +6,23 @@ on:
   pull_request:
     branches: [ main ]
   schedule:
-    # Run chaos tests weekly on Sundays at 2 AM
+    # Run chaos tests weekly on Sundays at 2 AM UTC
     - cron: '0 2 * * 0'
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      test_category:
+        description: 'Test category to run'
+        required: false
+        default: 'smoke'
+        type: choice
+        options:
+          - smoke
+          - property
+          - concurrent
+          - transaction
+          - resource
+          - corruption
+          - all
 
 jobs:
   # Quick smoke tests - MUST pass for PR merge
@@ -86,11 +100,13 @@ jobs:
     name: Full Chaos Tests (Can Fail)
     runs-on: ubuntu-latest
     continue-on-error: true  # Initially allowed to fail
-    needs: chaos-smoke  # Only run if smoke tests pass
+    if: always()  # Run even if smoke tests fail for better visibility
 
     strategy:
       matrix:
         postgres-version: [15, 16, 17]
+        test-category: [property, concurrent, transaction, resource, corruption]
+      fail-fast: false
 
     services:
       postgres:
@@ -132,7 +148,7 @@ jobs:
           make
           sudo make install
 
-      - name: Run chaos tests
+      - name: Run chaos tests by category
         env:
           PGHOST: localhost
           PGPORT: 5432
@@ -144,19 +160,53 @@ jobs:
           pytest tests/chaos/ -v \
             --tb=short \
             --timeout=300 \
-            -m chaos \
-            --maxfail=10 \
-            --junit-xml=chaos-test-results-pg${{ matrix.postgres-version }}.xml
+            -m "${{ matrix.test-category }}" \
+            --hypothesis-show-statistics \
+            --maxfail=20 \
+            --junit-xml=chaos-${{ matrix.test-category }}-pg${{ matrix.postgres-version }}.xml
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: chaos-test-results-pg${{ matrix.postgres-version }}
-          path: chaos-test-results-pg${{ matrix.postgres-version }}.xml
+          name: chaos-${{ matrix.test-category }}-results-pg${{ matrix.postgres-version }}
+          path: chaos-${{ matrix.test-category }}-pg${{ matrix.postgres-version }}.xml
 
-      - name: Generate test report
-        if: always()
+  # Test result summary
+  chaos-summary:
+    name: Generate Test Summary
+    runs-on: ubuntu-latest
+    needs: [chaos-smoke, chaos-full]
+    if: always()
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all test results
+        uses: actions/download-artifact@v4
+        with:
+          path: test-results
+        continue-on-error: true
+
+      - name: Generate summary
         run: |
-          echo "## Chaos Test Results (PostgreSQL ${{ matrix.postgres-version }})" >> $GITHUB_STEP_SUMMARY
-          pytest tests/chaos/ --collect-only -q -m chaos >> $GITHUB_STEP_SUMMARY || true
+          echo "## Chaos Engineering Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Count test files
+          TEST_FILES=$(find test-results -name "*.xml" -type f 2>/dev/null | wc -l)
+          echo "📊 **Total test result files**: $TEST_FILES" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Test Categories" >> $GITHUB_STEP_SUMMARY
+          for category in property concurrent transaction resource corruption; do
+            count=$(find test-results -name "*$category*.xml" -type f 2>/dev/null | wc -l)
+            if [ $count -gt 0 ]; then
+              echo "- **$category**: $count result files ✅" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Status" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Smoke tests**: Must pass for PR merge" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️  **Full suite**: Can fail (known issues being addressed)" >> $GITHUB_STEP_SUMMARY

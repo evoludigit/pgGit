@@ -1,0 +1,101 @@
+name: Weekly Chaos Engineering Tests
+
+on:
+  schedule:
+    # Every Sunday at 3 AM UTC
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+
+jobs:
+  comprehensive-chaos:
+    name: Comprehensive Chaos Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    strategy:
+      matrix:
+        postgres-version: [15, 16, 17]
+      fail-fast: false
+
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgres-version }}
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pggit_chaos_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv and create test environment
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: |
+          uv venv /tmp/chaos-weekly-env
+          source /tmp/chaos-weekly-env/bin/activate
+          uv pip install -e ".[chaos]"
+
+      - name: Install pggit extension
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-server-dev-${{ matrix.postgres-version }}
+          make
+          sudo make install
+
+      - name: Run ALL chaos tests (no limits)
+        env:
+          PGHOST: localhost
+          PGPORT: 5432
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: pggit_chaos_test
+        run: |
+          source /tmp/chaos-weekly-env/bin/activate
+          pytest tests/chaos/ -v \
+            --tb=long \
+            --timeout=600 \
+            -m chaos \
+            --hypothesis-show-statistics \
+            --hypothesis-seed=random \
+            --maxfail=100 \
+            --junit-xml=weekly-chaos-results-pg${{ matrix.postgres-version }}.xml
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-chaos-pg${{ matrix.postgres-version }}
+          path: weekly-chaos-results-pg${{ matrix.postgres-version }}.xml
+
+      - name: Create GitHub Issue if tests fail
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Weekly Chaos Tests Failed (PostgreSQL ${{ matrix.postgres-version }})`,
+              body: `Weekly chaos engineering tests failed on PostgreSQL ${{ matrix.postgres-version }}.
+
+              See [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.
+
+              **Action Required**: Review failures and create issues for any new bugs discovered.`,
+              labels: ['chaos-testing', 'test-failure', 'needs-triage']
+            })
