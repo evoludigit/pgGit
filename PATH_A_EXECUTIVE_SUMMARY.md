@@ -39,7 +39,7 @@
 ## What You Get (Path A)
 
 ### Immediate (First 10 weeks)
-✅ **Single source of truth** for schema versioning (pggit_v2)
+✅ **Single source of truth** for schema versioning (pggit_v0)
 ✅ **Compliance audit layer** (pggit_audit) for regulatory needs
 ✅ **Backwards compatibility** - old code still works (with warnings)
 ✅ **Clean architecture** - no confusion about two systems
@@ -173,7 +173,7 @@ This plan is honest because it:
 
 ### Step 3: Start Spike Analysis (Next week)
 **Time**: 1 week, 1 engineer
-**Assign to**: Senior engineer who understands pggit_v2
+**Assign to**: Senior engineer who understands pggit_v0
 **Outcome**: Spike findings document
 
 ### Step 4: GO/NO-GO Decision (End of Week 2)
@@ -219,7 +219,7 @@ This plan is honest because it:
 
 ### After 9-15 months (completion):
 - ✅ 95%+ migrated
-- ✅ pggit_v2 is primary system
+- ✅ pggit_v0 is primary system
 - ✅ pggit_v1 is read-only (or scheduled for removal)
 - ✅ Lessons learned documented
 
@@ -276,7 +276,7 @@ This plan is honest because it:
 
 ## Questions?
 
-**"Why not just use pggit_v2 from the start?"**
+**"Why not just use pggit_v0 from the start?"**
 → Because we need backwards compatibility. Path A creates pggit_v1 shim so existing code works during transition.
 
 **"Is DDL merging actually automatic?"**

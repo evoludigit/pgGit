@@ -1,14 +1,14 @@
--- Complete pggit_v2 Developer Functions (Fixed and Production-Ready)
+-- Complete pggit_v0 Developer Functions (Fixed and Production-Ready)
 -- All functions working with proper error handling and Git-like functionality
 
-CREATE SCHEMA IF NOT EXISTS pggit_v2;
+CREATE SCHEMA IF NOT EXISTS pggit_v0;
 
 -- ============================================
 -- BASIC COMMIT SYSTEM
 -- ============================================
 
 -- Function: Create a basic commit (simplified for UAT)
-CREATE OR REPLACE FUNCTION pggit_v2.create_basic_commit(
+CREATE OR REPLACE FUNCTION pggit_v0.create_basic_commit(
     p_message TEXT,
     p_author TEXT DEFAULT CURRENT_USER
 ) RETURNS TEXT AS $$
@@ -21,20 +21,20 @@ BEGIN
     v_commit_sha := encode(gen_random_bytes(20), 'hex');
 
     -- Insert tree first
-    INSERT INTO pggit_v2.objects (sha, type, data, size)
+    INSERT INTO pggit_v0.objects (sha, type, data, size)
     VALUES (v_tree_sha, 'tree', '{}'::bytea, 0)
     ON CONFLICT (sha) DO NOTHING;
 
     -- Insert commit
-    INSERT INTO pggit_v2.objects (sha, type, data, size)
+    INSERT INTO pggit_v0.objects (sha, type, data, size)
     VALUES (v_commit_sha, 'commit', p_message::bytea, length(p_message))
     ON CONFLICT (sha) DO NOTHING;
 
-    INSERT INTO pggit_v2.commit_graph (commit_sha, tree_sha, author, message)
+    INSERT INTO pggit_v0.commit_graph (commit_sha, tree_sha, author, message)
     VALUES (v_commit_sha, v_tree_sha, p_author, p_message);
 
     -- Create main branch if it doesn't exist
-    INSERT INTO pggit_v2.refs (name, target_sha, type)
+    INSERT INTO pggit_v0.refs (name, target_sha, type)
     VALUES ('main', v_commit_sha, 'branch')
     ON CONFLICT (name) DO UPDATE SET target_sha = v_commit_sha;
 
@@ -47,7 +47,7 @@ $$ LANGUAGE plpgsql;
 -- ============================================
 
 -- Function: Get current schema objects
-CREATE OR REPLACE FUNCTION pggit_v2.get_current_schema()
+CREATE OR REPLACE FUNCTION pggit_v0.get_current_schema()
 RETURNS TABLE (
     object_schema TEXT,
     object_name TEXT,
@@ -60,7 +60,7 @@ DECLARE
 BEGIN
     -- Get latest commit
     SELECT commit_sha INTO v_head_commit
-    FROM pggit_v2.commit_graph
+    FROM pggit_v0.commit_graph
     ORDER BY committed_at DESC
     LIMIT 1;
 
@@ -84,7 +84,7 @@ END;
 $$ LANGUAGE plpgsql STABLE;
 
 -- Function: List objects at specific commit
-CREATE OR REPLACE FUNCTION pggit_v2.list_objects(p_commit_sha TEXT)
+CREATE OR REPLACE FUNCTION pggit_v0.list_objects(p_commit_sha TEXT)
 RETURNS TABLE (
     object_path TEXT,
     object_type TEXT,
@@ -108,7 +108,7 @@ $$ LANGUAGE plpgsql STABLE;
 -- ============================================
 
 -- Function: Create feature branch
-CREATE OR REPLACE FUNCTION pggit_v2.create_branch(
+CREATE OR REPLACE FUNCTION pggit_v0.create_branch(
     p_branch_name TEXT,
     p_description TEXT DEFAULT ''
 ) RETURNS TEXT AS $$
@@ -117,7 +117,7 @@ DECLARE
 BEGIN
     -- Get current HEAD
     SELECT target_sha INTO v_head_sha
-    FROM pggit_v2.refs
+    FROM pggit_v0.refs
     WHERE name = 'main' AND type = 'branch';
 
     IF v_head_sha IS NULL THEN
@@ -125,12 +125,12 @@ BEGIN
     END IF;
 
     -- Check if branch exists
-    IF EXISTS (SELECT 1 FROM pggit_v2.refs WHERE name = p_branch_name AND type = 'branch') THEN
+    IF EXISTS (SELECT 1 FROM pggit_v0.refs WHERE name = p_branch_name AND type = 'branch') THEN
         RAISE EXCEPTION 'Branch % already exists', p_branch_name;
     END IF;
 
     -- Create branch pointing to current HEAD
-    INSERT INTO pggit_v2.refs (name, type, target_sha)
+    INSERT INTO pggit_v0.refs (name, type, target_sha)
     VALUES (p_branch_name, 'branch', v_head_sha);
 
     RETURN p_branch_name || ' created at ' || v_head_sha;
@@ -138,7 +138,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Function: List all branches
-CREATE OR REPLACE FUNCTION pggit_v2.list_branches()
+CREATE OR REPLACE FUNCTION pggit_v0.list_branches()
 RETURNS TABLE (
     branch_name TEXT,
     commit_sha TEXT,
@@ -150,15 +150,15 @@ BEGIN
         r.name,
         r.target_sha,
         cg.committed_at
-    FROM pggit_v2.refs r
-    LEFT JOIN pggit_v2.commit_graph cg ON cg.commit_sha = r.target_sha
+    FROM pggit_v0.refs r
+    LEFT JOIN pggit_v0.commit_graph cg ON cg.commit_sha = r.target_sha
     WHERE r.type = 'branch'
     ORDER BY r.name;
 END;
 $$ LANGUAGE plpgsql STABLE;
 
 -- Function: Delete branch
-CREATE OR REPLACE FUNCTION pggit_v2.delete_branch(p_branch_name TEXT)
+CREATE OR REPLACE FUNCTION pggit_v0.delete_branch(p_branch_name TEXT)
 RETURNS BOOLEAN AS $$
 DECLARE
     v_deleted INTEGER := 0;
@@ -169,7 +169,7 @@ BEGIN
     END IF;
 
     -- Delete the branch
-    DELETE FROM pggit_v2.refs
+    DELETE FROM pggit_v0.refs
     WHERE name = p_branch_name AND type = 'branch';
 
     GET DIAGNOSTICS v_deleted = ROW_COUNT;
@@ -187,7 +187,7 @@ $$ LANGUAGE plpgsql;
 -- ============================================
 
 -- Function: Get commit history
-CREATE OR REPLACE FUNCTION pggit_v2.get_commit_history(
+CREATE OR REPLACE FUNCTION pggit_v0.get_commit_history(
     p_limit INTEGER DEFAULT 20,
     p_offset INTEGER DEFAULT 0
 ) RETURNS TABLE (
@@ -205,7 +205,7 @@ BEGIN
         cg.message,
         cg.committed_at,
         ARRAY[]::TEXT[] as parent_shas
-    FROM pggit_v2.commit_graph cg
+    FROM pggit_v0.commit_graph cg
     ORDER BY cg.committed_at DESC
     LIMIT p_limit
     OFFSET p_offset;
@@ -213,7 +213,7 @@ END;
 $$ LANGUAGE plpgsql STABLE;
 
 -- Function: Get object history
-CREATE OR REPLACE FUNCTION pggit_v2.get_object_history(
+CREATE OR REPLACE FUNCTION pggit_v0.get_object_history(
     p_schema_name TEXT,
     p_object_name TEXT,
     p_limit INTEGER DEFAULT 10
@@ -249,7 +249,7 @@ $$ LANGUAGE plpgsql STABLE;
 -- ============================================
 
 -- Function: Show differences between commits
-CREATE OR REPLACE FUNCTION pggit_v2.diff_commits(
+CREATE OR REPLACE FUNCTION pggit_v0.diff_commits(
     p_old_commit_sha TEXT,
     p_new_commit_sha TEXT
 ) RETURNS TABLE (
@@ -270,7 +270,7 @@ END;
 $$ LANGUAGE plpgsql STABLE;
 
 -- Function: Compare two branches
-CREATE OR REPLACE FUNCTION pggit_v2.diff_branches(
+CREATE OR REPLACE FUNCTION pggit_v0.diff_branches(
     p_branch_name1 TEXT,
     p_branch_name2 TEXT
 ) RETURNS TABLE (
@@ -285,7 +285,7 @@ DECLARE
 BEGIN
     -- Get commit SHAs for branches
     SELECT target_sha INTO v_sha1
-    FROM pggit_v2.refs
+    FROM pggit_v0.refs
     WHERE name = p_branch_name1 AND type = 'branch';
 
     IF NOT FOUND THEN
@@ -293,7 +293,7 @@ BEGIN
     END IF;
 
     SELECT target_sha INTO v_sha2
-    FROM pggit_v2.refs
+    FROM pggit_v0.refs
     WHERE name = p_branch_name2 AND type = 'branch';
 
     IF NOT FOUND THEN
@@ -315,7 +315,7 @@ $$ LANGUAGE plpgsql STABLE;
 -- ============================================
 
 -- Function: Get DDL for an object
-CREATE OR REPLACE FUNCTION pggit_v2.get_object_definition(
+CREATE OR REPLACE FUNCTION pggit_v0.get_object_definition(
     p_schema_name TEXT,
     p_object_name TEXT,
     p_commit_sha TEXT DEFAULT NULL
@@ -336,7 +336,7 @@ END;
 $$ LANGUAGE plpgsql STABLE;
 
 -- Function: Get metadata about an object
-CREATE OR REPLACE FUNCTION pggit_v2.get_object_metadata(
+CREATE OR REPLACE FUNCTION pggit_v0.get_object_metadata(
     p_schema_name TEXT,
     p_object_name TEXT,
     p_commit_sha TEXT DEFAULT NULL
@@ -361,11 +361,11 @@ $$ LANGUAGE plpgsql STABLE;
 -- ============================================
 
 -- Function: Get current HEAD SHA
-CREATE OR REPLACE FUNCTION pggit_v2.get_head_sha()
+CREATE OR REPLACE FUNCTION pggit_v0.get_head_sha()
 RETURNS TEXT AS $$
 BEGIN
     RETURN COALESCE(
-        (SELECT target_sha FROM pggit_v2.refs WHERE name = 'main' AND type = 'branch'),
+        (SELECT target_sha FROM pggit_v0.refs WHERE name = 'main' AND type = 'branch'),
         ''
     );
 END;

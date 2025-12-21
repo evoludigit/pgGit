@@ -1,20 +1,20 @@
-# pgGit v2 Operations Runbook
+# pgGit v2 Operations Guide
 
-**Production Support & Maintenance Guide**
+**Open Source Project Maintenance Guide**
 
 ---
 
-## Emergency Contacts
+## Support Channels
 
-### 🚨 **Critical Issues (24/7)**
-- **Primary On-Call**: SRE Team Lead - `sre-lead@company.com` / +1-555-SRE-HELP
-- **Secondary On-Call**: Database Architect - `db-architect@company.com` / +1-555-DB-ARCH
-- **Escalation**: VP Engineering - `vp-eng@company.com` / +1-555-VP-ENG
+### 🐛 **Bug Reports & Issues**
+- **GitHub Issues**: [github.com/yourusername/pgGit/issues](https://github.com/yourusername/pgGit/issues)
+- **Priority**: Security issues, data corruption, critical bugs
+- **Response Time**: Within 24-48 hours for urgent issues
 
-### 📞 **Business Hours Support**
-- **Service Desk**: support@company.com (24/5)
-- **DevOps Team**: devops@company.com (24/7)
-- **Database Team**: database@company.com (24/7)
+### 💬 **Community Support**
+- **GitHub Discussions**: General questions and troubleshooting
+- **Documentation**: Self-service troubleshooting guides
+- **Stack Overflow**: Community-driven Q&A (tag: pggit)
 
 ---
 
@@ -24,7 +24,7 @@
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │  Applications   │────│  pgGit v2 API   │────│ PostgreSQL DB   │
-│  (DDL Changes)  │    │   (Functions)   │    │   (pggit_v2.*)  │
+│  (DDL Changes)  │    │   (Functions)   │    │   (pggit_v0.*)  │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                        │                        │
          └────────────────────────┼────────────────────────┘
@@ -36,11 +36,11 @@
 ```
 
 ### Key Data Stores
-- **pggit_v2.objects**: Git-like object storage (blobs, trees, commits)
-- **pggit_v2.refs**: Branch and tag references
-- **pggit_v2.commit_graph**: Commit history and metadata
+- **pggit_v0.objects**: Git-like object storage (blobs, trees, commits)
+- **pggit_v0.refs**: Branch and tag references
+- **pggit_v0.commit_graph**: Commit history and metadata
 - **pggit_audit.changes**: Detailed change audit trail
-- **pggit_v2.performance_metrics**: Query performance data
+- **pggit_v0.performance_metrics**: Query performance data
 
 ---
 
@@ -51,7 +51,7 @@
 #### 1. System Integrity Validation
 ```sql
 -- Run every morning at 6:00 AM
-SELECT * FROM pggit_v2.validate_data_integrity();
+SELECT * FROM pggit_v0.validate_data_integrity();
 
 -- Expected: All rows should show 'OK' status
 -- Alert if: Any row shows 'FAILED' status
@@ -60,7 +60,7 @@ SELECT * FROM pggit_v2.validate_data_integrity();
 #### 2. Alert Monitoring
 ```sql
 -- Check for active alerts every 15 minutes
-SELECT * FROM pggit_v2.check_for_alerts();
+SELECT * FROM pggit_v0.check_for_alerts();
 
 -- Expected: severity = 'OK' for all alerts
 -- Alert if: Any alerts with severity 'CRITICAL' or 'WARNING'
@@ -69,7 +69,7 @@ SELECT * FROM pggit_v2.check_for_alerts();
 #### 3. Performance Monitoring
 ```sql
 -- Check query performance daily
-SELECT * FROM pggit_v2.analyze_query_performance()
+SELECT * FROM pggit_v0.analyze_query_performance()
 WHERE avg_duration > INTERVAL '100 ms';
 
 -- Expected: No queries slower than 100ms
@@ -81,7 +81,7 @@ WHERE avg_duration > INTERVAL '100 ms';
 #### Real-time Metrics Dashboard
 ```sql
 -- Executive dashboard (refresh every 5 minutes)
-SELECT * FROM pggit_v2.get_dashboard_summary();
+SELECT * FROM pggit_v0.get_dashboard_summary();
 
 -- Key metrics to monitor:
 -- - Total Objects: Should grow steadily
@@ -93,144 +93,113 @@ SELECT * FROM pggit_v2.get_dashboard_summary();
 #### Weekly Performance Review
 ```sql
 -- Run every Monday morning
-SELECT * FROM pggit_v2.estimate_storage_growth();
-SELECT * FROM pggit_v2.get_recommendations();
+SELECT * FROM pggit_v0.estimate_storage_growth();
+SELECT * FROM pggit_v0.get_recommendations();
 
 -- Review trends and plan optimizations
 ```
 
 ---
 
-## Incident Response Procedures
+## Issue Resolution Process
 
-### Severity Classification
+### Issue Triage
 
-#### 🔴 **SEV 1 - Critical** (Response: 15 minutes)
-- System completely unavailable
-- Data corruption detected
-- Security breach
-- Production database down
+#### 🚨 **Critical Priority** (Response: Same day)
+- Data corruption or loss
+- Security vulnerabilities
+- System crashes in production
+- Breaking changes without migration path
 
-#### 🟠 **SEV 2 - High** (Response: 1 hour)
+#### 📋 **High Priority** (Response: 1-2 days)
 - Major functionality broken
-- Performance degradation (>50% slowdown)
-- Data inconsistencies
-- Multiple users affected
+- Performance degradation
+- Incorrect behavior
+- Missing documentation
 
-#### 🟡 **SEV 3 - Medium** (Response: 4 hours)
-- Minor functionality issues
-- Single user impact
-- Non-critical alerts
-- Performance warnings
-
-#### 🟢 **SEV 4 - Low** (Response: 24 hours)
-- Cosmetic issues
-- Documentation problems
+#### 💡 **Medium Priority** (Response: 1 week)
 - Feature requests
+- Minor bugs
+- Documentation improvements
+- Enhancement suggestions
+
+#### ❓ **Low Priority** (Response: Best effort)
 - General questions
+- Minor UI/UX issues
+- Code cleanup suggestions
 
-### Incident Response Workflow
+### Resolution Workflow
 
-#### 1. **Detection & Assessment** (0-15 minutes)
+#### 1. **Initial Assessment**
+- Reproduce the issue if possible
+- Check existing issues and documentation
+- Determine severity and priority
+
+#### 2. **Investigation**
 ```sql
--- Immediate health check
-SELECT * FROM pggit_v2.check_for_alerts();
-SELECT * FROM pggit_v2.validate_data_integrity();
+-- For performance issues
+SELECT * FROM pggit_v0.analyze_query_performance();
 
--- Gather system state
-SELECT * FROM pggit_v2.get_dashboard_summary();
-SELECT * FROM pggit_v2.analyze_query_performance();
+-- For data integrity issues
+SELECT * FROM pggit_v0.validate_data_integrity();
+
+-- For general diagnostics
+SELECT * FROM pggit_v0.get_dashboard_summary();
 ```
 
-#### 2. **Containment** (15-60 minutes)
-- **For Data Issues**: Stop DDL operations if corruption suspected
-- **For Performance Issues**: Identify and kill problematic queries
-- **For Availability Issues**: Check database connectivity and restart services if needed
+#### 3. **Solution Development**
+- Identify root cause
+- Develop fix or workaround
+- Test solution thoroughly
 
-#### 3. **Investigation** (1-4 hours)
-```sql
--- Detailed diagnostics
-SELECT * FROM pggit_v2.detect_anomalies();
-SELECT * FROM pggit_v2.analyze_storage_usage();
+#### 4. **Communication**
+- Update issue with findings
+- Provide workaround if available
+- Schedule fix deployment
 
--- Check recent changes
-SELECT * FROM pggit_v2.get_commit_history(10);
-SELECT * FROM pggit.history ORDER BY change_timestamp DESC LIMIT 20;
-```
-
-#### 4. **Resolution** (1-24 hours)
-- Apply fixes based on investigation
-- Test fixes in staging environment
-- Deploy fixes with proper change management
-
-#### 5. **Post-Mortem** (24-72 hours)
-- Document root cause
-- Update runbook with lessons learned
-- Implement preventive measures
+#### 5. **Follow-up**
+- Close issue when resolved
+- Update documentation if needed
+- Consider preventive measures
 
 ---
 
-## Maintenance Procedures
+## Maintenance Tasks
 
-### Daily Maintenance
+### Regular Health Checks
 
-#### Morning Health Check (6:00 AM)
-```bash
-#!/bin/bash
-# Daily health check script
-psql -h $DB_HOST -U $DB_USER -d $DB_NAME << 'EOF'
--- System integrity check
-\echo 'Running integrity validation...'
-SELECT * FROM pggit_v2.validate_data_integrity();
+#### System Validation
+```sql
+-- Basic health check
+SELECT * FROM pggit_v0.check_for_alerts();
+SELECT * FROM pggit_v0.validate_data_integrity();
 
--- Alert check
-\echo 'Checking for alerts...'
-SELECT * FROM pggit_v2.check_for_alerts();
-
--- Performance check
-\echo 'Analyzing performance...'
-SELECT COUNT(*) as slow_queries
-FROM pggit_v2.analyze_query_performance()
-WHERE avg_duration > INTERVAL '100 ms';
-EOF
+-- Performance overview
+SELECT * FROM pggit_v0.get_dashboard_summary();
 ```
 
-#### Log Rotation (Daily)
-- Rotate PostgreSQL logs
-- Archive pgGit audit logs older than 90 days
-- Compress archived logs
+#### GitHub Repository Maintenance
+- Review and triage open issues
+- Update pull requests
+- Monitor CI/CD pipeline status
+- Update documentation as needed
 
-### Weekly Maintenance
+### Code Quality Maintenance
 
-#### Branch Cleanup (Monday 2:00 AM)
+#### Dependency Updates
+- Monitor for security vulnerabilities in dependencies
+- Update PostgreSQL extension versions
+- Test compatibility with new PostgreSQL versions
+
+#### Performance Monitoring
 ```sql
--- Remove old feature branches
-DO $$
-DECLARE
-    old_branch RECORD;
-BEGIN
-    FOR old_branch IN
-        SELECT name
-        FROM pggit_v2.list_branches()
-        WHERE name LIKE 'feature/%'
-        AND last_commit < CURRENT_TIMESTAMP - INTERVAL '90 days'
-    LOOP
-        PERFORM pggit_v2.delete_branch(old_branch.name);
-        RAISE NOTICE 'Cleaned up old branch: %', old_branch.name;
-    END LOOP;
-END $$;
-```
+-- Check for performance regressions
+SELECT * FROM pggit_v0.analyze_query_performance()
+ORDER BY avg_duration DESC
+LIMIT 5;
 
-#### Performance Optimization (Monday 3:00 AM)
-```sql
--- Analyze table statistics
-ANALYZE pggit.objects;
-ANALYZE pggit.history;
-ANALYZE pggit_audit.changes;
-
--- Rebuild indexes if needed
-REINDEX TABLE CONCURRENTLY pggit.objects;
-REINDEX TABLE CONCURRENTLY pggit.history;
+-- Monitor storage growth
+SELECT * FROM pggit_v0.estimate_storage_growth();
 ```
 
 ### Monthly Maintenance
@@ -238,8 +207,8 @@ REINDEX TABLE CONCURRENTLY pggit.history;
 #### Storage Optimization (1st of Month)
 ```sql
 -- Review storage usage
-SELECT * FROM pggit_v2.analyze_storage_usage();
-SELECT * FROM pggit_v2.get_object_size_distribution();
+SELECT * FROM pggit_v0.analyze_storage_usage();
+SELECT * FROM pggit_v0.get_object_size_distribution();
 
 -- Archive old data if needed
 -- (Implement based on retention policies)
@@ -249,10 +218,10 @@ SELECT * FROM pggit_v2.get_object_size_distribution();
 ```sql
 -- Review permissions
 SELECT * FROM information_schema.role_table_grants
-WHERE table_schema IN ('pggit', 'pggit_v2', 'pggit_audit');
+WHERE table_schema IN ('pggit', 'pggit_v0', 'pggit_audit');
 
 -- Check for orphaned objects
-SELECT * FROM pggit_v2.detect_anomalies();
+SELECT * FROM pggit_v0.detect_anomalies();
 ```
 
 ---
@@ -287,13 +256,13 @@ pg_wal_replay --target-time "2025-12-22 14:30:00"
 #### pgGit-Specific Recovery
 ```sql
 -- After database recovery, validate pgGit integrity
-SELECT * FROM pggit_v2.validate_data_integrity();
+SELECT * FROM pggit_v0.validate_data_integrity();
 
 -- Rebuild any missing refs
 -- (Main branch should exist, recreate others as needed)
 
 -- Validate commit graph
-SELECT COUNT(*) FROM pggit_v2.commit_graph;
+SELECT COUNT(*) FROM pggit_v0.commit_graph;
 ```
 
 ### Disaster Recovery Testing
@@ -320,7 +289,7 @@ SELECT
     calls,
     total_time
 FROM pg_stat_statements
-WHERE query LIKE '%pggit_v2%'
+WHERE query LIKE '%pggit_v0%'
 ORDER BY avg_time DESC
 LIMIT 10;
 ```
@@ -336,7 +305,7 @@ SELECT
     idx_tup_read,
     idx_tup_fetch
 FROM pg_stat_user_indexes
-WHERE schemaname IN ('pggit', 'pggit_v2', 'pggit_audit')
+WHERE schemaname IN ('pggit', 'pggit_v0', 'pggit_audit')
 ORDER BY idx_scan DESC;
 ```
 
@@ -382,14 +351,14 @@ ALTER TABLE pggit_audit.changes SET (autovacuum_enabled = true);
 **Symptoms**: Branch creation fails
 **Solution**:
 ```sql
-SELECT pggit_v2.create_basic_commit('Initialize repository');
+SELECT pggit_v0.create_basic_commit('Initialize repository');
 ```
 
 #### Issue: Slow Performance
 **Symptoms**: Queries taking > 100ms
 **Diagnosis**:
 ```sql
-SELECT * FROM pggit_v2.analyze_query_performance();
+SELECT * FROM pggit_v0.analyze_query_performance();
 ANALYZE;  -- Update statistics
 ```
 
@@ -397,7 +366,7 @@ ANALYZE;  -- Update statistics
 **Symptoms**: Integrity checks failing
 **Solution**:
 ```sql
-SELECT * FROM pggit_v2.validate_data_integrity();
+SELECT * FROM pggit_v0.validate_data_integrity();
 -- Investigate and fix root cause
 -- Run REINDEX if index corruption suspected
 ```
@@ -406,8 +375,8 @@ SELECT * FROM pggit_v2.validate_data_integrity();
 **Symptoms**: Database growing too fast
 **Solution**:
 ```sql
-SELECT * FROM pggit_v2.estimate_storage_growth();
-SELECT * FROM pggit_v2.get_recommendations();
+SELECT * FROM pggit_v0.estimate_storage_growth();
+SELECT * FROM pggit_v0.get_recommendations();
 -- Implement archiving/cleanup strategies
 ```
 
@@ -416,7 +385,7 @@ SELECT * FROM pggit_v2.get_recommendations();
 **Solution**:
 ```sql
 -- Check what differs
-SELECT * FROM pggit_v2.diff_branches('main', 'feature/branch');
+SELECT * FROM pggit_v0.diff_branches('main', 'feature/branch');
 
 -- Resolve conflicts manually
 -- Re-run merge after fixes
@@ -544,7 +513,7 @@ ORDER BY changes DESC;
 
 #### Support Resources
 - **Internal Slack**: #pgGit-support
-- **Email**: pgGit-support@company.com
+- **Email**: pgGit support team
 - **Wiki**: companywiki.com/pgGit
 - **GitHub**: github.company.com/pgGit
 
@@ -586,18 +555,19 @@ ORDER BY changes DESC;
 
 ---
 
-## Contact Information
+## Getting Help
 
-### Support Teams
-- **Primary Support**: SRE Team - sre@company.com
-- **Database Support**: DBA Team - dba@company.com
-- **Application Support**: DevOps Team - devops@company.com
-- **Vendor Support**: pgGit Support - support@pgGit-v2.com
+### Community Support
+- **GitHub Issues**: Bug reports and feature requests
+- **GitHub Discussions**: General questions and troubleshooting
+- **Documentation**: Self-service guides and tutorials
+- **Stack Overflow**: Community-driven Q&A (tag: pggit)
 
-### Emergency Contacts
-- **24/7 On-Call**: +1-555-ON-CALL
-- **Security Incidents**: +1-555-SECURE
-- **Executive Escalation**: +1-555-EXEC
+### Contributing
+- **Pull Requests**: Code contributions welcome
+- **Documentation**: Help improve guides and tutorials
+- **Testing**: Report bugs and edge cases
+- **Feedback**: Share your experience and suggestions
 
 ---
 

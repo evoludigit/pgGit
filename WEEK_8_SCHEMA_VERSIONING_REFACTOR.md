@@ -3,14 +3,14 @@
 **Date**: December 21, 2025 (Planned)
 **Status**: Planned Task
 **Duration**: 1 week (20-25 hours)
-**Focus**: Rename all schemas from pggit_v2 → pggit_v0 for long-term compatibility
+**Focus**: Rename all schemas from pggit_v0 → pggit_v0 for long-term compatibility
 **Dependency**: Weeks 1-7 must complete first
 
 ---
 
 ## Overview
 
-Implement schema versioning using semantic versioning. All `pggit_v2` references will be renamed to `pggit_v0` to establish a clean versioning scheme that supports future major versions (v1, v2, etc.) without API breakage.
+Implement schema versioning using semantic versioning. All `pggit_v0` references will be renamed to `pggit_v0` to establish a clean versioning scheme that supports future major versions (v1, v2, etc.) without API breakage.
 
 **Why Now?**
 - Weeks 1-7 focus on functionality & UAT
@@ -23,7 +23,7 @@ Implement schema versioning using semantic versioning. All `pggit_v2` references
 ## Objectives
 
 ### Primary: Systematic Schema Rename
-Convert all pggit_v2 → pggit_v0 references across codebase
+Convert all pggit_v0 → pggit_v0 references across codebase
 
 ### Secondary: Documentation Update
 Update all examples, guides, and comments to reflect new naming
@@ -39,25 +39,25 @@ Verify all renamed objects work correctly post-rename
 **Goal**: Rename all schema references in SQL files
 
 **Files to Update**:
-- [ ] `sql/pggit_migration_core.sql` - Replace `pggit_v2` with `pggit_v0`
+- [ ] `sql/pggit_migration_core.sql` - Replace `pggit_v0` with `pggit_v0`
 - [ ] `sql/pggit_migration_execution.sql` - Replace references
 - [ ] `sql/pggit_migration_integration.sql` - Replace references
 - [ ] `sql/pggit_audit_schema.sql` - Replace `pggit_audit` with `pggit_audit_v0`
 - [ ] `sql/pggit_audit_functions.sql` - Replace all references
 - [ ] `sql/pggit_audit_extended.sql` - Replace all references
-- [ ] `sql/pggit_v2_developers.sql` - Rename file to `pggit_v0_developers.sql`, update internals
-- [ ] `sql/pggit_v2_views.sql` - Rename file to `pggit_v0_views.sql`, update internals
-- [ ] `sql/pggit_v2_analytics.sql` - Rename file to `pggit_v0_analytics.sql`, update internals
-- [ ] `sql/pggit_v2_branching.sql` - Rename file to `pggit_v0_branching.sql`, update internals
-- [ ] `sql/pggit_v2_monitoring.sql` - Rename file to `pggit_v0_monitoring.sql`, update internals
+- [ ] `sql/pggit_v0_developers.sql` - Rename file to `pggit_v0_developers.sql`, update internals
+- [ ] `sql/pggit_v0_views.sql` - Rename file to `pggit_v0_views.sql`, update internals
+- [ ] `sql/pggit_v0_analytics.sql` - Rename file to `pggit_v0_analytics.sql`, update internals
+- [ ] `sql/pggit_v0_branching.sql` - Rename file to `pggit_v0_branching.sql`, update internals
+- [ ] `sql/pggit_v0_monitoring.sql` - Rename file to `pggit_v0_monitoring.sql`, update internals
 
 **Approach**:
 ```bash
 # Pattern matching approach
-# Replace: CREATE FUNCTION pggit_v2. → CREATE FUNCTION pggit_v0.
-# Replace: FROM pggit_v2. → FROM pggit_v0.
-# Replace: JOIN pggit_v2. → JOIN pggit_v0.
-# Replace: WHERE ... pggit_v2. → WHERE ... pggit_v0.
+# Replace: CREATE FUNCTION pggit_v0. → CREATE FUNCTION pggit_v0.
+# Replace: FROM pggit_v0. → FROM pggit_v0.
+# Replace: JOIN pggit_v0. → JOIN pggit_v0.
+# Replace: WHERE ... pggit_v0. → WHERE ... pggit_v0.
 # Replace: pggit_audit. → pggit_audit_v0.
 # Replace: pggit_migration. → pggit_migration_v0.
 ```
@@ -79,7 +79,7 @@ Verify all renamed objects work correctly post-rename
 - [ ] All inline SQL comments - Schema names updated
 
 **Approach**:
-- Global search for `pggit_v2` → `pggit_v0`
+- Global search for `pggit_v0` → `pggit_v0`
 - Global search for `pggit_audit.` → `pggit_audit_v0.`
 - Global search for `pggit_migration.` → `pggit_migration_v0.`
 - Review all examples to ensure they're correct
@@ -97,12 +97,12 @@ Verify all renamed objects work correctly post-rename
 
 ```sql
 -- 000_rename_schemas_to_v0.sql
--- Migration: Rename all schemas from pggit_v2 to pggit_v0
+-- Migration: Rename all schemas from pggit_v0 to pggit_v0
 -- Date: Week 8
 -- Backward compatible: NO (must be done before production if not already there)
 
 -- Rename main schemas
-ALTER SCHEMA pggit_v2 RENAME TO pggit_v0;
+ALTER SCHEMA pggit_v0 RENAME TO pggit_v0;
 ALTER SCHEMA pggit_audit RENAME TO pggit_audit_v0;
 ALTER SCHEMA pggit_migration RENAME TO pggit_migration_v0;
 
@@ -218,7 +218,7 @@ COMMENT ON SCHEMA pggit_migration_v0 IS 'pgGit v0 Migration Tools: v1 to v2 conv
 4. ✅ **Documentation**
    - [ ] All examples updated to use pggit_v0
    - [ ] All references consistent
-   - [ ] No stale pggit_v2 references remain
+   - [ ] No stale pggit_v0 references remain
    - [ ] Integration guide accurate
 
 5. ✅ **Git History**
@@ -235,11 +235,11 @@ COMMENT ON SCHEMA pggit_migration_v0 IS 'pgGit v0 Migration Tools: v1 to v2 conv
 **Be careful with these patterns**:
 ```sql
 -- Wrong: This would break things
-pggit_v2.commit_graph → pggit_v0.commit_graph ✅
+pggit_v0.commit_graph → pggit_v0.commit_graph ✅
 
 -- Be careful: Check context
 v2 → v0 (too generic, might catch version numbers)
-pggit_v2 → pggit_v0 (use full string)
+pggit_v0 → pggit_v0 (use full string)
 
 -- Also rename:
 pggit_audit. → pggit_audit_v0.
@@ -250,11 +250,11 @@ pggit_migration. → pggit_migration_v0.
 
 **SQL Files** (optional but recommended):
 ```bash
-sql/pggit_v2_developers.sql → sql/pggit_v0_developers.sql
-sql/pggit_v2_views.sql → sql/pggit_v0_views.sql
-sql/pggit_v2_analytics.sql → sql/pggit_v0_analytics.sql
-sql/pggit_v2_branching.sql → sql/pggit_v0_branching.sql
-sql/pggit_v2_monitoring.sql → sql/pggit_v0_monitoring.sql
+sql/pggit_v0_developers.sql → sql/pggit_v0_developers.sql
+sql/pggit_v0_views.sql → sql/pggit_v0_views.sql
+sql/pggit_v0_analytics.sql → sql/pggit_v0_analytics.sql
+sql/pggit_v0_branching.sql → sql/pggit_v0_branching.sql
+sql/pggit_v0_monitoring.sql → sql/pggit_v0_monitoring.sql
 ```
 
 **Or keep as-is** and only update schema names inside files (simpler approach).
@@ -262,11 +262,11 @@ sql/pggit_v2_monitoring.sql → sql/pggit_v0_monitoring.sql
 ### Git Commits
 
 **Recommended sequence**:
-1. Commit: "refactor: Rename schemas pggit_v2 → pggit_v0 for semantic versioning"
+1. Commit: "refactor: Rename schemas pggit_v0 → pggit_v0 for semantic versioning"
    - SQL file content updates
    - Schema rename migration script
 
-2. Commit: "docs: Update all references from pggit_v2 to pggit_v0"
+2. Commit: "docs: Update all references from pggit_v0 to pggit_v0"
    - Documentation updates
    - Example updates
    - Comments updates
@@ -287,7 +287,7 @@ sql/pggit_v2_monitoring.sql → sql/pggit_v0_monitoring.sql
 - ✅ Ready for team adoption without confusion
 
 **Without this**:
-- ❌ v0.2.0, v0.3.0 still in pggit_v2 schema (confusing)
+- ❌ v0.2.0, v0.3.0 still in pggit_v0 schema (confusing)
 - ❌ Future v1 can't coexist cleanly
 - ❌ Naming doesn't match versioning
 
@@ -297,10 +297,10 @@ sql/pggit_v2_monitoring.sql → sql/pggit_v0_monitoring.sql
 
 ```
 Week 7: Production Launch (Saturday midnight)
-  pggit_v2 schemas deployed
+  pggit_v0 schemas deployed
 
 Week 8: Schema Versioning Refactor
-  Rename pggit_v2 → pggit_v0
+  Rename pggit_v0 → pggit_v0
   Update all documentation
   Clean versioning established
 
@@ -315,7 +315,7 @@ Week 9: Operations & Training
 ## Success Definition
 
 Week 8 is successful when:
-1. ✅ All `pggit_v2` renamed to `pggit_v0`
+1. ✅ All `pggit_v0` renamed to `pggit_v0`
 2. ✅ All `pggit_audit` renamed to `pggit_audit_v0`
 3. ✅ All `pggit_migration` renamed to `pggit_migration_v0`
 4. ✅ All 30+ functions work in new schema
@@ -331,7 +331,7 @@ Week 8 is successful when:
 If anything goes wrong:
 ```sql
 -- Rollback schemas (reverse the renames)
-ALTER SCHEMA pggit_v0 RENAME TO pggit_v2;
+ALTER SCHEMA pggit_v0 RENAME TO pggit_v0;
 ALTER SCHEMA pggit_audit_v0 RENAME TO pggit_audit;
 ALTER SCHEMA pggit_migration_v0 RENAME TO pggit_migration;
 

@@ -21,7 +21,7 @@
 
 All 4 critical spikes executed successfully with GO decision:
 
-### Spike 1.1: pggit_v2 Data Format ✅
+### Spike 1.1: pggit_v0 Data Format ✅
 - **Duration**: 3 hours
 - **Key Findings**:
   - Git-like content-addressable storage with SHA-256 hashing
@@ -57,7 +57,7 @@ All 4 critical spikes executed successfully with GO decision:
 - **GO Criteria Met**:
   - ✅ Can extract DDL? YES
   - ✅ Can backfill safely? YES
-  - ✅ Understand pggit_v2? YES
+  - ✅ Understand pggit_v0? YES
   - ✅ Is ROI positive? YES
 - **Deliverable**: `docs/SPIKE_1_4_GO_NO_GO_DECISION.md` (157 lines)
 - **Confidence**: HIGH
@@ -101,7 +101,7 @@ All 4 critical spikes executed successfully with GO decision:
 **Deliverable**: `sql/pggit_audit_functions.sql` (361 lines)
 
 **Implements**:
-- `extract_changes_between_commits()`: Core DDL difference detection from pggit_v2
+- `extract_changes_between_commits()`: Core DDL difference detection from pggit_v0
 - `backfill_from_v1_history()`: Convert pggit v1 history to audit records
 - `get_object_ddl_at_commit()`: Retrieve DDL at specific point in time
 - `compare_object_versions()`: Compare DDL between commits
@@ -197,7 +197,7 @@ TOTAL: 110 hours (8 weeks remaining)
 ## 📚 Documentation Created
 
 ### Spike Analysis (Week 1)
-- `docs/SPIKE_1_1_PGGIT_V2_ANALYSIS.md` - pggit_v2 data format deep dive
+- `docs/SPIKE_1_1_PGGIT_V2_ANALYSIS.md` - pggit_v0 data format deep dive
 - `docs/SPIKE_1_2_DDL_EXTRACTION_ANALYSIS.md` - DDL extraction feasibility
 - `docs/SPIKE_1_3_BACKFILL_ALGORITHM.md` - Algorithm design with risk mitigation
 - `docs/SPIKE_1_4_GO_NO_GO_DECISION.md` - GO decision with confidence assessment

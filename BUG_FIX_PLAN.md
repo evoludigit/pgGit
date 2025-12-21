@@ -15,7 +15,7 @@ The test suite revealed **16 distinct bug categories** affecting all 14 test fil
 **Critical path blockers** (must fix first):
 1. ❌ `pggit.ensure_object()` - Ambiguous overload blocks ALL DDL operations
 2. ❌ Missing assertion helpers - Prevents test verification
-3. ❌ Missing `pggit_v2` schema - Blocks 3-way merge feature
+3. ❌ Missing `pggit_v0` schema - Blocks 3-way merge feature
 
 ---
 
@@ -179,7 +179,7 @@ AND pronamespace = 'pggit'::regnamespace;
 
 ---
 
-### Bug #3: HIGH - Missing `pggit_v2` Schema for Three-Way Merge
+### Bug #3: HIGH - Missing `pggit_v0` Schema for Three-Way Merge
 
 **Severity**: 🟠 HIGH
 **Impact**: Blocks entire 3-way merge feature
@@ -187,23 +187,23 @@ AND pronamespace = 'pggit'::regnamespace;
 
 #### Problem
 
-Tests require schema `pggit_v2` with git-like object model, but it doesn't exist:
+Tests require schema `pggit_v0` with git-like object model, but it doesn't exist:
 
 ```sql
 -- Missing schema
-CREATE SCHEMA IF NOT EXISTS pggit_v2;
+CREATE SCHEMA IF NOT EXISTS pggit_v0;
 
 -- Missing functions
-pggit_v2.create_blob(content text) RETURNS text
-pggit_v2.create_tree(tree_data jsonb) RETURNS text
-pggit_v2.find_merge_base(sha1 text, sha2 text) RETURNS text
-pggit_v2.three_way_merge(...) RETURNS jsonb
-pggit_v2.create_merge_commit(...) RETURNS text
+pggit_v0.create_blob(content text) RETURNS text
+pggit_v0.create_tree(tree_data jsonb) RETURNS text
+pggit_v0.find_merge_base(sha1 text, sha2 text) RETURNS text
+pggit_v0.three_way_merge(...) RETURNS jsonb
+pggit_v0.create_merge_commit(...) RETURNS text
 
 -- Missing tables
-pggit_v2.objects (sha, object_type, content, compressed)
-pggit_v2.tree_entries (sha, name, mode, object_sha)
-pggit_v2.performance_metrics
+pggit_v0.objects (sha, object_type, content, compressed)
+pggit_v0.tree_entries (sha, name, mode, object_sha)
+pggit_v0.performance_metrics
 ```
 
 #### Root Cause
@@ -212,7 +212,7 @@ Three-way merge feature is incomplete. The tests expect a full git-like object m
 
 #### Solution
 
-**Option A: Implement Full pggit_v2** (8-10 hours)
+**Option A: Implement Full pggit_v0** (8-10 hours)
 - Create complete git object model
 - Implement blob/tree/commit storage
 - Implement three-way merge algorithm
@@ -230,27 +230,27 @@ Three-way merge feature is incomplete. The tests expect a full git-like object m
 
 #### Implementation Plan (Option B - Recommended for now)
 
-**Step 1**: Create pggit_v2 schema
+**Step 1**: Create pggit_v0 schema
 ```sql
-CREATE SCHEMA IF NOT EXISTS pggit_v2;
+CREATE SCHEMA IF NOT EXISTS pggit_v0;
 ```
 
 **Step 2**: Create stub functions
 ```sql
-CREATE TABLE pggit_v2.objects (
+CREATE TABLE pggit_v0.objects (
     sha text PRIMARY KEY,
     object_type text NOT NULL,
     content text NOT NULL,
     compressed boolean DEFAULT false
 );
 
-CREATE FUNCTION pggit_v2.create_blob(content text)
+CREATE FUNCTION pggit_v0.create_blob(content text)
 RETURNS text AS $$
 DECLARE
     sha text;
 BEGIN
     sha := encode(digest(content, 'sha1'), 'hex');
-    INSERT INTO pggit_v2.objects (sha, object_type, content)
+    INSERT INTO pggit_v0.objects (sha, object_type, content)
     VALUES (sha, 'blob', content)
     ON CONFLICT DO NOTHING;
     RETURN sha;
@@ -260,16 +260,16 @@ $$ LANGUAGE plpgsql;
 
 **Step 3**: Create remaining stub functions
 ```sql
-CREATE FUNCTION pggit_v2.create_tree(tree_data jsonb)
+CREATE FUNCTION pggit_v0.create_tree(tree_data jsonb)
 RETURNS text AS $$...
 
-CREATE FUNCTION pggit_v2.find_merge_base(sha1 text, sha2 text)
+CREATE FUNCTION pggit_v0.find_merge_base(sha1 text, sha2 text)
 RETURNS text AS $$...
 
-CREATE FUNCTION pggit_v2.three_way_merge(base_sha text, ours_sha text, theirs_sha text)
+CREATE FUNCTION pggit_v0.three_way_merge(base_sha text, ours_sha text, theirs_sha text)
 RETURNS jsonb AS $$...
 
-CREATE FUNCTION pggit_v2.create_merge_commit(commit_data jsonb)
+CREATE FUNCTION pggit_v0.create_merge_commit(commit_data jsonb)
 RETURNS text AS $$...
 ```
 
@@ -576,7 +576,7 @@ NOTICE: type "change_severity" already exists, skipping
    - Test manual installation
    - Verify functions exist
 
-3. **Create pggit_v2 schema with stubs**
+3. **Create pggit_v0 schema with stubs**
    - Create schema
    - Create tables
    - Create stub functions
@@ -622,7 +622,7 @@ NOTICE: type "change_severity" already exists, skipping
   - [ ] Verify functions exist in postgres
   - Estimated: 15 min
 
-- [ ] **Task 1.3**: Create pggit_v2 schema
+- [ ] **Task 1.3**: Create pggit_v0 schema
   - [ ] Create schema
   - [ ] Create objects table
   - [ ] Create blob function
@@ -699,8 +699,8 @@ psql -f tests/test-core.sql 2>&1 | grep "is not unique"
 psql -f tests/test-cqrs-support.sql 2>&1 | grep "Required function"
 # Expected: Shows missing cqrs function, not missing assert function
 
-# Test: pggit_v2 schema exists
-psql -c "SELECT 1 FROM pggit_v2.objects LIMIT 1;"
+# Test: pggit_v0 schema exists
+psql -c "SELECT 1 FROM pggit_v0.objects LIMIT 1;"
 # Expected: No error about missing schema
 ```
 
@@ -733,7 +733,7 @@ psql -f tests/test-ai.sql 2>&1 | grep -E "ERROR|PASS" | head -10
 ### Phase 1 Complete When
 - [ ] `pggit.ensure_object()` has no ambiguity (only 1 overload)
 - [ ] All tests can call assertion functions without "function does not exist" error
-- [ ] `pggit_v2` schema exists with all required functions
+- [ ] `pggit_v0` schema exists with all required functions
 
 ### Phase 2 Complete When
 - [ ] All feature-specific functions exist (may be stubs)
@@ -780,7 +780,7 @@ psql -f tests/test-ai.sql 2>&1 | grep -E "ERROR|PASS" | head -10
 |-------|------|----------|-------|
 | 1 | Fix ensure_object | 30 min | 1.5h |
 | 1 | Verify assertion helpers | 15 min | |
-| 1 | Create pggit_v2 stubs | 1-2h | |
+| 1 | Create pggit_v0 stubs | 1-2h | |
 | 2 | Data branching | 1h | 4h |
 | 2 | CQRS | 1h | |
 | 2 | Conflict resolution | 1h | |

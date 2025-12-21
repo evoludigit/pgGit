@@ -12,7 +12,7 @@
 
 | Spike | File | Lines | Status | Confidence |
 |-------|------|-------|--------|-----------|
-| 1.1 pggit_v2 Format | docs/SPIKE_1_1_PGGIT_V2_ANALYSIS.md | 152 | ✅ | HIGH |
+| 1.1 pggit_v0 Format | docs/SPIKE_1_1_PGGIT_V2_ANALYSIS.md | 152 | ✅ | HIGH |
 | 1.2 DDL Extraction | docs/SPIKE_1_2_DDL_EXTRACTION_ANALYSIS.md | 201 | ✅ | HIGH |
 | 1.3 Backfill Algorithm | docs/SPIKE_1_3_BACKFILL_ALGORITHM.md | 298 | ✅ | HIGH |
 | 1.4 GO/NO-GO | docs/SPIKE_1_4_GO_NO_GO_DECISION.md | 157 | ✅ | HIGH |
@@ -102,7 +102,7 @@ Per Month:                       €6,233 (3-month duration)
 - Rollback procedures documented
 - Integration points verified
 
-### Criterion 3: Do We Understand pggit_v2?
+### Criterion 3: Do We Understand pggit_v0?
 **Status**: ✅ **YES**
 - Git-like content-addressable storage analyzed
 - Blobs, trees, commits understood
@@ -127,7 +127,7 @@ Per Month:                       €6,233 (3-month duration)
 
 ### What Was Proven
 
-✅ **pggit_v2 Understanding**
+✅ **pggit_v0 Understanding**
 - Git-like data model well-designed
 - Content-addressable storage working as intended
 - Performance optimizations effective
@@ -261,7 +261,7 @@ Per Month:                       €6,233 (3-month duration)
 ## 🎓 Key Learnings from Week 1
 
 ### Technical Insights
-1. **pggit_v2 is well-designed**: Git-like model suits schema versioning
+1. **pggit_v0 is well-designed**: Git-like model suits schema versioning
 2. **DDL extraction is feasible**: Tree diffing provides efficient change detection
 3. **Backfill is manageable**: Algorithmic approach handles all identified risks
 4. **Performance is good**: < 3ms extraction, < 100ms per operation

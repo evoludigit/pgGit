@@ -1,4 +1,4 @@
-# Complete Implementation Plan for pggit_v2 - Full Git Object Model & Three-Way Merge
+# Complete Implementation Plan for pggit_v0 - Full Git Object Model & Three-Way Merge
 
 **Date**: 2025-12-21
 **Scope**: Full implementation of git-like object model with three-way merge algorithm
@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-The `pggit_v2` schema will implement a **complete git-like object model** with:
+The `pggit_v0` schema will implement a **complete git-like object model** with:
 1. **Content-addressable storage** - Objects identified by SHA-1 hashes
 2. **Immutable objects** - Blobs, trees, commits
 3. **Git-compatible merge algorithm** - Three-way merge with conflict detection
@@ -134,7 +134,7 @@ Structure:
 
 #### Statistics & Metadata
 ```
-pggit_v2.statistics:
+pggit_v0.statistics:
   - total_objects: INTEGER
   - total_commits: INTEGER
   - total_blobs: INTEGER
@@ -142,7 +142,7 @@ pggit_v2.statistics:
   - total_merges: INTEGER
   - last_updated: TIMESTAMP
 
-pggit_v2.object_stats:
+pggit_v0.object_stats:
   - object_type: TEXT ('blob', 'tree', 'commit')
   - count: INTEGER
   - total_size: BIGINT
@@ -162,11 +162,11 @@ Purpose: Create a blob (file content) and return its SHA-1
 Algorithm:
   1. Compute SHA-1 hash of content
   2. Check if blob with this SHA already exists
-  3. If not, insert into pggit_v2.blobs table
+  3. If not, insert into pggit_v0.blobs table
   4. Return the SHA-1 hex string
 
 Implementation:
-  CREATE FUNCTION pggit_v2.create_blob(p_content TEXT)
+  CREATE FUNCTION pggit_v0.create_blob(p_content TEXT)
   RETURNS TEXT AS $$
   DECLARE
     v_sha TEXT;
@@ -175,7 +175,7 @@ Implementation:
     v_sha := encode(digest(p_content, 'sha1'), 'hex');
 
     -- Insert blob if not already exists
-    INSERT INTO pggit_v2.blobs (sha1, content, size, created_at)
+    INSERT INTO pggit_v0.blobs (sha1, content, size, created_at)
     VALUES (v_sha, p_content, LENGTH(p_content), NOW())
     ON CONFLICT (sha1) DO NOTHING;
 
@@ -184,7 +184,7 @@ Implementation:
   $$ LANGUAGE plpgsql;
 
 Test:
-  SELECT pggit_v2.create_blob('Hello, World!')
+  SELECT pggit_v0.create_blob('Hello, World!')
   -- Returns: '356a192b7913b04c54574d18c28d46e6395428ab'
 ```
 
@@ -193,10 +193,10 @@ Test:
 Purpose: Retrieve blob content by SHA
 
 Implementation:
-  CREATE FUNCTION pggit_v2.get_blob(p_sha TEXT)
+  CREATE FUNCTION pggit_v0.get_blob(p_sha TEXT)
   RETURNS TEXT AS $$
   BEGIN
-    RETURN content FROM pggit_v2.blobs WHERE sha1 = p_sha;
+    RETURN content FROM pggit_v0.blobs WHERE sha1 = p_sha;
   END;
   $$ LANGUAGE plpgsql;
 ```
@@ -213,7 +213,7 @@ Algorithm:
   1. Validate all entries (check referenced blobs/trees exist)
   2. Sort entries by name (git uses canonical ordering)
   3. Compute SHA-1 of sorted tree structure
-  4. Insert into pggit_v2.trees table
+  4. Insert into pggit_v0.trees table
   5. Return SHA-1
 
 Tree Entry Format:
@@ -225,7 +225,7 @@ Tree Entry Format:
   }
 
 Implementation:
-  CREATE FUNCTION pggit_v2.create_tree(p_entries JSONB)
+  CREATE FUNCTION pggit_v0.create_tree(p_entries JSONB)
   RETURNS TEXT AS $$
   DECLARE
     v_sha TEXT;
@@ -236,11 +236,11 @@ Implementation:
     FOR v_entry IN SELECT jsonb_array_elements(p_entries)
     LOOP
       IF v_entry->>'type' = 'blob' THEN
-        IF NOT EXISTS (SELECT 1 FROM pggit_v2.blobs WHERE sha1 = v_entry->>'sha') THEN
+        IF NOT EXISTS (SELECT 1 FROM pggit_v0.blobs WHERE sha1 = v_entry->>'sha') THEN
           RAISE EXCEPTION 'Blob not found: %', v_entry->>'sha';
         END IF;
       ELSIF v_entry->>'type' = 'tree' THEN
-        IF NOT EXISTS (SELECT 1 FROM pggit_v2.trees WHERE sha1 = v_entry->>'sha') THEN
+        IF NOT EXISTS (SELECT 1 FROM pggit_v0.trees WHERE sha1 = v_entry->>'sha') THEN
           RAISE EXCEPTION 'Tree not found: %', v_entry->>'sha';
         END IF;
       END IF;
@@ -256,7 +256,7 @@ Implementation:
     v_sha := encode(digest(v_sorted_entries::TEXT, 'sha1'), 'hex');
 
     -- Insert tree
-    INSERT INTO pggit_v2.trees (sha1, entries, created_at)
+    INSERT INTO pggit_v0.trees (sha1, entries, created_at)
     VALUES (v_sha, v_sorted_entries, NOW())
     ON CONFLICT (sha1) DO NOTHING;
 
@@ -270,10 +270,10 @@ Implementation:
 Purpose: Retrieve tree entries by SHA
 
 Implementation:
-  CREATE FUNCTION pggit_v2.get_tree(p_sha TEXT)
+  CREATE FUNCTION pggit_v0.get_tree(p_sha TEXT)
   RETURNS JSONB AS $$
   BEGIN
-    RETURN entries FROM pggit_v2.trees WHERE sha1 = p_sha;
+    RETURN entries FROM pggit_v0.trees WHERE sha1 = p_sha;
   END;
   $$ LANGUAGE plpgsql;
 ```
@@ -290,11 +290,11 @@ Algorithm:
   1. Validate tree exists
   2. Validate all parent commits exist
   3. Compute SHA-1 of commit data
-  4. Insert into pggit_v2.commits table
+  4. Insert into pggit_v0.commits table
   5. Return SHA-1
 
 Implementation:
-  CREATE FUNCTION pggit_v2.create_commit(
+  CREATE FUNCTION pggit_v0.create_commit(
     p_tree_sha TEXT,
     p_parents TEXT[],
     p_author TEXT,
@@ -306,14 +306,14 @@ Implementation:
     v_parent TEXT;
   BEGIN
     -- Validate tree exists
-    IF NOT EXISTS (SELECT 1 FROM pggit_v2.trees WHERE sha1 = p_tree_sha) THEN
+    IF NOT EXISTS (SELECT 1 FROM pggit_v0.trees WHERE sha1 = p_tree_sha) THEN
       RAISE EXCEPTION 'Tree not found: %', p_tree_sha;
     END IF;
 
     -- Validate all parents exist
     FOREACH v_parent IN ARRAY p_parents
     LOOP
-      IF NOT EXISTS (SELECT 1 FROM pggit_v2.commits WHERE sha1 = v_parent) THEN
+      IF NOT EXISTS (SELECT 1 FROM pggit_v0.commits WHERE sha1 = v_parent) THEN
         RAISE EXCEPTION 'Parent commit not found: %', v_parent;
       END IF;
     END LOOP;
@@ -334,7 +334,7 @@ message %s',
     v_sha := encode(digest(v_commit_data, 'sha1'), 'hex');
 
     -- Insert commit
-    INSERT INTO pggit_v2.commits (sha1, tree, parents, author, message, timestamp, created_at)
+    INSERT INTO pggit_v0.commits (sha1, tree, parents, author, message, timestamp, created_at)
     VALUES (v_sha, p_tree_sha, p_parents, p_author, p_message, NOW(), NOW())
     ON CONFLICT (sha1) DO NOTHING;
 
@@ -348,7 +348,7 @@ message %s',
 Purpose: Retrieve commit by SHA
 
 Implementation:
-  CREATE FUNCTION pggit_v2.get_commit(p_sha TEXT)
+  CREATE FUNCTION pggit_v0.get_commit(p_sha TEXT)
   RETURNS TABLE(
     sha1 TEXT,
     tree TEXT,
@@ -366,7 +366,7 @@ Implementation:
       commits.author,
       commits.message,
       commits.timestamp
-    FROM pggit_v2.commits
+    FROM pggit_v0.commits
     WHERE commits.sha1 = p_sha;
   END;
   $$ LANGUAGE plpgsql;
@@ -391,7 +391,7 @@ Why This Matters:
   - Needed for three-way merge
 
 Implementation:
-  CREATE FUNCTION pggit_v2.find_merge_base(p_sha1 TEXT, p_sha2 TEXT)
+  CREATE FUNCTION pggit_v0.find_merge_base(p_sha1 TEXT, p_sha2 TEXT)
   RETURNS TEXT AS $$
   DECLARE
     v_ancestors1 TEXT[];
@@ -410,7 +410,7 @@ Implementation:
       v_queue := v_queue[2:];
 
       -- Add all parents to queue
-      SELECT parents INTO v_parents FROM pggit_v2.commits WHERE sha1 = v_ancestor;
+      SELECT parents INTO v_parents FROM pggit_v0.commits WHERE sha1 = v_ancestor;
       IF v_parents IS NOT NULL THEN
         v_queue := v_queue || v_parents;
         v_ancestors1 := v_ancestors1 || v_parents;
@@ -419,10 +419,10 @@ Implementation:
 
     -- Find first common ancestor (most recent in commit 2's history)
     WITH RECURSIVE ancestors_of_sha2 AS (
-      SELECT sha1, parents, timestamp FROM pggit_v2.commits WHERE sha1 = p_sha2
+      SELECT sha1, parents, timestamp FROM pggit_v0.commits WHERE sha1 = p_sha2
       UNION ALL
       SELECT c.sha1, c.parents, c.timestamp
-      FROM pggit_v2.commits c
+      FROM pggit_v0.commits c
       JOIN ancestors_of_sha2 a ON c.sha1 = ANY(a.parents)
     )
     SELECT sha1 INTO v_base
@@ -446,7 +446,7 @@ Returns:
   - mode: Unix permissions
 
 Implementation:
-  CREATE FUNCTION pggit_v2.get_tree_files(
+  CREATE FUNCTION pggit_v0.get_tree_files(
     p_tree_sha TEXT,
     p_path_prefix TEXT DEFAULT ''
   )
@@ -463,7 +463,7 @@ Implementation:
       jsonb_array_elements(entries)->>'type' AS type,
       jsonb_array_elements(entries)->>'mode' AS mode,
       '' AS path_so_far
-    FROM pggit_v2.trees
+    FROM pggit_v0.trees
     WHERE sha1 = p_tree_sha
 
     UNION ALL
@@ -479,7 +479,7 @@ Implementation:
         ELSE tw.path_so_far || '/' || tw.name
       END
     FROM tree_walker tw
-    JOIN pggit_v2.trees t ON t.sha1 = tw.sha
+    JOIN pggit_v0.trees t ON t.sha1 = tw.sha
     WHERE tw.type = 'tree'
   )
   SELECT
@@ -518,7 +518,7 @@ Returns:
   - conflicts: JSONB (array of conflict details)
 
 Implementation:
-  CREATE FUNCTION pggit_v2.three_way_merge(
+  CREATE FUNCTION pggit_v0.three_way_merge(
     p_base_sha TEXT,
     p_ours_sha TEXT,
     p_theirs_sha TEXT
@@ -547,19 +547,19 @@ Implementation:
     v_all_files TEXT[];
   BEGIN
     -- Get trees for each commit
-    SELECT tree INTO v_base_tree FROM pggit_v2.commits WHERE sha1 = p_base_sha;
-    SELECT tree INTO v_ours_tree FROM pggit_v2.commits WHERE sha1 = p_ours_sha;
-    SELECT tree INTO v_theirs_tree FROM pggit_v2.commits WHERE sha1 = p_theirs_sha;
+    SELECT tree INTO v_base_tree FROM pggit_v0.commits WHERE sha1 = p_base_sha;
+    SELECT tree INTO v_ours_tree FROM pggit_v0.commits WHERE sha1 = p_ours_sha;
+    SELECT tree INTO v_theirs_tree FROM pggit_v0.commits WHERE sha1 = p_theirs_sha;
 
     -- Get all file lists
     SELECT array_agg(DISTINCT file_path ORDER BY file_path)
     INTO v_all_files
     FROM (
-      SELECT file_path FROM pggit_v2.get_tree_files(v_base_tree)
+      SELECT file_path FROM pggit_v0.get_tree_files(v_base_tree)
       UNION ALL
-      SELECT file_path FROM pggit_v2.get_tree_files(v_ours_tree)
+      SELECT file_path FROM pggit_v0.get_tree_files(v_ours_tree)
       UNION ALL
-      SELECT file_path FROM pggit_v2.get_tree_files(v_theirs_tree)
+      SELECT file_path FROM pggit_v0.get_tree_files(v_theirs_tree)
     ) all_files;
 
     v_merged_entries := '[]'::JSONB;
@@ -570,15 +570,15 @@ Implementation:
     LOOP
       -- Get content from each version
       SELECT blob_sha INTO v_base_content
-      FROM pggit_v2.get_tree_files(v_base_tree)
+      FROM pggit_v0.get_tree_files(v_base_tree)
       WHERE file_path = v_file_path;
 
       SELECT blob_sha INTO v_ours_content
-      FROM pggit_v2.get_tree_files(v_ours_tree)
+      FROM pggit_v0.get_tree_files(v_ours_tree)
       WHERE file_path = v_file_path;
 
       SELECT blob_sha INTO v_theirs_content
-      FROM pggit_v2.get_tree_files(v_theirs_tree)
+      FROM pggit_v0.get_tree_files(v_theirs_tree)
       WHERE file_path = v_file_path;
 
       -- Merge logic
@@ -620,9 +620,9 @@ Implementation:
           'base_sha', v_base_content,
           'ours_sha', v_ours_content,
           'theirs_sha', v_theirs_content,
-          'base_content', pggit_v2.get_blob(v_base_content),
-          'ours_content', pggit_v2.get_blob(v_ours_content),
-          'theirs_content', pggit_v2.get_blob(v_theirs_content)
+          'base_content', pggit_v0.get_blob(v_base_content),
+          'ours_content', pggit_v0.get_blob(v_ours_content),
+          'theirs_content', pggit_v0.get_blob(v_theirs_content)
         );
 
         -- For now, keep ours in case of conflict
@@ -643,7 +643,7 @@ Implementation:
     IF v_conflict_count = 0 THEN
       RETURN QUERY SELECT
         TRUE::BOOLEAN,
-        pggit_v2.create_tree(v_merged_entries),
+        pggit_v0.create_tree(v_merged_entries),
         0::INTEGER,
         NULL::JSONB;
     ELSE
@@ -662,7 +662,7 @@ Implementation:
 Purpose: If merge succeeds, create a merge commit with both parents
 
 Implementation:
-  CREATE FUNCTION pggit_v2.create_merge_commit(
+  CREATE FUNCTION pggit_v0.create_merge_commit(
     p_base_sha TEXT,
     p_ours_sha TEXT,
     p_theirs_sha TEXT,
@@ -680,11 +680,11 @@ Implementation:
   BEGIN
     -- Perform merge
     SELECT * INTO v_merge_result
-    FROM pggit_v2.three_way_merge(p_base_sha, p_ours_sha, p_theirs_sha);
+    FROM pggit_v0.three_way_merge(p_base_sha, p_ours_sha, p_theirs_sha);
 
     IF v_merge_result.success THEN
       -- Create merge commit with both parents
-      v_merge_commit_sha := pggit_v2.create_commit(
+      v_merge_commit_sha := pggit_v0.create_commit(
         v_merge_result.result_tree_sha,
         ARRAY[p_ours_sha, p_theirs_sha],
         p_author,
@@ -711,40 +711,40 @@ Implementation:
 
 ### 3.1 Create Schema
 ```sql
-CREATE SCHEMA IF NOT EXISTS pggit_v2;
+CREATE SCHEMA IF NOT EXISTS pggit_v0;
 ```
 
 ### 3.2 Create Tables
 
-#### pggit_v2.blobs
+#### pggit_v0.blobs
 ```sql
-CREATE TABLE pggit_v2.blobs (
+CREATE TABLE pggit_v0.blobs (
     sha1 TEXT PRIMARY KEY CHECK (LENGTH(sha1) = 40),
     content TEXT NOT NULL,
     size BIGINT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_blobs_size ON pggit_v2.blobs(size);
-CREATE INDEX idx_blobs_created ON pggit_v2.blobs(created_at);
+CREATE INDEX idx_blobs_size ON pggit_v0.blobs(size);
+CREATE INDEX idx_blobs_created ON pggit_v0.blobs(created_at);
 ```
 
-#### pggit_v2.trees
+#### pggit_v0.trees
 ```sql
-CREATE TABLE pggit_v2.trees (
+CREATE TABLE pggit_v0.trees (
     sha1 TEXT PRIMARY KEY CHECK (LENGTH(sha1) = 40),
     entries JSONB NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_trees_created ON pggit_v2.trees(created_at);
+CREATE INDEX idx_trees_created ON pggit_v0.trees(created_at);
 ```
 
-#### pggit_v2.commits
+#### pggit_v0.commits
 ```sql
-CREATE TABLE pggit_v2.commits (
+CREATE TABLE pggit_v0.commits (
     sha1 TEXT PRIMARY KEY CHECK (LENGTH(sha1) = 40),
-    tree TEXT NOT NULL REFERENCES pggit_v2.trees(sha1),
+    tree TEXT NOT NULL REFERENCES pggit_v0.trees(sha1),
     parents TEXT[] DEFAULT ARRAY[]::TEXT[],
     author TEXT NOT NULL,
     message TEXT NOT NULL,
@@ -752,50 +752,50 @@ CREATE TABLE pggit_v2.commits (
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_commits_tree ON pggit_v2.commits(tree);
-CREATE INDEX idx_commits_timestamp ON pggit_v2.commits(timestamp);
-CREATE INDEX idx_commits_author ON pggit_v2.commits(author);
+CREATE INDEX idx_commits_tree ON pggit_v0.commits(tree);
+CREATE INDEX idx_commits_timestamp ON pggit_v0.commits(timestamp);
+CREATE INDEX idx_commits_author ON pggit_v0.commits(author);
 ```
 
-#### pggit_v2.merge_context
+#### pggit_v0.merge_context
 ```sql
-CREATE TABLE pggit_v2.merge_context (
+CREATE TABLE pggit_v0.merge_context (
     merge_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    base_sha TEXT NOT NULL REFERENCES pggit_v2.commits(sha1),
-    ours_sha TEXT NOT NULL REFERENCES pggit_v2.commits(sha1),
-    theirs_sha TEXT NOT NULL REFERENCES pggit_v2.commits(sha1),
+    base_sha TEXT NOT NULL REFERENCES pggit_v0.commits(sha1),
+    ours_sha TEXT NOT NULL REFERENCES pggit_v0.commits(sha1),
+    theirs_sha TEXT NOT NULL REFERENCES pggit_v0.commits(sha1),
     status TEXT NOT NULL DEFAULT 'in_progress' CHECK (status IN ('in_progress', 'success', 'conflict', 'error')),
     conflict_count INTEGER DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_merge_status ON pggit_v2.merge_context(status);
+CREATE INDEX idx_merge_status ON pggit_v0.merge_context(status);
 ```
 
-#### pggit_v2.conflicts
+#### pggit_v0.conflicts
 ```sql
-CREATE TABLE pggit_v2.conflicts (
+CREATE TABLE pggit_v0.conflicts (
     conflict_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    merge_id UUID NOT NULL REFERENCES pggit_v2.merge_context(merge_id) ON DELETE CASCADE,
+    merge_id UUID NOT NULL REFERENCES pggit_v0.merge_context(merge_id) ON DELETE CASCADE,
     file_path TEXT NOT NULL,
-    base_sha TEXT REFERENCES pggit_v2.blobs(sha1),
-    ours_sha TEXT NOT NULL REFERENCES pggit_v2.blobs(sha1),
-    theirs_sha TEXT NOT NULL REFERENCES pggit_v2.blobs(sha1),
+    base_sha TEXT REFERENCES pggit_v0.blobs(sha1),
+    ours_sha TEXT NOT NULL REFERENCES pggit_v0.blobs(sha1),
+    theirs_sha TEXT NOT NULL REFERENCES pggit_v0.blobs(sha1),
     resolved BOOLEAN DEFAULT FALSE,
     resolution TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_conflicts_merge ON pggit_v2.conflicts(merge_id);
-CREATE INDEX idx_conflicts_file ON pggit_v2.conflicts(file_path);
+CREATE INDEX idx_conflicts_merge ON pggit_v0.conflicts(merge_id);
+CREATE INDEX idx_conflicts_file ON pggit_v0.conflicts(file_path);
 ```
 
-#### pggit_v2.merge_results
+#### pggit_v0.merge_results
 ```sql
-CREATE TABLE pggit_v2.merge_results (
-    merge_id UUID PRIMARY KEY REFERENCES pggit_v2.merge_context(merge_id) ON DELETE CASCADE,
-    result_tree_sha TEXT REFERENCES pggit_v2.trees(sha1),
-    merged_commit_sha TEXT REFERENCES pggit_v2.commits(sha1),
+CREATE TABLE pggit_v0.merge_results (
+    merge_id UUID PRIMARY KEY REFERENCES pggit_v0.merge_context(merge_id) ON DELETE CASCADE,
+    result_tree_sha TEXT REFERENCES pggit_v0.trees(sha1),
+    merged_commit_sha TEXT REFERENCES pggit_v0.commits(sha1),
     conflict_count INTEGER,
     success BOOLEAN,
     details JSONB,
@@ -803,9 +803,9 @@ CREATE TABLE pggit_v2.merge_results (
 );
 ```
 
-#### pggit_v2.statistics
+#### pggit_v0.statistics
 ```sql
-CREATE TABLE pggit_v2.statistics (
+CREATE TABLE pggit_v0.statistics (
     stat_date DATE PRIMARY KEY DEFAULT CURRENT_DATE,
     total_objects INTEGER,
     total_commits INTEGER,
@@ -829,10 +829,10 @@ CREATE TABLE pggit_v2.statistics (
 Purpose: Check if blob exists
 
 Implementation:
-  CREATE FUNCTION pggit_v2.verify_blob_exists(p_sha TEXT)
+  CREATE FUNCTION pggit_v0.verify_blob_exists(p_sha TEXT)
   RETURNS BOOLEAN AS $$
   BEGIN
-    RETURN EXISTS(SELECT 1 FROM pggit_v2.blobs WHERE sha1 = p_sha);
+    RETURN EXISTS(SELECT 1 FROM pggit_v0.blobs WHERE sha1 = p_sha);
   END;
   $$ LANGUAGE plpgsql STABLE;
 ```
@@ -891,18 +891,18 @@ Implementation:
 
 ### 4.3 Utility Functions
 
-#### reset_pggit_v2() RETURNS VOID
+#### reset_pggit_v0() RETURNS VOID
 ```sql
 Purpose: Clear all data (for testing)
 
 Implementation:
-  DELETE FROM pggit_v2.conflicts;
-  DELETE FROM pggit_v2.merge_results;
-  DELETE FROM pggit_v2.merge_context;
-  DELETE FROM pggit_v2.commits;
-  DELETE FROM pggit_v2.trees;
-  DELETE FROM pggit_v2.blobs;
-  DELETE FROM pggit_v2.statistics;
+  DELETE FROM pggit_v0.conflicts;
+  DELETE FROM pggit_v0.merge_results;
+  DELETE FROM pggit_v0.merge_context;
+  DELETE FROM pggit_v0.commits;
+  DELETE FROM pggit_v0.trees;
+  DELETE FROM pggit_v0.blobs;
+  DELETE FROM pggit_v0.statistics;
 ```
 
 #### rebuild_statistics() RETURNS VOID
@@ -910,8 +910,8 @@ Implementation:
 Purpose: Recalculate all statistics
 
 Implementation:
-  INSERT INTO pggit_v2.statistics (...)
-  SELECT ... FROM pggit_v2 tables
+  INSERT INTO pggit_v0.statistics (...)
+  SELECT ... FROM pggit_v0 tables
   ON CONFLICT DO UPDATE
 ```
 
@@ -920,7 +920,7 @@ Implementation:
 ## Part 5: Implementation Phases
 
 ### Phase 1: Schema Creation (1 hour)
-- [ ] Create pggit_v2 schema
+- [ ] Create pggit_v0 schema
 - [ ] Create all tables
 - [ ] Create indexes
 - [ ] Test: Can create tables, inserts work
@@ -966,28 +966,28 @@ Implementation:
 #### Test create_blob()
 ```sql
 -- Test 1: Basic blob creation
-SELECT pggit_v2.create_blob('Hello, World!')
+SELECT pggit_v0.create_blob('Hello, World!')
 -- Expected: Returns valid SHA (40 chars)
 
 -- Test 2: Idempotence (same content = same SHA)
-SELECT pggit_v2.create_blob('test') = pggit_v2.create_blob('test')
+SELECT pggit_v0.create_blob('test') = pggit_v0.create_blob('test')
 -- Expected: TRUE
 
 -- Test 3: Different content = different SHA
-SELECT pggit_v2.create_blob('a') <> pggit_v2.create_blob('b')
+SELECT pggit_v0.create_blob('a') <> pggit_v0.create_blob('b')
 -- Expected: TRUE
 ```
 
 #### Test create_tree()
 ```sql
 -- Test 1: Basic tree creation
-SELECT pggit_v2.create_tree('[
+SELECT pggit_v0.create_tree('[
   {"name": "file.txt", "mode": "100644", "type": "blob", "sha": "..."}
 ]')
 -- Expected: Valid SHA
 
 -- Test 2: Tree with invalid blob reference
-SELECT pggit_v2.create_tree('[
+SELECT pggit_v0.create_tree('[
   {"name": "file.txt", "mode": "100644", "type": "blob", "sha": "invalid"}
 ]')
 -- Expected: EXCEPTION "Blob not found"
@@ -1001,7 +1001,7 @@ c1 = create_commit(tree0, [c0], 'author', 'update')
 c2 = create_commit(tree0, [c0], 'author', 'branch')
 
 -- find_merge_base(c1, c2) should return c0
-SELECT pggit_v2.find_merge_base(c1, c2) = c0
+SELECT pggit_v0.find_merge_base(c1, c2) = c0
 -- Expected: TRUE
 ```
 
@@ -1034,22 +1034,22 @@ Result: SUCCESS (no conflict)
 Test case from test-proper-three-way-merge.sql:
 ```sql
 -- Create initial commit
-SET blob1 = pggit_v2.create_blob('Hello, World!')
-SET tree1 = pggit_v2.create_tree('[{"name": "file.txt", "mode": "100644", "type": "blob", "sha": blob1}]')
-SET commit1 = pggit_v2.create_commit(tree1, [], 'Author', 'Initial commit')
+SET blob1 = pggit_v0.create_blob('Hello, World!')
+SET tree1 = pggit_v0.create_tree('[{"name": "file.txt", "mode": "100644", "type": "blob", "sha": blob1}]')
+SET commit1 = pggit_v0.create_commit(tree1, [], 'Author', 'Initial commit')
 
 -- Create branch and make changes
-SET blob2 = pggit_v2.create_blob('Hello, World!\nOur changes')
-SET tree2 = pggit_v2.create_tree('[{"name": "file.txt", "mode": "100644", "type": "blob", "sha": blob2}]')
-SET commit2 = pggit_v2.create_commit(tree2, [commit1], 'Author', 'Our changes')
+SET blob2 = pggit_v0.create_blob('Hello, World!\nOur changes')
+SET tree2 = pggit_v0.create_tree('[{"name": "file.txt", "mode": "100644", "type": "blob", "sha": blob2}]')
+SET commit2 = pggit_v0.create_commit(tree2, [commit1], 'Author', 'Our changes')
 
 -- Create conflicting branch
-SET blob3 = pggit_v2.create_blob('Hello, World!\nTheir changes')
-SET tree3 = pggit_v2.create_tree('[{"name": "file.txt", "mode": "100644", "type": "blob", "sha": blob3}]')
-SET commit3 = pggit_v2.create_commit(tree3, [commit1], 'Author', 'Their changes')
+SET blob3 = pggit_v0.create_blob('Hello, World!\nTheir changes')
+SET tree3 = pggit_v0.create_tree('[{"name": "file.txt", "mode": "100644", "type": "blob", "sha": blob3}]')
+SET commit3 = pggit_v0.create_commit(tree3, [commit1], 'Author', 'Their changes')
 
 -- Attempt merge
-SELECT pggit_v2.three_way_merge(commit1, commit2, commit3)
+SELECT pggit_v0.three_way_merge(commit1, commit2, commit3)
 -- Expected: success=FALSE, conflict_count=1, conflicts=[{...}]
 ```
 
@@ -1132,7 +1132,7 @@ SELECT pggit_v2.three_way_merge(commit1, commit2, commit3)
 - [ ] Set up test environment
 
 ### Schema Phase
-- [ ] Create sql/pggit_v2_schema.sql with all tables
+- [ ] Create sql/pggit_v0_schema.sql with all tables
 - [ ] Create indexes
 - [ ] Verify schema loads without errors
 - [ ] Write schema tests
@@ -1178,7 +1178,7 @@ SELECT pggit_v2.three_way_merge(commit1, commit2, commit3)
 ### Utility Functions Phase
 - [ ] Implement verification functions
 - [ ] Implement analysis functions
-- [ ] Implement reset_pggit_v2()
+- [ ] Implement reset_pggit_v0()
 - [ ] Implement rebuild_statistics()
 
 ### Testing Phase

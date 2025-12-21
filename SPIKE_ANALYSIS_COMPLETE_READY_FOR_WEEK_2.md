@@ -8,10 +8,10 @@
 
 ## 🎯 Spike Analysis Results Summary
 
-### Spike 1.1: pggit_v2 Data Format Analysis ✅
+### Spike 1.1: pggit_v0 Data Format Analysis ✅
 **Status**: COMPLETE - High confidence
 **Key Findings**:
-- pggit_v2 is properly structured Git-like content-addressable storage
+- pggit_v0 is properly structured Git-like content-addressable storage
 - Objects stored as blobs (SQL DDL text), trees (object references), commits (snapshots)
 - Performance optimizations: commit_graph, tree_entries for fast diffing
 - DDL extraction path clear: commit → tree → blob → SQL
@@ -45,7 +45,7 @@
 **Decision Factors**:
 1. ✅ Can extract DDL? YES - fully verified
 2. ✅ Can backfill safely? YES - algorithm designed
-3. ✅ Understand pggit_v2? YES - architecture mastered
+3. ✅ Understand pggit_v0? YES - architecture mastered
 4. ✅ Is ROI positive? YES - benefits exceed costs
 
 **Deliverable**: `docs/SPIKE_1_4_GO_NO_GO_DECISION.md` (157 lines)
@@ -55,7 +55,7 @@
 ## 📊 What We Learned
 
 ### Technical Discoveries
-- **pggit_v2 format**: Well-designed, production-ready Git-like system
+- **pggit_v0 format**: Well-designed, production-ready Git-like system
 - **DDL extraction**: Core functionality proven, easily extensible
 - **Backfill algorithm**: Feasible with manageable risks
 - **Performance**: All operations sub-100ms, suitable for production
@@ -87,7 +87,7 @@ docs/SPIKE_1_4_GO_NO_GO_DECISION.md       (157 lines)
 ```
 
 ### Working Code Artifacts
-- ✅ pggit_v2 data format fully understood with examples
+- ✅ pggit_v0 data format fully understood with examples
 - ✅ `extract_ddl_changes()` function prototype working
 - ✅ Test data created (blobs, trees, commits)
 - ✅ Backfill algorithm pseudocode with integration points
@@ -266,7 +266,7 @@ TOTAL REMAINING: 78-90 hours (6 weeks)
 ### What Engineer Should Do Monday (Week 2)
 
 1. **Read spike analysis documents** (2 hours)
-   - SPIKE_1_1: Understand pggit_v2 structure
+   - SPIKE_1_1: Understand pggit_v0 structure
    - SPIKE_1_2: See how DDL extraction works
    - SPIKE_1_3: Understand backfill algorithm
    - SPIKE_1_4: Confirm GO decision rationale

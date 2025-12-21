@@ -37,19 +37,19 @@
 ### 1. Spike Analysis Results (Understanding Phase)
 **Duration**: 2 hours to read all 4 spikes
 
-#### Spike 1.1: pggit_v2 Data Format Analysis
+#### Spike 1.1: pggit_v0 Data Format Analysis
 **File**: `docs/SPIKE_1_1_PGGIT_V2_ANALYSIS.md` (152 lines)
 **Read Time**: 20 minutes
 **Key Topics**:
 - Git-like content-addressable storage explained
-- pggit_v2.objects table structure (sha, type, size, content)
+- pggit_v0.objects table structure (sha, type, size, content)
 - Blob objects: DDL definitions (plain SQL text)
 - Tree objects: Directory structure at point in time
 - Commit objects: Git commit format with metadata
 - Performance optimizations (commit_graph, tree_entries)
 - DDL extraction path: commit → tree → blob → SQL
 
-**Outcome**: Understand how pggit_v2 stores and retrieves schema history
+**Outcome**: Understand how pggit_v0 stores and retrieves schema history
 
 ---
 
@@ -65,7 +65,7 @@
 - Extended types need 16-20 hours: VIEW, INDEX, CONSTRAINT, SEQUENCE, TRIGGER
 - Effort breakdown: 4 hours core done, 16-20 hours remaining for all types
 
-**Outcome**: Proof that DDL extraction from pggit_v2 is feasible
+**Outcome**: Proof that DDL extraction from pggit_v0 is feasible
 
 ---
 
@@ -97,7 +97,7 @@
 - 4 GO criteria all met:
   1. Can extract DDL? YES (proven in Spike 1.2)
   2. Can backfill safely? YES (algorithm in Spike 1.3)
-  3. Understand pggit_v2? YES (mastered in Spike 1.1)
+  3. Understand pggit_v0? YES (mastered in Spike 1.1)
   4. Is ROI positive? YES (benefits > costs)
 - ROI analysis (benefits, costs, risks)
 - Path comparison (Full vs Simplified vs Status Quo)
@@ -270,7 +270,7 @@ LOW Priority:
 ## 📈 Progress Tracking
 
 ### Week 1 ✅ COMPLETE
-- [x] Spike 1.1: pggit_v2 data format (3 hours)
+- [x] Spike 1.1: pggit_v0 data format (3 hours)
 - [x] Spike 1.2: DDL extraction (6 hours)
 - [x] Spike 1.3: Backfill algorithm (4 hours)
 - [x] Spike 1.4: GO/NO-GO decision (2 hours)

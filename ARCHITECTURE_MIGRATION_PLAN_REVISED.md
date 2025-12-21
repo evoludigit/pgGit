@@ -25,7 +25,7 @@
 
 Currently pggit has two separate version control schemas:
 - **pggit (v1)**: Name-based DDL tracking with version numbers (good for compliance, bad for merging)
-- **pggit_v2**: Git-like content-addressable storage (good for branching/merging, incomplete for compliance)
+- **pggit_v0**: Git-like content-addressable storage (good for branching/merging, incomplete for compliance)
 
 These two systems confuse users and duplicate effort. They solve different problems but were supposed to be alternatives.
 
@@ -43,15 +43,15 @@ These two systems confuse users and duplicate effort. They solve different probl
 - IF: You want Git-like features but don't want migration chaos
 - THEN: Make both schemas work independently in parallel (no merge)
 - Keep: pggit (v1) for compliance and simple version tracking
-- Use: pggit_v2 for new team collaboration features
+- Use: pggit_v0 for new team collaboration features
 - Benefit: No migration required, both systems work, clear separation
 - Risk: Continued confusion about two systems, no automatic merging
 - Timeline: 20-30 hours to integrate and document, then done
 
 **Option C: Don't Migrate (MOST HONEST)**
 - IF: Your team is small, development is mostly linear, merging is rare
-- THEN: Keep pggit (v1) as-is, don't build pggit_v2 into core system
-- Keep: Status quo with occasional pggit_v2 for special use cases
+- THEN: Keep pggit (v1) as-is, don't build pggit_v0 into core system
+- Keep: Status quo with occasional pggit_v0 for special use cases
 - Benefit: Zero migration effort, proven system, clear compliance trail
 - Risk: Miss out on Git-like features, but these are "nice-to-have" not "need-to-have"
 - Timeline: No effort needed
@@ -64,17 +64,17 @@ These two systems confuse users and duplicate effort. They solve different probl
 
 **DO NOT SKIP THIS.** The original plan failed because it assumed things without checking.
 
-#### Spike 1: Examine pggit_v2 Actual Data Format (4-5 hours)
+#### Spike 1: Examine pggit_v0 Actual Data Format (4-5 hours)
 
 **What we need to learn**:
-- What do pggit_v2 commits actually contain?
+- What do pggit_v0 commits actually contain?
 - How are objects serialized? (SQL text? Binary? JSON?)
 - What format are tree/blob relationships?
 - How do diffs work between commits?
 
 **How to do this spike**:
 
-1. Read the actual pggit_v2 schema file completely
+1. Read the actual pggit_v0 schema file completely
    ```bash
    cat sql/018_proper_git_three_way_merge.sql
    ```
@@ -84,7 +84,7 @@ These two systems confuse users and duplicate effort. They solve different probl
 
 2. Create a test scenario
    ```sql
-   -- Create a simple table in pggit_v2
+   -- Create a simple table in pggit_v0
    -- Make a commit
    -- Modify it, make another commit
    -- Examine what was stored in objects table
@@ -98,12 +98,12 @@ These two systems confuse users and duplicate effort. They solve different probl
    - "To extract DDL we must {describe process}"
    - "Reconstruction requires {list dependencies}"
 
-**Deliverable**: A 2-3 page document showing actual pggit_v2 data with examples
+**Deliverable**: A 2-3 page document showing actual pggit_v0 data with examples
 
 #### Spike 2: Prototype DDL Extraction for ONE Object Type (8-10 hours)
 
 **What we need to learn**:
-- Can we extract DDL definitions from pggit_v2 commits?
+- Can we extract DDL definitions from pggit_v0 commits?
 - What's the algorithm to detect changes?
 - How hard is it really?
 
@@ -163,7 +163,7 @@ These two systems confuse users and duplicate effort. They solve different probl
 
 2. Document v2 target format
    ```
-   pggit_v2 commits contain:
+   pggit_v0 commits contain:
    - Tree with blobs (complete object definitions)
    - Not incremental diffs
    - Must represent "full database state at this point"
@@ -212,7 +212,7 @@ These two systems confuse users and duplicate effort. They solve different probl
 ### Phase 0: Spike Analysis Results & Decision
 
 **Required outcomes**:
-- [ ] Spike 1: pggit_v2 data format documented with examples
+- [ ] Spike 1: pggit_v0 data format documented with examples
 - [ ] Spike 2: DDL extraction prototype working or documented as infeasible
 - [ ] Spike 3: Backfill algorithm designed with open questions answered
 - [ ] Spike 4: Business case made that migration is worth 200+ hours
@@ -237,13 +237,13 @@ These two systems confuse users and duplicate effort. They solve different probl
 
 ```sql
 -- Schema: pggit_audit
--- Purpose: Compliance and audit trail extracted from pggit_v2
+-- Purpose: Compliance and audit trail extracted from pggit_v0
 
 -- Table: audit.changes
--- Each row = one DDL change detected in pggit_v2 commits
+-- Each row = one DDL change detected in pggit_v0 commits
 CREATE TABLE pggit_audit.changes (
   change_id UUID PRIMARY KEY,
-  commit_sha TEXT NOT NULL,           -- Links to pggit_v2.commits
+  commit_sha TEXT NOT NULL,           -- Links to pggit_v0.commits
 
   -- What changed
   object_schema TEXT NOT NULL,        -- e.g., "public"
@@ -490,7 +490,7 @@ BEGIN;
 -- Step 1: Start with empty pggit_audit.changes
 -- Step 2: FOR EACH v1 version:
   -- 2a. Reconstruct full schema at that version
-  -- 2b. Create pggit_v2 commits for all changed objects
+  -- 2b. Create pggit_v0 commits for all changed objects
   -- 2c. Populate pggit_audit.changes from commits
   -- 2d. Verify against original v1 record (checksums?)
   -- 2e. ROLLBACK if verification fails
@@ -707,17 +707,17 @@ DROP SCHEMA IF EXISTS pggit_v1;
 Branch A: ALTER TABLE users ADD COLUMN created_at TIMESTAMP;
 Branch B: ALTER TABLE users ADD COLUMN updated_at TIMESTAMP;
 
-pggit_v2 can auto-merge this: {created_at, updated_at} ✓
+pggit_v0 can auto-merge this: {created_at, updated_at} ✓
 
 But what about:
 Branch A: ALTER TABLE users DROP COLUMN email CASCADE;
 Branch B: ALTER TABLE users ADD CONSTRAINT email_unique UNIQUE(email);
 
-pggit_v2 result: Table with no email column + constraint on deleted column ❌
-This is NOT solved by pggit_v2. It's still a manual merge.
+pggit_v0 result: Table with no email column + constraint on deleted column ❌
+This is NOT solved by pggit_v0. It's still a manual merge.
 ```
 
-**Verdict**: pggit_v2 helps with simple schema additions, but complex merging still requires domain knowledge.
+**Verdict**: pggit_v0 helps with simple schema additions, but complex merging still requires domain knowledge.
 
 ### Problem 2: Audit Layer is Derived, Not Authoritative
 
@@ -733,7 +733,7 @@ WHERE object_name = 'users'
 
 **With v2/audit**: Reconstruct from commits
 ```sql
--- Extract from pggit_v2 commits
+-- Extract from pggit_v0 commits
 -- Diff objects between commits
 -- Identify the change
 -- Cross-reference with metadata
@@ -751,7 +751,7 @@ WHERE object_name = 'users'
 
 **Real scenario**: You're running Phase 3 backfill, and simultaneously:
 - Users are still making changes via pggit (v1)
-- pggit_v2 is accumulating new commits
+- pggit_v0 is accumulating new commits
 - Your backfill is halfway done
 - Someone queries pggit_audit.changes and gets partial data
 
@@ -791,7 +791,7 @@ WHERE object_name = 'users'
 
 ### What You're Getting
 
-- ✅ Single source of truth (pggit_v2)
+- ✅ Single source of truth (pggit_v0)
 - ✅ Git-like branching and merging
 - ⚠️ NOT automatic DDL merging (still complex)
 - ⚠️ NOT better compliance (derived audit is less defensible)
@@ -818,7 +818,7 @@ WHERE object_name = 'users'
 ### Path A: Full Migration (Recommended IF above "YES if" criteria met)
 
 1. **Do spike analysis first** (18-20 hours)
-   - Learn actual pggit_v2 data format
+   - Learn actual pggit_v0 data format
    - Prototype DDL extraction
    - Design backfill algorithm
    - Verify ROI is positive
@@ -838,7 +838,7 @@ WHERE object_name = 'users'
 ### Path B: Hybrid Approach (SAFER)
 
 1. **Keep pggit (v1)** as-is (proven system)
-2. **Develop pggit_v2** independently (no migration)
+2. **Develop pggit_v0** independently (no migration)
 3. **Use both** for different purposes:
    - v1 for compliance, version history, auditing
    - v2 for team collaboration, branching, merging
@@ -851,7 +851,7 @@ WHERE object_name = 'users'
 
 1. **Don't migrate**
 2. **Keep using pggit (v1)**
-3. **Revisit pggit_v2 only if merging becomes critical need**
+3. **Revisit pggit_v0 only if merging becomes critical need**
 
 **Benefit**: Zero effort, proven system
 **Cost**: None
@@ -864,7 +864,7 @@ WHERE object_name = 'users'
 **If you choose Path A**, follow this sequence:
 
 1. **Weeks 1-2**: Execute spike analysis (18-20 hours)
-   - Get real data about pggit_v2 format
+   - Get real data about pggit_v0 format
    - Prototype DDL extraction
    - Learn what's actually involved
 
@@ -950,5 +950,5 @@ WHERE object_name = 'users'
 ## References
 
 - `ARCHITECTURE_MIGRATION_CRITICAL_ASSESSMENT.md` - Original assessment of flaws
-- `model_comparison.md` - Head-to-head comparison of pggit vs pggit_v2
+- `model_comparison.md` - Head-to-head comparison of pggit vs pggit_v0
 - SQL schema files: `sql/018_proper_git_three_way_merge.sql`, `sql/pggit_audit_*.sql`

@@ -1,4 +1,4 @@
-# Final UAT Report: pggit_v2 Fixes Applied
+# Final UAT Report: pggit_v0 Fixes Applied
 
 **Date**: December 21, 2025
 **Status**: SIGNIFICANT IMPROVEMENTS - MOST FUNCTIONS NOW WORKING
@@ -11,7 +11,7 @@
 ### ✅ Critical Issues Resolved
 
 1. **Column Name Mismatches Fixed**
-   - Updated all `pggit_v2.refs` references: `ref_name` → `name`, `commit_sha` → `target_sha`, `ref_type` → `type`
+   - Updated all `pggit_v0.refs` references: `ref_name` → `name`, `commit_sha` → `target_sha`, `ref_type` → `type`
    - Fixed JOIN conditions and WHERE clauses across all functions
 
 2. **SQL Syntax Errors Fixed**
@@ -24,8 +24,8 @@
    - INTEGER vs BOOLEAN comparisons: Fixed ROW_COUNT handling
 
 4. **Missing Tables Created**
-   - `pggit_v2.commit_parents` table created
-   - Basic pggit_v2 schema setup completed
+   - `pggit_v0.commit_parents` table created
+   - Basic pggit_v0 schema setup completed
 
 ### ✅ Functions Now Working
 
@@ -121,7 +121,7 @@
 3. **Fix Developer Functions**: Clean up corrupted functions and redeploy
 
 ### For Full Git-like Functionality
-1. **Implement Commit System**: pggit_v2 needs actual commit creation
+1. **Implement Commit System**: pggit_v0 needs actual commit creation
 2. **Add Object Storage**: Proper blob/tree storage for definitions
 3. **Complete Branching**: Full Git workflow implementation
 
@@ -143,6 +143,6 @@
 
 ---
 
-**Final Assessment**: pggit_v2 is significantly improved and ready for limited production use. Core analytics and monitoring functionality is solid. Full Git-like features need additional development but the foundation is now stable.
+**Final Assessment**: pggit_v0 is significantly improved and ready for limited production use. Core analytics and monitoring functionality is solid. Full Git-like features need additional development but the foundation is now stable.
 
 **Next Step**: Clean up remaining developer functions and implement commit system for complete functionality.

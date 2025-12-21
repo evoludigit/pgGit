@@ -15,7 +15,7 @@ Created **ARCHITECTURE_MIGRATION_PLAN_REVISED.md** - a completely rewritten vers
 ### 2. **Mandatory Spike Analysis (NEW)**
 - **Added**: Phase 0 - Pre-implementation spike work (18-20 hours)
 - **Includes**:
-  - Examine pggit_v2 actual data format (4-5h)
+  - Examine pggit_v0 actual data format (4-5h)
   - Prototype DDL extraction for one object type (8-10h)
   - Design backfill algorithm (4-6h)
   - Verify ROI is positive (2h)
@@ -44,7 +44,7 @@ Created **ARCHITECTURE_MIGRATION_PLAN_REVISED.md** - a completely rewritten vers
 - **Revised**:
   - Explains DDL merge is still hard (different from file merge)
   - Shows examples where auto-merge fails
-  - Verdict: pggit_v2 helps simple cases, not complex ones
+  - Verdict: pggit_v0 helps simple cases, not complex ones
   - Honest: "This problem is NOT solved by migration"
 
 ### 6. **Compliance Layer Repositioned**

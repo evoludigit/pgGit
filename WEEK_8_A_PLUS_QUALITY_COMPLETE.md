@@ -77,7 +77,7 @@
 ## 📈 **Performance Optimization Implemented**
 
 ### **Query Optimization**
-- **Index strategies** for pggit_v2 tables
+- **Index strategies** for pggit_v0 tables
 - **Memory tuning** recommendations (work_mem, shared_buffers)
 - **Query performance** monitoring and alerting
 - **Slow query identification** and remediation

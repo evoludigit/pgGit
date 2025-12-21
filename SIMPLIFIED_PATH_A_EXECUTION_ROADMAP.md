@@ -11,7 +11,7 @@
 
 ```
 Week 1:  Spike Analysis (18-20h)
-         └─ Learn pggit_v2 format, DDL extraction, backfill algorithm
+         └─ Learn pggit_v0 format, DDL extraction, backfill algorithm
          └─ Decision: GO or NO-GO
 
 Weeks 2-3: Build Audit Layer (20-25h)
@@ -45,7 +45,7 @@ Week 8-9: Monitoring & Docs (5-10h)
 **Duration**: 5 days (Mon-Fri)
 **Deliverable**: Spike findings document
 
-### Spike 1.1: pggit_v2 Data Format (4-5 hours, Mon-Tue)
+### Spike 1.1: pggit_v0 Data Format (4-5 hours, Mon-Tue)
 
 **Tasks**:
 ```sql
@@ -53,9 +53,9 @@ Week 8-9: Monitoring & Docs (5-10h)
 cat sql/018_proper_git_three_way_merge.sql
 
 -- 2. Understand structure:
---    - pggit_v2.objects (sha, type, content, size)
---    - pggit_v2.commits (tree_sha, author, timestamp, message)
---    - pggit_v2.trees (blob references)
+--    - pggit_v0.objects (sha, type, content, size)
+--    - pggit_v0.commits (tree_sha, author, timestamp, message)
+--    - pggit_v0.trees (blob references)
 
 -- 3. Create test scenario
 CREATE TABLE test_schema.test_table (
@@ -63,18 +63,18 @@ CREATE TABLE test_schema.test_table (
   name TEXT
 );
 
--- 4. Add to pggit_v2, make commits, examine what was stored
+-- 4. Add to pggit_v0, make commits, examine what was stored
 -- 5. Questions to answer:
 --    - What's in content field? (SQL? Binary? JSON?)
 --    - How big is it?
 --    - Can you diff two versions?
 
 -- 6. Extract and examine actual data
-SELECT sha, type, content, size FROM pggit_v2.objects LIMIT 5;
+SELECT sha, type, content, size FROM pggit_v0.objects LIMIT 5;
 ```
 
 **Document**:
-- What pggit_v2 actually stores
+- What pggit_v0 actually stores
 - Content format
 - How to get from commit to object definitions
 
@@ -149,7 +149,7 @@ $$ LANGUAGE plpgsql;
    YES → continue
    NO → switch to Path B or C
 
-3. Do we understand pggit_v2? (From Spike 1.1)
+3. Do we understand pggit_v0? (From Spike 1.1)
    YES → continue
    NO → more research needed
 
@@ -305,7 +305,7 @@ ORDER BY committed_at DESC;
 SELECT routine_schema, routine_name
 FROM information_schema.routines
 WHERE routine_definition LIKE '%pggit.%'
-  AND routine_schema NOT IN ('pggit', 'pggit_v2');
+  AND routine_schema NOT IN ('pggit', 'pggit_v0');
 
 -- How much v1 history?
 SELECT COUNT(*), COUNT(DISTINCT object_name)
@@ -333,9 +333,9 @@ BEGIN
   FOR v_rec IN (SELECT * FROM pggit.history ORDER BY version_id) LOOP
     BEGIN
       -- 1. Reconstruct schema at this version
-      -- 2. Create blobs in pggit_v2.objects
-      -- 3. Create tree in pggit_v2.trees
-      -- 4. Create commit in pggit_v2.commits
+      -- 2. Create blobs in pggit_v0.objects
+      -- 3. Create tree in pggit_v0.trees
+      -- 4. Create commit in pggit_v0.commits
       -- 5. Populate pggit_audit.changes
       -- 6. Verify against v1
 
@@ -630,7 +630,7 @@ SELECT * FROM pggit.get_object_version('users', 1);
 
 **If successful**:
 ```
-✓ System is live on pggit_v2 + pggit_audit
+✓ System is live on pggit_v0 + pggit_audit
 ✓ pggit.* no longer available
 ✓ All code using new API
 ✓ Announce to users: "Maintenance complete, system restored"
@@ -667,7 +667,7 @@ SELECT * FROM pggit.get_object_version('users', 1);
 - [ ] Write "Migration Completed" announcement
 - [ ] Create "Lessons Learned" document
 - [ ] Update architecture documentation
-- [ ] Create pggit_v2/pggit_audit user guide
+- [ ] Create pggit_v0/pggit_audit user guide
 - [ ] Archive spike analysis and verification reports
 
 ---
@@ -707,7 +707,7 @@ SELECT * FROM pggit.get_object_version('users', 1);
 ### After Week 1
 - ✅ Spike analysis complete
 - ✅ GO decision made
-- ✅ Understanding of pggit_v2 format
+- ✅ Understanding of pggit_v0 format
 - ✅ Confidence in DDL extraction
 - ✅ Backfill algorithm designed
 
@@ -732,7 +732,7 @@ SELECT * FROM pggit.get_object_version('users', 1);
 - ✅ Production cutover successful
 - ✅ All users on new API
 - ✅ No critical errors
-- ✅ pggit_v2 is now primary
+- ✅ pggit_v0 is now primary
 
 ### After Week 9
 - ✅ Performance monitoring shows healthy system
@@ -763,7 +763,7 @@ SELECT * FROM pggit.get_object_version('users', 1);
 - 1 engineer on call (Week 7, Saturday night)
 
 **Tools**:
-- PostgreSQL with pggit v1 and pggit_v2
+- PostgreSQL with pggit v1 and pggit_v0
 - Test and staging databases (identical to production)
 - Git for code changes
 - Monitoring tools (for Saturday night)
@@ -816,17 +816,17 @@ SELECT * FROM pggit.get_object_version('users', 1);
 
 **What you have**:
 - ✅ pggit_audit: New compliance layer (immutable)
-- ✅ pggit_v2: Primary version control system
+- ✅ pggit_v0: Primary version control system
 - ❌ pggit (v1): No longer available (deleted or archived)
 - ❌ pggit_v1 (compat layer): Not needed (no deprecation)
 
 **What users do**:
 - Replace old code: `pggit.get_object_version()` → `pggit_audit.object_versions`
 - Replace old code: `pggit.list_changes()` → `pggit_audit.changes`
-- Use new Git-like API: `pggit_v2.*` for branching/merging
+- Use new Git-like API: `pggit_v0.*` for branching/merging
 
 **What you maintain**:
-- pggit_v2 as primary system
+- pggit_v0 as primary system
 - pggit_audit for compliance queries
 - No v1 support needed
 

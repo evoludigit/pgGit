@@ -120,7 +120,7 @@ Changes:
 
 ### High-Priority Bugs (P1)
 2. Missing assertion helper functions → **Already fixed ✅**
-3. Missing pggit_v2 schema (3-way merge) → 1-2 hours
+3. Missing pggit_v0 schema (3-way merge) → 1-2 hours
 4. Missing data branching functions → 1-2 hours
 5. Missing CQRS functions → 1-2 hours
 6. Missing conflict resolution → 1-2 hours
@@ -298,7 +298,7 @@ Error messages guide debugging
 - [ ] Implement Phase 1 (1-2 hours)
   - Fix ensure_object() overload
   - Verify assertion helpers
-  - Create pggit_v2 schema stubs
+  - Create pggit_v0 schema stubs
 - [ ] Implement Phase 2 (4 hours)
   - Feature stub implementations
 - [ ] Implement Phase 3 (2-3 hours)

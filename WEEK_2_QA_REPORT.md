@@ -192,11 +192,11 @@ Week 2 implementation **EXCEEDS** planned deliverables. All schema components ve
 
 ## Integration Points Verified
 
-✅ **Links to pggit_v2**:
-- `changes.commit_sha` → `pggit_v2.objects.sha`
-- Extraction functions use `pggit_v2.commit_graph`
-- Tree diffing via `pggit_v2.diff_trees()`
-- DDL retrieval from `pggit_v2.objects`
+✅ **Links to pggit_v0**:
+- `changes.commit_sha` → `pggit_v0.objects.sha`
+- Extraction functions use `pggit_v0.commit_graph`
+- Tree diffing via `pggit_v0.diff_trees()`
+- DDL retrieval from `pggit_v0.objects`
 
 ✅ **Links to pggit_v1** (for backfill):
 - `backfill_from_v1_history()` reads from `pggit.history`
@@ -327,12 +327,12 @@ What Week 3 needs:
 - ✅ Schema: Complete and verified
 - ✅ Core functions: Implemented and improved
 - ✅ Extended types: Already implemented (bonus)
-- ✅ Integration: Verified with pggit_v2 and pggit_v1
+- ✅ Integration: Verified with pggit_v0 and pggit_v1
 
 Week 3 Tasks:
 1. Performance benchmarking (extract functions < 100ms)
 2. Unit testing (edge cases and error scenarios)
-3. Integration testing (with real pggit_v2 data)
+3. Integration testing (with real pggit_v0 data)
 4. Documentation of extended types
 5. Prepare backfill script (using functions created)
 

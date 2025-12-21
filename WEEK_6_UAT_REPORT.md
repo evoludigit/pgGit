@@ -1,4 +1,4 @@
-# Week 6 UAT Report: pggit_v2 Validation Results
+# Week 6 UAT Report: pggit_v0 Validation Results
 
 **Date**: December 21, 2025
 **Tester**: opencode UAT Automation
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Week 6 UAT testing revealed **significant structural issues** with the pggit_v2 functions that prevent production deployment. While the core pggit system works correctly for basic schema tracking, the new pggit_v2 functions have critical column name mismatches and missing dependencies.
+Week 6 UAT testing revealed **significant structural issues** with the pggit_v0 functions that prevent production deployment. While the core pggit system works correctly for basic schema tracking, the new pggit_v0 functions have critical column name mismatches and missing dependencies.
 
 **Bottom Line**: Production deployment is NOT recommended until these issues are resolved.
 
@@ -24,17 +24,17 @@ Week 6 UAT testing revealed **significant structural issues** with the pggit_v2 
 
 ### ❌ Critical Issues Found
 
-#### 1. Column Name Mismatches in pggit_v2 Functions
+#### 1. Column Name Mismatches in pggit_v0 Functions
 **Severity**: CRITICAL
-**Impact**: All pggit_v2 functions fail due to incorrect table column references
+**Impact**: All pggit_v0 functions fail due to incorrect table column references
 
 **Issues Found**:
-- `pggit_v2.refs` table uses `name`/`target_sha`/`type` but functions expect `ref_name`/`commit_sha`/`ref_type`
-- `pggit_v2.commit_graph` missing expected columns
+- `pggit_v0.refs` table uses `name`/`target_sha`/`type` but functions expect `ref_name`/`commit_sha`/`ref_type`
+- `pggit_v0.commit_graph` missing expected columns
 - Missing `commit_parents` table structure
 - Missing `pggit_audit.changes` table references
 
-**Affected Functions**: All 30+ pggit_v2 functions
+**Affected Functions**: All 30+ pggit_v0 functions
 
 #### 2. Missing Dependencies
 **Severity**: CRITICAL
@@ -43,9 +43,9 @@ Week 6 UAT testing revealed **significant structural issues** with the pggit_v2 
 **Missing Components**:
 - `pggit_audit.changes` table
 - `commit_parents` table
-- `pggit_v2.current_state_summary` view
-- `pggit_v2.health_check_summary` view
-- `pggit_v2.recent_activity_summary` view
+- `pggit_v0.current_state_summary` view
+- `pggit_v0.health_check_summary` view
+- `pggit_v0.recent_activity_summary` view
 
 #### 3. SQL Syntax Errors
 **Severity**: MAJOR
@@ -104,7 +104,7 @@ All branching functions fail due to column name mismatches in refs table and mis
 - History maintained correctly
 
 **What Failed**:
-- pggit_v2 functions cannot support the workflow
+- pggit_v0 functions cannot support the workflow
 - Branch management functions unavailable
 - Diff/merge operations not possible
 
@@ -113,7 +113,7 @@ All branching functions fail due to column name mismatches in refs table and mis
 ## Integration Testing Results
 
 ### App Integration Points - NOT TESTABLE ❌
-Cannot test version checking, deployment validation, or rollback procedures due to missing pggit_v2 functions.
+Cannot test version checking, deployment validation, or rollback procedures due to missing pggit_v0 functions.
 
 ### CI/CD Integration - NOT TESTABLE ❌
 Pre-deployment checks and validation functions unavailable.
@@ -123,18 +123,18 @@ Pre-deployment checks and validation functions unavailable.
 ## Root Cause Analysis
 
 ### Primary Issue: Schema Mismatch
-The pggit_v2 functions were written expecting a different database schema than what was actually implemented:
+The pggit_v0 functions were written expecting a different database schema than what was actually implemented:
 
 **Expected Schema**:
 ```sql
-pggit_v2.refs: (ref_name, ref_type, commit_sha, ...)
-pggit_v2.commit_graph: (commit_sha, message, author, committed_at, ...)
+pggit_v0.refs: (ref_name, ref_type, commit_sha, ...)
+pggit_v0.commit_graph: (commit_sha, message, author, committed_at, ...)
 ```
 
 **Actual Schema**:
 ```sql
-pggit_v2.refs: (name, type, target_sha, ...)
-pggit_v2.commit_graph: (commit_sha, ...) -- but no commits exist
+pggit_v0.refs: (name, type, target_sha, ...)
+pggit_v0.commit_graph: (commit_sha, ...) -- but no commits exist
 ```
 
 ### Secondary Issue: Missing Implementation
@@ -150,7 +150,7 @@ Several components referenced in functions don't exist:
 ### Immediate Actions Required
 
 1. **Fix Column Name Mismatches** (Priority: CRITICAL)
-   - Update all pggit_v2 functions to use correct column names
+   - Update all pggit_v0 functions to use correct column names
    - Standardize on actual table schema
    - Test each function individually
 
@@ -165,23 +165,23 @@ Several components referenced in functions don't exist:
    - Validate all function SQL
 
 4. **Implement Commit System** (Priority: HIGH)
-   - pggit_v2 assumes Git-like commits exist
+   - pggit_v0 assumes Git-like commits exist
    - Need to either create commit functionality or update functions to work without it
 
 ### Alternative Approach
 
-**Option A**: Fix pggit_v2 functions to match current schema
+**Option A**: Fix pggit_v0 functions to match current schema
 - Time estimate: 2-3 days of focused work
 - Risk: Medium (column renames and fixes)
 
 **Option B**: Revert to core pggit functionality only
-- Deploy without pggit_v2 functions
+- Deploy without pggit_v0 functions
 - Use basic schema tracking for Week 7
-- Implement pggit_v2 properly in Week 8
+- Implement pggit_v0 properly in Week 8
 - Risk: Low (already working)
 
-**Option C**: Complete pggit_v2 reimplementation
-- Redesign pggit_v2 to work with current architecture
+**Option C**: Complete pggit_v0 reimplementation
+- Redesign pggit_v0 to work with current architecture
 - Time estimate: 1-2 weeks
 - Risk: High (major rework needed)
 
@@ -192,7 +192,7 @@ Several components referenced in functions don't exist:
 ### ❌ NOT READY FOR PRODUCTION
 
 **Blocking Issues**:
-1. All pggit_v2 functions fail
+1. All pggit_v0 functions fail
 2. No working branch/merge/diff functionality
 3. No monitoring or analytics functions
 4. Integration points untestable
@@ -203,7 +203,7 @@ Several components referenced in functions don't exist:
 - Event triggers ✅
 
 ### Recommended Action
-**DO NOT DEPLOY** pggit_v2 to production. Either:
+**DO NOT DEPLOY** pggit_v0 to production. Either:
 1. Fix critical issues (recommended), or
 2. Deploy core pggit only for basic schema tracking
 
@@ -212,8 +212,8 @@ Several components referenced in functions don't exist:
 ## Next Steps
 
 1. **Immediate**: Halt Week 7 production deployment
-2. **Week 7**: Fix critical pggit_v2 issues or implement Option B
-3. **Week 8**: Complete pggit_v2 implementation and retest
+2. **Week 7**: Fix critical pggit_v0 issues or implement Option B
+3. **Week 8**: Complete pggit_v0 implementation and retest
 4. **Retest**: Full UAT rerun after fixes
 
 ---
