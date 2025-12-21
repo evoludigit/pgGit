@@ -60,13 +60,13 @@ test-quick: test-core
 test-clean:
 	@echo "Cleaning pgGit schema and reinstalling..."
 	@psql -c "DROP SCHEMA IF EXISTS pggit CASCADE;" 2>/dev/null || true
-	@psql -f sql/install.sql
+	@cd sql && psql -f install.sql
 	@echo "Clean installation complete. Ready for testing."
 
 # Install the extension
 install:
 	@echo "Installing pgGit extension..."
-	@psql -f sql/install.sql
+	@cd sql && psql -f install.sql
 
 # Clean the database
 clean:
