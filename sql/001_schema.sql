@@ -248,8 +248,8 @@ CREATE INDEX idx_history_created ON pggit.history(created_at DESC);
 CREATE INDEX idx_dependencies_dependent ON pggit.dependencies(dependent_id);
 CREATE INDEX idx_dependencies_depends_on ON pggit.dependencies(depends_on_id);
 
--- Helper function to get or create an object
-CREATE OR REPLACE FUNCTION pggit.ensure_object(
+-- Helper function to get or create an object with branch specification
+CREATE OR REPLACE FUNCTION pggit.ensure_object_with_branch(
     p_object_type pggit.object_type,
     p_schema_name TEXT,
     p_object_name TEXT,
@@ -270,7 +270,7 @@ BEGIN
         AND branch_name = p_branch_name
         LIMIT 1;
     END IF;
-    
+
     -- Try to find existing object
     SELECT id INTO v_object_id
     FROM pggit.objects
@@ -278,7 +278,7 @@ BEGIN
     AND schema_name = p_schema_name
     AND object_name = p_object_name
     AND branch_name = p_branch_name;
-    
+
     -- Create if not exists
     IF v_object_id IS NULL THEN
         INSERT INTO pggit.objects (
@@ -287,8 +287,30 @@ BEGIN
             p_object_type, p_schema_name, p_object_name, v_parent_id, p_metadata, p_branch_name
         ) RETURNING id INTO v_object_id;
     END IF;
-    
+
     RETURN v_object_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to get or create an object (always uses 'main' branch)
+-- This is the primary function - use ensure_object_with_branch() if you need a different branch
+CREATE OR REPLACE FUNCTION pggit.ensure_object(
+    p_object_type pggit.object_type,
+    p_schema_name TEXT,
+    p_object_name TEXT,
+    p_parent_name TEXT DEFAULT NULL,
+    p_metadata JSONB DEFAULT '{}'
+) RETURNS INTEGER AS $$
+BEGIN
+    -- Call the branch-specific version with 'main' as default branch
+    RETURN pggit.ensure_object_with_branch(
+        p_object_type,
+        p_schema_name,
+        p_object_name,
+        p_parent_name,
+        p_metadata,
+        'main'  -- Use default branch
+    );
 END;
 $$ LANGUAGE plpgsql;
 
