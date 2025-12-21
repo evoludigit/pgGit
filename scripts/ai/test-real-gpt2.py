@@ -9,7 +9,7 @@ import logging
 import os
 import re
 import time
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import psycopg
 import torch
@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def initialize_gpt2() -> Tuple[Optional[Any], Optional[Any]]:
+def initialize_gpt2() -> tuple[Any | None, Any | None]:
     """Initialize GPT-2 model - smallest real AI model"""
     try:
         logger.info("Loading GPT-2 (124M parameters)...")
@@ -41,7 +41,7 @@ def initialize_gpt2() -> Tuple[Optional[Any], Optional[Any]]:
 
 def analyze_migration_with_gpt2(
     migration_content: str, model: Any, tokenizer: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Analyze migration using real GPT-2 model"""
     try:
         # Create a focused prompt for SQL analysis
@@ -152,7 +152,7 @@ def assess_risk(migration_content: str) -> str:
     return "LOW"
 
 
-def fallback_analysis(migration_content: str) -> Dict[str, Any]:
+def fallback_analysis(migration_content: str) -> dict[str, Any]:
     """Fallback analysis if GPT-2 fails"""
     return {
         "intent": extract_intent(migration_content, ""),

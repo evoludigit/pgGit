@@ -8,8 +8,9 @@ capturing state snapshots, and measuring performance during chaos testing.
 import asyncio
 import random
 import time
+from collections.abc import Awaitable, Callable
 from contextlib import contextmanager
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 import psycopg
 

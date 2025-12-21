@@ -133,10 +133,9 @@ class TestMemoryPressure:
                 # If pggit function doesn't exist or fails, skip this test
                 if "does not exist" in str(e).lower():
                     pytest.skip("pggit.commit_changes not available")
-                else:
-                    # Log progress but continue
-                    if i % 25 == 0:
-                        print(f"  Generated {i} commits...")
+                # Log progress but continue
+                elif i % 25 == 0:
+                    print(f"  Generated {i} commits...")
 
         # Verify commits were created
         try:

@@ -6,6 +6,7 @@ to generate diverse test inputs and catch edge cases.
 """
 
 import psycopg
+import psycopg.rows
 import pytest
 from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
@@ -436,7 +437,7 @@ class TestBranchNamingProperties:
             """Worker that performs various pggit operations under load."""
             conn = None
             try:
-                conn = psycopg.connect(db_connection_string, row_factory=dict_row)
+                conn = psycopg.connect(db_connection_string, row_factory=psycopg.rows.dict_row)
                 conn.autocommit = True
 
                 worker_results = {
@@ -665,7 +666,6 @@ class TestIdentifierValidationProperties:
             "collation",
             "conversion",
             "extension",
-            "foreign",
             "server",
             "wrapper",
             "event",
