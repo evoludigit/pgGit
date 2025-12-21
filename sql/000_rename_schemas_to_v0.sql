@@ -1,6 +1,6 @@
 -- ============================================
 -- Schema Versioning Migration
--- Rename all pggit_v2 schemas to pggit_v0
+-- Rename all pggit_v0 schemas to pggit_v0
 -- ============================================
 -- Date: December 21, 2025 (Week 8 - Post-Production)
 -- Purpose: Establish semantic versioning (v0.x.y = stable API)
@@ -8,7 +8,7 @@
 -- Backward Compatible: NO (one-time migration)
 --
 -- This script implements semantic versioning by renaming schemas
--- from pggit_v2 (confusing numbering) to pggit_v0 (clear versioning):
+-- from pggit_v0 (confusing numbering) to pggit_v0 (clear versioning):
 -- - pggit_v0.x: Stable, backward-compatible releases
 -- - pggit_v1+: Future major versions if breaking changes needed
 --
@@ -22,10 +22,10 @@
 -- Check 1: Verify schemas exist
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'pggit_v2') THEN
-        RAISE EXCEPTION 'Schema pggit_v2 does not exist. Migration may have already occurred.';
+    IF NOT EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'pggit_v0') THEN
+        RAISE EXCEPTION 'Schema pggit_v0 does not exist. Migration may have already occurred.';
     END IF;
-    RAISE NOTICE 'Pre-migration check: pggit_v2 schema found ✓';
+    RAISE NOTICE 'Pre-migration check: pggit_v0 schema found ✓';
 END $$;
 
 -- Check 2: Verify target schemas don't already exist
@@ -42,8 +42,8 @@ END $$;
 -- ============================================
 
 -- Rename main schema
-ALTER SCHEMA pggit_v2 RENAME TO pggit_v0;
-RAISE NOTICE 'Renamed schema: pggit_v2 → pggit_v0';
+ALTER SCHEMA pggit_v0 RENAME TO pggit_v0;
+RAISE NOTICE 'Renamed schema: pggit_v0 → pggit_v0';
 
 -- Rename audit schema
 ALTER SCHEMA pggit_audit RENAME TO pggit_audit_v0;
@@ -86,8 +86,8 @@ END $$;
 -- Verify no old schemas exist
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'pggit_v2') THEN
-        RAISE EXCEPTION 'Post-migration error: pggit_v2 schema still exists!';
+    IF EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'pggit_v0') THEN
+        RAISE EXCEPTION 'Post-migration error: pggit_v0 schema still exists!';
     END IF;
     IF EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'pggit_audit' AND schema_name != 'pggit_audit_v0') THEN
         RAISE EXCEPTION 'Post-migration error: pggit_audit schema still exists!';

@@ -15,7 +15,7 @@
 
 ### 🟠 HIGH (6 bugs - BLOCKS FEATURE TESTING)
 1. Missing assertion helper functions
-2. Missing pggit_v2 schema for 3-way merge
+2. Missing pggit_v0 schema for 3-way merge
 3. Missing data branching functions
 4. Missing CQRS functions
 5. Missing conflict resolution functions
@@ -107,39 +107,39 @@ ERROR: function pggit.assert_function_exists(unknown) does not exist
 
 ---
 
-### BUG #3: 🟠 HIGH - Missing `pggit_v2` Schema (3-Way Merge)
+### BUG #3: 🟠 HIGH - Missing `pggit_v0` Schema (3-Way Merge)
 
 **Impact**: 3-way merge feature completely non-functional
 **Affected Tests**: 2 files
 - test-proper-three-way-merge.sql
 - test-three-way-merge-simple.sql
 
-**Missing Schema**: `pggit_v2`
+**Missing Schema**: `pggit_v0`
 
 **Missing Tables**:
 ```sql
-pggit_v2.objects (sha, object_type, content, compressed)
-pggit_v2.tree_entries (sha, name, mode, object_sha)
-pggit_v2.performance_metrics
+pggit_v0.objects (sha, object_type, content, compressed)
+pggit_v0.tree_entries (sha, name, mode, object_sha)
+pggit_v0.performance_metrics
 ```
 
 **Missing Functions**:
 ```sql
-pggit_v2.create_blob(content text) RETURNS text
-pggit_v2.create_tree(tree_data jsonb) RETURNS text
-pggit_v2.find_merge_base(sha1 text, sha2 text) RETURNS text
-pggit_v2.three_way_merge(base_sha text, ours_sha text, theirs_sha text) RETURNS jsonb
-pggit_v2.create_merge_commit(commit_data jsonb) RETURNS text
+pggit_v0.create_blob(content text) RETURNS text
+pggit_v0.create_tree(tree_data jsonb) RETURNS text
+pggit_v0.find_merge_base(sha1 text, sha2 text) RETURNS text
+pggit_v0.three_way_merge(base_sha text, ours_sha text, theirs_sha text) RETURNS jsonb
+pggit_v0.create_merge_commit(commit_data jsonb) RETURNS text
 ```
 
 **Error Examples**:
 ```
 test-three-way-merge-simple.sql:49
-ERROR: schema "pggit_v2" does not exist
-LINE 1: v_blob := pggit_v2.create_blob('Initial content')
+ERROR: schema "pggit_v0" does not exist
+LINE 1: v_blob := pggit_v0.create_blob('Initial content')
 
 test-proper-three-way-merge.sql:40
-ERROR: schema "pggit_v2" does not exist
+ERROR: schema "pggit_v0" does not exist
 ```
 
 **Root Cause**: Three-way merge feature declared in tests but never implemented.
@@ -448,7 +448,7 @@ These all follow the same pattern: features declared in tests but never fully im
 |---|----------|----------|--------|---|--------|----------|
 | 1 | 🔴 CRITICAL | Function overload | Blocks ALL DDL | 10 | 30 min | P0 |
 | 2 | 🟠 HIGH | Missing helpers | Blocks verification | 9 | 15 min | P0 |
-| 3 | 🟠 HIGH | Missing pggit_v2 | Blocks 3-way merge | 2 | 1-2h | P1 |
+| 3 | 🟠 HIGH | Missing pggit_v0 | Blocks 3-way merge | 2 | 1-2h | P1 |
 | 4 | 🟠 HIGH | Missing branching | Blocks data branching | 1 | 1-2h | P1 |
 | 5 | 🟠 HIGH | Missing CQRS | Blocks CQRS | 1 | 1-2h | P1 |
 | 6 | 🟠 HIGH | Missing conflicts | Blocks conflicts | 1 | 1-2h | P1 |
@@ -523,13 +523,13 @@ These all follow the same pattern: features declared in tests but never fully im
 
 ### test-proper-three-way-merge.sql
 - Bug #1: ensure_object ambiguity
-- Bug #3: pggit_v2 missing
+- Bug #3: pggit_v0 missing
 - Bug #10: text vs JSONB mismatch
 - Bug #11: undefined variable
 - Severity: BLOCKS testing
 
 ### test-three-way-merge-simple.sql
-- Bug #3: pggit_v2 missing
+- Bug #3: pggit_v0 missing
 - Severity: BLOCKS testing
 
 ### test-ai.sql

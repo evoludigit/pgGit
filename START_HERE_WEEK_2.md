@@ -27,12 +27,12 @@ You are starting the implementation phase of the pgGit migration project. Everyt
 **Then**: You'll have concrete steps to follow  
 
 ### 3. docs/SPIKE_1_1_PGGIT_V2_ANALYSIS.md (20 minutes)
-**What**: Understanding the pggit_v2 data format  
+**What**: Understanding the pggit_v0 data format  
 **Why**: Understand the foundation of what you're building on  
 **Then**: You'll grasp the Git-like model  
 
 ### 4. docs/SPIKE_1_2_DDL_EXTRACTION_ANALYSIS.md (20 minutes)
-**What**: How DDL extraction from pggit_v2 works  
+**What**: How DDL extraction from pggit_v0 works  
 **Why**: This is the core capability you're building toward  
 **Then**: Understand the extraction algorithm  
 
@@ -190,7 +190,7 @@ WHERE object_schema = 'public' AND object_name = 'users';
 - `sql/pggit_audit_schema.sql` - The schema to load
 
 **Spike Analysis** (read as needed):
-- `docs/SPIKE_1_1_PGGIT_V2_ANALYSIS.md` - pggit_v2 format
+- `docs/SPIKE_1_1_PGGIT_V2_ANALYSIS.md` - pggit_v0 format
 - `docs/SPIKE_1_2_DDL_EXTRACTION_ANALYSIS.md` - DDL extraction
 - `docs/SPIKE_1_3_BACKFILL_ALGORITHM.md` - Backfill algorithm
 - `docs/SPIKE_1_4_GO_NO_GO_DECISION.md` - GO decision rationale
@@ -225,7 +225,7 @@ WHERE object_schema = 'public' AND object_name = 'users';
 ## 📞 Questions?
 
 **Question**: What is pggit_audit?  
-**Answer**: A new compliance layer that tracks all DDL changes extracted from pggit_v2 commits
+**Answer**: A new compliance layer that tracks all DDL changes extracted from pggit_v0 commits
 
 **Question**: Why immutability?  
 **Answer**: Compliance regulations require audit trails that cannot be modified

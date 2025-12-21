@@ -102,13 +102,13 @@ By the end of this training, participants will be able to:
 #### Lab Setup
 ```sql
 -- Verify installation
-SELECT pggit_v2.get_head_sha();
+SELECT pggit_v0.get_head_sha();
 
 -- Check system health
-SELECT * FROM pggit_v2.check_for_alerts();
+SELECT * FROM pggit_v0.check_for_alerts();
 
 -- View available functions
-SELECT proname FROM pg_proc WHERE proname LIKE 'pggit_v2.%' LIMIT 5;
+SELECT proname FROM pg_proc WHERE proname LIKE 'pggit_v0.%' LIMIT 5;
 ```
 
 #### Initial Schema
@@ -128,19 +128,19 @@ CREATE TABLE training.customers (
 #### Exercise 1: First Commit
 ```sql
 -- Create initial commit
-SELECT pggit_v2.create_basic_commit('Initial customer table setup');
+SELECT pggit_v0.create_basic_commit('Initial customer table setup');
 
 -- Verify commit created
-SELECT * FROM pggit_v2.get_commit_history(1);
+SELECT * FROM pggit_v0.get_commit_history(1);
 ```
 
 #### Exercise 2: Branch Management
 ```sql
 -- Create feature branch
-SELECT pggit_v2.create_branch('feature/customer-profiles', 'Add customer profile features');
+SELECT pggit_v0.create_branch('feature/customer-profiles', 'Add customer profile features');
 
 -- List branches
-SELECT * FROM pggit_v2.list_branches();
+SELECT * FROM pggit_v0.list_branches();
 
 -- Switch context (conceptual - branches are global)
 -- Add schema changes
@@ -148,28 +148,28 @@ ALTER TABLE training.customers ADD COLUMN phone VARCHAR(20);
 ALTER TABLE training.customers ADD COLUMN address TEXT;
 
 -- Commit changes
-SELECT pggit_v2.create_basic_commit('Add contact information fields');
+SELECT pggit_v0.create_basic_commit('Add contact information fields');
 ```
 
 #### Exercise 3: Schema Comparison
 ```sql
 -- Compare branches
-SELECT * FROM pggit_v2.diff_branches('main', 'feature/customer-profiles');
+SELECT * FROM pggit_v0.diff_branches('main', 'feature/customer-profiles');
 
 -- View object history
-SELECT * FROM pggit_v2.get_object_history('training', 'customers', 5);
+SELECT * FROM pggit_v0.get_object_history('training', 'customers', 5);
 ```
 
 #### Exercise 4: Branch Cleanup
 ```sql
 -- Merge feature (simulated)
-SELECT pggit_v2.create_basic_commit('Merge customer profiles feature');
+SELECT pggit_v0.create_basic_commit('Merge customer profiles feature');
 
 -- Clean up branch
-SELECT pggit_v2.delete_branch('feature/customer-profiles');
+SELECT pggit_v0.delete_branch('feature/customer-profiles');
 
 -- Verify cleanup
-SELECT * FROM pggit_v2.list_branches();
+SELECT * FROM pggit_v0.list_branches();
 ```
 
 ### 2.3 Advanced Workflow Lab
@@ -178,8 +178,8 @@ SELECT * FROM pggit_v2.list_branches();
 #### Exercise 5: Multi-Branch Development
 ```sql
 -- Create multiple feature branches
-SELECT pggit_v2.create_branch('feature/api-endpoints', 'REST API endpoints');
-SELECT pggit_v2.create_branch('feature/data-validation', 'Input validation');
+SELECT pggit_v0.create_branch('feature/api-endpoints', 'REST API endpoints');
+SELECT pggit_v0.create_branch('feature/data-validation', 'Input validation');
 
 -- Add different changes to each branch
 -- API branch
@@ -195,8 +195,8 @@ ALTER TABLE training.customers ADD CONSTRAINT email_format
     CHECK (email LIKE '%@%');
 
 -- Commit both features
-SELECT pggit_v2.create_basic_commit('Add API logging capabilities');
-SELECT pggit_v2.create_basic_commit('Add email format validation');
+SELECT pggit_v0.create_basic_commit('Add API logging capabilities');
+SELECT pggit_v0.create_basic_commit('Add email format validation');
 ```
 
 #### Exercise 6: Conflict Detection
@@ -207,20 +207,20 @@ ALTER TABLE training.customers ADD COLUMN status VARCHAR(20) DEFAULT 'active'; -
 ALTER TABLE training.customers ADD COLUMN account_type VARCHAR(20) DEFAULT 'standard'; -- Branch 2
 
 -- Compare branches to see differences
-SELECT * FROM pggit_v2.diff_branches('feature/api-endpoints', 'feature/data-validation');
+SELECT * FROM pggit_v0.diff_branches('feature/api-endpoints', 'feature/data-validation');
 ```
 
 #### Exercise 7: Release Management
 ```sql
 -- Create release branch
-SELECT pggit_v2.create_branch('release/v1.0.0', 'Production release v1.0.0');
+SELECT pggit_v0.create_branch('release/v1.0.0', 'Production release v1.0.0');
 
 -- Final stabilization
 COMMENT ON TABLE training.api_logs IS 'Tracks API endpoint usage for analytics';
 COMMENT ON TABLE training.customers IS 'Customer master data with validation';
 
 -- Release commit
-SELECT pggit_v2.create_basic_commit('Release v1.0.0 - production ready');
+SELECT pggit_v0.create_basic_commit('Release v1.0.0 - production ready');
 ```
 
 ### 2.4 Monitoring and Analytics Lab
@@ -229,37 +229,37 @@ SELECT pggit_v2.create_basic_commit('Release v1.0.0 - production ready');
 #### Exercise 8: System Monitoring
 ```sql
 -- Health check
-SELECT * FROM pggit_v2.check_for_alerts();
+SELECT * FROM pggit_v0.check_for_alerts();
 
 -- Dashboard overview
-SELECT * FROM pggit_v2.get_dashboard_summary();
+SELECT * FROM pggit_v0.get_dashboard_summary();
 
 -- Performance analysis
-SELECT * FROM pggit_v2.analyze_query_performance();
+SELECT * FROM pggit_v0.analyze_query_performance();
 ```
 
 #### Exercise 9: Analytics Deep Dive
 ```sql
 -- Storage analysis
-SELECT * FROM pggit_v2.analyze_storage_usage();
+SELECT * FROM pggit_v0.analyze_storage_usage();
 
 -- Object size distribution
-SELECT * FROM pggit_v2.get_object_size_distribution();
+SELECT * FROM pggit_v0.get_object_size_distribution();
 
 -- Growth projections
-SELECT * FROM pggit_v2.estimate_storage_growth();
+SELECT * FROM pggit_v0.estimate_storage_growth();
 ```
 
 #### Exercise 10: Data Integrity
 ```sql
 -- Integrity validation
-SELECT * FROM pggit_v2.validate_data_integrity();
+SELECT * FROM pggit_v0.validate_data_integrity();
 
 -- Anomaly detection
-SELECT * FROM pggit_v2.detect_anomalies();
+SELECT * FROM pggit_v0.detect_anomalies();
 
 -- Optimization recommendations
-SELECT * FROM pggit_v2.get_recommendations();
+SELECT * FROM pggit_v0.get_recommendations();
 ```
 
 ---
@@ -272,22 +272,22 @@ SELECT * FROM pggit_v2.get_recommendations();
 #### Object Metadata
 ```sql
 -- Get DDL definitions
-SELECT pggit_v2.get_object_definition('training', 'customers');
+SELECT pggit_v0.get_object_definition('training', 'customers');
 
 -- Object metadata
-SELECT * FROM pggit_v2.get_object_metadata('training', 'customers');
+SELECT * FROM pggit_v0.get_object_metadata('training', 'customers');
 
 -- Current schema overview
-SELECT * FROM pggit_v2.get_current_schema();
+SELECT * FROM pggit_v0.get_current_schema();
 ```
 
 #### Change Tracking
 ```sql
 -- Detailed object history
-SELECT * FROM pggit_v2.get_object_history('training', 'customers', 10);
+SELECT * FROM pggit_v0.get_object_history('training', 'customers', 10);
 
 -- Commit details
-SELECT * FROM pggit_v2.get_commit_history(20);
+SELECT * FROM pggit_v0.get_commit_history(20);
 ```
 
 ### 3.2 Integration Patterns
@@ -297,26 +297,26 @@ SELECT * FROM pggit_v2.get_commit_history(20);
 ```bash
 #!/bin/bash
 # Pre-deployment checks
-psql -c "SELECT * FROM pggit_v2.validate_data_integrity()" > validation.txt
+psql -c "SELECT * FROM pggit_v0.validate_data_integrity()" > validation.txt
 
 # Schema diff for migration
-psql -c "SELECT * FROM pggit_v2.diff_branches('staging', 'production')" > migration.sql
+psql -c "SELECT * FROM pggit_v0.diff_branches('staging', 'production')" > migration.sql
 
 # Post-deployment verification
-psql -c "SELECT * FROM pggit_v2.check_for_alerts()" > health_check.txt
+psql -c "SELECT * FROM pggit_v0.check_for_alerts()" > health_check.txt
 ```
 
 #### Application Integration
 ```python
 def schema_health_check():
     # Check for schema issues before app startup
-    alerts = query("SELECT * FROM pggit_v2.check_for_alerts()")
+    alerts = query("SELECT * FROM pggit_v0.check_for_alerts()")
     if alerts:
         logger.warning(f"Schema alerts: {alerts}")
         # Handle alerts appropriately
 
     # Get current schema state
-    schema = query("SELECT * FROM pggit_v2.get_current_schema()")
+    schema = query("SELECT * FROM pggit_v0.get_current_schema()")
     return schema
 ```
 
@@ -326,11 +326,11 @@ def schema_health_check():
 #### Query Optimization
 ```sql
 -- Identify slow operations
-SELECT * FROM pggit_v2.analyze_query_performance()
+SELECT * FROM pggit_v0.analyze_query_performance()
 WHERE avg_duration > INTERVAL '100 ms';
 
 -- Storage optimization
-SELECT * FROM pggit_v2.get_recommendations()
+SELECT * FROM pggit_v0.get_recommendations()
 WHERE priority IN ('HIGH', 'CRITICAL');
 ```
 
@@ -339,14 +339,14 @@ WHERE priority IN ('HIGH', 'CRITICAL');
 -- Create monitoring views
 CREATE VIEW schema_health AS
 SELECT
-    (SELECT COUNT(*) FROM pggit_v2.check_for_alerts() WHERE severity = 'OK') as healthy_checks,
-    (SELECT COUNT(*) FROM pggit_v2.commit_graph) as total_commits,
-    (SELECT COUNT(*) FROM pggit_v2.refs WHERE type = 'branch') as active_branches
+    (SELECT COUNT(*) FROM pggit_v0.check_for_alerts() WHERE severity = 'OK') as healthy_checks,
+    (SELECT COUNT(*) FROM pggit_v0.commit_graph) as total_commits,
+    (SELECT COUNT(*) FROM pggit_v0.refs WHERE type = 'branch') as active_branches
 ;
 
 -- Automated cleanup
-SELECT pggit_v2.delete_branch(name)
-FROM pggit_v2.list_branches()
+SELECT pggit_v0.delete_branch(name)
+FROM pggit_v0.list_branches()
 WHERE branch_name LIKE 'feature/%'
   AND last_commit < CURRENT_TIMESTAMP - INTERVAL '90 days';
 ```
@@ -361,11 +361,11 @@ WHERE branch_name LIKE 'feature/%'
 #### Commit Practices
 ```sql
 -- Good commit messages
-SELECT pggit_v2.create_basic_commit('Add user authentication with JWT token validation');
+SELECT pggit_v0.create_basic_commit('Add user authentication with JWT token validation');
 
 -- Bad commit messages
-SELECT pggit_v2.create_basic_commit('Fixes'); -- Too vague
-SELECT pggit_v2.create_basic_commit('Changes to database'); -- Not specific
+SELECT pggit_v0.create_basic_commit('Fixes'); -- Too vague
+SELECT pggit_v0.create_basic_commit('Changes to database'); -- Not specific
 ```
 
 #### Branch Strategy
@@ -398,22 +398,22 @@ CREATE BRANCH → DEVELOP → COMMIT → REVIEW → MERGE → DELETE
 #### Common Issues & Solutions
 ```sql
 -- Issue: Branch already exists
-SELECT pggit_v2.create_branch('feature/new-name', 'Updated description');
+SELECT pggit_v0.create_branch('feature/new-name', 'Updated description');
 
 -- Issue: No commits found
-SELECT pggit_v2.create_basic_commit('Initial schema baseline');
+SELECT pggit_v0.create_basic_commit('Initial schema baseline');
 
 -- Issue: Performance problems
-SELECT * FROM pggit_v2.analyze_query_performance();
-SELECT * FROM pggit_v2.get_recommendations();
+SELECT * FROM pggit_v0.analyze_query_performance();
+SELECT * FROM pggit_v0.get_recommendations();
 ```
 
 #### Health Checks
 ```sql
 -- Daily health check routine
-SELECT * FROM pggit_v2.check_for_alerts();
-SELECT * FROM pggit_v2.validate_data_integrity();
-SELECT * FROM pggit_v2.get_dashboard_summary();
+SELECT * FROM pggit_v0.check_for_alerts();
+SELECT * FROM pggit_v0.validate_data_integrity();
+SELECT * FROM pggit_v0.get_dashboard_summary();
 ```
 
 ### 4.3 Q&A Session

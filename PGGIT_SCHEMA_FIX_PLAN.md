@@ -303,7 +303,7 @@ but NOT the "is not unique" error anymore
 This fix will likely reveal **other bugs** that were hidden by this error:
 1. Missing CQRS functions (test-cqrs-support.sql)
 2. Missing data branching functions (test-data-branching.sql)
-3. Missing pggit_v2 schema (test-proper-three-way-merge.sql)
+3. Missing pggit_v0 schema (test-proper-three-way-merge.sql)
 4. Missing AI functions (test-ai.sql)
 
 These are **expected and good** - we want to see them so we can fix them next.

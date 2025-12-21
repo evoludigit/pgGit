@@ -14,7 +14,7 @@
 
 **Reality Check**:
 - Phase 2.2: "Create audit functions (6h)" - This is **wildly optimistic**
-  - Need to parse pggit_v2 objects to extract DDL definitions
+  - Need to parse pggit_v0 objects to extract DDL definitions
   - Detect what changed between commits (diff algorithm)
   - Backfill years of history with verification
   - Handle edge cases (triggers, constraints, permissions)
@@ -39,9 +39,9 @@
 ### 2. ❌ The Audit Layer Design Has No DDL Extraction Logic (CRITICAL)
 
 **The Fundamental Problem**:
-I designed audit tables but **never specified HOW to extract DDL from pggit_v2 commits**.
+I designed audit tables but **never specified HOW to extract DDL from pggit_v0 commits**.
 
-pggit_v2 stores:
+pggit_v0 stores:
 ```
 objects: sha, type, content, size
 ```
@@ -60,7 +60,7 @@ But `content` is just the raw serialized object. To audit DDL changes, I need to
 
 **Consequence**:
 - Phase 2 audit functions are **not implementable** as written
-- Need to examine pggit_v2 actual data format first
+- Need to examine pggit_v0 actual data format first
 - May require entirely different extraction strategy
 
 ---
@@ -70,7 +70,7 @@ But `content` is just the raw serialized object. To audit DDL changes, I need to
 **What I Claimed**: "Now you get automatic three-way merge!"
 
 **What's Actually True**:
-- pggit_v2 has three-way merge for BLOBS/TREES
+- pggit_v0 has three-way merge for BLOBS/TREES
 - But PostgreSQL schema objects (tables, functions) are **not blobs**
 - Merging `ALTER TABLE` statements automatically is **much harder** than merging file content
 
@@ -87,10 +87,10 @@ Branch B:        ALTER TABLE users ADD CONSTRAINT email_unique UNIQUE(email);
 
 Git auto-merge:  "Delete column and add unique constraint on it?" ❌
 
-Three-way merge on DDL is NOT automatically solved by pggit_v2.
+Three-way merge on DDL is NOT automatically solved by pggit_v0.
 ```
 
-**I Glossed Over This**: My plan acts like pggit_v2 solves merging. It doesn't. It just provides a better framework.
+**I Glossed Over This**: My plan acts like pggit_v0 solves merging. It doesn't. It just provides a better framework.
 
 ---
 
@@ -99,7 +99,7 @@ Three-way merge on DDL is NOT automatically solved by pggit_v2.
 **What I Said**: "Backfill from v1 with verification"
 
 **What I Didn't Say**:
-- How do you convert v1 versioned objects into pggit_v2 commits?
+- How do you convert v1 versioned objects into pggit_v0 commits?
 - v1 tracks incremental changes, v2 tracks complete snapshots
 - Do you create one commit per version? Multiple objects per commit?
 - How do you handle changes across multiple tables in a single "transaction"?
@@ -131,7 +131,7 @@ This is possible but **way harder** than I indicated.
 
 **What's Actually True**:
 - pggit_audit is a DERIVED view of what I think the changes were
-- I'm extracting objects from pggit_v2 content
+- I'm extracting objects from pggit_v0 content
 - But I'm **inferring** what changed from commit diffs
 - v1 has the **actual authoritative history** with explicit change tracking
 
@@ -194,7 +194,7 @@ The compat shim returns data from pggit_audit (read-only), but the code tries to
 
 **Real Scenario**: While you're running migration tooling Phase 4:
 - Users are still making changes via v1
-- pggit_v2 is accumulating commits
+- pggit_v0 is accumulating commits
 - pggit_audit is partially backfilled
 - What if someone runs a query during the middle of backfill?
 
@@ -209,7 +209,7 @@ This is a **much bigger problem** than my plan acknowledges.
 
 ## MODERATE PROBLEMS (Should Fix)
 
-### 9. ⚠️  No Analysis of Actual pggit_v2 Data Format
+### 9. ⚠️  No Analysis of Actual pggit_v0 Data Format
 
 **What I Assumed**:
 - Commits contain objects with definitions
@@ -244,11 +244,11 @@ This is a **much bigger problem** than my plan acknowledges.
 
 ### 11. ⚠️  The Plan Confuses Two Different Problems
 
-**Problem 1**: "We have two confusing schemas (pggit and pggit_v2)"
+**Problem 1**: "We have two confusing schemas (pggit and pggit_v0)"
 → Solution: Consolidate them (what my plan does)
 
 **Problem 2**: "We need better merging for team collaboration"
-→ Solution: Implement three-way merge (pggit_v2 helps, but not complete)
+→ Solution: Implement three-way merge (pggit_v0 helps, but not complete)
 
 My plan solves Problem 1 but pretends to solve Problem 2. They're different.
 
@@ -257,7 +257,7 @@ The real fix for Problem 2 is:
 2. Detect schema conflicts
 3. Auto-resolve safe changes (add column both branches) vs conflicts (both modify same column)
 
-My plan doesn't do this. It just uses pggit_v2's blob merge and hopes.
+My plan doesn't do this. It just uses pggit_v0's blob merge and hopes.
 
 ---
 
@@ -284,7 +284,7 @@ My plan doesn't do this. It just uses pggit_v2's blob merge and hopes.
 
 ### ✅ The Overall Philosophy
 
-Using pggit_v2 as primary **is** the better long-term direction. Content-addressable storage with commits is more suitable for version control than name-based DDL tracking.
+Using pggit_v0 as primary **is** the better long-term direction. Content-addressable storage with commits is more suitable for version control than name-based DDL tracking.
 
 ### ✅ The Non-Breaking Approach
 
@@ -304,7 +304,7 @@ Breaking it into 6 phases is sensible. Testing between phases is good practice.
 
 ### BEFORE Phase 1: Do This Analysis
 
-1. **Examine pggit_v2 Data Format** (4 hours)
+1. **Examine pggit_v0 Data Format** (4 hours)
    - Read 018_proper_git_three_way_merge.sql completely
    - Create test commits, see what actual objects look like
    - Document the exact structure
@@ -347,8 +347,8 @@ Breaking it into 6 phases is sensible. Testing between phases is good practice.
 
 Instead of full migration:
 1. Keep pggit (v1) as-is
-2. Make pggit_v2 work alongside it
-3. New code uses pggit_v2
+2. Make pggit_v0 work alongside it
+3. New code uses pggit_v0
 4. Old code continues using pggit
 5. Never migrate, just coexist
 
@@ -360,8 +360,8 @@ Instead of full migration:
 The real question isn't "can we migrate?" It's "do we need to?"
 
 **Reasons to migrate**:
-- You're building a real Git-like system → pggit_v2 is better
-- Multiple teams need to merge branches → pggit_v2 enables this
+- You're building a real Git-like system → pggit_v0 is better
+- Multiple teams need to merge branches → pggit_v0 enables this
 
 **Reasons NOT to migrate**:
 - Single team, linear development → pggit works fine
@@ -409,7 +409,7 @@ I created a plan that **sounds good** but lacks the deep technical analysis need
 This is a **1000-foot view** when what you need is a **100-foot view with actual code examination**.
 
 A better plan would:
-- Examine pggit_v2 actual structure
+- Examine pggit_v0 actual structure
 - Spike the hardest parts first
 - Admit what we don't know
 - Propose smaller, incremental steps

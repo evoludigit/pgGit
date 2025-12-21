@@ -23,17 +23,17 @@ DECLARE
     v_commit_sha TEXT;
 BEGIN
     -- Create a blob
-    v_blob_sha := pggit_v2.create_blob('Hello, World!');
+    v_blob_sha := pggit_v0.create_blob('Hello, World!');
     ASSERT v_blob_sha IS NOT NULL, 'Blob creation failed';
     
     -- Create a tree
-    v_tree_sha := pggit_v2.create_tree(jsonb_build_array(
+    v_tree_sha := pggit_v0.create_tree(jsonb_build_array(
         jsonb_build_object('path', 'hello.txt', 'mode', '100644', 'sha', v_blob_sha)
     ));
     ASSERT v_tree_sha IS NOT NULL, 'Tree creation failed';
     
     -- Create a commit
-    v_commit_sha := pggit_v2.create_commit(v_tree_sha, NULL, 'Initial commit');
+    v_commit_sha := pggit_v0.create_commit(v_tree_sha, NULL, 'Initial commit');
     ASSERT v_commit_sha IS NOT NULL, 'Commit creation failed';
     
     RAISE NOTICE 'Test 1 PASSED: Git objects created successfully';
@@ -56,28 +56,28 @@ DECLARE
     v_tree2 TEXT;
 BEGIN
     -- Create common ancestor
-    v_blob1 := pggit_v2.create_blob('Initial content');
-    v_tree1 := pggit_v2.create_tree(jsonb_build_array(
+    v_blob1 := pggit_v0.create_blob('Initial content');
+    v_tree1 := pggit_v0.create_tree(jsonb_build_array(
         jsonb_build_object('path', 'file.txt', 'mode', '100644', 'sha', v_blob1)
     ));
-    v_base_commit := pggit_v2.create_commit(v_tree1, NULL, 'Base commit');
+    v_base_commit := pggit_v0.create_commit(v_tree1, NULL, 'Base commit');
     
     -- Create branch 1
-    v_blob1 := pggit_v2.create_blob('Branch 1 content');
-    v_tree1 := pggit_v2.create_tree(jsonb_build_array(
+    v_blob1 := pggit_v0.create_blob('Branch 1 content');
+    v_tree1 := pggit_v0.create_tree(jsonb_build_array(
         jsonb_build_object('path', 'file.txt', 'mode', '100644', 'sha', v_blob1)
     ));
-    v_branch1_commit := pggit_v2.create_commit(v_tree1, ARRAY[v_base_commit], 'Branch 1 change');
+    v_branch1_commit := pggit_v0.create_commit(v_tree1, ARRAY[v_base_commit], 'Branch 1 change');
     
     -- Create branch 2
-    v_blob2 := pggit_v2.create_blob('Branch 2 content');
-    v_tree2 := pggit_v2.create_tree(jsonb_build_array(
+    v_blob2 := pggit_v0.create_blob('Branch 2 content');
+    v_tree2 := pggit_v0.create_tree(jsonb_build_array(
         jsonb_build_object('path', 'file.txt', 'mode', '100644', 'sha', v_blob2)
     ));
-    v_branch2_commit := pggit_v2.create_commit(v_tree2, ARRAY[v_base_commit], 'Branch 2 change');
+    v_branch2_commit := pggit_v0.create_commit(v_tree2, ARRAY[v_base_commit], 'Branch 2 change');
     
     -- Find merge base
-    v_merge_base := pggit_v2.find_merge_base(v_branch1_commit, v_branch2_commit);
+    v_merge_base := pggit_v0.find_merge_base(v_branch1_commit, v_branch2_commit);
     
     ASSERT v_merge_base = v_base_commit, 
            format('Wrong merge base: expected %s, got %s', v_base_commit, v_merge_base);
@@ -100,36 +100,36 @@ DECLARE
     v_blob_sha TEXT;
 BEGIN
     -- Base: one file
-    v_blob_sha := pggit_v2.create_blob('Original content');
-    v_tree_sha := pggit_v2.create_tree(jsonb_build_array(
+    v_blob_sha := pggit_v0.create_blob('Original content');
+    v_tree_sha := pggit_v0.create_tree(jsonb_build_array(
         jsonb_build_object('path', 'README.md', 'mode', '100644', 'sha', v_blob_sha)
     ));
-    v_base_commit := pggit_v2.create_commit(v_tree_sha, NULL, 'Initial commit');
+    v_base_commit := pggit_v0.create_commit(v_tree_sha, NULL, 'Initial commit');
     
     -- Ours: add file1.txt
-    v_blob_sha := pggit_v2.create_blob('File 1 content');
-    v_tree_sha := pggit_v2.create_tree(jsonb_build_array(
+    v_blob_sha := pggit_v0.create_blob('File 1 content');
+    v_tree_sha := pggit_v0.create_tree(jsonb_build_array(
         jsonb_build_object('path', 'README.md', 'mode', '100644', 'sha', 
-            (SELECT object_sha FROM pggit_v2.tree_entries WHERE tree_sha = 
-                (SELECT tree_sha FROM pggit_v2.commit_graph WHERE commit_sha = v_base_commit) 
+            (SELECT object_sha FROM pggit_v0.tree_entries WHERE tree_sha = 
+                (SELECT tree_sha FROM pggit_v0.commit_graph WHERE commit_sha = v_base_commit) 
                 AND path = 'README.md')),
         jsonb_build_object('path', 'file1.txt', 'mode', '100644', 'sha', v_blob_sha)
     ));
-    v_ours_commit := pggit_v2.create_commit(v_tree_sha, ARRAY[v_base_commit], 'Add file1');
+    v_ours_commit := pggit_v0.create_commit(v_tree_sha, ARRAY[v_base_commit], 'Add file1');
     
     -- Theirs: add file2.txt
-    v_blob_sha := pggit_v2.create_blob('File 2 content');
-    v_tree_sha := pggit_v2.create_tree(jsonb_build_array(
+    v_blob_sha := pggit_v0.create_blob('File 2 content');
+    v_tree_sha := pggit_v0.create_tree(jsonb_build_array(
         jsonb_build_object('path', 'README.md', 'mode', '100644', 'sha', 
-            (SELECT object_sha FROM pggit_v2.tree_entries WHERE tree_sha = 
-                (SELECT tree_sha FROM pggit_v2.commit_graph WHERE commit_sha = v_base_commit) 
+            (SELECT object_sha FROM pggit_v0.tree_entries WHERE tree_sha = 
+                (SELECT tree_sha FROM pggit_v0.commit_graph WHERE commit_sha = v_base_commit) 
                 AND path = 'README.md')),
         jsonb_build_object('path', 'file2.txt', 'mode', '100644', 'sha', v_blob_sha)
     ));
-    v_theirs_commit := pggit_v2.create_commit(v_tree_sha, ARRAY[v_base_commit], 'Add file2');
+    v_theirs_commit := pggit_v0.create_commit(v_tree_sha, ARRAY[v_base_commit], 'Add file2');
     
     -- Perform merge (should succeed)
-    v_merge_commit := pggit_v2.create_merge_commit(
+    v_merge_commit := pggit_v0.create_merge_commit(
         v_ours_commit, 
         v_theirs_commit, 
         'Merge: combine file1 and file2'
@@ -139,7 +139,7 @@ BEGIN
     
     -- Verify merge has both parents
     ASSERT array_length(
-        (SELECT parent_shas FROM pggit_v2.commit_graph WHERE commit_sha = v_merge_commit), 
+        (SELECT parent_shas FROM pggit_v0.commit_graph WHERE commit_sha = v_merge_commit), 
         1
     ) = 2, 'Merge commit should have 2 parents';
     
@@ -161,29 +161,29 @@ DECLARE
     v_conflict_detected BOOLEAN := FALSE;
 BEGIN
     -- Base: one file
-    v_blob_sha := pggit_v2.create_blob('Original content');
-    v_tree_sha := pggit_v2.create_tree(jsonb_build_array(
+    v_blob_sha := pggit_v0.create_blob('Original content');
+    v_tree_sha := pggit_v0.create_tree(jsonb_build_array(
         jsonb_build_object('path', 'conflict.txt', 'mode', '100644', 'sha', v_blob_sha)
     ));
-    v_base_commit := pggit_v2.create_commit(v_tree_sha, NULL, 'Base for conflict test');
+    v_base_commit := pggit_v0.create_commit(v_tree_sha, NULL, 'Base for conflict test');
     
     -- Ours: modify file
-    v_blob_sha := pggit_v2.create_blob('Our changes to the file');
-    v_tree_sha := pggit_v2.create_tree(jsonb_build_array(
+    v_blob_sha := pggit_v0.create_blob('Our changes to the file');
+    v_tree_sha := pggit_v0.create_tree(jsonb_build_array(
         jsonb_build_object('path', 'conflict.txt', 'mode', '100644', 'sha', v_blob_sha)
     ));
-    v_ours_commit := pggit_v2.create_commit(v_tree_sha, ARRAY[v_base_commit], 'Our changes');
+    v_ours_commit := pggit_v0.create_commit(v_tree_sha, ARRAY[v_base_commit], 'Our changes');
     
     -- Theirs: different modification
-    v_blob_sha := pggit_v2.create_blob('Their changes to the file');
-    v_tree_sha := pggit_v2.create_tree(jsonb_build_array(
+    v_blob_sha := pggit_v0.create_blob('Their changes to the file');
+    v_tree_sha := pggit_v0.create_tree(jsonb_build_array(
         jsonb_build_object('path', 'conflict.txt', 'mode', '100644', 'sha', v_blob_sha)
     ));
-    v_theirs_commit := pggit_v2.create_commit(v_tree_sha, ARRAY[v_base_commit], 'Their changes');
+    v_theirs_commit := pggit_v0.create_commit(v_tree_sha, ARRAY[v_base_commit], 'Their changes');
     
     -- Try to merge (should fail with conflict)
     BEGIN
-        PERFORM pggit_v2.create_merge_commit(
+        PERFORM pggit_v0.create_merge_commit(
             v_ours_commit, 
             v_theirs_commit, 
             'This should fail'
@@ -217,51 +217,51 @@ BEGIN
     -- Base
     WITH blobs AS (
         SELECT 
-            pggit_v2.create_blob('File A content') as file_a,
-            pggit_v2.create_blob('File B content') as file_b,
-            pggit_v2.create_blob('File C content') as file_c
+            pggit_v0.create_blob('File A content') as file_a,
+            pggit_v0.create_blob('File B content') as file_b,
+            pggit_v0.create_blob('File C content') as file_c
     )
-    SELECT pggit_v2.create_tree(jsonb_build_array(
+    SELECT pggit_v0.create_tree(jsonb_build_array(
         jsonb_build_object('path', 'file_a.txt', 'mode', '100644', 'sha', file_a),
         jsonb_build_object('path', 'file_b.txt', 'mode', '100644', 'sha', file_b),
         jsonb_build_object('path', 'file_c.txt', 'mode', '100644', 'sha', file_c)
     )) INTO v_tree_sha FROM blobs;
     
-    v_base_commit := pggit_v2.create_commit(v_tree_sha, NULL, 'Base with 3 files');
+    v_base_commit := pggit_v0.create_commit(v_tree_sha, NULL, 'Base with 3 files');
     
     -- Ours: modify A and B
     WITH blobs AS (
         SELECT 
-            pggit_v2.create_blob('File A modified by us') as file_a,
-            pggit_v2.create_blob('File B modified by us') as file_b,
-            pggit_v2.create_blob('File C content') as file_c
+            pggit_v0.create_blob('File A modified by us') as file_a,
+            pggit_v0.create_blob('File B modified by us') as file_b,
+            pggit_v0.create_blob('File C content') as file_c
     )
-    SELECT pggit_v2.create_tree(jsonb_build_array(
+    SELECT pggit_v0.create_tree(jsonb_build_array(
         jsonb_build_object('path', 'file_a.txt', 'mode', '100644', 'sha', file_a),
         jsonb_build_object('path', 'file_b.txt', 'mode', '100644', 'sha', file_b),
         jsonb_build_object('path', 'file_c.txt', 'mode', '100644', 'sha', file_c)
     )) INTO v_tree_sha FROM blobs;
     
-    v_ours_commit := pggit_v2.create_commit(v_tree_sha, ARRAY[v_base_commit], 'Our changes to A and B');
+    v_ours_commit := pggit_v0.create_commit(v_tree_sha, ARRAY[v_base_commit], 'Our changes to A and B');
     
     -- Theirs: modify B and C
     WITH blobs AS (
         SELECT 
-            pggit_v2.create_blob('File A content') as file_a,
-            pggit_v2.create_blob('File B modified by them') as file_b,
-            pggit_v2.create_blob('File C modified by them') as file_c
+            pggit_v0.create_blob('File A content') as file_a,
+            pggit_v0.create_blob('File B modified by them') as file_b,
+            pggit_v0.create_blob('File C modified by them') as file_c
     )
-    SELECT pggit_v2.create_tree(jsonb_build_array(
+    SELECT pggit_v0.create_tree(jsonb_build_array(
         jsonb_build_object('path', 'file_a.txt', 'mode', '100644', 'sha', file_a),
         jsonb_build_object('path', 'file_b.txt', 'mode', '100644', 'sha', file_b),
         jsonb_build_object('path', 'file_c.txt', 'mode', '100644', 'sha', file_c)
     )) INTO v_tree_sha FROM blobs;
     
-    v_theirs_commit := pggit_v2.create_commit(v_tree_sha, ARRAY[v_base_commit], 'Their changes to B and C');
+    v_theirs_commit := pggit_v0.create_commit(v_tree_sha, ARRAY[v_base_commit], 'Their changes to B and C');
     
     -- Analyze merge
     FOR v_merge_result IN 
-        SELECT * FROM pggit_v2.three_way_merge(v_ours_commit, v_theirs_commit)
+        SELECT * FROM pggit_v0.three_way_merge(v_ours_commit, v_theirs_commit)
     LOOP
         IF v_merge_result.merge_status = 'clean' THEN
             v_clean_count := v_clean_count + 1;
@@ -296,19 +296,19 @@ BEGIN
     v_start_time := clock_timestamp();
     
     -- Initial commit
-    v_tree_sha := pggit_v2.create_tree(jsonb_build_array(
+    v_tree_sha := pggit_v0.create_tree(jsonb_build_array(
         jsonb_build_object('path', 'test.txt', 'mode', '100644', 
-                          'sha', pggit_v2.create_blob('Commit 0'))
+                          'sha', pggit_v0.create_blob('Commit 0'))
     ));
-    v_parent_sha := pggit_v2.create_commit(v_tree_sha, NULL, 'Commit 0');
+    v_parent_sha := pggit_v0.create_commit(v_tree_sha, NULL, 'Commit 0');
     
     -- Create 99 more commits
     FOR i IN 1..99 LOOP
-        v_tree_sha := pggit_v2.create_tree(jsonb_build_array(
+        v_tree_sha := pggit_v0.create_tree(jsonb_build_array(
             jsonb_build_object('path', 'test.txt', 'mode', '100644', 
-                              'sha', pggit_v2.create_blob('Commit ' || i))
+                              'sha', pggit_v0.create_blob('Commit ' || i))
         ));
-        v_parent_sha := pggit_v2.create_commit(v_tree_sha, ARRAY[v_parent_sha], 'Commit ' || i);
+        v_parent_sha := pggit_v0.create_commit(v_tree_sha, ARRAY[v_parent_sha], 'Commit ' || i);
     END LOOP;
     
     v_end_time := clock_timestamp();
@@ -320,9 +320,9 @@ BEGIN
     v_start_time := clock_timestamp();
     
     -- Find merge base between early and late commits
-    PERFORM pggit_v2.find_merge_base(
-        (SELECT commit_sha FROM pggit_v2.commit_graph ORDER BY generation DESC LIMIT 1),
-        (SELECT commit_sha FROM pggit_v2.commit_graph ORDER BY generation ASC LIMIT 1 OFFSET 10)
+    PERFORM pggit_v0.find_merge_base(
+        (SELECT commit_sha FROM pggit_v0.commit_graph ORDER BY generation DESC LIMIT 1),
+        (SELECT commit_sha FROM pggit_v0.commit_graph ORDER BY generation ASC LIMIT 1 OFFSET 10)
     );
     
     v_end_time := clock_timestamp();
@@ -331,7 +331,7 @@ BEGIN
     RAISE NOTICE 'Merge base lookup: % ms', v_duration_ms;
     
     -- Record performance metrics
-    INSERT INTO pggit_v2.performance_metrics (operation, duration_ms, object_count)
+    INSERT INTO pggit_v0.performance_metrics (operation, duration_ms, object_count)
     VALUES ('create_100_commits', v_duration_ms, 100);
     
     -- Check performance requirements (merge base should be <10ms)
@@ -353,7 +353,7 @@ SELECT
 UNION ALL
 SELECT 
     '  ' || operation || ': ' || round(avg(duration_ms)) || 'ms (avg)'
-FROM pggit_v2.performance_metrics
+FROM pggit_v0.performance_metrics
 GROUP BY operation
 UNION ALL
 SELECT ''
@@ -374,4 +374,4 @@ SELECT '  ✓ Performance optimizations';
 \echo 'All tests completed. The implementation now properly supports Git-like three-way merge!'
 
 -- Cleanup
-DROP SCHEMA pggit_v2 CASCADE;
+DROP SCHEMA pggit_v0 CASCADE;

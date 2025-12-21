@@ -176,7 +176,7 @@ WEEK_2_COMPLETION_SUMMARY.md    This document
 What Week 3 will do:
 1. Performance benchmarking (target: < 100ms per extraction)
 2. Unit testing (edge cases)
-3. Integration testing (with real pggit_v2 data)
+3. Integration testing (with real pggit_v0 data)
 4. Extended types testing
 5. Documentation updates
 6. Backfill script preparation

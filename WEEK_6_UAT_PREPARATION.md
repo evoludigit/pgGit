@@ -9,13 +9,13 @@
 
 ## Overview
 
-Week 6 transitions from development to **User Acceptance Testing (UAT)** for the greenfield pggit_v2 features. Teams will validate functions, views, and workflows in realistic scenarios before production launch in Week 7.
+Week 6 transitions from development to **User Acceptance Testing (UAT)** for the greenfield pggit_v0 features. Teams will validate functions, views, and workflows in realistic scenarios before production launch in Week 7.
 
 ---
 
 ## What Was Built (Weeks 1-5)
 
-### pggit_v2 Core (Weeks 1-3)
+### pggit_v0 Core (Weeks 1-3)
 - ✅ Content-addressable schema versioning system (blobs, trees, commits)
 - ✅ Immutable audit layer with compliance tracking
 - ✅ Enterprise-grade DDL extraction (8 object types, 20+ SQL variations)
@@ -97,77 +97,77 @@ Week 6 transitions from development to **User Acceptance Testing (UAT)** for the
 **Scenario 1: Feature Branch Workflow**
 ```sql
 -- 1. Create feature branch
-SELECT pggit_v2.create_branch('feature/add-new-table');
+SELECT pggit_v0.create_branch('feature/add-new-table');
 
 -- 2. View changes (simulate development)
-SELECT pggit_v2.diff_branches('feature/add-new-table', 'main');
+SELECT pggit_v0.diff_branches('feature/add-new-table', 'main');
 
 -- 3. Detect conflicts
-SELECT * FROM pggit_v2.detect_merge_conflicts('feature/add-new-table', 'main');
+SELECT * FROM pggit_v0.detect_merge_conflicts('feature/add-new-table', 'main');
 
 -- 4. Merge when ready
-SELECT pggit_v2.merge_branch('feature/add-new-table', 'main');
+SELECT pggit_v0.merge_branch('feature/add-new-table', 'main');
 
 -- 5. Clean up
-SELECT pggit_v2.delete_branch('feature/add-new-table');
+SELECT pggit_v0.delete_branch('feature/add-new-table');
 ```
 
 **Scenario 2: Release Branch Management**
 ```sql
 -- 1. Create release branch
-SELECT pggit_v2.create_branch('release/v2.1.0');
+SELECT pggit_v0.create_branch('release/v2.1.0');
 
 -- 2. Compare to main
-SELECT * FROM pggit_v2.diff_branches('release/v2.1.0', 'main');
+SELECT * FROM pggit_v0.diff_branches('release/v2.1.0', 'main');
 
 -- 3. View all releases
-SELECT * FROM pggit_v2.branch_comparison
+SELECT * FROM pggit_v0.branch_comparison
 WHERE branch_name LIKE 'release/%';
 ```
 
 **Scenario 3: Hotfix Procedure**
 ```sql
 -- 1. Create hotfix from production
-SELECT pggit_v2.create_branch('hotfix/critical-fix');
+SELECT pggit_v0.create_branch('hotfix/critical-fix');
 
 -- 2. Implement fix
 
 -- 3. Verify changes
-SELECT * FROM pggit_v2.diff_branches('hotfix/critical-fix', 'main');
+SELECT * FROM pggit_v0.diff_branches('hotfix/critical-fix', 'main');
 
 -- 4. Merge back
-SELECT pggit_v2.merge_branch('hotfix/critical-fix', 'main');
+SELECT pggit_v0.merge_branch('hotfix/critical-fix', 'main');
 ```
 
 **Scenario 4: Audit & Compliance**
 ```sql
 -- 1. Check commit history
-SELECT * FROM pggit_v2.get_commit_history(10);
+SELECT * FROM pggit_v0.get_commit_history(10);
 
 -- 2. Track object changes
-SELECT * FROM pggit_v2.get_object_history('public', 'users', 20);
+SELECT * FROM pggit_v0.get_object_history('public', 'users', 20);
 
 -- 3. Find who changed what
-SELECT * FROM pggit_v2.author_activity
+SELECT * FROM pggit_v0.author_activity
 WHERE activity_date >= CURRENT_DATE - 7;
 
 -- 4. Compliance check
-SELECT COUNT(*) FROM pggit_v2.commits_without_message;
+SELECT COUNT(*) FROM pggit_v0.commits_without_message;
 ```
 
 **Scenario 5: Monitoring & Alerts**
 ```sql
 -- 1. Check system health
-SELECT * FROM pggit_v2.current_state_summary;
+SELECT * FROM pggit_v0.current_state_summary;
 
 -- 2. Run health checks
-SELECT * FROM pggit_v2.health_check_summary;
+SELECT * FROM pggit_v0.health_check_summary;
 
 -- 3. Check for alerts
-SELECT * FROM pggit_v2.check_for_alerts();
+SELECT * FROM pggit_v0.check_for_alerts();
 
 -- 4. Get recommendations
-SELECT * FROM pggit_v2.get_recommendations();
+SELECT * FROM pggit_v0.get_recommendations();
 ```
 
 ### Objective 3: Integration Validation ✅
@@ -359,7 +359,7 @@ Create a tracking document for any issues found:
 - ✅ Team trained and ready
 
 ### Production Launch (Week 7)
-- Week 7 Saturday midnight: Deploy pggit_v2 with all features
+- Week 7 Saturday midnight: Deploy pggit_v0 with all features
 - All functions available to development teams
 - Monitoring in place
 - Alert system active
@@ -382,10 +382,10 @@ Create a tracking document for any issues found:
 ## What's Next
 
 **Week 7**: Production Launch Saturday Midnight
-- Deploy pggit_v2 schema
+- Deploy pggit_v0 schema
 - Load all developer functions and views
 - Enable monitoring and alerts
-- Teams begin using pggit_v2
+- Teams begin using pggit_v0
 
 **Week 8-9**: Documentation & Operations Training
 - User documentation finalization

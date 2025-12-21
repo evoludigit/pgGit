@@ -1,4 +1,4 @@
--- UAT Test Data Setup for pggit_v2
+-- UAT Test Data Setup for pggit_v0
 -- Create test commits, branches, and schema changes
 
 -- Create test schema for UAT
@@ -46,7 +46,7 @@ INSERT INTO uat_test.orders (user_id, product_id, quantity, total_amount) VALUES
 (3, 3, 1, 99.99);
 
 -- Create a commit to establish baseline
--- (Note: pggit_v2 doesn't create commits automatically, this is for testing)
+-- (Note: pggit_v0 doesn't create commits automatically, this is for testing)
 
 -- Add some schema changes for testing
 ALTER TABLE uat_test.users ADD COLUMN last_login TIMESTAMP;

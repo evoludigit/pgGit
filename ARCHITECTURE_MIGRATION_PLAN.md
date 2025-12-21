@@ -10,21 +10,21 @@
 
 ## Executive Summary
 
-Migrate from two separate schemas (`pggit` and `pggit_v2`) to a unified architecture:
+Migrate from two separate schemas (`pggit` and `pggit_v0`) to a unified architecture:
 
 ```
 CURRENT STATE:
   pggit (v1)     - Name-based DDL tracking (to be deprecated)
-  pggit_v2       - Git-like model (to become primary)
+  pggit_v0       - Git-like model (to become primary)
   
 NEW STATE:
-  pggit_v2       - Primary versioning (Git-like)
+  pggit_v0       - Primary versioning (Git-like)
   pggit_audit    - Audit layer (compliance, history extraction)
   pggit_v1       - Compatibility shim (deprecated, read-only)
 ```
 
 **Benefits**:
-- Single source of truth (pggit_v2)
+- Single source of truth (pggit_v0)
 - Real Git-semantics (merging, branching)
 - Better team collaboration
 - Audit trail via derived views/tables
@@ -35,11 +35,11 @@ NEW STATE:
 ## Phase 1: Prepare & Document (Week 1)
 
 ### 1.1 Create Audit Layer Design Document
-**Objective**: Design what compliance data we need to extract from pggit_v2
+**Objective**: Design what compliance data we need to extract from pggit_v0
 
 **Tasks**:
 - [ ] Document all current pggit audit queries
-- [ ] Map audit needs to pggit_v2 structure
+- [ ] Map audit needs to pggit_v0 structure
 - [ ] Design audit view schema
 - [ ] Plan performance implications
 
@@ -75,7 +75,7 @@ pggit_audit.compliance_report
 **Tasks**:
 - [ ] Create DEPRECATION.md
 - [ ] Add migration guide
-- [ ] Document pggit_v2 equivalents for each v1 function
+- [ ] Document pggit_v0 equivalents for each v1 function
 - [ ] Provide clear timeline
 
 **Deliverables**:
@@ -92,7 +92,7 @@ docs/DEPRECATION.md
 **Objective**: Understand what's actually using pggit (v1)
 
 **Tasks**:
-- [ ] Search codebase for pggit.* calls (not pggit_v2.*)
+- [ ] Search codebase for pggit.* calls (not pggit_v0.*)
 - [ ] Categorize by usage pattern
 - [ ] Identify which are critical vs. nice-to-have
 - [ ] Estimate migration effort per module
@@ -104,7 +104,7 @@ docs/DEPRECATION.md
 ## Phase 2: Build Audit Layer (Weeks 1-2)
 
 ### 2.1 Create pggit_audit Schema
-**Objective**: Build audit infrastructure on top of pggit_v2
+**Objective**: Build audit infrastructure on top of pggit_v0
 
 **Create Tables**:
 ```sql
@@ -113,7 +113,7 @@ CREATE SCHEMA pggit_audit;
 -- Track changes extracted from commits
 CREATE TABLE pggit_audit.changes (
     change_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    commit_sha TEXT NOT NULL REFERENCES pggit_v2.objects(sha),
+    commit_sha TEXT NOT NULL REFERENCES pggit_v0.objects(sha),
     object_name TEXT NOT NULL,  -- e.g., "public.users"
     object_type TEXT NOT NULL,  -- TABLE, FUNCTION, TYPE, etc.
     change_type TEXT NOT NULL,  -- CREATE, ALTER, DROP
@@ -133,7 +133,7 @@ CREATE TABLE pggit_audit.object_versions (
     object_name TEXT NOT NULL,
     object_type TEXT NOT NULL,
     definition TEXT NOT NULL,
-    commit_sha TEXT NOT NULL REFERENCES pggit_v2.objects(sha),
+    commit_sha TEXT NOT NULL REFERENCES pggit_v0.objects(sha),
     version_number INTEGER NOT NULL,
     created_at TIMESTAMP NOT NULL,
     UNIQUE(object_name, version_number)
@@ -162,7 +162,7 @@ CREATE INDEX idx_object_versions_name ON pggit_audit.object_versions(object_name
 ```
 
 ### 2.2 Create Audit Functions
-**Objective**: Extract audit data from pggit_v2 commits
+**Objective**: Extract audit data from pggit_v0 commits
 
 **Functions to Create**:
 ```sql
@@ -318,7 +318,7 @@ $$ LANGUAGE plpgsql;
 \i pggit_conflict_resolution_minimal.sql
 \i pggit_diff_functionality.sql
 
--- NEW: pggit_v2 as primary (was already included)
+-- NEW: pggit_v0 as primary (was already included)
 \i core/sql/018_proper_git_three_way_merge.sql
 
 -- NEW: Audit layer
@@ -365,7 +365,7 @@ sql/migrate/
 $ psql -f sql/migrate/001_analyze_v1_usage.sql
 
 ## Step 2: Update Code
-Replace pggit.* calls with pggit_v2.* or pggit_audit.*
+Replace pggit.* calls with pggit_v0.* or pggit_audit.*
 
 ## Step 3: Run Migration
 $ psql -f sql/migrate/002_extract_v1_history.sql
@@ -386,8 +386,8 @@ DROP SCHEMA pggit_v1 CASCADE;
 |------------|---------------|------------|
 | pggit.get_object_version | pggit_audit.object_versions | pggit_audit.object_history |
 | pggit.list_changes | pggit_audit.changes | pggit_audit.recent_changes |
-| pggit.detect_schema_changes | pggit_v2.diff_schemas | pggit_audit.detect_breaking_changes |
-| pggit.generate_migration | pggit_v2.* functions | Manual via commits |
+| pggit.detect_schema_changes | pggit_v0.diff_schemas | pggit_audit.detect_breaking_changes |
+| pggit.generate_migration | pggit_v0.* functions | Manual via commits |
 | ... | ... | ... |
 
 ---
@@ -462,7 +462,7 @@ CREATE TABLE pggit_audit.v1_deprecation_log (
 
 ### New Structure
 ```
-pggit_v2 (PRIMARY)
+pggit_v0 (PRIMARY)
 ├── objects           ← Content-addressable storage (blobs, trees, commits)
 ├── refs              ← Branches and tags
 ├── commit_graph      ← Performance optimization
@@ -509,7 +509,7 @@ WHERE object_name = 'public.users'
 AND committed_at BETWEEN '2025-01-01' AND '2025-12-31';
 
 -- Three-way merge (now possible!)
-SELECT pggit_v2.three_way_merge(
+SELECT pggit_v0.three_way_merge(
     base_tree_sha,
     branch1_tree_sha,
     branch2_tree_sha
@@ -549,7 +549,7 @@ SELECT pggit_v2.three_way_merge(
 - [ ] pggit_audit schema created
 - [ ] All audit functions implemented
 - [ ] All audit views created
-- [ ] Can extract full history from pggit_v2
+- [ ] Can extract full history from pggit_v0
 
 ### Phase 3 Complete
 - [ ] pggit_v1 compat schema created

@@ -4,15 +4,15 @@
 -- Based on expert team recommendations and Git's actual design
 
 -- Drop existing flawed implementations
-DROP SCHEMA IF EXISTS pggit_v2 CASCADE;
-CREATE SCHEMA pggit_v2;
+DROP SCHEMA IF EXISTS pggit_v0 CASCADE;
+CREATE SCHEMA pggit_v0;
 
 -- ============================================
 -- CORE GIT-LIKE OBJECT MODEL
 -- ============================================
 
 -- Objects table (like Git's object database)
-CREATE TABLE pggit_v2.objects (
+CREATE TABLE pggit_v0.objects (
     sha TEXT PRIMARY KEY,
     type TEXT NOT NULL CHECK (type IN ('commit', 'tree', 'blob', 'tag')),
     size INTEGER NOT NULL,
@@ -20,17 +20,17 @@ CREATE TABLE pggit_v2.objects (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_objects_type ON pggit_v2.objects(type);
+CREATE INDEX idx_objects_type ON pggit_v0.objects(type);
 
 -- Refs table (branches and tags)
-CREATE TABLE pggit_v2.refs (
+CREATE TABLE pggit_v0.refs (
     name TEXT PRIMARY KEY,
-    target_sha TEXT NOT NULL REFERENCES pggit_v2.objects(sha),
+    target_sha TEXT NOT NULL REFERENCES pggit_v0.objects(sha),
     type TEXT NOT NULL CHECK (type IN ('branch', 'tag', 'remote'))
 );
 
 -- HEAD tracking
-CREATE TABLE pggit_v2.HEAD (
+CREATE TABLE pggit_v0.HEAD (
     id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
     ref_name TEXT NOT NULL,
     direct_sha TEXT
@@ -41,8 +41,8 @@ CREATE TABLE pggit_v2.HEAD (
 -- ============================================
 
 -- Pre-computed commit graph for fast traversal
-CREATE TABLE pggit_v2.commit_graph (
-    commit_sha TEXT PRIMARY KEY REFERENCES pggit_v2.objects(sha),
+CREATE TABLE pggit_v0.commit_graph (
+    commit_sha TEXT PRIMARY KEY REFERENCES pggit_v0.objects(sha),
     parent_shas TEXT[] NOT NULL DEFAULT '{}',
     tree_sha TEXT NOT NULL,
     generation INTEGER NOT NULL DEFAULT 0, -- Distance from root
@@ -53,11 +53,11 @@ CREATE TABLE pggit_v2.commit_graph (
     message TEXT NOT NULL
 );
 
-CREATE INDEX idx_commit_graph_parents ON pggit_v2.commit_graph USING GIN(parent_shas);
-CREATE INDEX idx_commit_graph_generation ON pggit_v2.commit_graph(generation);
+CREATE INDEX idx_commit_graph_parents ON pggit_v0.commit_graph USING GIN(parent_shas);
+CREATE INDEX idx_commit_graph_generation ON pggit_v0.commit_graph(generation);
 
 -- Merge base cache for O(1) lookups
-CREATE TABLE pggit_v2.merge_base_cache (
+CREATE TABLE pggit_v0.merge_base_cache (
     commit1_sha TEXT NOT NULL,
     commit2_sha TEXT NOT NULL,
     merge_base_sha TEXT NOT NULL,
@@ -66,22 +66,22 @@ CREATE TABLE pggit_v2.merge_base_cache (
 );
 
 -- Tree entry cache for fast tree comparisons
-CREATE TABLE pggit_v2.tree_entries (
-    tree_sha TEXT NOT NULL REFERENCES pggit_v2.objects(sha),
+CREATE TABLE pggit_v0.tree_entries (
+    tree_sha TEXT NOT NULL REFERENCES pggit_v0.objects(sha),
     path TEXT NOT NULL,
     mode TEXT NOT NULL, -- File mode (100644, 100755, 040000, etc.)
-    object_sha TEXT NOT NULL REFERENCES pggit_v2.objects(sha),
+    object_sha TEXT NOT NULL REFERENCES pggit_v0.objects(sha),
     PRIMARY KEY (tree_sha, path)
 );
 
-CREATE INDEX idx_tree_entries_object ON pggit_v2.tree_entries(object_sha);
+CREATE INDEX idx_tree_entries_object ON pggit_v0.tree_entries(object_sha);
 
 -- ============================================
 -- CORE GIT FUNCTIONS
 -- ============================================
 
 -- Create blob object
-CREATE OR REPLACE FUNCTION pggit_v2.create_blob(
+CREATE OR REPLACE FUNCTION pggit_v0.create_blob(
     p_content TEXT
 ) RETURNS TEXT AS $$
 DECLARE
@@ -92,7 +92,7 @@ BEGIN
     -- Use proper encoding without null bytes for PostgreSQL
     v_sha := encode(sha256(('blob ' || v_size || ':' || p_content)::bytea), 'hex');
     
-    INSERT INTO pggit_v2.objects (sha, type, size, content)
+    INSERT INTO pggit_v0.objects (sha, type, size, content)
     VALUES (v_sha, 'blob', v_size, p_content)
     ON CONFLICT (sha) DO NOTHING;
     
@@ -101,7 +101,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create tree object
-CREATE OR REPLACE FUNCTION pggit_v2.create_tree(
+CREATE OR REPLACE FUNCTION pggit_v0.create_tree(
     p_entries JSONB -- Array of {path, mode, sha}
 ) RETURNS TEXT AS $$
 DECLARE
@@ -125,12 +125,12 @@ BEGIN
     v_sha := encode(sha256(('tree ' || v_size || ':' || v_content)::bytea), 'hex');
 
     -- Store tree object
-    INSERT INTO pggit_v2.objects (sha, type, size, content)
+    INSERT INTO pggit_v0.objects (sha, type, size, content)
     VALUES (v_sha, 'tree', v_size, encode(v_content::bytea, 'base64'))
     ON CONFLICT (sha) DO NOTHING;
 
     -- Cache tree entries
-    INSERT INTO pggit_v2.tree_entries (tree_sha, path, mode, object_sha)
+    INSERT INTO pggit_v0.tree_entries (tree_sha, path, mode, object_sha)
     SELECT v_sha, value->>'path', value->>'mode', value->>'sha'
     FROM jsonb_array_elements(p_entries)
     ON CONFLICT DO NOTHING;
@@ -140,7 +140,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create commit object
-CREATE OR REPLACE FUNCTION pggit_v2.create_commit(
+CREATE OR REPLACE FUNCTION pggit_v0.create_commit(
     p_tree_sha TEXT,
     p_parent_shas TEXT[],
     p_message TEXT,
@@ -178,12 +178,12 @@ BEGIN
     v_sha := encode(sha256(('commit ' || v_size || ':' || v_content)::bytea), 'hex');
     
     -- Store commit object
-    INSERT INTO pggit_v2.objects (sha, type, size, content)
+    INSERT INTO pggit_v0.objects (sha, type, size, content)
     VALUES (v_sha, 'commit', v_size, v_content)
     ON CONFLICT (sha) DO NOTHING;
     
     -- Update commit graph
-    INSERT INTO pggit_v2.commit_graph (
+    INSERT INTO pggit_v0.commit_graph (
         commit_sha, parent_shas, tree_sha, generation,
         author, committer, authored_at, committed_at, message
     )
@@ -191,7 +191,7 @@ BEGIN
         v_sha, 
         COALESCE(p_parent_shas, '{}'), 
         p_tree_sha,
-        COALESCE((SELECT MAX(generation) + 1 FROM pggit_v2.commit_graph WHERE commit_sha = ANY(p_parent_shas)), 0),
+        COALESCE((SELECT MAX(generation) + 1 FROM pggit_v0.commit_graph WHERE commit_sha = ANY(p_parent_shas)), 0),
         v_author,
         v_committer,
         now(),
@@ -208,7 +208,7 @@ $$ LANGUAGE plpgsql;
 -- ============================================
 
 -- Find merge base using generation numbers (optimized)
-CREATE OR REPLACE FUNCTION pggit_v2.find_merge_base(
+CREATE OR REPLACE FUNCTION pggit_v0.find_merge_base(
     p_commit1_sha TEXT,
     p_commit2_sha TEXT
 ) RETURNS TEXT AS $$
@@ -217,7 +217,7 @@ DECLARE
 BEGIN
     -- Check cache first
     SELECT merge_base_sha INTO v_merge_base
-    FROM pggit_v2.merge_base_cache
+    FROM pggit_v0.merge_base_cache
     WHERE (commit1_sha = p_commit1_sha AND commit2_sha = p_commit2_sha)
        OR (commit1_sha = p_commit2_sha AND commit2_sha = p_commit1_sha);
     
@@ -230,26 +230,26 @@ BEGIN
     -- Get all ancestors of commit1 with distance
     ancestors1 AS (
         SELECT commit_sha, parent_shas, generation, 0 as distance
-        FROM pggit_v2.commit_graph
+        FROM pggit_v0.commit_graph
         WHERE commit_sha = p_commit1_sha
         
         UNION ALL
         
         SELECT g.commit_sha, g.parent_shas, g.generation, a.distance + 1
-        FROM pggit_v2.commit_graph g
+        FROM pggit_v0.commit_graph g
         JOIN ancestors1 a ON g.commit_sha = ANY(a.parent_shas)
         WHERE a.distance < 1000 -- Prevent infinite recursion
     ),
     -- Get all ancestors of commit2 with distance
     ancestors2 AS (
         SELECT commit_sha, parent_shas, generation, 0 as distance
-        FROM pggit_v2.commit_graph
+        FROM pggit_v0.commit_graph
         WHERE commit_sha = p_commit2_sha
         
         UNION ALL
         
         SELECT g.commit_sha, g.parent_shas, g.generation, a.distance + 1
-        FROM pggit_v2.commit_graph g
+        FROM pggit_v0.commit_graph g
         JOIN ancestors2 a ON g.commit_sha = ANY(a.parent_shas)
         WHERE a.distance < 1000
     )
@@ -262,7 +262,7 @@ BEGIN
     
     -- Cache the result
     IF v_merge_base IS NOT NULL THEN
-        INSERT INTO pggit_v2.merge_base_cache (commit1_sha, commit2_sha, merge_base_sha)
+        INSERT INTO pggit_v0.merge_base_cache (commit1_sha, commit2_sha, merge_base_sha)
         VALUES (p_commit1_sha, p_commit2_sha, v_merge_base)
         ON CONFLICT DO NOTHING;
     END IF;
@@ -272,7 +272,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Compare two trees
-CREATE OR REPLACE FUNCTION pggit_v2.diff_trees(
+CREATE OR REPLACE FUNCTION pggit_v0.diff_trees(
     p_tree1_sha TEXT,
     p_tree2_sha TEXT
 ) RETURNS TABLE (
@@ -287,12 +287,12 @@ BEGIN
     RETURN QUERY
     WITH tree1 AS (
         SELECT te.path, te.mode, te.object_sha
-        FROM pggit_v2.tree_entries te
+        FROM pggit_v0.tree_entries te
         WHERE te.tree_sha = p_tree1_sha
     ),
     tree2 AS (
         SELECT te.path, te.mode, te.object_sha
-        FROM pggit_v2.tree_entries te
+        FROM pggit_v0.tree_entries te
         WHERE te.tree_sha = p_tree2_sha
     )
     SELECT
@@ -314,7 +314,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Perform three-way merge
-CREATE OR REPLACE FUNCTION pggit_v2.three_way_merge(
+CREATE OR REPLACE FUNCTION pggit_v0.three_way_merge(
     p_ours_sha TEXT,
     p_theirs_sha TEXT,
     p_base_sha TEXT DEFAULT NULL
@@ -335,24 +335,24 @@ DECLARE
 BEGIN
     -- Get merge base if not provided
     IF p_base_sha IS NULL THEN
-        v_base_sha := pggit_v2.find_merge_base(p_ours_sha, p_theirs_sha);
+        v_base_sha := pggit_v0.find_merge_base(p_ours_sha, p_theirs_sha);
     ELSE
         v_base_sha := p_base_sha;
     END IF;
     
     -- Get tree SHAs from commits
-    SELECT tree_sha INTO v_ours_tree FROM pggit_v2.commit_graph WHERE commit_sha = p_ours_sha;
-    SELECT tree_sha INTO v_theirs_tree FROM pggit_v2.commit_graph WHERE commit_sha = p_theirs_sha;
-    SELECT tree_sha INTO v_base_tree FROM pggit_v2.commit_graph WHERE commit_sha = v_base_sha;
+    SELECT tree_sha INTO v_ours_tree FROM pggit_v0.commit_graph WHERE commit_sha = p_ours_sha;
+    SELECT tree_sha INTO v_theirs_tree FROM pggit_v0.commit_graph WHERE commit_sha = p_theirs_sha;
+    SELECT tree_sha INTO v_base_tree FROM pggit_v0.commit_graph WHERE commit_sha = v_base_sha;
     
     -- Perform three-way diff
     RETURN QUERY
     WITH 
     base_diff_ours AS (
-        SELECT * FROM pggit_v2.diff_trees(v_base_tree, v_ours_tree)
+        SELECT * FROM pggit_v0.diff_trees(v_base_tree, v_ours_tree)
     ),
     base_diff_theirs AS (
-        SELECT * FROM pggit_v2.diff_trees(v_base_tree, v_theirs_tree)
+        SELECT * FROM pggit_v0.diff_trees(v_base_tree, v_theirs_tree)
     ),
     all_paths AS (
         SELECT DISTINCT path FROM (
@@ -378,14 +378,14 @@ BEGIN
             ELSE 'conflict'
         END as merge_status,
         -- Get content for conflict resolution
-        (SELECT content FROM pggit_v2.objects WHERE sha = COALESCE(o.old_sha, t.old_sha)) as base_content,
-        (SELECT content FROM pggit_v2.objects WHERE sha = o.new_sha) as ours_content,
-        (SELECT content FROM pggit_v2.objects WHERE sha = t.new_sha) as theirs_content,
+        (SELECT content FROM pggit_v0.objects WHERE sha = COALESCE(o.old_sha, t.old_sha)) as base_content,
+        (SELECT content FROM pggit_v0.objects WHERE sha = o.new_sha) as ours_content,
+        (SELECT content FROM pggit_v0.objects WHERE sha = t.new_sha) as theirs_content,
         -- Merged content (null if conflict)
         CASE
-            WHEN o.new_sha = t.new_sha THEN (SELECT content FROM pggit_v2.objects WHERE sha = o.new_sha)
-            WHEN o.path IS NULL THEN (SELECT content FROM pggit_v2.objects WHERE sha = t.new_sha)
-            WHEN t.path IS NULL THEN (SELECT content FROM pggit_v2.objects WHERE sha = o.new_sha)
+            WHEN o.new_sha = t.new_sha THEN (SELECT content FROM pggit_v0.objects WHERE sha = o.new_sha)
+            WHEN o.path IS NULL THEN (SELECT content FROM pggit_v0.objects WHERE sha = t.new_sha)
+            WHEN t.path IS NULL THEN (SELECT content FROM pggit_v0.objects WHERE sha = o.new_sha)
             ELSE NULL
         END as merged_content,
         -- Conflict markers needed?
@@ -400,7 +400,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create merge commit
-CREATE OR REPLACE FUNCTION pggit_v2.create_merge_commit(
+CREATE OR REPLACE FUNCTION pggit_v0.create_merge_commit(
     p_ours_sha TEXT,
     p_theirs_sha TEXT,
     p_message TEXT,
@@ -414,7 +414,7 @@ DECLARE
 BEGIN
     -- Check for conflicts
     FOR v_merge_result IN 
-        SELECT * FROM pggit_v2.three_way_merge(p_ours_sha, p_theirs_sha)
+        SELECT * FROM pggit_v0.three_way_merge(p_ours_sha, p_theirs_sha)
     LOOP
         IF v_merge_result.merge_status = 'conflict' THEN
             v_has_conflicts := true;
@@ -426,16 +426,16 @@ BEGIN
             v_tree_entries := v_tree_entries || jsonb_build_object(
                 'path', v_merge_result.path,
                 'mode', '100644',
-                'sha', pggit_v2.create_blob(v_merge_result.merged_content)
+                'sha', pggit_v0.create_blob(v_merge_result.merged_content)
             );
         END IF;
     END LOOP;
     
     -- Create merged tree
-    v_merge_tree_sha := pggit_v2.create_tree(v_tree_entries);
+    v_merge_tree_sha := pggit_v0.create_tree(v_tree_entries);
     
     -- Create merge commit with two parents
-    RETURN pggit_v2.create_commit(
+    RETURN pggit_v0.create_commit(
         v_merge_tree_sha,
         ARRAY[p_ours_sha, p_theirs_sha],
         p_message,
@@ -449,7 +449,7 @@ $$ LANGUAGE plpgsql;
 -- ============================================
 
 -- Update ref
-CREATE OR REPLACE FUNCTION pggit_v2.update_ref(
+CREATE OR REPLACE FUNCTION pggit_v0.update_ref(
     p_ref_name TEXT,
     p_new_sha TEXT,
     p_old_sha TEXT DEFAULT NULL
@@ -460,7 +460,7 @@ BEGIN
     -- Get current SHA if checking
     IF p_old_sha IS NOT NULL THEN
         SELECT target_sha INTO v_current_sha
-        FROM pggit_v2.refs
+        FROM pggit_v0.refs
         WHERE name = p_ref_name;
         
         IF v_current_sha != p_old_sha THEN
@@ -470,7 +470,7 @@ BEGIN
     END IF;
     
     -- Update or insert ref
-    INSERT INTO pggit_v2.refs (name, target_sha, type)
+    INSERT INTO pggit_v0.refs (name, target_sha, type)
     VALUES (p_ref_name, p_new_sha, 
             CASE 
                 WHEN p_ref_name LIKE 'refs/tags/%' THEN 'tag'
@@ -488,7 +488,7 @@ $$ LANGUAGE plpgsql;
 -- PERFORMANCE MONITORING
 -- ============================================
 
-CREATE TABLE pggit_v2.performance_metrics (
+CREATE TABLE pggit_v0.performance_metrics (
     operation TEXT,
     duration_ms INTEGER,
     object_count INTEGER,
@@ -499,7 +499,7 @@ CREATE TABLE pggit_v2.performance_metrics (
 -- COMMENTS
 -- ============================================
 
-COMMENT ON SCHEMA pggit_v2 IS 'Proper Git-like implementation with three-way merge';
-COMMENT ON FUNCTION pggit_v2.find_merge_base IS 'Find common ancestor using optimized generation-based algorithm';
-COMMENT ON FUNCTION pggit_v2.three_way_merge IS 'Perform true three-way merge with conflict detection';
-COMMENT ON FUNCTION pggit_v2.create_merge_commit IS 'Create merge commit with automatic conflict detection';
+COMMENT ON SCHEMA pggit_v0 IS 'Proper Git-like implementation with three-way merge';
+COMMENT ON FUNCTION pggit_v0.find_merge_base IS 'Find common ancestor using optimized generation-based algorithm';
+COMMENT ON FUNCTION pggit_v0.three_way_merge IS 'Perform true three-way merge with conflict detection';
+COMMENT ON FUNCTION pggit_v0.create_merge_commit IS 'Create merge commit with automatic conflict detection';

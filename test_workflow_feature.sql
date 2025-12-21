@@ -1,5 +1,5 @@
 -- UAT Workflow Testing: Feature Branch Scenario
--- Test the intended workflow even if pggit_v2 functions have issues
+-- Test the intended workflow even if pggit_v0 functions have issues
 
 \echo '=== Testing Feature Branch Workflow Scenario ==='
 

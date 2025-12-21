@@ -141,7 +141,7 @@ This is the **execution playbook** for Path A implementation. Here's how to use 
 4. Set decision meeting for end of Week 2
 
 ### During Spike Analysis (Week 1-2)
-1. Use Spike 1.1 checklist for pggit_v2 format analysis
+1. Use Spike 1.1 checklist for pggit_v0 format analysis
 2. Use Spike 1.2 checklist for DDL extraction prototype
 3. Use Spike 1.3 checklist for backfill algorithm design
 4. Use Spike 1.4 checklist for ROI verification

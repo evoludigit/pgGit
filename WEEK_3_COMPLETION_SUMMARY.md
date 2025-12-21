@@ -72,7 +72,7 @@
 4. ✅ Extended object types fully supported (8 types)
 5. ✅ Error handling comprehensive (all edge cases)
 6. ✅ Documentation complete (function comments + details)
-7. ✅ Integration with pggit_v2 verified
+7. ✅ Integration with pggit_v0 verified
 8. ✅ Production readiness confirmed
 
 ### Quality Metrics

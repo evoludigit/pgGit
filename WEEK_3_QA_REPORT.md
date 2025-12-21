@@ -236,7 +236,7 @@ Batch processing (100 calls): < 500ms
 4. ✅ Extended object types fully supported
 5. ✅ Error handling comprehensive
 6. ✅ Documentation complete
-7. ✅ Integration with pggit_v2 verified
+7. ✅ Integration with pggit_v0 verified
 8. ✅ Production readiness confirmed
 
 ---
@@ -287,8 +287,8 @@ Batch processing (100 calls): < 500ms
 
 ## Integration Verification ✅
 
-**With pggit_v2**: ✅
-- Functions use pggit_v2.commit_graph data
+**With pggit_v0**: ✅
+- Functions use pggit_v0.commit_graph data
 - Compatible with tree diffing
 - DDL extraction path verified
 

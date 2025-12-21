@@ -81,11 +81,11 @@ Before choosing simplified path, verify:
 ## Simplified Timeline
 
 ### Week 1: Spike Analysis (18-20 hours)
-- Spike 1.1: Examine pggit_v2 format (4-5h)
+- Spike 1.1: Examine pggit_v0 format (4-5h)
 - Spike 1.2: Prototype DDL extraction (8-10h)
 - Spike 1.3: Backfill algorithm (4-6h)
 - Spike 1.4: ROI check (2h)
-- **Deliverable**: Understanding of pggit_v2 and extraction feasibility
+- **Deliverable**: Understanding of pggit_v0 and extraction feasibility
 
 ### Weeks 2-3: Build Audit Layer (20-25 hours)
 - Design pggit_audit schema
@@ -118,7 +118,7 @@ Saturday Midnight:
   4. Execute backfill process
      └─ Convert v1 history to v2 commits (30-45 minutes)
   5. Verify integrity (spot checks, record counts)
-  6. Deploy new application code (uses pggit_v2 instead of v1)
+  6. Deploy new application code (uses pggit_v0 instead of v1)
   7. Restart applications
   8. Monitor for issues
   9. Announce completion
@@ -126,7 +126,7 @@ Saturday Midnight:
 Sunday Morning:
   ✓ System back online with v2 as primary
   ✓ Old pggit.* functions no longer exist
-  ✓ All code using pggit_v2
+  ✓ All code using pggit_v0
 ```
 
 ---
@@ -200,7 +200,7 @@ Saturday Midnight (Maintenance Window):
 Sunday Morning:
   ✓ New system live
   ✓ pggit_v1 and pggit no longer available
-  ✓ All code uses pggit_v2/pggit_audit
+  ✓ All code uses pggit_v0/pggit_audit
   ✓ Git-like system is now primary
 ```
 
@@ -371,7 +371,7 @@ Sunday Morning:
 - ❌ High risk (one-shot cutover)
 - ❌ Requires 6-hour maintenance window
 - ❌ Must update all code at once
-- ✅ Clean result (pggit_v2 primary, no legacy)
+- ✅ Clean result (pggit_v0 primary, no legacy)
 
 **Best for teams** that can:
 1. Find and update all pggit.* usage quickly
@@ -384,7 +384,7 @@ Sunday Morning:
 ## Next Steps If Choosing Simplified Path A
 
 1. **Week 1**: Run spike analysis
-   - Understand pggit_v2 format
+   - Understand pggit_v0 format
    - Prototype DDL extraction
    - Confirm backfill algorithm
 

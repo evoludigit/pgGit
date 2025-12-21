@@ -68,7 +68,7 @@
 **Duration**: 18-20 hours
 **Purpose**: Learn unknowns that could kill the project
 **Includes**:
-- Examine pggit_v2 actual data format
+- Examine pggit_v0 actual data format
 - Prototype DDL extraction for one object
 - Design v1→v2 backfill algorithm
 - Verify ROI is positive
@@ -119,7 +119,7 @@
 **What the revised plan admits**:
 
 1. **DDL Merging is Still Hard**
-   - pggit_v2 can merge "add column on both branches"
+   - pggit_v0 can merge "add column on both branches"
    - But can't handle "drop column on one branch, add constraint on same column on other"
    - Verdict: Migration doesn't solve merging complexity
 

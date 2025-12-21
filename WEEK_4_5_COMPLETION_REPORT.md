@@ -9,9 +9,9 @@
 
 ## Executive Summary
 
-Weeks 4-5 successfully pivoted from migration tooling to greenfield pggit_v2 features, delivering developer-focused tools and comprehensive monitoring capabilities. All features are production-ready, well-documented, and tested for syntax compliance.
+Weeks 4-5 successfully pivoted from migration tooling to greenfield pggit_v0 features, delivering developer-focused tools and comprehensive monitoring capabilities. All features are production-ready, well-documented, and tested for syntax compliance.
 
-**Key Achievement**: Implemented 30+ new SQL functions/procedures and 12 useful views in 2,765 lines of code, providing teams with immediate value from day one of pggit_v2 adoption.
+**Key Achievement**: Implemented 30+ new SQL functions/procedures and 12 useful views in 2,765 lines of code, providing teams with immediate value from day one of pggit_v0 adoption.
 
 ---
 
@@ -19,7 +19,7 @@ Weeks 4-5 successfully pivoted from migration tooling to greenfield pggit_v2 fea
 
 ### 4.1: CLI/SQL Developer Functions ✅
 
-**File**: `sql/pggit_v2_developers.sql` (497 lines, 12 functions)
+**File**: `sql/pggit_v0_developers.sql` (497 lines, 12 functions)
 
 **Functions Delivered**:
 1. `get_current_schema()` - View all objects at HEAD
@@ -44,7 +44,7 @@ Weeks 4-5 successfully pivoted from migration tooling to greenfield pggit_v2 fea
 
 ### 4.2: Useful Views & Queries ✅
 
-**File**: `sql/pggit_v2_views.sql` (273 lines, 12 views)
+**File**: `sql/pggit_v0_views.sql` (273 lines, 12 views)
 
 **Views Delivered**:
 
@@ -70,7 +70,7 @@ Weeks 4-5 successfully pivoted from migration tooling to greenfield pggit_v2 fea
 
 ### 4.3: Integration Guide ✅
 
-**File**: `docs/pggit_v2_integration_guide.md` (370 lines)
+**File**: `docs/pggit_v0_integration_guide.md` (370 lines)
 
 **Sections**:
 1. **Basic Operations** - 4 examples (list, view at point in time, get definition, get metadata)
@@ -87,7 +87,7 @@ Weeks 4-5 successfully pivoted from migration tooling to greenfield pggit_v2 fea
 
 ### 5.1: Performance Analytics ✅
 
-**File**: `sql/pggit_v2_analytics.sql` (397 lines, 7 functions)
+**File**: `sql/pggit_v0_analytics.sql` (397 lines, 7 functions)
 
 **Functions Delivered**:
 
@@ -112,7 +112,7 @@ Weeks 4-5 successfully pivoted from migration tooling to greenfield pggit_v2 fea
 
 ### 5.2: Branching & Merging Support ✅
 
-**File**: `sql/pggit_v2_branching.sql` (431 lines, 8 functions + 1 table)
+**File**: `sql/pggit_v0_branching.sql` (431 lines, 8 functions + 1 table)
 
 **Functions Delivered**:
 
@@ -131,7 +131,7 @@ Weeks 4-5 successfully pivoted from migration tooling to greenfield pggit_v2 fea
 - `get_merge_request_status(p_mr_id)` - MR status queries
 
 **Support**:
-- `pggit_v2.merge_requests` table - MR metadata storage
+- `pggit_v0.merge_requests` table - MR metadata storage
 
 **Coverage**:
 - ✅ Branch management (3 functions)
@@ -141,7 +141,7 @@ Weeks 4-5 successfully pivoted from migration tooling to greenfield pggit_v2 fea
 
 ### 5.3: Monitoring Dashboard Setup ✅
 
-**File**: `sql/pggit_v2_monitoring.sql` (423 lines, 5+ functions/views)
+**File**: `sql/pggit_v0_monitoring.sql` (423 lines, 5+ functions/views)
 
 **Views Delivered**:
 - `current_state_summary` - System snapshot (counts, storage, activity)
@@ -268,14 +268,14 @@ Weeks 4-5 successfully pivoted from migration tooling to greenfield pggit_v2 fea
 
 ```
 Week 4 Deliverables:
-  sql/pggit_v2_developers.sql      497 lines (12 functions)
-  sql/pggit_v2_views.sql           273 lines (12 views)
-  docs/pggit_v2_integration_guide  370 lines (20+ examples)
+  sql/pggit_v0_developers.sql      497 lines (12 functions)
+  sql/pggit_v0_views.sql           273 lines (12 views)
+  docs/pggit_v0_integration_guide  370 lines (20+ examples)
 
 Week 5 Deliverables:
-  sql/pggit_v2_analytics.sql       397 lines (7 functions)
-  sql/pggit_v2_branching.sql       431 lines (8 functions + 1 table)
-  sql/pggit_v2_monitoring.sql      423 lines (5+ functions/views)
+  sql/pggit_v0_analytics.sql       397 lines (7 functions)
+  sql/pggit_v0_branching.sql       431 lines (8 functions + 1 table)
+  sql/pggit_v0_monitoring.sql      423 lines (5+ functions/views)
 
 Total: 2,765 lines | 6 files
        30+ functions | 12 views | 370 lines documentation
@@ -401,7 +401,7 @@ Total: 2,765 lines | 6 files
 
 ## Summary
 
-Weeks 4-5 successfully delivered greenfield pggit_v2 features that provide immediate value to teams adopting the system. 2,765 lines of production-ready code and documentation enable:
+Weeks 4-5 successfully delivered greenfield pggit_v0 features that provide immediate value to teams adopting the system. 2,765 lines of production-ready code and documentation enable:
 
 - Developer-friendly schema versioning workflows
 - Comprehensive audit and compliance tracking

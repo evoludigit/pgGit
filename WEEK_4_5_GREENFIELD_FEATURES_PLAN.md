@@ -1,15 +1,15 @@
-# Weeks 4-5: Greenfield pggit_v2 Features & Tools
+# Weeks 4-5: Greenfield pggit_v0 Features & Tools
 
 **Date**: December 21, 2025
 **Duration**: 2 weeks (25-30 hours)
-**Focus**: Build useful tools and features for greenfield pggit_v2 deployments
+**Focus**: Build useful tools and features for greenfield pggit_v0 deployments
 **Status**: Ready to Execute
 
 ---
 
 ## Overview
 
-Since there are **no existing pggit v1 users to migrate**, we pivot from migration tooling to **immediately useful features** for teams adopting pggit_v2 from day one.
+Since there are **no existing pggit v1 users to migrate**, we pivot from migration tooling to **immediately useful features** for teams adopting pggit_v0 from day one.
 
 **What Gets Built**:
 - Developer-friendly CLI tools
@@ -27,16 +27,16 @@ Since there are **no existing pggit v1 users to migrate**, we pivot from migrati
 
 **Goal**: Make common operations easy
 
-**Deliverable**: `sql/pggit_v2_developers.sql`
+**Deliverable**: `sql/pggit_v0_developers.sql`
 
 **Functions to Implement**:
 
 1. **Schema/Object Navigation**
    ```sql
-   pggit_v2.get_current_schema()
+   pggit_v0.get_current_schema()
    → Returns current schema state at HEAD
 
-   pggit_v2.list_objects(
+   pggit_v0.list_objects(
      p_commit_sha TEXT DEFAULT NULL  -- NULL = HEAD
    ) RETURNS TABLE (
      schema_name TEXT, object_name TEXT, object_type TEXT,
@@ -47,24 +47,24 @@ Since there are **no existing pggit v1 users to migrate**, we pivot from migrati
 
 2. **Branching Operations**
    ```sql
-   pggit_v2.create_branch(
+   pggit_v0.create_branch(
      p_branch_name TEXT,
      p_from_commit_sha TEXT DEFAULT NULL  -- NULL = HEAD
    ) RETURNS TEXT (branch_sha)
    → Create branch for parallel development
 
-   pggit_v2.list_branches()
+   pggit_v0.list_branches()
    RETURNS TABLE (branch_name TEXT, head_sha TEXT, created_at TIMESTAMP)
    → List all branches
 
-   pggit_v2.delete_branch(p_branch_name TEXT)
+   pggit_v0.delete_branch(p_branch_name TEXT)
    RETURNS BOOLEAN
    → Delete merged branch
    ```
 
 3. **History & Change Tracking**
    ```sql
-   pggit_v2.get_commit_history(
+   pggit_v0.get_commit_history(
      p_limit INT DEFAULT 20,
      p_offset INT DEFAULT 0
    ) RETURNS TABLE (
@@ -73,7 +73,7 @@ Since there are **no existing pggit v1 users to migrate**, we pivot from migrati
    )
    → Paginated commit history (like git log)
 
-   pggit_v2.get_object_history(
+   pggit_v0.get_object_history(
      p_schema_name TEXT,
      p_object_name TEXT,
      p_limit INT DEFAULT 10
@@ -86,7 +86,7 @@ Since there are **no existing pggit v1 users to migrate**, we pivot from migrati
 
 4. **Diff Operations**
    ```sql
-   pggit_v2.diff_commits(
+   pggit_v0.diff_commits(
      p_old_commit_sha TEXT,
      p_new_commit_sha TEXT
    ) RETURNS TABLE (
@@ -95,7 +95,7 @@ Since there are **no existing pggit v1 users to migrate**, we pivot from migrati
    )
    → Show what changed between commits
 
-   pggit_v2.diff_branches(
+   pggit_v0.diff_branches(
      p_branch_name1 TEXT,
      p_branch_name2 TEXT
    ) RETURNS TABLE (
@@ -107,14 +107,14 @@ Since there are **no existing pggit v1 users to migrate**, we pivot from migrati
 
 5. **Object Introspection**
    ```sql
-   pggit_v2.get_object_definition(
+   pggit_v0.get_object_definition(
      p_schema_name TEXT,
      p_object_name TEXT,
      p_commit_sha TEXT DEFAULT NULL  -- NULL = HEAD
    ) RETURNS TEXT
    → Get DDL for object at point in time
 
-   pggit_v2.get_object_metadata(
+   pggit_v0.get_object_metadata(
      p_schema_name TEXT,
      p_object_name TEXT,
      p_commit_sha TEXT DEFAULT NULL
@@ -137,43 +137,43 @@ Since there are **no existing pggit v1 users to migrate**, we pivot from migrati
 
 **Goal**: Pre-built queries for common needs
 
-**Deliverable**: `sql/pggit_v2_views.sql`
+**Deliverable**: `sql/pggit_v0_views.sql`
 
 **Views to Create**:
 
 1. **Development Insights**
    ```sql
-   pggit_v2.recent_commits_by_author
+   pggit_v0.recent_commits_by_author
    → Shows commits grouped by developer
 
-   pggit_v2.most_changed_objects
+   pggit_v0.most_changed_objects
    → Objects with highest change frequency
 
-   pggit_v2.branch_comparison
+   pggit_v0.branch_comparison
    → Compare all branches at a glance
    ```
 
 2. **Activity Tracking**
    ```sql
-   pggit_v2.daily_change_summary
+   pggit_v0.daily_change_summary
    → Commits/changes per day
 
-   pggit_v2.schema_growth_history
+   pggit_v0.schema_growth_history
    → How many objects over time
 
-   pggit_v2.author_activity
+   pggit_v0.author_activity
    → Who changed what and when
    ```
 
 3. **Data Quality**
    ```sql
-   pggit_v2.commit_without_message
+   pggit_v0.commit_without_message
    → Find commits with no description
 
-   pggit_v2.orphaned_objects
+   pggit_v0.orphaned_objects
    → Objects not referenced in any commit
 
-   pggit_v2.large_commits
+   pggit_v0.large_commits
    → Commits affecting many objects
    ```
 
@@ -187,9 +187,9 @@ Since there are **no existing pggit v1 users to migrate**, we pivot from migrati
 
 ### 4.3: Integration Examples (3-5 hours)
 
-**Goal**: Show developers how to use pggit_v2
+**Goal**: Show developers how to use pggit_v0
 
-**Deliverable**: `docs/pggit_v2_integration_guide.md`
+**Deliverable**: `docs/pggit_v0_integration_guide.md`
 
 **Examples to Include**:
 
@@ -235,15 +235,15 @@ Since there are **no existing pggit v1 users to migrate**, we pivot from migrati
 
 ### 5.1: Performance Analytics (5-7 hours)
 
-**Goal**: Understand pggit_v2 performance characteristics
+**Goal**: Understand pggit_v0 performance characteristics
 
-**Deliverable**: `sql/pggit_v2_analytics.sql`
+**Deliverable**: `sql/pggit_v0_analytics.sql`
 
 **Functions to Build**:
 
 1. **Storage Analysis**
    ```sql
-   pggit_v2.analyze_storage_usage()
+   pggit_v0.analyze_storage_usage()
    RETURNS TABLE (
      total_commits BIGINT,
      total_objects BIGINT,
@@ -254,7 +254,7 @@ Since there are **no existing pggit v1 users to migrate**, we pivot from migrati
    )
    → Understand storage footprint
 
-   pggit_v2.get_object_size_distribution()
+   pggit_v0.get_object_size_distribution()
    RETURNS TABLE (
      size_bucket TEXT, count BIGINT, total_size BIGINT
    )
@@ -263,14 +263,14 @@ Since there are **no existing pggit v1 users to migrate**, we pivot from migrati
 
 2. **Performance Metrics**
    ```sql
-   pggit_v2.analyze_query_performance()
+   pggit_v0.analyze_query_performance()
    RETURNS TABLE (
      operation TEXT, avg_duration INTERVAL,
      min_duration INTERVAL, max_duration INTERVAL, count BIGINT
    )
    → Track operation performance
 
-   pggit_v2.benchmark_extraction_functions()
+   pggit_v0.benchmark_extraction_functions()
    RETURNS TABLE (
      function_name TEXT, avg_runtime INTERVAL,
      samples BIGINT, status TEXT
@@ -280,13 +280,13 @@ Since there are **no existing pggit v1 users to migrate**, we pivot from migrati
 
 3. **Health Checks**
    ```sql
-   pggit_v2.validate_data_integrity()
+   pggit_v0.validate_data_integrity()
    RETURNS TABLE (
      check_name TEXT, status TEXT, details TEXT
    )
    → Verify no corruption
 
-   pggit_v2.detect_anomalies()
+   pggit_v0.detect_anomalies()
    RETURNS TABLE (
      anomaly_type TEXT, severity TEXT, details TEXT
    )
@@ -305,19 +305,19 @@ Since there are **no existing pggit v1 users to migrate**, we pivot from migrati
 
 **Goal**: Make branch workflows practical
 
-**Deliverable**: `sql/pggit_v2_branching.sql`
+**Deliverable**: `sql/pggit_v0_branching.sql`
 
 **Implement**:
 
 1. **Branch Management**
    ```sql
-   pggit_v2.create_feature_branch(
+   pggit_v0.create_feature_branch(
      p_feature_name TEXT,
      p_description TEXT
    ) RETURNS TEXT
    → Create feature branch with metadata
 
-   pggit_v2.merge_branch(
+   pggit_v0.merge_branch(
      p_source_branch TEXT,
      p_target_branch TEXT,
      p_merge_strategy TEXT DEFAULT 'recursive'  -- recursive, ours, theirs
@@ -328,7 +328,7 @@ Since there are **no existing pggit v1 users to migrate**, we pivot from migrati
    )
    → Merge branches (using git merge strategy)
 
-   pggit_v2.rebase_branch(
+   pggit_v0.rebase_branch(
      p_branch_name TEXT,
      p_onto_commit_sha TEXT DEFAULT NULL  -- NULL = main/master
    ) RETURNS TABLE (
@@ -341,7 +341,7 @@ Since there are **no existing pggit v1 users to migrate**, we pivot from migrati
 
 2. **Conflict Detection**
    ```sql
-   pggit_v2.detect_merge_conflicts(
+   pggit_v0.detect_merge_conflicts(
      p_source_branch TEXT,
      p_target_branch TEXT
    ) RETURNS TABLE (
@@ -350,7 +350,7 @@ Since there are **no existing pggit v1 users to migrate**, we pivot from migrati
    )
    → Detect conflicts before merge
 
-   pggit_v2.resolve_conflict(
+   pggit_v0.resolve_conflict(
      p_object_path TEXT,
      p_resolution_strategy TEXT,  -- 'source', 'target', 'manual_ddl'
      p_manual_ddl TEXT DEFAULT NULL
@@ -360,7 +360,7 @@ Since there are **no existing pggit v1 users to migrate**, we pivot from migrati
 
 3. **Pull Request Simulation**
    ```sql
-   pggit_v2.create_merge_request(
+   pggit_v0.create_merge_request(
      p_source_branch TEXT,
      p_target_branch TEXT,
      p_title TEXT,
@@ -371,7 +371,7 @@ Since there are **no existing pggit v1 users to migrate**, we pivot from migrati
    )
    → Workflow support (conceptual)
 
-   pggit_v2.approve_merge_request(
+   pggit_v0.approve_merge_request(
      p_mr_id UUID,
      p_approved_by TEXT,
      p_notes TEXT DEFAULT NULL
@@ -391,29 +391,29 @@ Since there are **no existing pggit v1 users to migrate**, we pivot from migrati
 
 **Goal**: Prepare for production monitoring
 
-**Deliverable**: `sql/pggit_v2_monitoring.sql`
+**Deliverable**: `sql/pggit_v0_monitoring.sql`
 
 **Create**:
 
 1. **Monitoring Views**
    ```sql
-   pggit_v2.current_state_summary
+   pggit_v0.current_state_summary
    → Quick status check
 
-   pggit_v2.health_check_summary
+   pggit_v0.health_check_summary
    → Overall system health
 
-   pggit_v2.recent_activity_summary
+   pggit_v0.recent_activity_summary
    → Last 24 hours of activity
    ```
 
 2. **Alert Functions**
    ```sql
-   pggit_v2.check_for_alerts()
+   pggit_v0.check_for_alerts()
    RETURNS TABLE (alert_level TEXT, alert_message TEXT)
    → Identify issues
 
-   pggit_v2.get_recommendations()
+   pggit_v0.get_recommendations()
    RETURNS TABLE (recommendation TEXT, priority INT)
    → Suggest optimizations
    ```
@@ -460,13 +460,13 @@ Since there are **no existing pggit v1 users to migrate**, we pivot from migrati
 ## Deliverables Summary
 
 ```
-sql/pggit_v2_developers.sql      (~400 lines) ✓ Developer functions
-sql/pggit_v2_views.sql           (~300 lines) ✓ Useful views
-sql/pggit_v2_analytics.sql       (~350 lines) ✓ Analytics & monitoring
-sql/pggit_v2_branching.sql       (~400 lines) ✓ Branching & merging
+sql/pggit_v0_developers.sql      (~400 lines) ✓ Developer functions
+sql/pggit_v0_views.sql           (~300 lines) ✓ Useful views
+sql/pggit_v0_analytics.sql       (~350 lines) ✓ Analytics & monitoring
+sql/pggit_v0_branching.sql       (~400 lines) ✓ Branching & merging
 
-docs/pggit_v2_integration_guide.md (~200 lines) ✓ How-to guide
-docs/pggit_v2_best_practices.md    (~150 lines) ✓ Practices & patterns
+docs/pggit_v0_integration_guide.md (~200 lines) ✓ How-to guide
+docs/pggit_v0_best_practices.md    (~150 lines) ✓ Practices & patterns
 
 WEEK_4_5_COMPLETION_REPORT.md    ✓ QA report
 WEEK_4_5_FEATURES_SUMMARY.md     ✓ Feature list
@@ -485,7 +485,7 @@ Total Documentation: ~350 lines of guides
 - ❌ Complex rollback code not tested
 
 ### Build Developer Features:
-- ✅ Immediately useful for teams adopting pggit_v2
+- ✅ Immediately useful for teams adopting pggit_v0
 - ✅ Easy to test and validate
 - ✅ Provides value immediately
 - ✅ Creates reference implementations
@@ -508,7 +508,7 @@ Total Documentation: ~350 lines of guides
 - Week 7: Production launch (instead of "cutover")
 - Week 8-9: Docs + best practices
 
-**Benefit**: Teams can start using pggit_v2 immediately post-launch with good developer experience
+**Benefit**: Teams can start using pggit_v0 immediately post-launch with good developer experience
 
 ---
 

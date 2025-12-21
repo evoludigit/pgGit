@@ -9,9 +9,9 @@
 
 ## Part 1: Spike Analysis (Week 1, 18-20 hours)
 
-### Spike 1.1: Examine pggit_v2 Data Format (4-5 hours)
+### Spike 1.1: Examine pggit_v0 Data Format (4-5 hours)
 
-**Objective**: Understand what pggit_v2 actually stores and how to work with it
+**Objective**: Understand what pggit_v0 actually stores and how to work with it
 
 **Files to examine**:
 ```bash
@@ -22,15 +22,15 @@ sql/018_proper_git_three_way_merge.sql
 
 1. **Read and document schema** (1.5 hours)
    - [ ] Read entire 018_proper_git_three_way_merge.sql file
-   - [ ] Document pggit_v2.objects table structure
+   - [ ] Document pggit_v0.objects table structure
      - How is content stored? (TEXT, BYTEA, JSON?)
      - What metadata is available? (sha, type, size)
      - How do you find a specific object?
-   - [ ] Document pggit_v2.commits table structure
+   - [ ] Document pggit_v0.commits table structure
      - How are commits linked to objects/trees?
      - What metadata (author, timestamp, message)?
      - How do you trace history?
-   - [ ] Document pggit_v2.refs structure
+   - [ ] Document pggit_v0.refs structure
      - How do branches/tags work?
      - How do you point to a tree?
 
@@ -42,7 +42,7 @@ sql/018_proper_git_three_way_merge.sql
      name TEXT NOT NULL
    );
 
-   -- Add via pggit_v2 (understand the flow)
+   -- Add via pggit_v0 (understand the flow)
    -- Make a commit
    -- Modify the table
    -- Make another commit
@@ -61,7 +61,7 @@ sql/018_proper_git_three_way_merge.sql
      type,
      content,
      size
-   FROM pggit_v2.objects
+   FROM pggit_v0.objects
    LIMIT 5;
 
    -- Is content readable as text?
@@ -69,17 +69,17 @@ sql/018_proper_git_three_way_merge.sql
    -- How big is it?
    -- Can you diff two versions?
 
-   SELECT * FROM pggit_v2.commits;
+   SELECT * FROM pggit_v0.commits;
    -- What metadata is available?
    -- How do you link commit to objects?
 
-   SELECT * FROM pggit_v2.trees;
+   SELECT * FROM pggit_v0.trees;
    -- How are blobs organized in trees?
    ```
 
 **Deliverable**: Document (2-3 pages, with examples)
 ```
-pggit_v2 Data Format Analysis:
+pggit_v0 Data Format Analysis:
 
 Objects Table:
   - Stores complete schema object definitions
@@ -106,7 +106,7 @@ Key findings:
 
 ### Spike 1.2: Prototype DDL Extraction (8-10 hours)
 
-**Objective**: Prove that extracting DDL from pggit_v2 is feasible and estimate effort
+**Objective**: Prove that extracting DDL from pggit_v0 is feasible and estimate effort
 
 **Scope**: One object type only - just TABLE definitions, no functions/triggers
 
@@ -150,11 +150,11 @@ DECLARE
 BEGIN
   -- Step 1: Get tree SHAs from commits
   SELECT tree_sha INTO v_old_tree_sha
-  FROM pggit_v2.commits
+  FROM pggit_v0.commits
   WHERE sha = p_old_commit_sha;
 
   SELECT tree_sha INTO v_new_tree_sha
-  FROM pggit_v2.commits
+  FROM pggit_v0.commits
   WHERE sha = p_new_commit_sha;
 
   IF v_old_tree_sha IS NULL OR v_new_tree_sha IS NULL THEN
@@ -162,7 +162,7 @@ BEGIN
   END IF;
 
   -- Step 2: Extract table definitions from old tree
-  -- This is where we need to understand pggit_v2 structure
+  -- This is where we need to understand pggit_v0 structure
   -- How do we go from tree_sha to actual table definitions?
 
   -- Option A: If objects.content contains SQL text
@@ -171,7 +171,7 @@ BEGIN
   -- Option B: If objects are serialized schema
   --   Deserialize them to get column information
 
-  -- Option C: If pggit_v2 has helper functions
+  -- Option C: If pggit_v0 has helper functions
   --   Use them to reconstruct definitions
 
   -- Step 3: Compare old vs new definitions
@@ -303,7 +303,7 @@ version_id | object_name      | object_type | change_type | change_sql
 BACKFILL ALGORITHM:
 
 Input: pggit.history (v1 incremental changes)
-Output: pggit_v2 commits with complete snapshots
+Output: pggit_v0 commits with complete snapshots
 
 Algorithm:
 
@@ -318,14 +318,14 @@ Algorithm:
      - (Not just the change, but the result)
 
    c. Create blobs for changed objects
-     - For each changed object: INSERT into pggit_v2.objects
+     - For each changed object: INSERT into pggit_v0.objects
      - Content = full DDL definition
      - sha = computed hash
      - type = object_type (TABLE, FUNCTION, etc.)
 
    d. Create tree
      - Tree = collection of {object_name → blob_sha}
-     - INSERT into pggit_v2.trees
+     - INSERT into pggit_v0.trees
      - tree_sha = computed hash
 
    e. Create commit
@@ -334,7 +334,7 @@ Algorithm:
      - committed_at = v1.created_at
      - message = v1.reason (or synthetic)
      - parent = previous_commit_sha (for history)
-     - INSERT into pggit_v2.commits
+     - INSERT into pggit_v0.commits
 
    f. Update refs
      - main branch ref → latest commit_sha
@@ -358,7 +358,7 @@ Pseudocode:
 
     -- 2. Create blobs for changed objects
     FOR v_obj IN (SELECT * FROM v_current_schema WHERE modified) LOOP
-      INSERT INTO pggit_v2.objects (sha, type, content, size)
+      INSERT INTO pggit_v0.objects (sha, type, content, size)
       VALUES (
         hash_sha1(v_obj.definition),
         v_obj.type,
@@ -594,7 +594,7 @@ Revised Phase 3 estimate: [update based on unknowns]
 ```
 SPIKE ANALYSIS RESULTS AND RECOMMENDATION:
 
-Spike 1.1 (pggit_v2 format): [findings]
+Spike 1.1 (pggit_v0 format): [findings]
 Spike 1.2 (DDL extraction): [feasibility + effort estimate]
 Spike 1.3 (backfill algorithm): [algorithm + risks]
 Spike 1.4 (ROI):
@@ -623,7 +623,7 @@ If NO-GO:
 **Duration**: 1 week
 **Effort**: 20-25 hours
 
-**Goal**: Create pggit_audit schema that captures compliance data from pggit_v2
+**Goal**: Create pggit_audit schema that captures compliance data from pggit_v0
 
 **1.1: Design audit schema** (6-8 hours)
 
@@ -631,7 +631,7 @@ If NO-GO:
 
 ```sql
 -- Schema: pggit_audit
--- Purpose: Compliance and audit layer derived from pggit_v2
+-- Purpose: Compliance and audit layer derived from pggit_v0
 
 CREATE SCHEMA IF NOT EXISTS pggit_audit;
 
@@ -640,7 +640,7 @@ CREATE SCHEMA IF NOT EXISTS pggit_audit;
 CREATE TABLE pggit_audit.changes (
   change_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  -- Links to pggit_v2
+  -- Links to pggit_v0
   commit_sha TEXT NOT NULL UNIQUE,
   parent_commit_sha TEXT,
 
@@ -750,11 +750,11 @@ CREATE INDEX idx_versions_time ON pggit_audit.object_versions(created_at);
 CREATE INDEX idx_compliance_time ON pggit_audit.compliance_log(verified_at);
 
 COMMENT ON SCHEMA pggit_audit IS
-  'Compliance and audit layer derived from pggit_v2 commits. ' ||
+  'Compliance and audit layer derived from pggit_v0 commits. ' ||
   'Single source of truth for DDL change history.';
 
 COMMENT ON TABLE pggit_audit.changes IS
-  'Each row represents one DDL change detected from pggit_v2 commits. ' ||
+  'Each row represents one DDL change detected from pggit_v0 commits. ' ||
   'Backfilled from pggit v1 history initially, then updated with new commits.';
 
 COMMENT ON TABLE pggit_audit.object_versions IS
@@ -796,7 +796,7 @@ RETURNS TABLE (
   change_diff JSONB
 ) AS $$
 -- Implementation based on Spike 1.2 findings
--- [Use pseudocode from spike, adapt to real pggit_v2 structure]
+-- [Use pseudocode from spike, adapt to real pggit_v0 structure]
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION pggit_audit.populate_changes_from_commit(
@@ -908,7 +908,7 @@ ORDER BY c.committed_at;
 
 **Testing** (3-4 hours):
 - [ ] Load schema file - no errors
-- [ ] Create test pggit_v2 commits
+- [ ] Create test pggit_v0 commits
 - [ ] Run extraction functions
 - [ ] Query views - return expected data
 - [ ] Verify with manual spot-checks
@@ -1089,7 +1089,7 @@ SELECT
 FROM information_schema.routines
 WHERE routine_definition LIKE '%pggit.%'
   AND routine_schema != 'pggit'
-  AND routine_schema != 'pggit_v2'
+  AND routine_schema != 'pggit_v0'
 ORDER BY routine_schema, routine_name;
 
 -- Count by usage pattern
@@ -1553,7 +1553,7 @@ CREATE POLICY v1_readonly ON pggit FOR DELETE USING (FALSE);
 - [ ] Document "Migration completed on [DATE]"
 - [ ] Write "Lessons learned" document
 - [ ] Update architecture documentation
-- [ ] Create pggit_v2 user guide
+- [ ] Create pggit_v0 user guide
 
 **6.3: Post-migration monitoring** (4 hours)
 
@@ -1604,7 +1604,7 @@ CREATE POLICY v1_readonly ON pggit FOR DELETE USING (FALSE);
 ## Part 4: Timeline & Milestones
 
 ### Weeks 1 (Spike Analysis)
-- [ ] **Week 1-1.5**: Spike 1.1 - pggit_v2 format analysis
+- [ ] **Week 1-1.5**: Spike 1.1 - pggit_v0 format analysis
 - [ ] **Week 1-2**: Spike 1.2 - DDL extraction prototype
 - [ ] **Week 2-2.5**: Spike 1.3 - Backfill algorithm design
 - [ ] **Week 2-3**: Spike 1.4 - ROI verification
@@ -1700,7 +1700,7 @@ CREATE POLICY v1_readonly ON pggit FOR DELETE USING (FALSE);
 
 ### Risk 2: DDL Extraction Complexity
 **Impact**: Can't extract some object types
-**Probability**: Medium (unknowns in pggit_v2 format)
+**Probability**: Medium (unknowns in pggit_v0 format)
 **Mitigation**:
 - [ ] Spike 1.2 must prove extraction works
 - [ ] Start with just TABLE type (simplest)
@@ -1819,7 +1819,7 @@ CREATE POLICY v1_readonly ON pggit FOR DELETE USING (FALSE);
 ## Post-Migration Success Criteria
 
 ### Architecture Quality
-- [ ] Single source of truth (pggit_v2 primary)
+- [ ] Single source of truth (pggit_v0 primary)
 - [ ] Compliance trail is immutable (compliance_log)
 - [ ] Schemas are well-documented
 - [ ] Performance is acceptable
@@ -1847,7 +1847,7 @@ CREATE POLICY v1_readonly ON pggit FOR DELETE USING (FALSE);
 ## Glossary
 
 **pggit (v1)**: Name-based DDL tracking schema (being deprecated)
-**pggit_v2**: Git-like content-addressable storage (becoming primary)
+**pggit_v0**: Git-like content-addressable storage (becoming primary)
 **pggit_audit**: Compliance layer derived from v2 (new)
 **pggit_v1**: Compatibility shim schema (temporary, deprecated)
 **Backfill**: Converting v1 history to v2 commits

@@ -1,8 +1,8 @@
--- Simplified pggit_v2 monitoring functions (without broken views)
+-- Simplified pggit_v0 monitoring functions (without broken views)
 -- Functions for alerts, recommendations, and dashboard
 
 -- Function: Check for system alerts
-CREATE OR REPLACE FUNCTION pggit_v2.check_for_alerts()
+CREATE OR REPLACE FUNCTION pggit_v0.check_for_alerts()
 RETURNS TABLE (
     severity TEXT,
     alert_type TEXT,
@@ -15,7 +15,7 @@ BEGIN
         'CRITICAL'::TEXT,
         'DATA_INTEGRITY'::TEXT,
         'Data integrity checks failed - check validate_data_integrity()'::TEXT
-    WHERE (SELECT COUNT(*) FROM pggit_v2.validate_data_integrity() WHERE status = 'FAILED') > 0;
+    WHERE (SELECT COUNT(*) FROM pggit_v0.validate_data_integrity() WHERE status = 'FAILED') > 0;
 
     -- Check for storage issues
     RETURN QUERY
@@ -23,7 +23,7 @@ BEGIN
         'WARNING'::TEXT,
         'STORAGE_HIGH'::TEXT,
         'Storage usage is high'::TEXT
-    WHERE (SELECT SUM(size) FROM pggit_v2.objects) > 1000000000;  -- 1GB
+    WHERE (SELECT SUM(size) FROM pggit_v0.objects) > 1000000000;  -- 1GB
 
     -- Check for orphaned objects
     RETURN QUERY
@@ -31,7 +31,7 @@ BEGIN
         'INFO'::TEXT,
         'ORPHANED_OBJECTS'::TEXT,
         'Some objects may be orphaned'::TEXT
-    WHERE (SELECT COUNT(*) FROM pggit_v2.objects) > 1000;
+    WHERE (SELECT COUNT(*) FROM pggit_v0.objects) > 1000;
 
     -- If no alerts, return empty
     IF NOT FOUND THEN
@@ -40,11 +40,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION pggit_v2.check_for_alerts() IS
+COMMENT ON FUNCTION pggit_v0.check_for_alerts() IS
 'Check for system alerts: data integrity, storage, orphaned objects.';
 
 -- Function: Get system recommendations
-CREATE OR REPLACE FUNCTION pggit_v2.get_recommendations()
+CREATE OR REPLACE FUNCTION pggit_v0.get_recommendations()
 RETURNS TABLE (
     priority TEXT,
     recommendation TEXT,
@@ -57,7 +57,7 @@ BEGIN
         'MEDIUM'::TEXT,
         'Consider archiving old data'::TEXT,
         'Reduces storage costs and improves performance'::TEXT
-    WHERE (SELECT SUM(size) FROM pggit_v2.objects) > 500000000;  -- 500MB
+    WHERE (SELECT SUM(size) FROM pggit_v0.objects) > 500000000;  -- 500MB
 
     -- Branch cleanup
     RETURN QUERY
@@ -65,7 +65,7 @@ BEGIN
         'LOW'::TEXT,
         'Review and clean up old branches'::TEXT,
         'Improves branch navigation and reduces clutter'::TEXT
-    WHERE (SELECT COUNT(*) FROM pggit_v2.refs WHERE type = 'branch') > 10;
+    WHERE (SELECT COUNT(*) FROM pggit_v0.refs WHERE type = 'branch') > 10;
 
     -- If no recommendations, return general advice
     IF NOT FOUND THEN
@@ -77,11 +77,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION pggit_v2.get_recommendations() IS
+COMMENT ON FUNCTION pggit_v0.get_recommendations() IS
 'Provide system optimization recommendations based on current state.';
 
 -- Function: Get dashboard summary
-CREATE OR REPLACE FUNCTION pggit_v2.get_dashboard_summary()
+CREATE OR REPLACE FUNCTION pggit_v0.get_dashboard_summary()
 RETURNS TABLE (
     category TEXT,
     metric TEXT,
@@ -95,14 +95,14 @@ BEGIN
         'Total Objects'::TEXT,
         COUNT(*)::TEXT,
         'OK'::TEXT
-    FROM pggit_v2.objects
+    FROM pggit_v0.objects
     UNION ALL
     SELECT
         'System'::TEXT,
         'Active Branches'::TEXT,
         COUNT(*)::TEXT,
         'OK'::TEXT
-    FROM pggit_v2.refs
+    FROM pggit_v0.refs
     WHERE type = 'branch'
     UNION ALL
     SELECT
@@ -110,23 +110,23 @@ BEGIN
         'Storage Used'::TEXT,
         pg_size_pretty(SUM(size))::TEXT,
         CASE WHEN SUM(size) > 1000000000 THEN 'WARNING' ELSE 'OK' END
-    FROM pggit_v2.objects
+    FROM pggit_v0.objects
     UNION ALL
     SELECT
         'Activity'::TEXT,
         'Recent Commits'::TEXT,
         COUNT(*)::TEXT,
         'OK'::TEXT
-    FROM pggit_v2.commit_graph
+    FROM pggit_v0.commit_graph
     WHERE committed_at >= CURRENT_TIMESTAMP - INTERVAL '7 days';
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION pggit_v2.get_dashboard_summary() IS
+COMMENT ON FUNCTION pggit_v0.get_dashboard_summary() IS
 'Dashboard summary with key system metrics and health indicators.';
 
 -- Function: Generate monitoring report
-CREATE OR REPLACE FUNCTION pggit_v2.generate_monitoring_report()
+CREATE OR REPLACE FUNCTION pggit_v0.generate_monitoring_report()
 RETURNS TEXT AS $$
 DECLARE
     v_report TEXT := '';
@@ -142,7 +142,7 @@ BEGIN
     v_report := v_report || 'ALERTS:' || E'\n';
     SELECT string_agg(severity || ': ' || message, E'\n')
     INTO v_alerts
-    FROM pggit_v2.check_for_alerts()
+    FROM pggit_v0.check_for_alerts()
     WHERE severity != 'OK';
 
     IF v_alerts IS NOT NULL THEN
@@ -155,7 +155,7 @@ BEGIN
     v_report := v_report || E'\n' || 'RECOMMENDATIONS:' || E'\n';
     SELECT string_agg(priority || ': ' || recommendation, E'\n')
     INTO v_recs
-    FROM pggit_v2.get_recommendations()
+    FROM pggit_v0.get_recommendations()
     WHERE priority != 'INFO';
 
     IF v_recs IS NOT NULL THEN
@@ -168,7 +168,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION pggit_v2.generate_monitoring_report() IS
+COMMENT ON FUNCTION pggit_v0.generate_monitoring_report() IS
 'Generate a comprehensive system monitoring report with alerts and recommendations.';
 
 DO $$

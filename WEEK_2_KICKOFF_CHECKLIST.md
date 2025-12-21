@@ -194,7 +194,7 @@ WHERE object_schema = 'public' AND object_name = 'users';
 ## 📖 Week 2 Reference Documentation
 
 **Read These First** (in order):
-1. `docs/SPIKE_1_1_PGGIT_V2_ANALYSIS.md` - Understand pggit_v2 format (20 min)
+1. `docs/SPIKE_1_1_PGGIT_V2_ANALYSIS.md` - Understand pggit_v0 format (20 min)
 2. `docs/SPIKE_1_2_DDL_EXTRACTION_ANALYSIS.md` - See extraction algorithm (20 min)
 3. `docs/SPIKE_1_3_BACKFILL_ALGORITHM.md` - Understand backfill approach (30 min)
 4. `docs/SPIKE_1_4_GO_NO_GO_DECISION.md` - Confirm GO rationale (15 min)
@@ -248,7 +248,7 @@ psql -d pggit_test -c "SELECT proname FROM pg_proc WHERE pronamespace=(SELECT oi
 ## ⚠️ Known Considerations
 
 ### Table Structure
-- `changes.commit_sha`: Links to pggit_v2 commits (can be backfilled from v1)
+- `changes.commit_sha`: Links to pggit_v0 commits (can be backfilled from v1)
 - `object_versions.version_number`: Auto-incremented per schema.object_name
 - `compliance_log`: Immutable (insert only, no updates/deletes)
 
@@ -272,7 +272,7 @@ By end of week, engineer should understand:
    - Trade-offs: Denormalization vs normalization
    - Why compliance_log is immutable
 
-2. **DDL extraction from pggit_v2**
+2. **DDL extraction from pggit_v0**
    - How commits contain trees, trees contain blobs
    - How to diff trees to find changes
    - How to extract DDL from blobs

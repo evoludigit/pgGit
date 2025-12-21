@@ -46,10 +46,10 @@ INSERT INTO uat_test.orders (customer_id, product_id, quantity) VALUES
 (3, 3, 1);
 
 -- Create initial commit
-SELECT pggit_v2.create_basic_commit('Initial schema setup with customers, products, and orders tables');
+SELECT pggit_v0.create_basic_commit('Initial schema setup with customers, products, and orders tables');
 
 -- Create feature branch for new feature
-SELECT pggit_v2.create_branch('feature/user-preferences', 'Add user preference system');
+SELECT pggit_v0.create_branch('feature/user-preferences', 'Add user preference system');
 
 -- Switch to feature branch context (simulated)
 -- Add new table in feature branch
@@ -70,10 +70,10 @@ INSERT INTO uat_test.user_preferences (customer_id, preference_key, preference_v
 (3, 'language', 'es');
 
 -- Create commit for feature
-SELECT pggit_v2.create_basic_commit('Add user preferences system with theme and notification settings');
+SELECT pggit_v0.create_basic_commit('Add user preferences system with theme and notification settings');
 
 -- Create another branch for bug fix
-SELECT pggit_v2.create_branch('bugfix/order-validation', 'Fix order validation logic');
+SELECT pggit_v0.create_branch('bugfix/order-validation', 'Fix order validation logic');
 
 -- Switch to bugfix branch (simulated)
 -- Add constraint to orders table
@@ -83,17 +83,17 @@ ALTER TABLE uat_test.orders ADD CONSTRAINT check_price_positive CHECK (
 );
 
 -- Create commit for bugfix
-SELECT pggit_v2.create_basic_commit('Add validation constraints for order quantity and product pricing');
+SELECT pggit_v0.create_basic_commit('Add validation constraints for order quantity and product pricing');
 
 -- Create release branch
-SELECT pggit_v2.create_branch('release/v2.1.0', 'Release branch for version 2.1.0');
+SELECT pggit_v0.create_branch('release/v2.1.0', 'Release branch for version 2.1.0');
 
 -- Add final touches (simulated)
 COMMENT ON TABLE uat_test.user_preferences IS 'User preference settings for personalization';
 COMMENT ON TABLE uat_test.orders IS 'Customer order records with validation';
 
 -- Final release commit
-SELECT pggit_v2.create_basic_commit('Final release preparations and documentation');
+SELECT pggit_v0.create_basic_commit('Final release preparations and documentation');
 
 -- Create test data summary
 DO $$
@@ -102,8 +102,8 @@ DECLARE
     v_branch_count INTEGER;
     v_object_count INTEGER;
 BEGIN
-    SELECT COUNT(*) INTO v_commit_count FROM pggit_v2.commit_graph;
-    SELECT COUNT(*) INTO v_branch_count FROM pggit_v2.refs WHERE type = 'branch';
+    SELECT COUNT(*) INTO v_commit_count FROM pggit_v0.commit_graph;
+    SELECT COUNT(*) INTO v_branch_count FROM pggit_v0.refs WHERE type = 'branch';
     SELECT COUNT(*) INTO v_object_count FROM pggit.objects WHERE schema_name = 'uat_test';
 
     RAISE NOTICE 'A+ Quality UAT Test Data Created:';
