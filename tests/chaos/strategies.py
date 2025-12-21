@@ -6,7 +6,7 @@ including PostgreSQL identifiers, table definitions, Git-like branch names, and 
 """
 
 import string
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from hypothesis import strategies as st
 
