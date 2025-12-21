@@ -18,6 +18,10 @@
 \i 020_git_core_implementation.sql
 \i 030_ai_migration_analysis.sql
 \i 040_size_management.sql
+\i pggit_cqrs_support.sql
+\i 051_data_branching_cow.sql
+\i pggit_conflict_resolution_minimal.sql
+\i pggit_diff_functionality.sql
 
 \echo ''
 \echo 'Installation complete!'
