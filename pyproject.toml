@@ -10,9 +10,45 @@ include = ["tests.chaos*"]
 name = "pggit-chaos-tests"
 version = "0.1.1"
 description = "Chaos engineering tests for pgGit PostgreSQL extension"
+authors = [
+    { name = "Lionel Hamayon", email = "lionel.hamayon@evolution-digitale.fr" },
+]
+license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.10"
+keywords = [
+    "postgresql",
+    "testing",
+    "chaos-engineering",
+    "property-based",
+    "concurrency",
+    "transactions",
+    "database",
+    "pggit",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Database",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+    "Operating System :: OS Independent",
+]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/evoludigit/pgGit"
+Documentation = "https://github.com/evoludigit/pgGit/tree/main/docs"
+Repository = "https://github.com/evoludigit/pgGit"
+Issues = "https://github.com/evoludigit/pgGit/issues"
+Changelog = "https://github.com/evoludigit/pgGit/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 chaos = [
