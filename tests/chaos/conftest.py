@@ -38,6 +38,10 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "partial_failure: mark test as partial failure test")
     config.addinivalue_line("markers", "resource: mark test as resource exhaustion test")
     config.addinivalue_line("markers", "load: mark test as load stress test")
+    config.addinivalue_line("markers", "migration: mark test as migration failure test")
+    config.addinivalue_line("markers", "corruption: mark test as schema corruption test")
+    config.addinivalue_line("markers", "integrity: mark test as data integrity test")
+    config.addinivalue_line("markers", "recovery: mark test as recovery procedure test")
 
 
 def function_exists(db_connection_string: str, function_name: str) -> bool:
