@@ -5,7 +5,7 @@
   "serialNumber": "urn:uuid:550e8400-e29b-41d4-a716-446655440000",
   "version": 1,
   "metadata": {
-    "timestamp": "2025-12-20T10:00:00Z",
+    "timestamp": "2025-12-21T15:15:00Z",
     "tools": [
       {
         "vendor": "pgGit",
@@ -15,9 +15,9 @@
     ],
     "component": {
       "type": "application",
-      "bom-ref": "pkg:github/evoludigit/pgGit@0.1.0",
+      "bom-ref": "pkg:github/evoludigit/pgGit@0.1.1",
       "name": "pgGit",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "description": "Git-like version control for PostgreSQL",
       "licenses": [
         {
@@ -26,7 +26,7 @@
           }
         }
       ],
-      "purl": "pkg:github/evoludigit/pgGit@0.1.0"
+      "purl": "pkg:github/evoludigit/pgGit@0.1.1"
     }
   },
   "components": [
@@ -78,7 +78,7 @@
   ],
   "dependencies": [
     {
-      "ref": "pkg:github/evoludigit/pgGit@0.1.0",
+      "ref": "pkg:github/evoludigit/pgGit@0.1.1",
       "dependsOn": [
         "pkg:postgresql/extension/pgcrypto",
         "pkg:postgresql/extension/plpgsql"
