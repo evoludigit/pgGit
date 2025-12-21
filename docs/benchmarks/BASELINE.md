@@ -7,7 +7,7 @@ This document establishes performance baselines for pgGit operations. These metr
 ## Environment
 
 - **Date**: 2025-12-20
-- **pgGit Version**: 0.1.0
+- **pgGit Version**: 0.1.1
 - **PostgreSQL Version**: 15.x
 - **Hardware**: GitHub Actions (variable performance)
 - **Dataset**: Clean database with pgGit installed
