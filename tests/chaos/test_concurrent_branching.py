@@ -5,9 +5,10 @@ These tests validate pggit's branch creation and manipulation behavior under
 concurrent access, including race conditions during branch operations.
 """
 
-import pytest
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
 import psycopg
+import pytest
 from psycopg.rows import dict_row
 
 
@@ -18,7 +19,7 @@ class TestConcurrentBranching:
 
     @pytest.mark.parametrize("num_branches", [5, 10, 20])
     def test_concurrent_branch_creation(
-        self, db_connection_string: str, num_branches: int
+        self, db_connection_string: str, num_branches: int,
     ):
         """
         Test: Multiple workers creating different branches simultaneously.
@@ -142,7 +143,7 @@ class TestConcurrentBranching:
             ), f"Unexpected failure reason: {failure['error']}"
 
         print(
-            f"\n✅ Duplicate branch test: {len(successes)} successes, {len(failures)} expected failures"
+            f"\n✅ Duplicate branch test: {len(successes)} successes, {len(failures)} expected failures",
         )
 
     def test_branch_deletion_during_active_commit(self, db_connection_string: str):
@@ -192,7 +193,7 @@ class TestConcurrentBranching:
             try:
                 # Try to delete branch (this may not be implemented yet)
                 cursor = conn.execute(
-                    "SELECT pggit.delete_branch_simple(%s)", (branch_name,)
+                    "SELECT pggit.delete_branch_simple(%s)", (branch_name,),
                 )
                 conn.commit()
                 conn.close()
@@ -217,7 +218,7 @@ class TestConcurrentBranching:
 
         # Validation: At most one succeeds (mutual exclusion)
         both_succeeded = commit_result.get("success", False) and delete_result.get(
-            "success", False
+            "success", False,
         )
         assert not both_succeeded, (
             "Commit and delete should not both succeed (race condition!)"
@@ -227,7 +228,7 @@ class TestConcurrentBranching:
 
     @pytest.mark.parametrize("num_branches", [3, 6, 9])
     def test_concurrent_branch_operations_mixed(
-        self, db_connection_string: str, num_branches: int
+        self, db_connection_string: str, num_branches: int,
     ):
         """
         Test: Mix of branch creation, commits, and potential conflicts.
@@ -262,12 +263,12 @@ class TestConcurrentBranching:
                         "op": "create_branch",
                         "success": True,
                         "trinity_id": list(result.values())[0],
-                    }
+                    },
                 )
 
                 # Operation 2: Add more data and commit again
                 conn.execute(
-                    f"INSERT INTO {table_name} (id, data) VALUES (1, 'test data')"
+                    f"INSERT INTO {table_name} (id, data) VALUES (1, 'test data')",
                 )
                 conn.commit()
 
@@ -281,7 +282,7 @@ class TestConcurrentBranching:
                         "op": "update_commit",
                         "success": True,
                         "trinity_id": list(result.values())[0],
-                    }
+                    },
                 )
 
                 conn.close()
@@ -315,7 +316,7 @@ class TestConcurrentBranching:
                     results.append(result)
                 except Exception as e:
                     results.append(
-                        {"worker_id": "unknown", "error": str(e), "success": False}
+                        {"worker_id": "unknown", "error": str(e), "success": False},
                     )
 
         successes = [r for r in results if r.get("success")]
@@ -338,10 +339,10 @@ class TestConcurrentBranching:
         )
 
         print(
-            f"\n✅ Mixed operations: {len(successes)}/{num_branches} workers succeeded"
+            f"\n✅ Mixed operations: {len(successes)}/{num_branches} workers succeeded",
         )
         print(
-            f"   Total operations: {sum(len(s.get('operations', [])) for s in successes)}"
+            f"   Total operations: {sum(len(s.get('operations', [])) for s in successes)}",
         )
         print(f"   Unique Trinity IDs: {len(set(all_trinity_ids))}")
 
@@ -364,7 +365,7 @@ class TestConcurrentBranching:
                 # Create worker's private table and branch
                 conn.execute(f"CREATE TABLE {table_name} (id INT, worker_data TEXT)")
                 conn.execute(
-                    f"INSERT INTO {table_name} (id, worker_data) VALUES ({worker_id}, 'worker_{worker_id}_data')"
+                    f"INSERT INTO {table_name} (id, worker_data) VALUES ({worker_id}, 'worker_{worker_id}_data')",
                 )
                 conn.commit()
 
@@ -494,7 +495,7 @@ class TestConcurrentBranching:
                     results.append(result)
                 except Exception as e:
                     results.append(
-                        {"worker_id": "timeout", "error": str(e), "success": False}
+                        {"worker_id": "timeout", "error": str(e), "success": False},
                     )
 
         successes = [r for r in results if r.get("success")]
@@ -534,10 +535,10 @@ class TestConcurrentBranching:
                         # Create table with unique name per worker-attempt
                         table_name = f"extreme_table_{worker_id}_{attempt}"
                         conn.execute(
-                            f"CREATE TABLE {table_name} (id SERIAL PRIMARY KEY, data TEXT)"
+                            f"CREATE TABLE {table_name} (id SERIAL PRIMARY KEY, data TEXT)",
                         )
                         conn.execute(
-                            f"INSERT INTO {table_name} (data) VALUES ('worker_{worker_id}_attempt_{attempt}')"
+                            f"INSERT INTO {table_name} (data) VALUES ('worker_{worker_id}_attempt_{attempt}')",
                         )
                         conn.commit()
 
@@ -592,7 +593,7 @@ class TestConcurrentBranching:
                     results.append(result)
                 except Exception as e:
                     results.append(
-                        {"worker_id": "timeout", "error": str(e), "success": False}
+                        {"worker_id": "timeout", "error": str(e), "success": False},
                     )
 
         successes = [r for r in results if r.get("success")]
@@ -610,7 +611,7 @@ class TestConcurrentBranching:
         )
 
         print(
-            f"\n✅ Extreme contention test: {len(successes)}/{num_workers} workers had successes"
+            f"\n✅ Extreme contention test: {len(successes)}/{num_workers} workers had successes",
         )
         print(f"   Total operations across all workers: {total_operations}")
         print(f"   Errors/conflicts: {len(errors)}")
@@ -643,7 +644,7 @@ class TestConcurrentBranching:
                         table_name = f"perf_table_{worker_id}_{operations}"
                         conn.execute(f"CREATE TABLE {table_name} (id INT, data TEXT)")
                         conn.execute(
-                            f"INSERT INTO {table_name} (id, data) VALUES ({operations}, 'perf_data')"
+                            f"INSERT INTO {table_name} (id, data) VALUES ({operations}, 'perf_data')",
                         )
                         conn.commit()
 
@@ -739,7 +740,7 @@ class TestConcurrentBranching:
                             "commit_changes",
                             "create_table",
                             "query_data",
-                        ]
+                        ],
                     )
 
                     try:
@@ -747,10 +748,10 @@ class TestConcurrentBranching:
                             branch_name = f"chaos-branch-{worker_id}-{op}"
                             table_name = f"chaos_table_{worker_id}_{op}"
                             conn.execute(
-                                f"CREATE TABLE {table_name} (id INT, data TEXT)"
+                                f"CREATE TABLE {table_name} (id INT, data TEXT)",
                             )
                             conn.execute(
-                                f"INSERT INTO {table_name} (id, data) VALUES ({op}, 'chaos_data')"
+                                f"INSERT INTO {table_name} (id, data) VALUES ({op}, 'chaos_data')",
                             )
                             conn.commit()
 
@@ -765,10 +766,10 @@ class TestConcurrentBranching:
                             branch_name = f"shared-chaos-branch-{worker_id % 3}"
                             table_name = f"shared_table_{worker_id}_{op}"
                             conn.execute(
-                                f"CREATE TABLE {table_name} (id INT, data TEXT)"
+                                f"CREATE TABLE {table_name} (id INT, data TEXT)",
                             )
                             conn.execute(
-                                f"INSERT INTO {table_name} (id, data) VALUES ({op}, 'shared_data')"
+                                f"INSERT INTO {table_name} (id, data) VALUES ({op}, 'shared_data')",
                             )
                             conn.commit()
 
@@ -849,7 +850,7 @@ class TestConcurrentBranching:
 
         print(f"\n✅ Mixed workload chaos test completed:")
         print(
-            f"   Workers: {len(successes)}/{num_workers} succeeded ({len(successes) / num_workers * 100:.1f}%)"
+            f"   Workers: {len(successes)}/{num_workers} succeeded ({len(successes) / num_workers * 100:.1f}%)",
         )
         print(f"   Total operations: {total_operations}")
         failures = [r for r in results if not r.get("success", False)]
@@ -857,6 +858,6 @@ class TestConcurrentBranching:
         print(f"   Average operations per worker: {total_operations / num_workers:.1f}")
         if len(failures) > 0:
             print(
-                f"   Note: {len(failures)} conflicts occurred as expected under mixed workload"
+                f"   Note: {len(failures)} conflicts occurred as expected under mixed workload",
             )
         print(f"   Average errors per worker: {total_errors / num_workers:.1f}")

@@ -20,7 +20,8 @@ Key Insight:
 """
 
 import pytest
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
 
 class TestPropertyBasedUniqueness:
@@ -79,7 +80,7 @@ class TestPropertyBasedUniqueness:
     @pytest.mark.property
     @given(
         a=st.integers(),
-        b=st.integers()
+        b=st.integers(),
     )
     def test_addition_commutative_property(self, a: int, b: int):
         """

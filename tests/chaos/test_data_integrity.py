@@ -5,8 +5,8 @@ These tests validate that data integrity guarantees are maintained,
 including cascading deletes, type consistency, and constraint enforcement.
 """
 
-import pytest
 import psycopg
+import pytest
 
 
 @pytest.mark.chaos
@@ -183,7 +183,7 @@ class TestDataIntegrity:
 
         # Verify no NULLs exist
         cursor = sync_conn.execute(
-            "SELECT COUNT(*) FROM not_null_test WHERE required_field IS NULL"
+            "SELECT COUNT(*) FROM not_null_test WHERE required_field IS NULL",
         )
         null_count = cursor.fetchone()["count"]
 
@@ -240,7 +240,7 @@ class TestDataIntegrity:
 
         # Verify only valid values exist
         cursor = sync_conn.execute(
-            "SELECT COUNT(*) FROM check_test WHERE age < 0 OR age > 150"
+            "SELECT COUNT(*) FROM check_test WHERE age < 0 OR age > 150",
         )
         invalid_count = cursor.fetchone()["count"]
 

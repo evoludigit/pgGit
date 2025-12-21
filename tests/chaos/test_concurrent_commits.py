@@ -6,15 +6,17 @@ changes simultaneously, focusing on Trinity ID uniqueness, race conditions,
 and proper concurrency handling.
 """
 
-import pytest
 import asyncio
-from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
-import psycopg
-from psycopg.rows import dict_row
-from hypothesis import given, strategies as st, settings, HealthCheck
+from concurrent.futures import ThreadPoolExecutor, TimeoutError, as_completed
 
+import psycopg
+import pytest
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
+from psycopg.rows import dict_row
+
+from tests.chaos.strategies import git_branch_name
 from tests.chaos.utils import ChaosInjector
-from tests.chaos.strategies import git_branch_name, commit_message
 
 
 @pytest.mark.chaos
@@ -25,7 +27,7 @@ class TestConcurrentCommits:
 
     @pytest.mark.parametrize("num_workers", [2, 5, 10, 20])
     def test_concurrent_commits_same_branch(
-        self, db_connection_string: str, num_workers: int
+        self, db_connection_string: str, num_workers: int,
     ):
         """
         Test: Multiple workers committing to the same branch concurrently.
@@ -48,7 +50,7 @@ class TestConcurrentCommits:
                 # Create unique table for this worker
                 table_name = f"test_table_{worker_id}"
                 conn.execute(
-                    f"CREATE TABLE {table_name} (id SERIAL PRIMARY KEY, data TEXT)"
+                    f"CREATE TABLE {table_name} (id SERIAL PRIMARY KEY, data TEXT)",
                 )
                 conn.commit()
 
@@ -92,7 +94,7 @@ class TestConcurrentCommits:
                         errors.append(result)
                 except TimeoutError:
                     errors.append(
-                        {"worker_id": "unknown", "error": "timeout", "success": False}
+                        {"worker_id": "unknown", "error": "timeout", "success": False},
                     )
 
         # Validation: At least some commits succeeded
@@ -123,14 +125,14 @@ class TestConcurrentCommits:
                 ), f"Unexpected error: {err['error']}"
 
         print(
-            f"\n✅ {len(results)} successful commits, {len(errors)} expected failures"
+            f"\n✅ {len(results)} successful commits, {len(errors)} expected failures",
         )
         print(f"   Unique Trinity IDs: {len(set(trinity_ids))}")
 
     @pytest.mark.timeout(120)
     @pytest.mark.asyncio
     async def test_concurrent_commits_with_delays(
-        self, async_conn: psycopg.AsyncConnection, conn_pool
+        self, async_conn: psycopg.AsyncConnection, conn_pool,
     ):
         """
         Test: Concurrent commits with random delays (simulating network latency).
@@ -204,7 +206,7 @@ class TestConcurrentCommits:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
     def test_property_concurrent_commits_no_collisions(
-        self, db_connection_string: str, num_workers: int, branch: str
+        self, db_connection_string: str, num_workers: int, branch: str,
     ):
         """
         Property: Concurrent commits never produce Trinity ID collisions.
@@ -256,10 +258,10 @@ class TestConcurrentCommits:
             )
 
     @pytest.mark.parametrize(
-        "isolation_level", ["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"]
+        "isolation_level", ["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"],
     )
     def test_concurrent_commits_different_isolation_levels(
-        self, db_connection_string: str, isolation_level: str
+        self, db_connection_string: str, isolation_level: str,
     ):
         """
         Test concurrent commits with different transaction isolation levels.
@@ -322,7 +324,7 @@ class TestConcurrentCommits:
         )
 
         print(
-            f"\n✅ {isolation_level}: {len(successes)} successes, {len(failures)} failures"
+            f"\n✅ {isolation_level}: {len(successes)} successes, {len(failures)} failures",
         )
 
     @pytest.mark.asyncio

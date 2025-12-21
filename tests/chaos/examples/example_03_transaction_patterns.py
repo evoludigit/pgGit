@@ -204,7 +204,7 @@ class TestConstraintHandling:
         Test: UNIQUE constraints prevent duplicate values.
         """
         sync_conn.execute(
-            "CREATE TABLE users (id SERIAL PRIMARY KEY, username TEXT UNIQUE)"
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, username TEXT UNIQUE)",
         )
         sync_conn.commit()
 
@@ -232,7 +232,7 @@ class TestConstraintHandling:
         Test: NOT NULL constraints require values.
         """
         sync_conn.execute(
-            "CREATE TABLE products (id SERIAL, name TEXT NOT NULL)"
+            "CREATE TABLE products (id SERIAL, name TEXT NOT NULL)",
         )
         sync_conn.commit()
 
@@ -264,7 +264,7 @@ class TestConstraintHandling:
                 id SERIAL,
                 name TEXT,
                 category_id INT REFERENCES categories(id)
-            )"""
+            )""",
         )
         sync_conn.commit()
 
@@ -301,7 +301,7 @@ class TestConstraintHandling:
             """CREATE TABLE accounts (
                 id SERIAL,
                 balance INT CHECK (balance >= 0)
-            )"""
+            )""",
         )
         sync_conn.commit()
 

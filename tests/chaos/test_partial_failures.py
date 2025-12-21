@@ -5,8 +5,8 @@ These tests validate that failures in complex multi-table operations result in
 complete rollback, ensuring ACID properties across multiple tables and operations.
 """
 
-import pytest
 import psycopg
+import pytest
 
 
 @pytest.mark.chaos
@@ -28,13 +28,13 @@ class TestPartialFailures:
             sync_conn.execute("DROP TABLE IF EXISTS multi_table_c CASCADE")
 
             sync_conn.execute(
-                "CREATE TABLE multi_table_a (id SERIAL PRIMARY KEY, data TEXT)"
+                "CREATE TABLE multi_table_a (id SERIAL PRIMARY KEY, data TEXT)",
             )
             sync_conn.execute(
-                "CREATE TABLE multi_table_b (id SERIAL PRIMARY KEY, value INT)"
+                "CREATE TABLE multi_table_b (id SERIAL PRIMARY KEY, value INT)",
             )
             sync_conn.execute(
-                "CREATE TABLE multi_table_c (id SERIAL PRIMARY KEY, amount DECIMAL)"
+                "CREATE TABLE multi_table_c (id SERIAL PRIMARY KEY, amount DECIMAL)",
             )
             sync_conn.commit()
         except psycopg.Error:
@@ -56,17 +56,17 @@ class TestPartialFailures:
 
             # Insert into table A (succeeds)
             sync_conn.execute(
-                "INSERT INTO multi_table_a (data) VALUES (%s)", ("data1",)
+                "INSERT INTO multi_table_a (data) VALUES (%s)", ("data1",),
             )
 
             # Insert into table B (succeeds)
             sync_conn.execute(
-                "INSERT INTO multi_table_b (value) VALUES (%s)", (42,)
+                "INSERT INTO multi_table_b (value) VALUES (%s)", (42,),
             )
 
             # Insert into table C (succeeds)
             sync_conn.execute(
-                "INSERT INTO multi_table_c (amount) VALUES (%s)", (100.50,)
+                "INSERT INTO multi_table_c (amount) VALUES (%s)", (100.50,),
             )
 
             # Cause error - all inserts should be rolled back
@@ -116,7 +116,7 @@ class TestPartialFailures:
         try:
             sync_conn.execute("DROP TABLE IF EXISTS trigger_test CASCADE")
             sync_conn.execute(
-                "CREATE TABLE trigger_test (id SERIAL PRIMARY KEY, value INT)"
+                "CREATE TABLE trigger_test (id SERIAL PRIMARY KEY, value INT)",
             )
 
             # Create trigger that raises exception for values > 100
@@ -150,12 +150,12 @@ class TestPartialFailures:
 
             # Insert valid value (succeeds)
             sync_conn.execute(
-                "INSERT INTO trigger_test (value) VALUES (%s)", (50,)
+                "INSERT INTO trigger_test (value) VALUES (%s)", (50,),
             )
 
             # Insert invalid value (fails trigger)
             sync_conn.execute(
-                "INSERT INTO trigger_test (value) VALUES (%s)", (150,)
+                "INSERT INTO trigger_test (value) VALUES (%s)", (150,),
             )
 
             sync_conn.commit()
@@ -264,7 +264,7 @@ class TestPartialFailures:
             pass
 
     def test_constraint_violation_in_multi_table_transaction(
-        self, sync_conn: psycopg.Connection
+        self, sync_conn: psycopg.Connection,
     ):
         """
         Test: Constraint violation in multi-table transaction rolls back all tables.
@@ -357,7 +357,7 @@ class TestPartialFailures:
         try:
             sync_conn.execute("DROP TABLE IF EXISTS pggit_partial_test CASCADE")
             sync_conn.execute(
-                "CREATE TABLE pggit_partial_test (id SERIAL PRIMARY KEY, value INT)"
+                "CREATE TABLE pggit_partial_test (id SERIAL PRIMARY KEY, value INT)",
             )
             sync_conn.commit()
         except psycopg.Error:
@@ -373,7 +373,7 @@ class TestPartialFailures:
 
             # Insert data
             sync_conn.execute(
-                "INSERT INTO pggit_partial_test (value) VALUES (%s)", (42,)
+                "INSERT INTO pggit_partial_test (value) VALUES (%s)", (42,),
             )
 
             # Try pggit operation (might fail)

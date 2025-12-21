@@ -5,12 +5,14 @@ This module provides additional reusable fixtures for chaos engineering tests,
 including concurrent execution helpers, delay injection, and transaction monitoring.
 """
 
-import pytest
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Callable
+
 import psycopg
-from typing import Callable, Any
-from tests.chaos.utils import TransactionMonitor, AsyncTransactionMonitor, ChaosInjector
+import pytest
+
+from tests.chaos.utils import AsyncTransactionMonitor, ChaosInjector, TransactionMonitor
 
 
 @pytest.fixture
@@ -118,7 +120,7 @@ async def async_deadlock_setup():
     """Set up async connections for deadlock testing."""
 
     async def create_deadlock_pair(
-        conn1: psycopg.AsyncConnection, conn2: psycopg.AsyncConnection
+        conn1: psycopg.AsyncConnection, conn2: psycopg.AsyncConnection,
     ):
         """Create a deadlock scenario between two async connections."""
         # Start transaction on conn1 and lock resource A
@@ -134,7 +136,7 @@ async def async_deadlock_setup():
         return conn1, conn2
 
     async def cleanup_deadlock(
-        conn1: psycopg.AsyncConnection, conn2: psycopg.AsyncConnection
+        conn1: psycopg.AsyncConnection, conn2: psycopg.AsyncConnection,
     ):
         """Clean up async deadlock test state."""
         try:

@@ -4,8 +4,8 @@ Recovery procedure and corruption remediation tests.
 These tests validate detection and recovery mechanisms for various corruption scenarios.
 """
 
-import pytest
 import psycopg
+import pytest
 
 
 @pytest.mark.chaos
@@ -218,7 +218,7 @@ class TestRecoveryValidation:
         try:
             cursor = sync_conn.execute(
                 "SELECT * FROM pggit.get_version(%s)",
-                ("version_seq_test",)
+                ("version_seq_test",),
             )
             version = cursor.fetchone()
 

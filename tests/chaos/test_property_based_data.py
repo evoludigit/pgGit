@@ -5,12 +5,13 @@ These tests validate that data operations maintain integrity across
 different branches and versions of table schemas.
 """
 
-import pytest
-from hypothesis import given, strategies as st, assume, settings, HealthCheck
 import psycopg
+import pytest
+from hypothesis import HealthCheck, assume, given, settings
+from hypothesis import strategies as st
 from psycopg.rows import dict_row
 
-from tests.chaos.strategies import table_definition, git_branch_name, pg_branch_name
+from tests.chaos.strategies import table_definition
 
 
 @pytest.mark.chaos
@@ -21,7 +22,7 @@ class TestDataBranchingProperties:
     """Property-based tests for data branching (copy-on-write)."""
 
     def test_branched_data_independent_simple(
-        self, sync_conn: psycopg.Connection
+        self, sync_conn: psycopg.Connection,
     ) -> None:
         """Test: Changes in branched data don't affect main branch (simple case)."""
         table_name = "data_branch_test"
@@ -32,7 +33,7 @@ class TestDataBranchingProperties:
             try:
                 sync_conn.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE")
                 sync_conn.execute(
-                    f"CREATE TABLE {table_name} (id SERIAL PRIMARY KEY, data TEXT)"
+                    f"CREATE TABLE {table_name} (id SERIAL PRIMARY KEY, data TEXT)",
                 )
                 sync_conn.commit()
             except psycopg.Error:
@@ -41,7 +42,7 @@ class TestDataBranchingProperties:
 
             # Insert data on main branch
             sync_conn.execute(
-                f"INSERT INTO {table_name} (data) VALUES (%s)", ("main_data",)
+                f"INSERT INTO {table_name} (data) VALUES (%s)", ("main_data",),
             )
             sync_conn.commit()
 
@@ -60,7 +61,7 @@ class TestDataBranchingProperties:
                 # Insert data on branch
                 branch_table = f"{table_name}__{branch_name}"
                 sync_conn.execute(
-                    f"INSERT INTO {branch_table} (data) VALUES (%s)", ("branch_data",)
+                    f"INSERT INTO {branch_table} (data) VALUES (%s)", ("branch_data",),
                 )
                 sync_conn.commit()
 
@@ -83,7 +84,7 @@ class TestDataBranchingProperties:
 
                 # Verify branch data is accessible
                 cursor = sync_conn.execute(
-                    f"SELECT data FROM {branch_table} WHERE data = %s", ("branch_data",)
+                    f"SELECT data FROM {branch_table} WHERE data = %s", ("branch_data",),
                 )
                 result = cursor.fetchone()
                 assert result is not None, "Branch data should be retrievable"
@@ -96,14 +97,14 @@ class TestDataBranchingProperties:
             try:
                 sync_conn.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE")
                 sync_conn.execute(
-                    f"DROP TABLE IF EXISTS {table_name}__{branch_name} CASCADE"
+                    f"DROP TABLE IF EXISTS {table_name}__{branch_name} CASCADE",
                 )
                 sync_conn.commit()
             except psycopg.Error:
                 pass
 
     @pytest.mark.xfail(
-        reason="Data branching feature properties not fully implemented - generated table definitions may have incompatible types"
+        reason="Data branching feature properties not fully implemented - generated table definitions may have incompatible types",
     )
     @given(tbl_def=table_definition())
     @settings(
@@ -112,7 +113,7 @@ class TestDataBranchingProperties:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
     def test_data_branch_creation_preserves_data(
-        self, sync_conn: psycopg.Connection, tbl_def: dict
+        self, sync_conn: psycopg.Connection, tbl_def: dict,
     ):
         """Property: Creating a data branch preserves all existing data."""
         assume(len(tbl_def["columns"]) > 0)
@@ -184,7 +185,7 @@ class TestDataBranchingProperties:
                 pass
 
     def test_data_branch_creation_preserves_data_simple(
-        self, sync_conn: psycopg.Connection
+        self, sync_conn: psycopg.Connection,
     ):
         """Test: Creating a data branch preserves existing data (simple case)."""
         table_name = "branch_preserve_test"
@@ -195,7 +196,7 @@ class TestDataBranchingProperties:
             try:
                 sync_conn.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE")
                 sync_conn.execute(
-                    f"CREATE TABLE {table_name} (id SERIAL PRIMARY KEY, data TEXT)"
+                    f"CREATE TABLE {table_name} (id SERIAL PRIMARY KEY, data TEXT)",
                 )
                 sync_conn.commit()
             except psycopg.Error:
@@ -204,7 +205,7 @@ class TestDataBranchingProperties:
 
             # Insert test data
             sync_conn.execute(
-                f"INSERT INTO {table_name} (data) VALUES (%s)", ("original_data",)
+                f"INSERT INTO {table_name} (data) VALUES (%s)", ("original_data",),
             )
             sync_conn.commit()
 
@@ -237,7 +238,7 @@ class TestDataBranchingProperties:
 
                 # Insert data into branch
                 sync_conn.execute(
-                    f"INSERT INTO {branch_table} (data) VALUES (%s)", ("branch_data",)
+                    f"INSERT INTO {branch_table} (data) VALUES (%s)", ("branch_data",),
                 )
                 sync_conn.commit()
 
@@ -260,7 +261,7 @@ class TestDataBranchingProperties:
                 pass
 
     @given(
-        st.integers(min_value=1, max_value=10)  # Number of data modifications
+        st.integers(min_value=1, max_value=10),  # Number of data modifications
     )
     @settings(
         max_examples=20,
@@ -268,7 +269,7 @@ class TestDataBranchingProperties:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
     def test_data_integrity_across_commits(
-        self, sync_conn: psycopg.Connection, num_modifications: int
+        self, sync_conn: psycopg.Connection, num_modifications: int,
     ):
         """Property: Data integrity maintained across multiple commits."""
         import uuid
@@ -301,7 +302,7 @@ class TestDataBranchingProperties:
         # Insert initial data
         initial_value = 42
         sync_conn.execute(
-            "INSERT INTO integrity_test (value) VALUES (%s)", (initial_value,)
+            "INSERT INTO integrity_test (value) VALUES (%s)", (initial_value,),
         )
         sync_conn.commit()
 
@@ -310,7 +311,7 @@ class TestDataBranchingProperties:
             # Update value
             new_value = initial_value + i + 1
             sync_conn.execute(
-                "UPDATE integrity_test SET value = %s WHERE id = 1", (new_value,)
+                "UPDATE integrity_test SET value = %s WHERE id = 1", (new_value,),
             )
             sync_conn.commit()
 
@@ -323,7 +324,7 @@ class TestDataBranchingProperties:
 
             # Verify data integrity after each commit
             cursor = sync_conn.execute(
-                "SELECT value FROM integrity_test WHERE id = 1"
+                "SELECT value FROM integrity_test WHERE id = 1",
             )
             current_value = cursor.fetchone()["value"]
             assert current_value == new_value, (
@@ -338,7 +339,7 @@ class TestDataBranchingProperties:
             pass
 
     @pytest.mark.xfail(
-        reason="Data branching feature properties not fully implemented - generated table definitions may have incompatible types"
+        reason="Data branching feature properties not fully implemented - generated table definitions may have incompatible types",
     )
     @given(tbl_def=table_definition())
     @settings(
@@ -347,7 +348,7 @@ class TestDataBranchingProperties:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
     def test_schema_changes_preserve_existing_data(
-        self, sync_conn: psycopg.Connection, tbl_def: dict
+        self, sync_conn: psycopg.Connection, tbl_def: dict,
     ):
         """Property: Schema changes preserve existing data integrity."""
         assume(len(tbl_def["columns"]) >= 2)  # Need at least 2 columns
@@ -385,13 +386,13 @@ class TestDataBranchingProperties:
             try:
                 # Add a new column (schema change)
                 sync_conn.execute(
-                    f"ALTER TABLE {tbl_def['name']} ADD COLUMN new_schema_col TEXT DEFAULT 'added'"
+                    f"ALTER TABLE {tbl_def['name']} ADD COLUMN new_schema_col TEXT DEFAULT 'added'",
                 )
                 sync_conn.commit()
 
                 # Verify original data preserved
                 cursor = sync_conn.execute(
-                    f"SELECT {col1}, {col2} FROM {tbl_def['name']}"
+                    f"SELECT {col1}, {col2} FROM {tbl_def['name']}",
                 )
                 row = cursor.fetchone()
 
@@ -404,7 +405,7 @@ class TestDataBranchingProperties:
 
                 # Verify new column has default value
                 cursor = sync_conn.execute(
-                    f"SELECT new_schema_col FROM {tbl_def['name']}"
+                    f"SELECT new_schema_col FROM {tbl_def['name']}",
                 )
                 new_col_value = cursor.fetchone()["new_schema_col"]
                 assert new_col_value == "added", "New column should have default value"
@@ -429,7 +430,7 @@ class TestConcurrentDataOperations:
     """Property-based tests for concurrent data operations."""
 
     def test_concurrent_data_modifications_isolated_simple(
-        self, db_connection_string: str
+        self, db_connection_string: str,
     ):
         """Test: Concurrent data modifications maintain basic isolation."""
         table_name = "concurrent_data_test"
@@ -455,12 +456,12 @@ class TestConcurrentDataOperations:
             def increment_counter(worker_id: int):
                 try:
                     worker_conn = psycopg.connect(
-                        db_connection_string, row_factory=dict_row
+                        db_connection_string, row_factory=dict_row,
                     )
                     worker_conn.execute("BEGIN")
                     # Read current value with row lock to prevent lost updates
                     cursor = worker_conn.execute(
-                        f"SELECT counter FROM {table_name} WHERE id = 1 FOR UPDATE"
+                        f"SELECT counter FROM {table_name} WHERE id = 1 FOR UPDATE",
                     )
                     current = cursor.fetchone()["counter"]
                     # Increment
@@ -504,7 +505,7 @@ class TestConcurrentDataOperations:
             final_conn = psycopg.connect(db_connection_string)
             final_conn.row_factory = psycopg.rows.dict_row
             cursor = final_conn.execute(
-                f"SELECT counter FROM {table_name} WHERE id = 1"
+                f"SELECT counter FROM {table_name} WHERE id = 1",
             )
             final_value = cursor.fetchone()["counter"]
             final_conn.close()
@@ -533,10 +534,10 @@ class TestDataVersioningProperties:
     """Property-based tests for data versioning."""
 
     @pytest.mark.xfail(
-        reason="Data versioning with history traversal not implemented yet - requires time-travel functionality"
+        reason="Data versioning with history traversal not implemented yet - requires time-travel functionality",
     )
     @given(
-        st.integers(min_value=1, max_value=5)  # Number of versions
+        st.integers(min_value=1, max_value=5),  # Number of versions
     )
     @settings(
         max_examples=15,
@@ -544,7 +545,7 @@ class TestDataVersioningProperties:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
     def test_data_version_history_preserved(
-        self, sync_conn: psycopg.Connection, num_versions: int
+        self, sync_conn: psycopg.Connection, num_versions: int,
     ):
         """Property: Data version history is preserved and accessible."""
         # Create versioned table (with cleanup)
@@ -603,7 +604,7 @@ class TestDataVersioningProperties:
 
             # Verify current content
             cursor = sync_conn.execute(
-                "SELECT content, version FROM versioned_data WHERE id = 1"
+                "SELECT content, version FROM versioned_data WHERE id = 1",
             )
             row = cursor.fetchone()
             assert row["content"] == new_content, (

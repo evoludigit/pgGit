@@ -7,9 +7,10 @@ capturing state snapshots, and measuring performance during chaos testing.
 
 import asyncio
 import random
-from typing import Callable, Any, Awaitable
-from contextlib import contextmanager
 import time
+from contextlib import contextmanager
+from typing import Any, Awaitable, Callable
+
 import psycopg
 
 
@@ -74,7 +75,7 @@ class ChaosInjector:
 
     @staticmethod
     async def simulate_deadlock(
-        conn1: psycopg.AsyncConnection, conn2: psycopg.AsyncConnection
+        conn1: psycopg.AsyncConnection, conn2: psycopg.AsyncConnection,
     ) -> None:
         """Simulate a deadlock scenario between two connections."""
         # Start transaction on conn1 and lock resource A

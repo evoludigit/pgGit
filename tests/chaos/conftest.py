@@ -116,12 +116,12 @@ def sync_conn(db_connection_string: str) -> Generator[psycopg.Connection, None, 
     with psycopg.connect(db_connection_string) as check_conn:
         cursor = check_conn.execute(
             "SELECT EXISTS (SELECT 1 FROM information_schema.schemata "
-            "WHERE schema_name = 'pggit')"
+            "WHERE schema_name = 'pggit')",
         )
         if not cursor.fetchone()[0]:
             raise RuntimeError(
                 "pggit schema not found. Please install: cd sql && "
-                "psql -d pggit_chaos_test -f install.sql"
+                "psql -d pggit_chaos_test -f install.sql",
             )
 
     # Now create the actual connection with dict_row
@@ -172,12 +172,12 @@ def sync_conn_with_transactions(
     with psycopg.connect(db_connection_string) as check_conn:
         cursor = check_conn.execute(
             "SELECT EXISTS (SELECT 1 FROM information_schema.schemata "
-            "WHERE schema_name = 'pggit')"
+            "WHERE schema_name = 'pggit')",
         )
         if not cursor.fetchone()[0]:
             raise RuntimeError(
                 "pggit schema not found. Please install: cd sql && "
-                "psql -d pggit_chaos_test -f install.sql"
+                "psql -d pggit_chaos_test -f install.sql",
             )
 
     # Create connection without autocommit for explicit transaction control

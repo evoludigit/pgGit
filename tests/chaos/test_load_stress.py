@@ -5,10 +5,11 @@ These tests validate system behavior under high load conditions, including
 concurrent connections, rapid operations, and performance degradation analysis.
 """
 
-import pytest
-import psycopg
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import psycopg
+import pytest
 
 
 @pytest.mark.chaos
@@ -55,7 +56,7 @@ class TestLoadStress:
                     'worker': worker_id,
                     'success': False,
                     'error': str(e),
-                    'elapsed': elapsed
+                    'elapsed': elapsed,
                 }
 
         # Execute load test
@@ -201,7 +202,7 @@ class TestLoadStress:
                 # Verify table exists
                 cursor = conn.execute(
                     "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = %s)",
-                    (table_name,)
+                    (table_name,),
                 )
                 exists = cursor.fetchone()[0]
 
@@ -219,7 +220,7 @@ class TestLoadStress:
                 return {
                     'worker': worker_id,
                     'success': False,
-                    'error': str(e)
+                    'error': str(e),
                 }
 
         # Execute concurrent table creation

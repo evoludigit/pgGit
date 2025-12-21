@@ -5,11 +5,12 @@ These tests validate pggit's behavior under different isolation levels,
 particularly SERIALIZABLE isolation which can fail with serialization errors.
 """
 
-import pytest
-from concurrent.futures import ThreadPoolExecutor
-import psycopg
-from psycopg.rows import dict_row
 import time
+from concurrent.futures import ThreadPoolExecutor
+
+import psycopg
+import pytest
+from psycopg.rows import dict_row
 
 
 @pytest.mark.chaos
@@ -140,7 +141,7 @@ class TestSerializationFailures:
                     # Writer: Wait a bit, then try to modify
                     time.sleep(0.1)
                     conn.execute(
-                        f"UPDATE {table_name} SET data = 'modified' WHERE id = 1"
+                        f"UPDATE {table_name} SET data = 'modified' WHERE id = 1",
                     )
                     conn.commit()
 
@@ -177,10 +178,10 @@ class TestSerializationFailures:
             pytest.fail(f"Unexpected result: {result1}, {result2}")
 
     @pytest.mark.parametrize(
-        "isolation_level", ["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"]
+        "isolation_level", ["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"],
     )
     def test_isolation_levels_behavior(
-        self, db_connection_string: str, isolation_level: str
+        self, db_connection_string: str, isolation_level: str,
     ):
         """
         Test: Same concurrent scenario under different isolation levels.
@@ -192,7 +193,7 @@ class TestSerializationFailures:
         # Setup
         setup_conn = psycopg.connect(db_connection_string)
         setup_conn.execute(
-            f"CREATE TABLE {table_name} (id INT PRIMARY KEY, counter INT)"
+            f"CREATE TABLE {table_name} (id INT PRIMARY KEY, counter INT)",
         )
         setup_conn.execute(f"INSERT INTO {table_name} VALUES (1, 0)")
         setup_conn.commit()
@@ -215,7 +216,7 @@ class TestSerializationFailures:
 
                 # Increment
                 conn.execute(
-                    f"UPDATE {table_name} SET counter = %s WHERE id = 1", (current + 1,)
+                    f"UPDATE {table_name} SET counter = %s WHERE id = 1", (current + 1,),
                 )
 
                 conn.commit()
@@ -267,7 +268,7 @@ class TestSerializationFailures:
             )
 
         print(
-            f"\n✅ {isolation_level}: {len(successes)} successes, {len(serialization_errors)} serialization errors"
+            f"\n✅ {isolation_level}: {len(successes)} successes, {len(serialization_errors)} serialization errors",
         )
 
     def test_phantom_read_prevention(self, db_connection_string: str):
@@ -281,7 +282,7 @@ class TestSerializationFailures:
         # Setup
         setup_conn = psycopg.connect(db_connection_string)
         setup_conn.execute(
-            f"CREATE TABLE {table_name} (id INT PRIMARY KEY, category TEXT)"
+            f"CREATE TABLE {table_name} (id INT PRIMARY KEY, category TEXT)",
         )
         setup_conn.commit()
         setup_conn.close()
@@ -350,7 +351,7 @@ class TestSerializationFailures:
             # Both succeeded - check if phantom read occurred
             if result1["initial_count"] != result1["final_count"]:
                 pytest.fail(
-                    "Phantom read occurred - row count changed within transaction"
+                    "Phantom read occurred - row count changed within transaction",
                 )
             print("✅ No phantom read occurred")
         elif result1.get("serialization_error"):
@@ -359,7 +360,7 @@ class TestSerializationFailures:
             pytest.fail(f"Unexpected phantom read scenario: {result1}, {result2}")
 
     @pytest.mark.xfail(
-        reason="pggit.commit_changes() has built-in conflict resolution that prevents serialization failures for reliability"
+        reason="pggit.commit_changes() has built-in conflict resolution that prevents serialization failures for reliability",
     )
     def test_pggit_commit_serialization_conflicts(self, db_connection_string: str):
         """
@@ -444,7 +445,7 @@ class TestSerializationFailures:
         )
 
         print(
-            f"\n✅ pggit commits under SERIALIZABLE: {len(successes)} successes, {len(serialization_errors)} conflicts"
+            f"\n✅ pggit commits under SERIALIZABLE: {len(successes)} successes, {len(serialization_errors)} conflicts",
         )
 
     def test_direct_serialization_conflicts(self, db_connection_string: str):
@@ -461,7 +462,7 @@ class TestSerializationFailures:
         setup_conn = psycopg.connect(db_connection_string)
         try:
             setup_conn.execute(
-                "SELECT pggit.commit_changes(%s, %s)", (branch_name, "Initial commit")
+                "SELECT pggit.commit_changes(%s, %s)", (branch_name, "Initial commit"),
             )
             setup_conn.commit()
         except Exception as e:
@@ -478,7 +479,7 @@ class TestSerializationFailures:
 
                 # Get branch ID
                 cursor = conn.execute(
-                    "SELECT id FROM pggit.branches WHERE name = %s", (branch_name,)
+                    "SELECT id FROM pggit.branches WHERE name = %s", (branch_name,),
                 )
                 result = cursor.fetchone()
                 if not result:
@@ -568,7 +569,7 @@ class TestSerializationFailures:
 
         if other_errors:
             print(
-                f"  Other error details: {[r.get('error', 'unknown') for r in other_errors[:3]]}"
+                f"  Other error details: {[r.get('error', 'unknown') for r in other_errors[:3]]}",
             )
 
         # With SERIALIZABLE isolation and shared hash, we should see conflicts
@@ -585,7 +586,7 @@ class TestSerializationFailures:
         )
 
         print(
-            f"\n✅ Direct serialization test: {len(successes)} successes, {total_conflicts} total conflicts"
+            f"\n✅ Direct serialization test: {len(successes)} successes, {total_conflicts} total conflicts",
         )
 
     @pytest.mark.slow
@@ -621,7 +622,7 @@ class TestSerializationFailures:
                 # Try to update (may conflict)
                 new_data = f"modified_by_{worker_id}"
                 conn.execute(
-                    f"UPDATE {table_name} SET data = %s WHERE id = 1", (new_data,)
+                    f"UPDATE {table_name} SET data = %s WHERE id = 1", (new_data,),
                 )
 
                 conn.commit()
@@ -674,7 +675,7 @@ class TestSerializationFailures:
                             "error": f"Future timeout or error: {e}",
                             "success": False,
                             "timeout": True,
-                        }
+                        },
                     )
 
         successes = [r for r in results if r["success"]]
@@ -695,16 +696,16 @@ class TestSerializationFailures:
             print(f"⚠️ Multiple successes ({len(successes)}) - possible race condition")
 
         print(
-            f"✅ Long-running transactions: {len(successes)} succeeded, {len(serialization_errors)} serialization errors, {len(timeouts)} timeouts"
+            f"✅ Long-running transactions: {len(successes)} succeeded, {len(serialization_errors)} serialization errors, {len(timeouts)} timeouts",
         )
 
         if len(serialization_errors) > 0:
             print(
-                f"✅ Long-running serialization conflicts detected: {len(serialization_errors)}"
+                f"✅ Long-running serialization conflicts detected: {len(serialization_errors)}",
             )
         else:
             print(
-                f"✅ Long-running transactions completed without conflicts: {len(successes)}"
+                f"✅ Long-running transactions completed without conflicts: {len(successes)}",
             )
 
         # Verify reasonable timing (should complete within reasonable time even with conflicts)

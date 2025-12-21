@@ -14,11 +14,11 @@ Key Insight:
   Concurrency tests force concurrent execution to find these bugs.
 """
 
-import pytest
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List
+
+import pytest
 
 
 class TestConcurrencyPatterns:

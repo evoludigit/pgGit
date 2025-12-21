@@ -5,9 +5,10 @@ These tests validate pggit's version increment behavior under concurrent access,
 including race conditions during version bumps and consistency guarantees.
 """
 
-import pytest
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
 import psycopg
+import pytest
 from psycopg.rows import dict_row
 
 
@@ -18,7 +19,7 @@ class TestConcurrentVersioning:
 
     @pytest.mark.parametrize("num_workers", [5, 10, 20])
     def test_concurrent_version_increments(
-        self, db_connection_string: str, num_workers: int
+        self, db_connection_string: str, num_workers: int,
     ):
         """
         Test: Multiple workers incrementing version simultaneously.
@@ -34,7 +35,7 @@ class TestConcurrentVersioning:
 
         # Get initial version
         cursor = setup_conn.execute(
-            "SELECT * FROM pggit.get_version(%s)", (table_name,)
+            "SELECT * FROM pggit.get_version(%s)", (table_name,),
         )
         initial_version = cursor.fetchone()
         setup_conn.close()
@@ -47,13 +48,13 @@ class TestConcurrentVersioning:
                 conn.execute("BEGIN")
                 # Add column (should trigger version increment)
                 conn.execute(
-                    f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS col_{worker_id} INT DEFAULT {worker_id}"
+                    f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS col_{worker_id} INT DEFAULT {worker_id}",
                 )
                 conn.execute("COMMIT")
 
                 # Get version after change
                 cursor = conn.execute(
-                    "SELECT * FROM pggit.get_version(%s)", (table_name,)
+                    "SELECT * FROM pggit.get_version(%s)", (table_name,),
                 )
                 new_version = cursor.fetchone()
                 conn.close()
@@ -96,7 +97,7 @@ class TestConcurrentVersioning:
         if successes:
             final_conn = psycopg.connect(db_connection_string, row_factory=dict_row)
             cursor = final_conn.execute(
-                "SELECT * FROM pggit.get_version(%s)", (table_name,)
+                "SELECT * FROM pggit.get_version(%s)", (table_name,),
             )
             actual_final_version = cursor.fetchone()
             final_conn.close()
@@ -108,7 +109,7 @@ class TestConcurrentVersioning:
                 )
 
         print(
-            f"\n✅ Initial: {initial_version}, Successes: {len(successes)}, Failures: {len(failures)}"
+            f"\n✅ Initial: {initial_version}, Successes: {len(successes)}, Failures: {len(failures)}",
         )
 
     def test_version_read_consistency_during_writes(self, db_connection_string: str):
@@ -133,7 +134,7 @@ class TestConcurrentVersioning:
             for _ in range(10):
                 try:
                     cursor = conn.execute(
-                        "SELECT * FROM pggit.get_version(%s)", (table_name,)
+                        "SELECT * FROM pggit.get_version(%s)", (table_name,),
                     )
                     version = cursor.fetchone()
                     if version:
@@ -152,7 +153,7 @@ class TestConcurrentVersioning:
             for i in range(5):
                 try:
                     conn.execute(
-                        f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS w{writer_id}_c{i} INT"
+                        f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS w{writer_id}_c{i} INT",
                     )
                     conn.commit()
                 except Exception:
@@ -193,12 +194,12 @@ class TestConcurrentVersioning:
             assert isinstance(version["patch"], int) and version["patch"] >= 0
 
         print(
-            f"\n✅ Read {len(all_versions)} consistent versions during concurrent writes"
+            f"\n✅ Read {len(all_versions)} consistent versions during concurrent writes",
         )
 
     @pytest.mark.parametrize("version_type", ["major", "minor", "patch"])
     def test_concurrent_explicit_version_increments(
-        self, db_connection_string: str, version_type: str
+        self, db_connection_string: str, version_type: str,
     ):
         """
         Test concurrent explicit version increments using increment_version function.
@@ -214,7 +215,7 @@ class TestConcurrentVersioning:
 
         # Get initial version
         cursor = setup_conn.execute(
-            "SELECT * FROM pggit.get_version(%s)", (table_name,)
+            "SELECT * FROM pggit.get_version(%s)", (table_name,),
         )
         initial = cursor.fetchone()
         setup_conn.close()
@@ -306,7 +307,7 @@ class TestConcurrentVersioning:
                     )
 
         print(
-            f"\n✅ {version_type} increments: {len(successes)} successes, {len(failures)} failures"
+            f"\n✅ {version_type} increments: {len(successes)} successes, {len(failures)} failures",
         )
 
     def test_version_rollback_on_transaction_failure(self, db_connection_string: str):
@@ -324,7 +325,7 @@ class TestConcurrentVersioning:
 
         # Get initial version
         cursor = setup_conn.execute(
-            "SELECT * FROM pggit.get_version(%s)", (table_name,)
+            "SELECT * FROM pggit.get_version(%s)", (table_name,),
         )
         initial_version = cursor.fetchone()
         setup_conn.close()
@@ -368,7 +369,7 @@ class TestConcurrentVersioning:
         # Verify version didn't change
         final_conn = psycopg.connect(db_connection_string, row_factory=dict_row)
         cursor = final_conn.execute(
-            "SELECT * FROM pggit.get_version(%s)", (table_name,)
+            "SELECT * FROM pggit.get_version(%s)", (table_name,),
         )
         final_version = cursor.fetchone()
         final_conn.close()
@@ -408,13 +409,13 @@ class TestConcurrentVersioning:
                         conn.execute("BEGIN")
                         # Add column to trigger version change
                         conn.execute(
-                            f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS w{worker_id}_op{op} INT"
+                            f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS w{worker_id}_op{op} INT",
                         )
                         conn.commit()
 
                         # Read version
                         cursor = conn.execute(
-                            "SELECT * FROM pggit.get_version(%s)", (table_name,)
+                            "SELECT * FROM pggit.get_version(%s)", (table_name,),
                         )
                         version = cursor.fetchone()
                         results.append(version)
@@ -458,7 +459,7 @@ class TestConcurrentVersioning:
 
         # Versions should be monotonically increasing (at least not decreasing)
         sorted_versions = sorted(
-            valid_versions, key=lambda v: (v["major"], v["minor"], v["patch"])
+            valid_versions, key=lambda v: (v["major"], v["minor"], v["patch"]),
         )
         # The highest version should be at the end
         assert sorted_versions[-1]["major"] >= sorted_versions[0]["major"], (
@@ -466,5 +467,5 @@ class TestConcurrentVersioning:
         )
 
         print(
-            f"\n✅ High contention test: {len(valid_versions)} successful version reads from {len(all_results)} operations"
+            f"\n✅ High contention test: {len(valid_versions)} successful version reads from {len(all_results)} operations",
         )

@@ -5,8 +5,8 @@ These tests verify that schema corruption can be detected and prevented,
 including manual schema changes, metadata corruption, and referential integrity violations.
 """
 
-import pytest
 import psycopg
+import pytest
 
 
 @pytest.mark.chaos
@@ -78,7 +78,7 @@ class TestSchemaCorruption:
             # Try to retrieve version (should show corruption)
             cursor = sync_conn.execute(
                 "SELECT * FROM pggit.get_version(%s)",
-                ("version_test",)
+                ("version_test",),
             )
             version = cursor.fetchone()
 
@@ -125,7 +125,7 @@ class TestSchemaCorruption:
             # Try to create a commit with unique ID
             cursor = sync_conn.execute(
                 "SELECT pggit.commit_changes(%s, %s, %s)",
-                (f"trinity-orphan-{unique_id}", "main", f"Test commit {unique_id}")
+                (f"trinity-orphan-{unique_id}", "main", f"Test commit {unique_id}"),
             )
             result = cursor.fetchone()
             sync_conn.commit()

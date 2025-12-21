@@ -5,8 +5,8 @@ These tests validate that constraint violations (UNIQUE, FK, CHECK, NOT NULL)
 properly trigger transaction rollback and maintain database integrity.
 """
 
-import pytest
 import psycopg
+import pytest
 
 
 @pytest.mark.chaos
@@ -38,7 +38,7 @@ class TestConstraintViolations:
         try:
             sync_conn.execute(
                 "INSERT INTO unique_constraint_test (unique_field) VALUES (%s)",
-                ("unique_value",)
+                ("unique_value",),
             )
             sync_conn.commit()
         except psycopg.Error as e:
@@ -56,7 +56,7 @@ class TestConstraintViolations:
             # Insert duplicate unique value
             sync_conn.execute(
                 "INSERT INTO unique_constraint_test (unique_field) VALUES (%s)",
-                ("unique_value",)  # Duplicate!
+                ("unique_value",),  # Duplicate!
             )
 
             sync_conn.commit()
@@ -116,7 +116,7 @@ class TestConstraintViolations:
         try:
             sync_conn.execute(
                 "INSERT INTO fk_parent (name) VALUES (%s)",
-                ("parent1",)
+                ("parent1",),
             )
             sync_conn.commit()
         except psycopg.Error as e:
@@ -130,7 +130,7 @@ class TestConstraintViolations:
             # Try to reference non-existent parent (ID = 999)
             sync_conn.execute(
                 "INSERT INTO fk_child (parent_id, data) VALUES (%s, %s)",
-                (999, "orphan_child")
+                (999, "orphan_child"),
             )
 
             sync_conn.commit()
@@ -181,7 +181,7 @@ class TestConstraintViolations:
         try:
             sync_conn.execute(
                 "INSERT INTO check_constraint_test (age, name) VALUES (%s, %s)",
-                (25, "John")
+                (25, "John"),
             )
             sync_conn.commit()
         except psycopg.Error as e:
@@ -195,7 +195,7 @@ class TestConstraintViolations:
             # Try to insert age = 200 (violates CHECK constraint)
             sync_conn.execute(
                 "INSERT INTO check_constraint_test (age, name) VALUES (%s, %s)",
-                (200, "Invalid")
+                (200, "Invalid"),
             )
 
             sync_conn.commit()
@@ -244,7 +244,7 @@ class TestConstraintViolations:
         try:
             sync_conn.execute(
                 "INSERT INTO not_null_test (required_field, optional_field) VALUES (%s, %s)",
-                ("required_value", "optional_value")
+                ("required_value", "optional_value"),
             )
             sync_conn.commit()
         except psycopg.Error as e:
@@ -258,7 +258,7 @@ class TestConstraintViolations:
             # Try to insert NULL in required_field
             sync_conn.execute(
                 "INSERT INTO not_null_test (required_field, optional_field) VALUES (%s, %s)",
-                (None, "optional")
+                (None, "optional"),
             )
 
             sync_conn.commit()
@@ -306,7 +306,7 @@ class TestConstraintViolations:
         try:
             sync_conn.execute(
                 "INSERT INTO pk_test (id, data) VALUES (%s, %s)",
-                (1, "first")
+                (1, "first"),
             )
             sync_conn.commit()
         except psycopg.Error as e:
@@ -320,7 +320,7 @@ class TestConstraintViolations:
             # Try to insert duplicate primary key
             sync_conn.execute(
                 "INSERT INTO pk_test (id, data) VALUES (%s, %s)",
-                (1, "duplicate")  # Duplicate key!
+                (1, "duplicate"),  # Duplicate key!
             )
 
             sync_conn.commit()
@@ -373,7 +373,7 @@ class TestConstraintViolations:
         try:
             sync_conn.execute(
                 "INSERT INTO nested_constraint_test (unique_field) VALUES (%s)",
-                ("value1",)
+                ("value1",),
             )
             sync_conn.commit()
         except psycopg.Error as e:
@@ -387,7 +387,7 @@ class TestConstraintViolations:
             # Insert valid row outside savepoint
             sync_conn.execute(
                 "INSERT INTO nested_constraint_test (unique_field) VALUES (%s)",
-                ("value2",)
+                ("value2",),
             )
 
             # Create savepoint
@@ -397,7 +397,7 @@ class TestConstraintViolations:
             try:
                 sync_conn.execute(
                     "INSERT INTO nested_constraint_test (unique_field) VALUES (%s)",
-                    ("value1",)  # Duplicate
+                    ("value1",),  # Duplicate
                 )
                 sync_conn.commit()
                 pytest.fail("Expected constraint violation")

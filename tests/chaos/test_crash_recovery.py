@@ -5,8 +5,8 @@ These tests validate that uncommitted transactions are properly cleaned up
 and that database state remains consistent after unexpected failures.
 """
 
-import pytest
 import psycopg
+import pytest
 
 
 @pytest.mark.chaos
@@ -168,7 +168,7 @@ class TestCrashRecovery:
         try:
             conn.execute("DROP TABLE IF EXISTS isolation_test CASCADE")
             conn.execute(
-                "CREATE TABLE isolation_test (id SERIAL PRIMARY KEY, data TEXT)"
+                "CREATE TABLE isolation_test (id SERIAL PRIMARY KEY, data TEXT)",
             )
             conn.commit()
         except psycopg.Error:
@@ -194,7 +194,7 @@ class TestCrashRecovery:
                 from psycopg.rows import dict_row
                 other_conn = psycopg.connect(
                     "host=localhost port=5432 dbname=pggit_chaos_test user=postgres",
-                    row_factory=dict_row
+                    row_factory=dict_row,
                 )
 
                 # This should succeed (reading existing data)

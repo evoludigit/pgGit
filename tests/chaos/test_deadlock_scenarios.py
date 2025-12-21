@@ -5,10 +5,11 @@ These tests validate that pggit properly handles deadlock situations and that
 PostgreSQL's deadlock detection works correctly with pggit operations.
 """
 
-import pytest
-from concurrent.futures import ThreadPoolExecutor
-import psycopg
 import time
+from concurrent.futures import ThreadPoolExecutor
+
+import psycopg
+import pytest
 
 
 @pytest.mark.chaos
@@ -209,7 +210,7 @@ class TestDeadlockScenarios:
             print(f"✅ Deadlock properly detected: {len(deadlocks)} deadlocks")
         else:
             pytest.fail(
-                "Unexpected deadlock scenario - neither success nor proper deadlock detection"
+                "Unexpected deadlock scenario - neither success nor proper deadlock detection",
             )
 
     @pytest.mark.timeout(45)
@@ -283,7 +284,7 @@ class TestDeadlockScenarios:
 
         if len(deadlocks) > 0:
             print(
-                f"✅ Complex deadlock detected: {len(deadlocks)} deadlocks, {len(successes)} successes"
+                f"✅ Complex deadlock detected: {len(deadlocks)} deadlocks, {len(successes)} successes",
             )
         else:
             print(f"✅ No deadlock in complex scenario: {len(successes)} successes")
@@ -395,7 +396,7 @@ class TestDeadlockScenarios:
         assert len(deadlocks) > 0, "Deadlock should be detected and resolved quickly"
 
         print(
-            f"✅ Deadlock resolved in {result1['time']:.2f}s and {result2['time']:.2f}s"
+            f"✅ Deadlock resolved in {result1['time']:.2f}s and {result2['time']:.2f}s",
         )
 
     def test_deadlock_recovery_data_integrity(self, db_connection_string: str):
@@ -413,7 +414,7 @@ class TestDeadlockScenarios:
         try:
             try:
                 setup_conn.execute(
-                    f"CREATE TABLE {test_table} (id INT PRIMARY KEY, data TEXT)"
+                    f"CREATE TABLE {test_table} (id INT PRIMARY KEY, data TEXT)",
                 )
                 setup_conn.execute(f"INSERT INTO {test_table} VALUES (1, 'initial')")
                 setup_conn.execute(f"CREATE TABLE {helper_table} (id INT PRIMARY KEY)")
@@ -423,7 +424,7 @@ class TestDeadlockScenarios:
                 setup_conn.execute(f"DROP TABLE IF EXISTS {test_table} CASCADE")
                 setup_conn.execute(f"DROP TABLE IF EXISTS {helper_table} CASCADE")
                 setup_conn.execute(
-                    f"CREATE TABLE {test_table} (id INT PRIMARY KEY, data TEXT)"
+                    f"CREATE TABLE {test_table} (id INT PRIMARY KEY, data TEXT)",
                 )
                 setup_conn.execute(f"INSERT INTO {test_table} VALUES (1, 'initial')")
                 setup_conn.execute(f"CREATE TABLE {helper_table} (id INT PRIMARY KEY)")
@@ -448,7 +449,7 @@ class TestDeadlockScenarios:
 
                 # Modify data (will be rolled back on deadlock)
                 conn.execute(
-                    f"UPDATE {test_table} SET data = 'modified_by_1' WHERE id = 1"
+                    f"UPDATE {test_table} SET data = 'modified_by_1' WHERE id = 1",
                 )
 
                 # This lock will cause deadlock with worker2
@@ -473,7 +474,7 @@ class TestDeadlockScenarios:
             try:
                 conn.execute("BEGIN")
                 conn.execute(
-                    f"LOCK TABLE {helper_table} IN EXCLUSIVE MODE"
+                    f"LOCK TABLE {helper_table} IN EXCLUSIVE MODE",
                 )  # Opposite lock order
                 time.sleep(0.2)
 
@@ -531,7 +532,7 @@ class TestDeadlockScenarios:
             )
 
         print(
-            f"✅ Data integrity maintained through deadlock: '{final_data}' preserved"
+            f"✅ Data integrity maintained through deadlock: '{final_data}' preserved",
         )
 
     @pytest.mark.slow
@@ -617,6 +618,6 @@ class TestDeadlockScenarios:
             if deadlock_count is not None:
                 total_deadlock_count += deadlock_count
         print(
-            f"✅ Load deadlock test: {len(successes)} successes, {len(deadlocks)} deadlocks"
+            f"✅ Load deadlock test: {len(successes)} successes, {len(deadlocks)} deadlocks",
         )
         print(f"   Total deadlock detections: {total_deadlock_count}")
