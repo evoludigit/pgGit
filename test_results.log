@@ -1,0 +1,9 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.7, pytest-9.0.2, pluggy-1.6.0
+rootdir: /home/lionel/code/pggit
+configfile: pyproject.toml
+plugins: timeout-2.4.0, hypothesis-6.148.7, xdist-3.8.0, asyncio-1.3.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 0 items
+
+============================ no tests ran in 0.06s =============================

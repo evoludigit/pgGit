@@ -260,7 +260,11 @@ CREATE OR REPLACE FUNCTION pggit.ensure_object_with_branch(
 DECLARE
     v_object_id INTEGER;
     v_parent_id INTEGER;
+    v_schema_name TEXT;
 BEGIN
+    -- Ensure schema_name is not NULL (fallback to 'public')
+    v_schema_name := COALESCE(NULLIF(p_schema_name, ''), 'public');
+
     -- Find parent if specified
     IF p_parent_name IS NOT NULL THEN
         SELECT id INTO v_parent_id
@@ -275,16 +279,21 @@ BEGIN
     SELECT id INTO v_object_id
     FROM pggit.objects
     WHERE object_type = p_object_type
-    AND schema_name = p_schema_name
+    AND schema_name = v_schema_name
     AND object_name = p_object_name
     AND branch_name = p_branch_name;
 
     -- Create if not exists
     IF v_object_id IS NULL THEN
+        -- Final safety check: ensure schema_name is never NULL
+        IF v_schema_name IS NULL THEN
+            v_schema_name := 'public';
+        END IF;
+
         INSERT INTO pggit.objects (
             object_type, schema_name, object_name, parent_id, metadata, branch_name
         ) VALUES (
-            p_object_type, p_schema_name, p_object_name, v_parent_id, p_metadata, p_branch_name
+            p_object_type, v_schema_name, p_object_name, v_parent_id, p_metadata, p_branch_name
         ) RETURNING id INTO v_object_id;
     END IF;
 
