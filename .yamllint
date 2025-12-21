@@ -6,7 +6,7 @@ rules:
   line-length:
     max: 160
   indentation:
-    spaces: any
+    spaces: consistent
   truthy:
     check-keys: false
   brackets: disable
