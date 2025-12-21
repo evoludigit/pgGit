@@ -1,5 +1,14 @@
 # pggit Local LLM Quick Start
 
+> ⚠️ **EXPERIMENTAL FEATURE**
+>
+> This documentation describes features planned for future releases.
+> These features are **NOT available in pgGit v0.1.1**.
+>
+> **Expected availability**: v0.3.0 or later (Q2 2026)
+>
+> Use this documentation for evaluation and feedback purposes only.
+
 Get AI-powered migrations running in 15 minutes
 
 ## 🚀 Zero to AI Migrations
