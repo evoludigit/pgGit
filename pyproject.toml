@@ -1,0 +1,107 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tests.chaos*"]
+
+[project]
+name = "pggit-chaos-tests"
+version = "0.1.1"
+description = "Chaos engineering tests for pgGit PostgreSQL extension"
+authors = [
+    { name = "Lionel Hamayon", email = "lionel.hamayon@evolution-digitale.fr" },
+]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = [
+    "postgresql",
+    "testing",
+    "chaos-engineering",
+    "property-based",
+    "concurrency",
+    "transactions",
+    "database",
+    "pggit",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Database",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+    "Operating System :: OS Independent",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/evoludigit/pgGit"
+Documentation = "https://github.com/evoludigit/pgGit/tree/main/docs"
+Repository = "https://github.com/evoludigit/pgGit"
+Issues = "https://github.com/evoludigit/pgGit/issues"
+Changelog = "https://github.com/evoludigit/pgGit/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+chaos = [
+    "hypothesis>=6.100.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-timeout>=2.2.0",
+    "pytest-xdist>=3.5.0",
+    "pytest-html>=4.1.0",
+    "psycopg>=3.1.0",
+    "psutil>=5.9.0",
+]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q --strict-markers --strict-config"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+markers = [
+    "chaos: mark test as chaos engineering test",
+    "property: mark test as property-based test",
+    "concurrent: mark test as concurrency test",
+    "transaction: mark test as transaction test",
+    "resource: mark test as resource exhaustion test",
+    "corruption: mark test as corruption test",
+    "recovery: mark test as recovery procedure test",
+    "migration: mark test as migration test",
+    "load: mark test as load/stress test",
+    "slow: mark test as slow (>30s)",
+    "destructive: mark test as potentially destructive",
+]
+
+[tool.hypothesis]
+max_examples = 100
+deadline = 10000  # 10 seconds per test
+suppress_health_check = ["too_slow"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "C90", "I", "N", "UP", "YTT", "S", "BLE", "FBT", "B", "A", "COM", "C4", "DTZ", "T10", "DJ", "EM", "EXE", "FA", "ISC", "ICN", "G", "INP", "PIE", "T20", "PYI", "PT", "Q", "RSE", "RET", "SLF", "SLOT", "SIM", "TID", "TCH", "INT", "ARG", "PTH", "ERA", "PD", "PGH", "PL", "TRY", "FLY", "NPY", "AIR", "PERF", "FURB", "LOG", "RUF"]
+ignore = ["S101", "S104"]  # Allow assert statements and hardcoded passwords in tests
+
+[tool.ruff.lint.per-file-ignores]
+"tests/chaos/**" = ["S101", "S608", "S311", "S110", "PLR2004", "T201", "BLE001", "TRY300", "PT017", "PERF203", "E722", "F841", "SIM105", "ARG002", "PLC0415", "B011", "G004", "PLR0915", "PT015"]  # Allow additional test-specific patterns in chaos tests
+"scripts/ai/**" = ["T201", "BLE001", "TRY300", "PLR2004"]  # Allow print statements, broad exception handling, try-else patterns, and magic values in AI scripts
+
+[tool.uv]
+dev-dependencies = [
+    "ruff>=0.1.0",
+]

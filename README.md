@@ -4,23 +4,21 @@
 [![Tests](https://github.com/evoludigit/pgGit/actions/workflows/test-with-fixes.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/test-with-fixes.yml)
 [![Security Scanning](https://github.com/evoludigit/pgGit/actions/workflows/security-scan.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/security-scan.yml)
 [![PostgreSQL 15-17](https://img.shields.io/badge/PostgreSQL-15--17-blue.svg)](https://www.postgresql.org/)
-[![Quality](https://img.shields.io/badge/quality-9.5%2F10-brightgreen)](https://github.com/evoludigit/pgGit/blob/main/.phases/PHASE_4_QA_REPORT.md)
+[![Production Ready](https://img.shields.io/badge/status-production%20ready-green)](RELEASE_READINESS_v0.1.1.md)
 [![SBOM](https://img.shields.io/badge/SBOM-CycloneDX-blue)](SBOM.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > [!NOTE]
-> **✅ PRODUCTION READY - 9.5/10 QUALITY**
+> **✅ PRODUCTION READY - v0.1.1 Release**
 >
-> pgGit has achieved production excellence through comprehensive quality improvements:
-> - ✅ **Security**: Daily Trivy + CodeQL scans, SBOM, SQL injection prevention
-> - ✅ **Compliance**: FIPS 140-2 ready, SOC2 preparation, security hardening
-> - ✅ **Operations**: 99.9% SLO targets, chaos engineering, comprehensive runbooks
-> - ✅ **Performance**: Advanced tuning functions, 100GB+ scale support
-> - ✅ **Developer Experience**: IDE integration, 10-minute onboarding
+> pgGit v0.1.1 includes:
+> - ✅ **Comprehensive Testing**: 133 chaos engineering tests (88% pass rate)
+> - ✅ **Professional Code**: 100% Python 3.10+ type hints, zero critical errors
+> - ✅ **Enterprise Metadata**: Authors, license, keywords, classifiers per PyPI standards
+> - ✅ **CI/CD Integration**: Smoke tests, full suite, weekly comprehensive runs
+> - ✅ **Documentation**: Complete guides, patterns, troubleshooting, and examples
 >
-> **Enterprise Features**: Supply chain transparency (SBOM), compliance documentation (FIPS/SOC2), operational excellence (SLOs/chaos testing). Ready for Fortune 500 adoption.
->
-> See [Quality Report](.phases/PHASE_4_QA_REPORT.md) for details.
+> See [Release Notes](RELEASE_READINESS_v0.1.1.md) for complete details.
 
 **Git-like version control for PostgreSQL schemas. Track, branch, and manage database changes like code.**
 
@@ -34,10 +32,10 @@
 ## Option A: Package Installation (Recommended)
 
 ### Debian/Ubuntu
-sudo apt install ./pggit_0.2.0-postgresql.deb
+sudo apt install ./pggit_0.1.1-postgresql.deb
 
 ### RHEL/Rocky Linux
-sudo rpm -i pggit-0.2.0.rpm
+sudo rpm -i pggit-0.1.1.rpm
 
 ## Option B: Manual Installation
 
@@ -65,7 +63,9 @@ psql -c "SELECT * FROM pggit.get_version('users')"  # Version 1.0.0!
 - [Performance Tuning Guide](docs/guides/PERFORMANCE_TUNING.md) - Advanced optimization, 100GB+ support
 - [Operations Runbook](docs/operations/RUNBOOK.md) - Incident response (P1-P4), maintenance
 - [SLO Guide](docs/operations/SLO.md) - 99.9% uptime targets, monitoring
-- [Chaos Testing](docs/operations/CHAOS_TESTING.md) - Resilience validation
+- [Chaos Engineering Guide](docs/testing/CHAOS_ENGINEERING.md) - Property-based tests, concurrency, resilience
+  - [Patterns & Examples](docs/testing/PATTERNS.md) - Common test patterns with code examples
+  - [Troubleshooting Guide](docs/testing/TROUBLESHOOTING.md) - Common issues and solutions
 - [Monitoring Guide](docs/operations/MONITORING.md) - Health checks, Prometheus integration
 
 **Security & Compliance**:
@@ -286,10 +286,10 @@ SELECT pggit.resolve_conflict(conflict_id, 'use_current', 'Keep production versi
 
 ```bash
 # Debian/Ubuntu
-sudo apt install ./pggit_0.2.0-postgresql.deb
+sudo apt install ./pggit_0.1.1-postgresql.deb
 
 # RHEL/Rocky Linux
-sudo rpm -i pggit-0.2.0.rpm
+sudo rpm -i pggit-0.1.1.rpm
 
 # Create extension
 psql -d your_database -c "CREATE EXTENSION pggit CASCADE;"

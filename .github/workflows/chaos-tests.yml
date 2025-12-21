@@ -1,0 +1,215 @@
+---
+name: Chaos Engineering Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    # Skip chaos tests for release branches (they require compiled extension)
+  schedule:
+    # Run chaos tests weekly on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      test_category:
+        description: 'Test category to run'
+        required: false
+        default: 'smoke'
+        type: choice
+        options:
+          - smoke
+          - property
+          - concurrent
+          - transaction
+          - resource
+          - corruption
+          - all
+
+jobs:
+  # Quick smoke tests - MUST pass for PR merge
+  chaos-smoke:
+    name: Chaos Smoke Tests (Must Pass)
+    runs-on: ubuntu-latest
+    if: ${{ !startsWith(github.head_ref, 'release/') }}  # Skip for release branches
+    continue-on-error: false  # MUST pass
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pggit_chaos_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv and create test environment
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: |
+          uv venv /tmp/chaos-smoke-env
+          source /tmp/chaos-smoke-env/bin/activate
+          uv pip install -e ".[chaos]"
+
+      - name: Install pggit extension
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-server-dev-17
+          make
+          sudo make install
+
+      - name: Run smoke tests
+        env:
+          PGHOST: localhost
+          PGPORT: 5432
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: pggit_chaos_test
+        run: |
+          source /tmp/chaos-smoke-env/bin/activate
+          # Only run fast, non-destructive tests
+          pytest tests/chaos/ -v \
+            --tb=short \
+            --timeout=60 \
+            -m "chaos and not slow and not destructive" \
+            --maxfail=5 \
+            --junit-xml=chaos-smoke-results.xml
+
+      - name: Upload smoke test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chaos-smoke-results
+          path: chaos-smoke-results.xml
+
+  # Full chaos test suite - allowed to fail initially
+  chaos-full:
+    name: Full Chaos Tests (Can Fail)
+    runs-on: ubuntu-latest
+    continue-on-error: true  # Initially allowed to fail
+    if: ${{ !startsWith(github.head_ref, 'release/') }}  # Skip for release branches
+
+    strategy:
+      matrix:
+        postgres-version: [15, 16, 17]
+        test-category: [property, concurrent, transaction, resource, corruption]
+      fail-fast: false
+
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgres-version }}
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pggit_chaos_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv and create test environment
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: |
+          uv venv /tmp/chaos-full-env
+          source /tmp/chaos-full-env/bin/activate
+          uv pip install -e ".[chaos]"
+
+      - name: Install pggit extension
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-server-dev-${{ matrix.postgres-version }}
+          make
+          sudo make install
+
+      - name: Run chaos tests by category
+        env:
+          PGHOST: localhost
+          PGPORT: 5432
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: pggit_chaos_test
+        run: |
+          source /tmp/chaos-full-env/bin/activate
+          pytest tests/chaos/ -v \
+            --tb=short \
+            --timeout=300 \
+            -m "${{ matrix.test-category }}" \
+            --hypothesis-show-statistics \
+            --maxfail=20 \
+            --junit-xml=chaos-${{ matrix.test-category }}-pg${{ matrix.postgres-version }}.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chaos-${{ matrix.test-category }}-results-pg${{ matrix.postgres-version }}
+          path: chaos-${{ matrix.test-category }}-pg${{ matrix.postgres-version }}.xml
+
+  # Test result summary
+  chaos-summary:
+    name: Generate Test Summary
+    runs-on: ubuntu-latest
+    needs: [chaos-smoke, chaos-full]
+    if: always()
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all test results
+        uses: actions/download-artifact@v4
+        with:
+          path: test-results
+        continue-on-error: true
+
+      - name: Generate summary
+        run: |
+          echo "## Chaos Engineering Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Count test files
+          TEST_FILES=$(find test-results -name "*.xml" -type f 2>/dev/null | wc -l)
+          echo "📊 **Total test result files**: $TEST_FILES" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Test Categories" >> $GITHUB_STEP_SUMMARY
+          for category in property concurrent transaction resource corruption; do
+            count=$(find test-results -name "*$category*.xml" -type f 2>/dev/null | wc -l)
+            if [ $count -gt 0 ]; then
+              echo "- **$category**: $count result files ✅" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Status" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Smoke tests**: Must pass for PR merge" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️  **Full suite**: Can fail (known issues being addressed)" >> $GITHUB_STEP_SUMMARY

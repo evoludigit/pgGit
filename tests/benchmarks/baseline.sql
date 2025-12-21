@@ -102,7 +102,7 @@ BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '=== Performance Baseline Summary ===';
     RAISE NOTICE 'Date: %', CURRENT_TIMESTAMP;
-    RAISE NOTICE 'pgGit Version: 0.1.0';
+    RAISE NOTICE 'pgGit Version: 0.1.1';
     RAISE NOTICE 'PostgreSQL Version: %', version();
     RAISE NOTICE '';
     RAISE NOTICE 'Run this benchmark periodically to detect performance regressions.';
