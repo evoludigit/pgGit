@@ -120,7 +120,7 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## ⚠️ Version Alignment Issues Found\n\nPlease ensure all version numbers are aligned:\n- **pyproject.toml**: version = "${{ steps.pyproject_version.outputs.version }}"\n- **SQL file**: pggit--${{ steps.sql_version.outputs.version }}.sql\n- **Documentation**: Update all version references\n\n### Files to Check:\n- [ ] pggit--*.sql (should match pyproject.toml version)\n- [ ] docs/API_Reference.md\n- [ ] docs/reference/README.md\n- [ ] docs/benchmarks/BASELINE.md\n- [ ] CHANGELOG.md\n- [ ] Any other documentation with version references`
+              body: "## ⚠️ Version Alignment Issues Found\n\nPlease ensure all version numbers are aligned.\nRun the version check locally to see details."
             })
 
       - name: Print summary
