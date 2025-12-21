@@ -1,3 +1,4 @@
+---
 name: Version Alignment Check
 
 on:
@@ -32,7 +33,8 @@ jobs:
       - name: Extract version from pyproject.toml
         id: pyproject_version
         run: |
-          VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\([^"]*\)"/\1/')
+          VERSION=$(grep '^version = ' pyproject.toml |
+            sed 's/version = "\([^"]*\)"/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Extracted version from pyproject.toml: $VERSION"
 
@@ -46,7 +48,8 @@ jobs:
           fi
 
           # Extract version from SQL filename (e.g., pggit--0.1.1.sql)
-          SQL_VERSION=$(echo "$SQL_FILES" | sed 's/pggit--\([^.]*\.[^.]*\.[^.]*\)\.sql/\1/')
+          SQL_VERSION=$(echo "$SQL_FILES" |
+            sed 's/pggit--\([^.]*\.[^.]*\.[^.]*\)\.sql/\1/')
           echo "version=$SQL_VERSION" >> $GITHUB_OUTPUT
           echo "Extracted version from SQL file: $SQL_VERSION"
           echo "SQL file: $SQL_FILES"
@@ -55,17 +58,17 @@ jobs:
         id: changelog_version
         run: |
           # Check if CHANGELOG.md mentions the version
-          if grep -q "## \[${{ steps.pyproject_version.outputs.version }}\]" CHANGELOG.md; then
-            echo "✓ CHANGELOG.md has entry for v${{ steps.pyproject_version.outputs.version }}"
+          VER="${{ steps.pyproject_version.outputs.version }}"
+          if grep -q "## \[$VER\]" CHANGELOG.md; then
+            echo "✓ CHANGELOG.md has entry for v$VER"
           else
-            echo "⚠️  Warning: CHANGELOG.md may not have an entry for v${{ steps.pyproject_version.outputs.version }}"
+            echo "⚠️  Warning: CHANGELOG.md may not have v$VER"
             echo "See CHANGELOG.md for details"
           fi
 
       - name: Check documentation version references
         run: |
           VERSION="${{ steps.pyproject_version.outputs.version }}"
-          ERRORS=0
 
           echo "Checking documentation for version consistency..."
 
@@ -73,21 +76,23 @@ jobs:
           if grep -q "pgGit v$VERSION" docs/API_Reference.md; then
             echo "✓ docs/API_Reference.md has correct version"
           else
-            echo "⚠️  docs/API_Reference.md may need version update to $VERSION"
+            echo "⚠️  docs/API_Reference.md needs version update to $VERSION"
           fi
 
           # Check reference README
-          if grep -q "\"pggit_version\": \"$VERSION\"" docs/reference/README.md; then
+          if grep -q "\"pggit_version\": \"$VERSION\"" \
+             docs/reference/README.md; then
             echo "✓ docs/reference/README.md has correct version"
           else
-            echo "⚠️  docs/reference/README.md may need version update to $VERSION"
+            echo "⚠️  docs/reference/README.md needs version update to $VERSION"
           fi
 
           # Check benchmarks
-          if grep -q "pgGit Version.*$VERSION" docs/benchmarks/BASELINE.md; then
+          if grep -q "pgGit Version.*$VERSION" \
+             docs/benchmarks/BASELINE.md; then
             echo "✓ docs/benchmarks/BASELINE.md has correct version"
           else
-            echo "⚠️  docs/benchmarks/BASELINE.md may need version update to $VERSION"
+            echo "⚠️  docs/benchmarks/BASELINE.md needs version update to $VERSION"
           fi
 
       - name: Verify version alignment
@@ -101,13 +106,13 @@ jobs:
 
           if [ "$PYPROJECT_VER" != "$SQL_VER" ]; then
             echo ""
-            echo "❌ MISMATCH: pyproject.toml and SQL extension versions differ!"
+            echo "❌ MISMATCH: pyproject.toml and SQL versions differ!"
             echo "   Expected: pggit--$PYPROJECT_VER.sql"
             echo "   Got: pggit--$SQL_VER.sql"
             exit 1
           else
             echo ""
-            echo "✓ All versions are aligned: $PYPROJECT_VER"
+            echo "✓ All versions aligned: $PYPROJECT_VER"
           fi
 
       - name: Comment on PR (if applicable)
@@ -120,7 +125,9 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: "## ⚠️ Version Alignment Issues Found\n\nPlease ensure all version numbers are aligned.\nRun the version check locally to see details."
+              body: "## ⚠️ Version Alignment Issues\n\n" +
+                    "Please ensure all version numbers are aligned.\n" +
+                    "Run the version check locally to see details."
             })
 
       - name: Print summary
@@ -128,4 +135,5 @@ jobs:
         run: |
           echo "✅ All version checks passed!"
           echo "Version: ${{ steps.pyproject_version.outputs.version }}"
-          echo "SQL Extension: pggit--${{ steps.sql_version.outputs.version }}.sql"
+          echo "SQL Extension: " \
+            "pggit--${{ steps.sql_version.outputs.version }}.sql"
