@@ -394,12 +394,11 @@ class TestBranchNamingProperties:
 
         sync_conn.commit()
 
+    @pytest.mark.xfail(
+        reason="High concurrency stress test - table cleanup interference with autouse fixture"
+    )
     def test_high_concurrency_stress_test(self, db_connection_string):
         """Stress test all pggit functions under high concurrency load."""
-        # Disable autouse cleanup for this test to avoid interference
-        import pytest
-
-        pytest.skip("Stress test temporarily disabled - table cleanup interference")
         import threading
         import time
         from concurrent.futures import ThreadPoolExecutor, as_completed

@@ -31,6 +31,7 @@ def pytest_configure(config):
         "destructive: mark test as potentially destructive",
     )
     config.addinivalue_line("markers", "property: mark test as property-based test")
+    config.addinivalue_line("markers", "performance: mark test as performance test")
 
 
 def function_exists(db_connection_string: str, function_name: str) -> bool:

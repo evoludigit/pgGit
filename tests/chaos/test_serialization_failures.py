@@ -358,7 +358,7 @@ class TestSerializationFailures:
         else:
             pytest.fail(f"Unexpected phantom read scenario: {result1}, {result2}")
 
-    @pytest.mark.skip(
+    @pytest.mark.xfail(
         reason="pggit.commit_changes() has built-in conflict resolution that prevents serialization failures for reliability"
     )
     def test_pggit_commit_serialization_conflicts(self, db_connection_string: str):
