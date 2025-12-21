@@ -5,9 +5,10 @@ These tests validate that schema migrations behave correctly under various
 conditions, including idempotency and schema hash consistency.
 """
 
-import pytest
-from hypothesis import given, strategies as st, assume, settings, HealthCheck
 import psycopg
+import pytest
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
 from tests.chaos.strategies import table_definition
 
@@ -25,7 +26,7 @@ class TestMigrationIdempotency:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
     def test_apply_migration_twice_is_safe(
-        self, sync_conn: psycopg.Connection, tbl_def: dict
+        self, sync_conn: psycopg.Connection, tbl_def: dict,
     ):
         """Property: Applying the same migration twice should be idempotent."""
         try:
@@ -80,7 +81,7 @@ class TestMigrationIdempotency:
                 # Expected to fail initially - migration functions may not exist
                 if "IF NOT EXISTS" in str(e):
                     pytest.skip(
-                        "IF NOT EXISTS not supported in this PostgreSQL version"
+                        "IF NOT EXISTS not supported in this PostgreSQL version",
                     )
                 else:
                     pytest.skip("Migration functionality not implemented yet")
@@ -100,7 +101,7 @@ class TestMigrationIdempotency:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
     def test_schema_hash_changes_on_modification(
-        self, sync_conn: psycopg.Connection, tbl_def: dict
+        self, sync_conn: psycopg.Connection, tbl_def: dict,
     ):
         """Property: Schema hash changes when table is modified."""
         import uuid
@@ -108,7 +109,7 @@ class TestMigrationIdempotency:
         # Use unique table name to avoid collisions
         table_name = f"{tbl_def['name']}_{uuid.uuid4().hex[:8]}"
         create_sql = tbl_def["create_sql"].replace(
-            f"CREATE TABLE {tbl_def['name']}", f"CREATE TABLE {table_name}"
+            f"CREATE TABLE {tbl_def['name']}", f"CREATE TABLE {table_name}",
         )
         sync_conn.execute(create_sql)
         sync_conn.commit()
@@ -116,19 +117,19 @@ class TestMigrationIdempotency:
         try:
             # Get initial schema hash
             cursor1 = sync_conn.execute(
-                "SELECT pggit.calculate_schema_hash(%s)", (table_name,)
+                "SELECT pggit.calculate_schema_hash(%s)", (table_name,),
             )
             hash1 = cursor1.fetchone()["calculate_schema_hash"]
 
             # Modify table
             sync_conn.execute(
-                f"ALTER TABLE {table_name} ADD COLUMN new_col_property TEXT"
+                f"ALTER TABLE {table_name} ADD COLUMN new_col_property TEXT",
             )
             sync_conn.commit()
 
             # Get new schema hash
             cursor2 = sync_conn.execute(
-                "SELECT pggit.calculate_schema_hash(%s)", (table_name,)
+                "SELECT pggit.calculate_schema_hash(%s)", (table_name,),
             )
             hash2 = cursor2.fetchone()["calculate_schema_hash"]
 
@@ -146,7 +147,7 @@ class TestMigrationIdempotency:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
     def test_schema_hash_consistent_for_same_schema(
-        self, sync_conn: psycopg.Connection, tbl_def: dict
+        self, sync_conn: psycopg.Connection, tbl_def: dict,
     ):
         """Property: Schema hash is consistent for identical schemas."""
         try:
@@ -163,12 +164,12 @@ class TestMigrationIdempotency:
             try:
                 # Get schema hash twice
                 cursor1 = sync_conn.execute(
-                    "SELECT pggit.calculate_schema_hash(%s)", (tbl_def["name"],)
+                    "SELECT pggit.calculate_schema_hash(%s)", (tbl_def["name"],),
                 )
                 hash1 = cursor1.fetchone()["calculate_schema_hash"]
 
                 cursor2 = sync_conn.execute(
-                    "SELECT pggit.calculate_schema_hash(%s)", (tbl_def["name"],)
+                    "SELECT pggit.calculate_schema_hash(%s)", (tbl_def["name"],),
                 )
                 hash2 = cursor2.fetchone()["calculate_schema_hash"]
 
@@ -203,7 +204,7 @@ class TestMigrationRollbackProperties:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
     def test_rollback_restores_original_state(
-        self, sync_conn: psycopg.Connection, tbl_def: dict
+        self, sync_conn: psycopg.Connection, tbl_def: dict,
     ):
         """Property: Rolling back a migration restores original state."""
         try:
@@ -220,19 +221,19 @@ class TestMigrationRollbackProperties:
             try:
                 # Get initial schema hash
                 cursor1 = sync_conn.execute(
-                    "SELECT pggit.calculate_schema_hash(%s)", (tbl_def["name"],)
+                    "SELECT pggit.calculate_schema_hash(%s)", (tbl_def["name"],),
                 )
                 original_hash = cursor1.fetchone()["calculate_schema_hash"]
 
                 # Start transaction and apply migration
                 sync_conn.execute("BEGIN")
                 sync_conn.execute(
-                    f"ALTER TABLE {tbl_def['name']} ADD COLUMN temp_col_migration TEXT"
+                    f"ALTER TABLE {tbl_def['name']} ADD COLUMN temp_col_migration TEXT",
                 )
 
                 # Get hash during transaction
                 cursor2 = sync_conn.execute(
-                    "SELECT pggit.calculate_schema_hash(%s)", (tbl_def["name"],)
+                    "SELECT pggit.calculate_schema_hash(%s)", (tbl_def["name"],),
                 )
                 modified_hash = cursor2.fetchone()["calculate_schema_hash"]
 
@@ -246,7 +247,7 @@ class TestMigrationRollbackProperties:
 
                 # Get hash after rollback
                 cursor3 = sync_conn.execute(
-                    "SELECT pggit.calculate_schema_hash(%s)", (tbl_def["name"],)
+                    "SELECT pggit.calculate_schema_hash(%s)", (tbl_def["name"],),
                 )
                 rollback_hash = cursor3.fetchone()["calculate_schema_hash"]
 
@@ -275,14 +276,14 @@ class TestMigrationValidationProperties:
     """Property-based tests for migration validation."""
 
     @pytest.mark.xfail(
-        reason="Skipping randomly generated SQL for safety - only safe ALTER TABLE patterns tested"
+        reason="Skipping randomly generated SQL for safety - only safe ALTER TABLE patterns tested",
     )
     @given(
         st.text(
             alphabet=st.characters(min_codepoint=32, max_codepoint=126),
             min_size=10,
             max_size=200,
-        )
+        ),
     )
     @settings(
         max_examples=20,
@@ -290,7 +291,7 @@ class TestMigrationValidationProperties:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
     def test_migration_sql_validation(
-        self, sync_conn: psycopg.Connection, migration_sql: str
+        self, sync_conn: psycopg.Connection, migration_sql: str,
     ):
         """Property: Migration SQL should either succeed or fail with clear error."""
         # Create a test table first
@@ -349,7 +350,7 @@ class TestSchemaEvolutionProperties:
     """Property-based tests for schema evolution."""
 
     @given(
-        st.integers(min_value=1, max_value=5)  # Number of evolution steps
+        st.integers(min_value=1, max_value=5),  # Number of evolution steps
     )
     @settings(
         max_examples=20,
@@ -357,7 +358,7 @@ class TestSchemaEvolutionProperties:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
     def test_schema_evolution_maintains_integrity(
-        self, sync_conn: psycopg.Connection, evolution_steps: int
+        self, sync_conn: psycopg.Connection, evolution_steps: int,
     ):
         """Property: Schema evolution maintains data integrity."""
         try:
@@ -384,7 +385,7 @@ class TestSchemaEvolutionProperties:
             try:
                 # Insert initial data
                 sync_conn.execute(
-                    "INSERT INTO evolution_test (data) VALUES (%s)", ("initial_data",)
+                    "INSERT INTO evolution_test (data) VALUES (%s)", ("initial_data",),
                 )
                 sync_conn.commit()
 
@@ -394,17 +395,17 @@ class TestSchemaEvolutionProperties:
                         if step % 3 == 0:
                             # Add column
                             sync_conn.execute(
-                                f"ALTER TABLE evolution_test ADD COLUMN col_{step} TEXT"
+                                f"ALTER TABLE evolution_test ADD COLUMN col_{step} TEXT",
                             )
                         elif step % 3 == 1:
                             # Add index
                             sync_conn.execute(
-                                f"CREATE INDEX idx_evolution_{step} ON evolution_test (id)"
+                                f"CREATE INDEX idx_evolution_{step} ON evolution_test (id)",
                             )
                         else:
                             # Add constraint
                             sync_conn.execute(
-                                f"ALTER TABLE evolution_test ADD CONSTRAINT chk_{step} CHECK (length(data) > 0)"
+                                f"ALTER TABLE evolution_test ADD CONSTRAINT chk_{step} CHECK (length(data) > 0)",
                             )
                         sync_conn.commit()
                     except psycopg.Error:

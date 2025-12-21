@@ -5,9 +5,10 @@ These tests validate that pggit handles memory-intensive operations efficiently,
 including large table schemas, large commit messages, and high-scale Trinity ID generation.
 """
 
-import pytest
-import psycopg
 import uuid
+
+import psycopg
+import pytest
 
 
 @pytest.mark.chaos

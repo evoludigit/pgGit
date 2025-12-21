@@ -5,8 +5,9 @@ These strategies generate valid inputs for property-based testing of pggit funct
 including PostgreSQL identifiers, table definitions, Git-like branch names, and data.
 """
 
-from hypothesis import strategies as st, assume
 import string
+
+from hypothesis import strategies as st
 
 # Valid PostgreSQL identifier characters
 PG_IDENTIFIER_START = string.ascii_lowercase + "_"
@@ -109,7 +110,7 @@ pg_identifier = (
             "event",
             "publication",
             "subscription",
-        }
+        },
     )
 )
 
@@ -208,7 +209,7 @@ column_definition = st.builds(
             "from",
             "into",
             "values",
-        }
+        },
     ),
     st.sampled_from(
         [
@@ -221,10 +222,10 @@ column_definition = st.builds(
             "DATE",
             "NUMERIC(10,2)",
             "SERIAL",
-        ]
+        ],
     ),
     st.sampled_from(
-        ["", "NOT NULL", "UNIQUE"]  # Remove problematic defaults for now
+        ["", "NOT NULL", "UNIQUE"],  # Remove problematic defaults for now
     ),
 )
 
@@ -327,7 +328,7 @@ def table_definition(draw):
     # Add primary key sometimes
     if draw(st.booleans()) and len(columns) > 0:
         pk_name = draw(
-            pg_identifier.filter(lambda x: len(x) <= 20 and x not in column_names)
+            pg_identifier.filter(lambda x: len(x) <= 20 and x not in column_names),
         )
         columns.insert(0, f"{pk_name} SERIAL PRIMARY KEY")
 
@@ -370,7 +371,7 @@ pg_branch_name = st.builds(
     lambda start, rest: start + rest,
     st.sampled_from(string.ascii_lowercase + "_"),
     st.text(
-        alphabet=string.ascii_lowercase + string.digits + "_", min_size=0, max_size=20
+        alphabet=string.ascii_lowercase + string.digits + "_", min_size=0, max_size=20,
     ),
 ).filter(lambda x: 1 <= len(x) <= 63)
 
@@ -378,7 +379,7 @@ pg_branch_name = st.builds(
 commit_message = st.builds(
     lambda subject, body: f"{subject}\n\n{body}" if body else subject,
     st.text(
-        alphabet=string.ascii_letters + string.digits + " _-.", min_size=10, max_size=72
+        alphabet=string.ascii_letters + string.digits + " _-.", min_size=10, max_size=72,
     ),
     st.one_of(st.none(), st.text(min_size=10, max_size=200)),
 ).filter(lambda x: x is not None and "\x00" not in x)

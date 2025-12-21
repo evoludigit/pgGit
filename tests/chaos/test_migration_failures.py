@@ -5,8 +5,8 @@ These tests validate that migration failures are handled gracefully,
 including syntax errors, partial application, and rollback correctness.
 """
 
-import pytest
 import psycopg
+import pytest
 
 
 @pytest.mark.chaos

@@ -5,8 +5,8 @@ These tests simulate and validate behavior when disk space is exhausted or runni
 Most tests are marked as skip/destructive because they require special test environment setup.
 """
 
-import pytest
 import psycopg
+import pytest
 
 
 @pytest.mark.chaos

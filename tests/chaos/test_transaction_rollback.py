@@ -6,9 +6,8 @@ rollbacks, ensuring no partial commits or orphaned data occur when errors
 happen during complex operations.
 """
 
-import pytest
 import psycopg
-from psycopg.rows import dict_row
+import pytest
 
 
 @pytest.mark.chaos
@@ -102,7 +101,7 @@ class TestTransactionRollback:
         try:
             sync_conn.execute(
                 "INSERT INTO pggit_rollback_test (value) VALUES (%s)",
-                (42,)
+                (42,),
             )
             sync_conn.commit()
         except psycopg.Error as e:
@@ -116,7 +115,7 @@ class TestTransactionRollback:
             # Modify data
             sync_conn.execute(
                 "UPDATE pggit_rollback_test SET value = %s WHERE id = 1",
-                (100,)
+                (100,),
             )
 
             # Try to commit (using unique Trinity ID)
@@ -284,7 +283,7 @@ class TestTransactionRollback:
         try:
             sync_conn.execute(
                 "INSERT INTO insert_rollback_test (data) VALUES (%s)",
-                ("initial_data",)
+                ("initial_data",),
             )
             sync_conn.commit()
         except psycopg.Error as e:
@@ -302,13 +301,13 @@ class TestTransactionRollback:
             # Insert first row (will commit)
             sync_conn.execute(
                 "INSERT INTO insert_rollback_test (data) VALUES (%s)",
-                ("row_1",)
+                ("row_1",),
             )
 
             # Insert second row (will commit)
             sync_conn.execute(
                 "INSERT INTO insert_rollback_test (data) VALUES (%s)",
-                ("row_2",)
+                ("row_2",),
             )
 
             # Cause error

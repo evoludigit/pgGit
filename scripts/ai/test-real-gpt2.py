@@ -4,10 +4,11 @@ Real AI Migration Analysis using GPT-2 (124M parameters)
 Fixed version with proper imports and error handling
 """
 
-import psycopg
 import json
-import time
 import re
+import time
+
+import psycopg
 import torch
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 
@@ -42,7 +43,7 @@ This migration does:"""
 
         # Tokenize and generate
         inputs = tokenizer.encode(
-            prompt, return_tensors="pt", max_length=200, truncation=True
+            prompt, return_tensors="pt", max_length=200, truncation=True,
         )
 
         with torch.no_grad():
@@ -167,7 +168,7 @@ def test_real_ai_migrations():
 
     try:
         conn = psycopg.connect(
-            host="localhost", dbname="pggit_test", user="postgres", password="test123"
+            host="localhost", dbname="pggit_test", user="postgres", password="test123",
         )
         cur = conn.cursor()
 
@@ -206,7 +207,7 @@ def test_real_ai_migrations():
 
             # Real GPT-2 analysis
             ai_result = analyze_migration_with_gpt2(
-                test_case["content"], model, tokenizer
+                test_case["content"], model, tokenizer,
             )
 
             end_time = time.time()
@@ -269,7 +270,7 @@ def test_real_ai_migrations():
 
             print(f"      {status} Intent: {ai_result['intent']}")
             print(
-                f"         Confidence: {ai_result['confidence']:.2f} | Risk: {risk_emoji} {ai_result['risk_level']} | Time: {processing_time}ms"
+                f"         Confidence: {ai_result['confidence']:.2f} | Risk: {risk_emoji} {ai_result['risk_level']} | Time: {processing_time}ms",
             )
             if (
                 ai_result["ai_response"]
@@ -286,13 +287,13 @@ def test_real_ai_migrations():
         print("\n📊 REAL GPT-2 Analysis Summary:")
         print(f"   Total migrations: {len(results)}")
         print(
-            f"   Average confidence: {sum(r['confidence'] for r in results) / len(results):.1%}"
+            f"   Average confidence: {sum(r['confidence'] for r in results) / len(results):.1%}",
         )
         print(
-            f"   High confidence (≥80%): {sum(1 for r in results if r['confidence'] >= 0.8)}/{len(results)}"
+            f"   High confidence (≥80%): {sum(1 for r in results if r['confidence'] >= 0.8)}/{len(results)}",
         )
         print(
-            f"   Edge cases flagged: {sum(1 for r in results if r['confidence'] < 0.8 or r['risk_level'] in ['HIGH', 'MEDIUM'])}"
+            f"   Edge cases flagged: {sum(1 for r in results if r['confidence'] < 0.8 or r['risk_level'] in ['HIGH', 'MEDIUM'])}",
         )
         print(f"   Total AI processing time: {total_ai_time}ms")
         print(f"   Average per migration: {total_ai_time // len(results)}ms")
