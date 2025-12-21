@@ -6,7 +6,7 @@ including PostgreSQL identifiers, table definitions, Git-like branch names, and 
 """
 
 import string
-from typing import Any, Dict
+from typing import Any
 
 from hypothesis import strategies as st
 
@@ -55,7 +55,6 @@ pg_identifier = (
             "time",
             # Common PostgreSQL reserved keywords
             "to",
-            "from",
             "into",
             "as",
             "on",
@@ -82,8 +81,6 @@ pg_identifier = (
             "ilike",
             "any",
             "some",
-            "all",
-            "exists",
             "true",
             "false",
             # Additional problematic identifiers
@@ -303,7 +300,7 @@ def _validate_table_definition(tbl) -> bool:
 
 # Table definition strategy
 @st.composite
-def table_definition(draw) -> Dict[str, Any]:
+def table_definition(draw) -> dict[str, Any]:
     """Generate complete table definition."""
     # Generate more unique table names to avoid collisions
     base_name = draw(table_name)
@@ -402,7 +399,7 @@ version_increment_type = st.sampled_from(["major", "minor", "patch"])
 
 # Data row strategy (simplified)
 @st.composite
-def data_row(draw, columns=None) -> Dict[str, Any]:
+def data_row(draw, columns=None) -> dict[str, Any]:
     """Generate data row. If columns provided, match their types."""
     if columns is None:
         # Simple case: just generate some basic data

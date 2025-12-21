@@ -248,4 +248,3 @@ class TestCrashRecovery:
         # 2. Use pg_ctl to crash PostgreSQL
         # 3. Wait for recovery
         # 4. Reconnect and verify state
-        pass

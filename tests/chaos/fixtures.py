@@ -7,8 +7,9 @@ including concurrent execution helpers, delay injection, and transaction monitor
 
 import asyncio
 import logging
+from collections.abc import Callable, Generator
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Callable, Generator
+from typing import Any
 
 import psycopg
 import pytest
