@@ -24,14 +24,9 @@ CREATE SCHEMA IF NOT EXISTS test_functions;
 -- Test 1: Basic function tracking
 \echo '  Test 1: Basic function tracking'
 
--- Skip entire test suite if function versioning not available
+-- Assert function versioning is available
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'track_function' AND pronamespace = 'pggit'::regnamespace) THEN
-        RAISE NOTICE 'Function versioning not loaded, skipping all function versioning tests';
-        RETURN;
-    END IF;
-
-    RAISE NOTICE 'Function versioning system available, but detailed tests skipped in CI';
-
+    PERFORM pggit.assert_function_exists('track_function');
+    RAISE NOTICE 'PASS: Function versioning is loaded';
 END $$;

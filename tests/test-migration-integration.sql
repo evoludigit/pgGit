@@ -23,15 +23,10 @@ CREATE SCHEMA test_migrations;
 -- Test 1: Basic migration tracking
 \echo '  Test 1: Basic migration tracking'
 
--- Skip entire test suite if migration integration not available
+-- Assert migration integration is available
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'begin_migration' AND pronamespace = 'pggit'::regnamespace) THEN
-        RAISE NOTICE 'Migration integration not loaded, skipping all migration integration tests';
-        RETURN;
-    END IF;
-
-    RAISE NOTICE 'Migration integration system available, but detailed tests skipped in CI';
-
+    PERFORM pggit.assert_function_exists('begin_migration');
+    RAISE NOTICE 'PASS: Migration integration is loaded';
 END $$;
 

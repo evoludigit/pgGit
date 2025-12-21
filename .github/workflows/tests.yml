@@ -80,17 +80,52 @@ jobs:
         
         # Install base files from install.sql
         echo "Installing core pgGit..."
-        psql -f install.sql || true
+        psql -f install.sql
 
-        # Install performance helpers from Phase 4
+        # Verify installation
+        psql -c "SELECT pggit.version()" || {
+          echo "ERROR: pggit core verification failed"
+          exit 1
+        }
+
+        # Install performance helpers from Phase 4 (optional)
         echo "Installing performance helpers..."
-        psql -f pggit_performance.sql || true
+        if ! psql -f pggit_performance.sql; then
+          echo "WARNING: Performance helpers failed to install (optional)"
+          # Don't exit - performance helpers are optional
+        fi
         
         # Install additional files that might be needed
-        for file in 041_zero_downtime_deployment.sql 050_three_way_merge.sql 051_data_branching_cow.sql 052_performance_monitoring.sql; do
+        # Separate required from optional modules
+        REQUIRED_MODULES=(
+          "041_zero_downtime_deployment.sql"
+          # Any truly required modules
+        )
+
+        OPTIONAL_MODULES=(
+          "050_three_way_merge.sql"
+          "051_data_branching_cow.sql"
+          "052_performance_monitoring.sql"
+        )
+
+        # Install required modules - fail if any fail
+        for file in "${REQUIRED_MODULES[@]}"; do
           if [ -f "$file" ]; then
-            echo "Installing $file..."
-            psql -f "$file" || echo "Warning: $file had errors (may be expected)"
+            echo "Installing required module $file..."
+            psql -f "$file" || {
+              echo "ERROR: Required module $file failed to install"
+              exit 1
+            }
+          fi
+        done
+
+        # Install optional modules - warn but don't fail
+        for file in "${OPTIONAL_MODULES[@]}"; do
+          if [ -f "$file" ]; then
+            echo "Installing optional module $file..."
+            if ! psql -f "$file"; then
+              echo "WARNING: Optional module $file failed to install (skipping tests for this feature)"
+            fi
           fi
         done
         
@@ -486,36 +521,41 @@ jobs:
           exit 1
         fi
 
-    - name: Test deployment mode
+    - name: Test deployment mode (if feature installed)
       env:
         PGPASSWORD: postgres
         PGHOST: localhost
         PGUSER: postgres
         PGDATABASE: pggit_test
       run: |
-        # Quick deployment mode test
         psql << 'EOF'
         DO $$
-        DECLARE
-            deployment_id uuid;
         BEGIN
-            -- Test deployment mode
-            BEGIN
-                deployment_id := pggit.begin_deployment('CI Test Deployment');
-                
-                CREATE TABLE test_deployment_table (id int);
-                ALTER TABLE test_deployment_table ADD COLUMN name text;
-                
-                PERFORM pggit.end_deployment('Test completed');
-                
-                RAISE NOTICE 'Deployment mode test passed';
-            EXCEPTION WHEN OTHERS THEN
-                RAISE NOTICE 'Deployment mode test skipped: %', SQLERRM;
-            END;
+            -- Check if deployment feature is installed
+            IF NOT EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'pggit_deployment') THEN
+                -- Feature not installed - skip this test (exit silently)
+                -- This is OK because it's a feature module that's optional
+                RAISE NOTICE 'INFO: Deployment mode feature not installed - skipping this test';
+            ELSE
+                -- Feature is installed - test it and fail if there's an error
+                -- (No exception handler - let errors propagate)
+                DECLARE
+                    deployment_id uuid;
+                BEGIN
+                    deployment_id := pggit.begin_deployment('CI Test Deployment');
+
+                    CREATE TABLE test_deployment_table (id int);
+                    ALTER TABLE test_deployment_table ADD COLUMN name text;
+
+                    PERFORM pggit.end_deployment('Test completed');
+
+                    RAISE NOTICE 'PASS: Deployment mode test passed';
+                END;
+            END IF;
         END $$;
         EOF
 
-    - name: Test CQRS support
+    - name: Test CQRS support (if feature installed)
       env:
         PGPASSWORD: postgres
         PGHOST: localhost
@@ -525,28 +565,35 @@ jobs:
         # Quick CQRS test
         psql << 'EOF'
         DO $$
-        DECLARE
-            changeset_id uuid;
         BEGIN
-            BEGIN
-                -- Create CQRS schemas
-                CREATE SCHEMA IF NOT EXISTS command;
-                CREATE SCHEMA IF NOT EXISTS query;
-                
-                -- Test CQRS change tracking
-                changeset_id := pggit.track_cqrs_change(
-                    ROW(
-                        ARRAY['CREATE TABLE command.test (id int)'],
-                        ARRAY['CREATE VIEW query.test_view AS SELECT * FROM command.test'],
-                        'Test CQRS change',
-                        '1.0.0'
-                    )::pggit.cqrs_change
-                );
-                
-                RAISE NOTICE 'CQRS test passed';
-            EXCEPTION WHEN OTHERS THEN
-                RAISE NOTICE 'CQRS test skipped: %', SQLERRM;
-            END;
+            -- Check if CQRS feature is installed
+            IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'track_cqrs_change' AND pronamespace = 'pggit'::regnamespace) THEN
+                -- Feature not installed - skip this test (exit silently)
+                -- This is OK because it's a feature module that's optional
+                RAISE NOTICE 'INFO: CQRS feature not installed - skipping this test';
+            ELSE
+                -- Feature is installed - test it and fail if there's an error
+                -- (No exception handler - let errors propagate)
+                DECLARE
+                    changeset_id uuid;
+                BEGIN
+                    -- Create CQRS schemas
+                    CREATE SCHEMA IF NOT EXISTS command;
+                    CREATE SCHEMA IF NOT EXISTS query;
+
+                    -- Test CQRS change tracking
+                    changeset_id := pggit.track_cqrs_change(
+                        ROW(
+                            ARRAY['CREATE TABLE command.test (id int)'],
+                            ARRAY['CREATE VIEW query.test_view AS SELECT * FROM command.test'],
+                            'Test CQRS change',
+                            '1.0.0'
+                        )::pggit.cqrs_change
+                    );
+
+                    RAISE NOTICE 'PASS: CQRS test passed';
+                END;
+            END IF;
         END $$;
         EOF
 

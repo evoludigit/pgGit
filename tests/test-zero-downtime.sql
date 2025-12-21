@@ -16,13 +16,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Skip entire test suite if zero-downtime features not available
+-- Assert zero-downtime features are available
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'start_zero_downtime_deployment' AND pronamespace = 'pggit'::regnamespace) THEN
-        RAISE NOTICE 'Zero-downtime deployment features not loaded, skipping all tests';
-        RETURN;
-    END IF;
-
-    RAISE NOTICE 'Zero-downtime deployment system available, but detailed tests skipped in CI';
+    PERFORM pggit.assert_function_exists('start_zero_downtime_deployment');
+    RAISE NOTICE 'PASS: Zero-downtime deployment features are loaded';
 END $$;

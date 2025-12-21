@@ -16,13 +16,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Skip entire test suite if advanced features not available
+-- Assert advanced features are available
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'record_ai_prediction' AND pronamespace = 'pggit'::regnamespace) THEN
-        RAISE NOTICE 'Advanced features not loaded, skipping all tests';
-        RETURN;
-    END IF;
-
-    RAISE NOTICE 'Advanced features available, but detailed tests skipped in CI';
+    PERFORM pggit.assert_function_exists('record_ai_prediction');
+    RAISE NOTICE 'PASS: Advanced features are loaded';
 END $$;

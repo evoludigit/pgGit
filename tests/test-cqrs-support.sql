@@ -25,23 +25,9 @@ CREATE SCHEMA IF NOT EXISTS query;
 -- Test 1: Basic CQRS change tracking
 \echo '  Test 1: Basic CQRS change tracking'
 
--- Skip entire test suite if CQRS system not available
+-- Assert CQRS system is available
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'track_cqrs_change' AND pronamespace = 'pggit'::regnamespace) THEN
-        RAISE NOTICE 'CQRS system not loaded, skipping all CQRS tests';
-        RETURN;
-    END IF;
-
-    RAISE NOTICE 'CQRS system available, running tests';
-
-    -- Basic functionality test
-    IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'cqrs_change' AND typnamespace = 'pggit'::regnamespace) THEN
-        RAISE NOTICE 'CQRS types available';
-    END IF;
-
-    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'pggit' AND tablename = 'cqrs_changesets') THEN
-        RAISE NOTICE 'CQRS tables available';
-    END IF;
-
+    PERFORM pggit.assert_function_exists('track_cqrs_change');
+    RAISE NOTICE 'PASS: CQRS system available, running tests';
 END $$;

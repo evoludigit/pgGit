@@ -23,15 +23,10 @@ CREATE SCHEMA test_conflicts;
 -- Test 1: Register and resolve merge conflict
 \echo '  Test 1: Register and resolve merge conflict'
 
--- Skip entire test suite if conflict resolution not available
+-- Assert conflict resolution is available
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'register_conflict' AND pronamespace = 'pggit'::regnamespace) THEN
-        RAISE NOTICE 'Conflict resolution not loaded, skipping all conflict resolution tests';
-        RETURN;
-    END IF;
-
-    RAISE NOTICE 'Conflict resolution system available, but detailed tests skipped in CI';
-
+    PERFORM pggit.assert_function_exists('register_conflict');
+    RAISE NOTICE 'PASS: Conflict resolution is loaded';
 END $$;
 
