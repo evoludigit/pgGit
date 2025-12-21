@@ -127,20 +127,28 @@ BEGIN
     
     -- Version distribution
     RETURN QUERY
+    WITH version_stats AS (
+        SELECT 
+            object_type::text as type_name,
+            AVG(version) as avg_ver,
+            MAX(version) as max_ver,
+            SUM(version - 1) as total_changes
+        FROM pggit.objects
+        WHERE schema_name = p_schema_name
+        AND is_active = true
+        GROUP BY object_type
+    )
     SELECT 
         'version_distribution',
         jsonb_object_agg(
-            object_type::text,
+            type_name,
             jsonb_build_object(
-                'avg_version', AVG(version),
-                'max_version', MAX(version),
-                'total_changes', SUM(version - 1)
+                'avg_version', avg_ver,
+                'max_version', max_ver,
+                'total_changes', total_changes
             )
         )
-    FROM pggit.objects
-    WHERE schema_name = p_schema_name
-    AND is_active = true
-    GROUP BY object_type;
+    FROM version_stats;
     
     -- Recent changes
     RETURN QUERY
@@ -260,7 +268,7 @@ SELECT
     object_name AS table_name,
     version_major || '.' || version_minor || '.' || version_patch AS version,
     updated_at AS last_change,
-    jsonb_object_keys(metadata->'columns')::BIGINT AS column_count
+    COALESCE((SELECT COUNT(*) FROM jsonb_object_keys(metadata->'columns')), 0) AS column_count
 FROM pggit.objects
 WHERE object_type = 'TABLE'
 AND schema_name = p_schema_name
