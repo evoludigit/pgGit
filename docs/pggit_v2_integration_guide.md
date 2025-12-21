@@ -29,11 +29,11 @@ See what objects are in the current (HEAD) version:
 
 ```sql
 -- View all objects in current schema
-SELECT * FROM pggit_v2.get_current_schema();
+SELECT * FROM pggit_v0.get_current_schema();
 
 -- Quick summary
 SELECT object_type, COUNT(*) as count
-FROM pggit_v2.get_current_schema()
+FROM pggit_v0.get_current_schema()
 GROUP BY object_type
 ORDER BY count DESC;
 ```
@@ -44,10 +44,10 @@ ORDER BY count DESC;
 
 ```sql
 -- See schema as it was in a specific commit
-SELECT * FROM pggit_v2.list_objects('a1b2c3d4e5f6...');
+SELECT * FROM pggit_v0.list_objects('a1b2c3d4e5f6...');
 
 -- Same as above, but for HEAD (current)
-SELECT * FROM pggit_v2.list_objects(NULL);
+SELECT * FROM pggit_v0.list_objects(NULL);
 ```
 
 **Use case**: Audit what was in the schema 2 weeks ago, understand historical state.
@@ -58,13 +58,13 @@ Retrieve the exact DDL for any object at any point in history:
 
 ```sql
 -- Get current definition of a table
-SELECT pggit_v2.get_object_definition('public', 'users');
+SELECT pggit_v0.get_object_definition('public', 'users');
 
 -- Get how it looked in a specific commit
-SELECT pggit_v2.get_object_definition('public', 'users', 'a1b2c3d4e5f6...');
+SELECT pggit_v0.get_object_definition('public', 'users', 'a1b2c3d4e5f6...');
 
 -- Use the result to restore or document
-\copy (SELECT pggit_v2.get_object_definition('public', 'users')) TO 'users_table.sql'
+\copy (SELECT pggit_v0.get_object_definition('public', 'users')) TO 'users_table.sql'
 ```
 
 **Use case**: Get exact DDL for documentation, reproduction, or restoration.
@@ -75,11 +75,11 @@ Understand an object's history and current state:
 
 ```sql
 -- Who last changed this function? When? What's its size?
-SELECT * FROM pggit_v2.get_object_metadata('public', 'process_payment');
+SELECT * FROM pggit_v0.get_object_metadata('public', 'process_payment');
 
 -- Track over time
-SELECT *, pggit_v2.get_object_metadata('public', 'orders')
-FROM pggit_v2.get_object_metadata('public', 'orders');
+SELECT *, pggit_v0.get_object_metadata('public', 'orders')
+FROM pggit_v0.get_object_metadata('public', 'orders');
 ```
 
 **Use case**: Compliance reporting, understanding who touched what and when.
@@ -94,21 +94,21 @@ Standard feature branch development for schema changes:
 
 ```sql
 -- 1. Create a feature branch from HEAD
-SELECT pggit_v2.create_branch('feature/add-user-notifications');
+SELECT pggit_v0.create_branch('feature/add-user-notifications');
 -- Returns commit SHA this branch is based on
 
 -- 2. Do your work on this branch (in your own environment/PR)
 -- (In a real system, you'd make changes, test, commit them)
 
 -- 3. See what changed in your branch vs main
-SELECT * FROM pggit_v2.diff_branches('main', 'feature/add-user-notifications');
+SELECT * FROM pggit_v0.diff_branches('main', 'feature/add-user-notifications');
 -- Shows: which tables/functions changed, old vs new definitions
 
 -- 4. Merge when ready (Week 5 feature)
 -- For now, you'd review the diff and approve manually
 
 -- 5. Clean up after merging
-SELECT pggit_v2.delete_branch('feature/add-user-notifications');
+SELECT pggit_v0.delete_branch('feature/add-user-notifications');
 ```
 
 **Timeline**:
@@ -123,13 +123,13 @@ Create stable release branches:
 
 ```sql
 -- Create release branch from current stable state
-SELECT pggit_v2.create_branch('release/v2.1.0');
+SELECT pggit_v0.create_branch('release/v2.1.0');
 
 -- Work on release-specific hotfixes
-SELECT * FROM pggit_v2.diff_branches('release/v2.1.0', 'main');
+SELECT * FROM pggit_v0.diff_branches('release/v2.1.0', 'main');
 
 -- Compare all release branches
-SELECT * FROM pggit_v2.branch_comparison
+SELECT * FROM pggit_v0.branch_comparison
 WHERE branch_name LIKE 'release/%'
 ORDER BY head_commit_time DESC;
 ```
@@ -143,22 +143,22 @@ Quick emergency fixes:
 ```sql
 -- Create hotfix branch from last production commit
 -- (assume 'production' tag points to deployed version)
-SELECT pggit_v2.create_branch(
+SELECT pggit_v0.create_branch(
     'hotfix/critical-index-missing',
-    (SELECT commit_sha FROM pggit_v2.refs WHERE ref_name = 'production' AND ref_type = 'tag')
+    (SELECT commit_sha FROM pggit_v0.refs WHERE ref_name = 'production' AND ref_type = 'tag')
 );
 
 -- Make fix, test thoroughly
 
 -- See exactly what changed
-SELECT * FROM pggit_v2.diff_branches('hotfix/critical-index-missing', 'main');
+SELECT * FROM pggit_v0.diff_branches('hotfix/critical-index-missing', 'main');
 
 -- Deploy and verify
 
 -- Merge back to main (Week 5)
 
 -- Clean up
-SELECT pggit_v2.delete_branch('hotfix/critical-index-missing');
+SELECT pggit_v0.delete_branch('hotfix/critical-index-missing');
 ```
 
 **Timeline**: Minutes for critical fixes.
@@ -169,22 +169,22 @@ Support multiple teams working independently:
 
 ```sql
 -- Team A: Analytics feature
-SELECT pggit_v2.create_branch('feature/analytics-schema');
+SELECT pggit_v0.create_branch('feature/analytics-schema');
 
 -- Team B: Payment system upgrade
-SELECT pggit_v2.create_branch('feature/payment-v3');
+SELECT pggit_v0.create_branch('feature/payment-v3');
 
 -- Team C: Performance optimization
-SELECT pggit_v2.create_branch('feature/query-optimization');
+SELECT pggit_v0.create_branch('feature/query-optimization');
 
 -- Check all active branches
-SELECT * FROM pggit_v2.list_branches()
+SELECT * FROM pggit_v0.list_branches()
 ORDER BY created_at DESC;
 
 -- Track individual progress
-SELECT * FROM pggit_v2.diff_branches('feature/analytics-schema', 'main');
-SELECT * FROM pggit_v2.diff_branches('feature/payment-v3', 'main');
-SELECT * FROM pggit_v2.diff_branches('feature/query-optimization', 'main');
+SELECT * FROM pggit_v0.diff_branches('feature/analytics-schema', 'main');
+SELECT * FROM pggit_v0.diff_branches('feature/payment-v3', 'main');
+SELECT * FROM pggit_v0.diff_branches('feature/query-optimization', 'main');
 ```
 
 **Benefit**: Non-blocking parallel development.
@@ -197,17 +197,17 @@ SELECT * FROM pggit_v2.diff_branches('feature/query-optimization', 'main');
 
 ```sql
 -- See recent commits (last 20)
-SELECT * FROM pggit_v2.get_commit_history();
+SELECT * FROM pggit_v0.get_commit_history();
 
 -- Page through history
-SELECT * FROM pggit_v2.get_commit_history(10, 20);  -- 10 commits, offset 20
+SELECT * FROM pggit_v0.get_commit_history(10, 20);  -- 10 commits, offset 20
 
 -- Find who did what when
 SELECT
     author,
     message,
     committed_at
-FROM pggit_v2.get_commit_history()
+FROM pggit_v0.get_commit_history()
 WHERE message ILIKE '%payment%'
 ORDER BY committed_at DESC;
 ```
@@ -220,10 +220,10 @@ See the history of changes to a specific object:
 
 ```sql
 -- How many times was this table changed?
-SELECT * FROM pggit_v2.get_object_history('public', 'users', 20);
+SELECT * FROM pggit_v0.get_object_history('public', 'users', 20);
 
 -- When was it last modified?
-SELECT * FROM pggit_v2.get_object_history('public', 'users', 1);
+SELECT * FROM pggit_v0.get_object_history('public', 'users', 1);
 
 -- Full audit trail for compliance
 SELECT
@@ -232,7 +232,7 @@ SELECT
     author,
     committed_at,
     message
-FROM pggit_v2.get_object_history('public', 'users', 100)
+FROM pggit_v0.get_object_history('public', 'users', 100)
 ORDER BY committed_at DESC;
 ```
 
@@ -244,10 +244,10 @@ Who's been most active?
 
 ```sql
 -- See developer stats
-SELECT * FROM pggit_v2.recent_commits_by_author;
+SELECT * FROM pggit_v0.recent_commits_by_author;
 
 -- Activity by date
-SELECT * FROM pggit_v2.author_activity
+SELECT * FROM pggit_v0.author_activity
 WHERE author = 'alice@example.com'
 ORDER BY activity_date DESC
 LIMIT 30;
@@ -258,7 +258,7 @@ SELECT
     schemas_touched,
     objects_modified,
     commits
-FROM pggit_v2.author_activity
+FROM pggit_v0.author_activity
 GROUP BY author
 ORDER BY COUNT(*) DESC;
 ```
@@ -272,17 +272,17 @@ Data quality and governance:
 ```sql
 -- Are all commits documented?
 SELECT COUNT(*) as undocumented_commits
-FROM pggit_v2.commits_without_message;
+FROM pggit_v0.commits_without_message;
 
 -- Too many changes in one commit? (refactoring red flag)
-SELECT * FROM pggit_v2.large_commits
+SELECT * FROM pggit_v0.large_commits
 LIMIT 10;
 
 -- Orphaned objects (cleanup opportunities)
-SELECT * FROM pggit_v2.orphaned_objects;
+SELECT * FROM pggit_v0.orphaned_objects;
 
 -- Schema growth (capacity planning)
-SELECT * FROM pggit_v2.schema_growth_history
+SELECT * FROM pggit_v0.schema_growth_history
 LIMIT 30;
 ```
 
@@ -301,10 +301,10 @@ At startup or in healthchecks:
 import psycopg
 
 def get_schema_version():
-    """Get current pggit_v2 HEAD commit SHA"""
+    """Get current pggit_v0 HEAD commit SHA"""
     with psycopg.connect("dbname=myapp") as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT pggit_v2.get_head_sha()")
+            cur.execute("SELECT pggit_v0.get_head_sha()")
             return cur.fetchone()[0]
 
 # Use in app
@@ -321,7 +321,7 @@ After deploying a schema change:
 
 ```sql
 -- Check what changed in this deployment
-SELECT * FROM pggit_v2.diff_commits(
+SELECT * FROM pggit_v0.diff_commits(
     'last_known_good_sha',
     'current_head_sha'
 );
@@ -331,13 +331,13 @@ SELECT
     schema_name,
     object_name,
     object_type
-FROM pggit_v2.get_current_schema()
+FROM pggit_v0.get_current_schema()
 WHERE object_name IN ('new_table_1', 'new_table_2', 'new_function')
 ORDER BY schema_name, object_name;
 
 -- Show summary
 SELECT object_type, COUNT(*) as count
-FROM pggit_v2.get_current_schema()
+FROM pggit_v0.get_current_schema()
 GROUP BY object_type;
 ```
 
@@ -348,17 +348,17 @@ GROUP BY object_type;
 ```sql
 -- Check if any undocumented commits would be deployed
 SELECT COUNT(*) as undocumented
-FROM pggit_v2.get_commit_history()
+FROM pggit_v0.get_commit_history()
 WHERE message IS NULL OR TRIM(message) = ''
 LIMIT 1;
 
 -- Flag large commits (might need extra testing)
 SELECT COUNT(*) as large_commits
-FROM pggit_v2.large_commits;
+FROM pggit_v0.large_commits;
 
 -- Verify no orphaned objects
 SELECT COUNT(*) as orphaned
-FROM pggit_v2.orphaned_objects;
+FROM pggit_v0.orphaned_objects;
 
 -- Only proceed if all checks pass
 -- If any above returns > 0, block deployment
@@ -372,20 +372,20 @@ When something breaks:
 
 ```sql
 -- What was the last good commit?
-SELECT commit_sha FROM pggit_v2.get_commit_history(1)
+SELECT commit_sha FROM pggit_v0.get_commit_history(1)
 WHERE committed_at < '2025-12-20 15:00:00'::timestamp;
 
 -- Show what would be reverted
-SELECT * FROM pggit_v2.diff_commits(
+SELECT * FROM pggit_v0.diff_commits(
     'bad_commit_sha',
     'last_good_commit_sha'
 );
 
 -- In a real system:
 -- 1. Get DDL from last good state
-SELECT pggit_v2.get_object_definition('public', 'users', 'last_good_commit_sha');
+SELECT pggit_v0.get_object_definition('public', 'users', 'last_good_commit_sha');
 -- 2. Apply that DDL to database
--- 3. Update pggit_v2 refs to point to good commit
+-- 3. Update pggit_v0 refs to point to good commit
 ```
 
 **Use case**: Emergency recovery from bad deployments.
@@ -404,7 +404,7 @@ SELECT
     cg.message,
     c.object_schema || '.' || c.object_name as object,
     c.change_type
-FROM pggit_v2.commit_graph cg
+FROM pggit_v0.commit_graph cg
 JOIN pggit_audit.changes c ON c.commit_sha = cg.commit_sha
 WHERE cg.committed_at >= CURRENT_TIMESTAMP - INTERVAL '24 hours'
 ORDER BY cg.committed_at DESC;
@@ -421,7 +421,7 @@ SELECT
     pog.committed_at,
     pog.message,
     poc.change_type
-FROM pggit_v2.get_object_history('public', 'orders') poc
+FROM pggit_v0.get_object_history('public', 'orders') poc
 ORDER BY pog.committed_at DESC;
 
 -- Just the most recent
@@ -429,7 +429,7 @@ SELECT
     author,
     committed_at,
     message
-FROM pggit_v2.get_object_history('public', 'orders', 1);
+FROM pggit_v0.get_object_history('public', 'orders', 1);
 ```
 
 **Output**: Who and when for audit trail.
@@ -443,12 +443,12 @@ SELECT
     COUNT(*) as times_modified
 FROM (
     SELECT DISTINCT object_path, 'branch1' as branch
-    FROM pggit_v2.diff_branches('feature/branch1', 'main')
+    FROM pggit_v0.diff_branches('feature/branch1', 'main')
 
     UNION ALL
 
     SELECT DISTINCT object_path, 'branch2' as branch
-    FROM pggit_v2.diff_branches('feature/branch2', 'main')
+    FROM pggit_v0.diff_branches('feature/branch2', 'main')
 ) changes
 GROUP BY object_path
 HAVING COUNT(*) > 1;  -- Modified in both branches = potential conflict
@@ -492,7 +492,7 @@ SELECT
     change_type,
     author,
     committed_at
-FROM pggit_v2.get_object_history('public', 'users', 1);
+FROM pggit_v0.get_object_history('public', 'users', 1);
 
 -- What else changed in that commit?
 SELECT
@@ -501,7 +501,7 @@ SELECT
 FROM pggit_audit.changes
 WHERE commit_sha = (
     SELECT commit_sha
-    FROM pggit_v2.get_object_history('public', 'users', 1)
+    FROM pggit_v0.get_object_history('public', 'users', 1)
 )
 AND object_name != 'users';
 ```
@@ -512,12 +512,12 @@ AND object_name != 'users';
 
 ## Troubleshooting
 
-### Issue: "Function pggit_v2.get_current_schema() not found"
+### Issue: "Function pggit_v0.get_current_schema() not found"
 
 **Solution**: Load the developer functions first:
 ```sql
--- From pggit_v2_developers.sql
-\i sql/pggit_v2_developers.sql
+-- From pggit_v0_developers.sql
+\i sql/pggit_v0_developers.sql
 ```
 
 ### Issue: "Commit SHA not found"
@@ -526,16 +526,16 @@ AND object_name != 'users';
 ```sql
 -- List valid commits
 SELECT commit_sha, committed_at, message
-FROM pggit_v2.get_commit_history();
+FROM pggit_v0.get_commit_history();
 ```
 
 ### Issue: "Branch already exists"
 
 **Solution**: Delete first or use different name:
 ```sql
-SELECT pggit_v2.delete_branch('feature/existing-name');
+SELECT pggit_v0.delete_branch('feature/existing-name');
 -- OR
-SELECT pggit_v2.create_branch('feature/new-name');
+SELECT pggit_v0.create_branch('feature/new-name');
 ```
 
 ### Issue: "Cannot delete main branch"
@@ -543,7 +543,7 @@ SELECT pggit_v2.create_branch('feature/new-name');
 **Solution**: This is protected. Create different branch or work on a copy:
 ```sql
 -- Create a working branch from main
-SELECT pggit_v2.create_branch('feature/temp-work');
+SELECT pggit_v0.create_branch('feature/temp-work');
 ```
 
 ### Issue: "No data in views"
@@ -571,22 +571,22 @@ SELECT COUNT(*) FROM pggit_audit.changes;
 
 2. **Create Feature Branches**: Never commit directly to main
    ```sql
-   SELECT pggit_v2.create_branch('feature/my-change');
+   SELECT pggit_v0.create_branch('feature/my-change');
    ```
 
 3. **Review Diffs Before Merging**: Understand impact
    ```sql
-   SELECT * FROM pggit_v2.diff_branches('feature/my-change', 'main');
+   SELECT * FROM pggit_v0.diff_branches('feature/my-change', 'main');
    ```
 
 4. **Monitor Large Commits**: Might indicate refactoring that needs testing
    ```sql
-   SELECT * FROM pggit_v2.large_commits;
+   SELECT * FROM pggit_v0.large_commits;
    ```
 
 5. **Regular Cleanup**: Delete merged branches
    ```sql
-   SELECT pggit_v2.delete_branch('feature/completed-work');
+   SELECT pggit_v0.delete_branch('feature/completed-work');
    ```
 
 6. **Document Changes**: Good commit messages help future maintainers

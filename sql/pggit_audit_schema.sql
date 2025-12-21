@@ -2,7 +2,7 @@
 -- pgGit Audit Layer: Compliance and Change Tracking
 -- ============================================
 -- Immutable audit trail for schema changes
--- Extracts DDL history from pggit_v2 commits
+-- Extracts DDL history from pggit_v0 commits
 
 -- Drop existing schema if it exists
 DROP SCHEMA IF EXISTS pggit_audit CASCADE;
@@ -13,10 +13,10 @@ CREATE SCHEMA pggit_audit;
 -- ============================================
 
 -- Table: changes
--- Tracks all DDL changes detected from pggit_v2 commits
+-- Tracks all DDL changes detected from pggit_v0 commits
 CREATE TABLE pggit_audit.changes (
     change_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    commit_sha TEXT NOT NULL,           -- Links to pggit_v2.objects.sha
+    commit_sha TEXT NOT NULL,           -- Links to pggit_v0.objects.sha
     object_schema TEXT NOT NULL,
     object_name TEXT NOT NULL,
     object_type TEXT NOT NULL,          -- TABLE, FUNCTION, VIEW, etc.
@@ -234,8 +234,8 @@ GRANT UPDATE ON pggit_audit.changes TO PUBLIC;
 -- METADATA
 -- ============================================
 
-COMMENT ON SCHEMA pggit_audit IS 'Immutable audit trail extracted from pggit_v2 commits';
-COMMENT ON TABLE pggit_audit.changes IS 'All DDL changes detected from pggit_v2 commits';
+COMMENT ON SCHEMA pggit_audit_v0 IS 'Immutable audit trail extracted from pggit_v0 commits';
+COMMENT ON TABLE pggit_audit.changes IS 'All DDL changes detected from pggit_v0 commits';
 COMMENT ON TABLE pggit_audit.object_versions IS 'Complete version history for each database object';
 COMMENT ON TABLE pggit_audit.compliance_log IS 'Immutable log of compliance verification activities';
 COMMENT ON FUNCTION pggit_audit.verify_change IS 'Mark a change as verified and log compliance activity';
@@ -249,5 +249,5 @@ BEGIN
     RAISE NOTICE 'pgGit Audit Layer initialized successfully';
     RAISE NOTICE 'Schema: pggit_audit created with compliance tables';
     RAISE NOTICE 'Immutability: compliance_log cannot be modified';
-    RAISE NOTICE 'Ready to extract DDL history from pggit_v2';
+    RAISE NOTICE 'Ready to extract DDL history from pggit_v0';
 END $$;

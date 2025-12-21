@@ -1,7 +1,7 @@
 -- ============================================
 -- pgGit v2: Performance Analytics & Monitoring
 -- ============================================
--- Functions for understanding pggit_v2 storage and performance
+-- Functions for understanding pggit_v0 storage and performance
 -- Supports capacity planning, health monitoring, and optimization
 --
 -- Week 5 Deliverable: Analytics functions for:
@@ -14,7 +14,7 @@
 -- ============================================
 
 -- Function: Comprehensive storage analysis
-CREATE OR REPLACE FUNCTION pggit_v2.analyze_storage_usage()
+CREATE OR REPLACE FUNCTION pggit_v0.analyze_storage_usage()
 RETURNS TABLE (
     total_commits BIGINT,
     total_objects BIGINT,
@@ -34,30 +34,30 @@ DECLARE
 BEGIN
     -- Count commits
     SELECT COUNT(*) INTO v_total_commits
-    FROM pggit_v2.commit_graph;
+    FROM pggit_v0.commit_graph;
 
     -- Count unique objects (deduplication benefit)
     SELECT COUNT(*) INTO v_total_objects
-    FROM pggit_v2.objects;
+    FROM pggit_v0.objects;
 
     -- Total size of all objects
     SELECT COALESCE(SUM(size), 0) INTO v_total_size
-    FROM pggit_v2.objects;
+    FROM pggit_v0.objects;
 
     -- Average object size
     SELECT COALESCE(AVG(size), 0)::BIGINT INTO v_avg_size
-    FROM pggit_v2.objects;
+    FROM pggit_v0.objects;
 
     -- Largest object
     SELECT COALESCE(MAX(size), 0) INTO v_largest
-    FROM pggit_v2.objects;
+    FROM pggit_v0.objects;
 
     -- Estimate uncompressed size (if all objects were duplicated per commit)
     -- This is a conservative estimate
     SELECT COALESCE(SUM(size) * COUNT(DISTINCT commit_sha), 0)::BIGINT INTO v_uncompressed_size
-    FROM pggit_v2.tree_entries te
-    JOIN pggit_v2.objects o ON o.sha = te.object_sha
-    CROSS JOIN pggit_v2.commit_graph cg;
+    FROM pggit_v0.tree_entries te
+    JOIN pggit_v0.objects o ON o.sha = te.object_sha
+    CROSS JOIN pggit_v0.commit_graph cg;
 
     -- Calculate deduplication ratio
     v_ratio := CASE
@@ -70,11 +70,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION pggit_v2.analyze_storage_usage() IS
+COMMENT ON FUNCTION pggit_v0.analyze_storage_usage() IS
 'Comprehensive storage analysis: total commits, objects, sizes, and deduplication effectiveness.';
 
 -- Function: Object size distribution histogram
-CREATE OR REPLACE FUNCTION pggit_v2.get_object_size_distribution()
+CREATE OR REPLACE FUNCTION pggit_v0.get_object_size_distribution()
 RETURNS TABLE (
     size_bucket TEXT,
     count BIGINT,
@@ -91,8 +91,8 @@ BEGIN
             ELSE '> 1 MB'
         END as bucket,
         COUNT(*) as count,
-        SUM(size) as total
-    FROM pggit_v2.objects
+        SUM(size)::BIGINT as total
+    FROM pggit_v0.objects
     GROUP BY
         CASE
             WHEN size < 1024 THEN '< 1 KB'
@@ -101,18 +101,11 @@ BEGIN
             WHEN size < 1048576 THEN '100 KB-1 MB'
             ELSE '> 1 MB'
         END
-    ORDER BY
-        CASE
-            WHEN size < 1024 THEN 1
-            WHEN size < 10240 THEN 2
-            WHEN size < 102400 THEN 3
-            WHEN size < 1048576 THEN 4
-            ELSE 5
-        END;
+    ORDER BY bucket;
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION pggit_v2.get_object_size_distribution() IS
+COMMENT ON FUNCTION pggit_v0.get_object_size_distribution() IS
 'Histogram of object sizes: helps identify very large objects that might need optimization.';
 
 -- ============================================
@@ -120,7 +113,7 @@ COMMENT ON FUNCTION pggit_v2.get_object_size_distribution() IS
 -- ============================================
 
 -- Function: Query performance analysis
-CREATE OR REPLACE FUNCTION pggit_v2.analyze_query_performance()
+CREATE OR REPLACE FUNCTION pggit_v0.analyze_query_performance()
 RETURNS TABLE (
     operation TEXT,
     avg_duration INTERVAL,
@@ -145,15 +138,15 @@ BEGIN
     SELECT 'get_commit_history'::TEXT, '2 ms'::INTERVAL, '1 ms'::INTERVAL, '5 ms'::INTERVAL, 200
     UNION ALL
     SELECT 'get_object_history'::TEXT, '3 ms'::INTERVAL, '1 ms'::INTERVAL, '8 ms'::INTERVAL, 150
-    ORDER BY avg_duration DESC;
+    ORDER BY 2 DESC;
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION pggit_v2.analyze_query_performance() IS
+COMMENT ON FUNCTION pggit_v0.analyze_query_performance() IS
 'Estimated performance metrics for common operations. Actual times vary by data size.';
 
 -- Function: Benchmark extraction functions
-CREATE OR REPLACE FUNCTION pggit_v2.benchmark_extraction_functions()
+CREATE OR REPLACE FUNCTION pggit_v0.benchmark_extraction_functions()
 RETURNS TABLE (
     function_name TEXT,
     avg_runtime INTERVAL,
@@ -173,11 +166,11 @@ BEGIN
     SELECT 'diff_trees'::TEXT, '10 ms'::INTERVAL, 50, 'OPTIMIZED'
     UNION ALL
     SELECT 'get_object_definition'::TEXT, '2 ms'::INTERVAL, 200, 'OPTIMIZED'
-    ORDER BY avg_runtime DESC;
+    ORDER BY 2 DESC;
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION pggit_v2.benchmark_extraction_functions() IS
+COMMENT ON FUNCTION pggit_v0.benchmark_extraction_functions() IS
 'Performance benchmarks for extraction functions. Includes sample counts and optimization status.';
 
 -- ============================================
@@ -185,7 +178,7 @@ COMMENT ON FUNCTION pggit_v2.benchmark_extraction_functions() IS
 -- ============================================
 
 -- Function: Validate data integrity
-CREATE OR REPLACE FUNCTION pggit_v2.validate_data_integrity()
+CREATE OR REPLACE FUNCTION pggit_v0.validate_data_integrity()
 RETURNS TABLE (
     check_name TEXT,
     status TEXT,
@@ -204,8 +197,8 @@ BEGIN
             WHEN COUNT(*) = 0 THEN 'All tree entries reference existing objects'::TEXT
             ELSE format('%s orphaned tree entries found', COUNT(*))::TEXT
         END
-    FROM pggit_v2.tree_entries te
-    LEFT JOIN pggit_v2.objects o ON o.sha = te.object_sha
+    FROM pggit_v0.tree_entries te
+    LEFT JOIN pggit_v0.objects o ON o.sha = te.object_sha
     WHERE o.sha IS NULL;
 
     -- Check 2: All commits reference existing trees
@@ -220,8 +213,8 @@ BEGIN
             WHEN COUNT(*) = 0 THEN 'All commits reference existing trees'::TEXT
             ELSE format('%s commits reference missing trees', COUNT(*))::TEXT
         END
-    FROM pggit_v2.commit_graph cg
-    LEFT JOIN pggit_v2.objects o ON o.sha = cg.tree_sha AND o.type = 'tree'
+    FROM pggit_v0.commit_graph cg
+    LEFT JOIN pggit_v0.objects o ON o.sha = cg.tree_sha AND o.type = 'tree'
     WHERE o.sha IS NULL;
 
     -- Check 3: Commit parents exist
@@ -236,8 +229,8 @@ BEGIN
             WHEN COUNT(*) = 0 THEN 'All commit parents reference existing commits'::TEXT
             ELSE format('%s parent references to missing commits', COUNT(*))::TEXT
         END
-    FROM pggit_v2.commit_parents cp
-    LEFT JOIN pggit_v2.commit_graph cg ON cg.commit_sha = cp.parent_sha
+    FROM pggit_v0.commit_parents cp
+    LEFT JOIN pggit_v0.commit_graph cg ON cg.commit_sha = cp.parent_sha
     WHERE cg.commit_sha IS NULL;
 
     -- Check 4: Refs point to existing commits
@@ -252,8 +245,8 @@ BEGIN
             WHEN COUNT(*) = 0 THEN 'All refs point to existing commits'::TEXT
             ELSE format('%s refs point to missing commits', COUNT(*))::TEXT
         END
-    FROM pggit_v2.refs r
-    LEFT JOIN pggit_v2.commit_graph cg ON cg.commit_sha = r.commit_sha
+    FROM pggit_v0.refs r
+    LEFT JOIN pggit_v0.commit_graph cg ON cg.commit_sha = r.target_sha
     WHERE cg.commit_sha IS NULL;
 
     -- Check 5: Audit changes have valid commits
@@ -269,16 +262,16 @@ BEGIN
             ELSE format('%s audit changes reference missing commits', COUNT(*))::TEXT
         END
     FROM pggit_audit.changes c
-    LEFT JOIN pggit_v2.commit_graph cg ON cg.commit_sha = c.commit_sha
+    LEFT JOIN pggit_v0.commit_graph cg ON cg.commit_sha = c.commit_sha
     WHERE cg.commit_sha IS NULL;
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION pggit_v2.validate_data_integrity() IS
+COMMENT ON FUNCTION pggit_v0.validate_data_integrity() IS
 'Comprehensive data integrity checks: validate all references and relationships are consistent.';
 
 -- Function: Detect anomalies
-CREATE OR REPLACE FUNCTION pggit_v2.detect_anomalies()
+CREATE OR REPLACE FUNCTION pggit_v0.detect_anomalies()
 RETURNS TABLE (
     anomaly_type TEXT,
     severity TEXT,
@@ -291,7 +284,7 @@ BEGIN
         'VERY_LARGE_OBJECT'::TEXT,
         'WARNING'::TEXT,
         format('Object %s is %s bytes (> 10 MB)', sha, size)::TEXT
-    FROM pggit_v2.objects
+    FROM pggit_v0.objects
     WHERE size > 10485760  -- 10 MB
     ORDER BY size DESC;
 
@@ -311,20 +304,13 @@ BEGIN
     ) large_commits
     ORDER BY change_count DESC;
 
-    -- Anomaly 3: Objects with no changes tracked
+    -- Anomaly 3: Objects with no changes tracked (simplified)
     RETURN QUERY
     SELECT
         'UNTRACKED_OBJECT'::TEXT,
         'INFO'::TEXT,
-        format('Object at %s has no tracked changes', path)::TEXT
-    FROM pggit_v2.tree_entries te
-    LEFT JOIN pggit_audit.changes c ON c.object_schema || '.' || c.object_name = te.path
-    WHERE c.change_id IS NULL
-    AND te.tree_sha = (
-        SELECT tree_sha FROM pggit_v2.commit_graph
-        ORDER BY committed_at DESC LIMIT 1
-    )
-    LIMIT 20;
+        'Some objects may not have change tracking'::TEXT
+    WHERE (SELECT COUNT(*) FROM pggit_v0.objects) > (SELECT COUNT(*) FROM pggit_audit.changes) * 2;
 
     -- Anomaly 4: Orphaned commits (unreferenced except by parents)
     RETURN QUERY
@@ -332,21 +318,21 @@ BEGIN
         'ORPHANED_COMMIT'::TEXT,
         'WARNING'::TEXT,
         format('Commit %s not referenced by any branch/tag', commit_sha)::TEXT
-    FROM pggit_v2.commit_graph cg
-    LEFT JOIN pggit_v2.refs r ON r.commit_sha = cg.commit_sha
-    WHERE r.ref_name IS NULL
+    FROM pggit_v0.commit_graph cg
+    LEFT JOIN pggit_v0.refs r ON r.target_sha = cg.commit_sha
+    WHERE r.name IS NULL
     AND cg.commit_sha NOT IN (
-        SELECT parent_sha FROM pggit_v2.commit_parents
+        SELECT parent_sha FROM pggit_v0.commit_parents
     )
     AND cg.commit_sha != (
-        SELECT commit_sha FROM pggit_v2.commit_graph
+        SELECT commit_sha FROM pggit_v0.commit_graph
         ORDER BY committed_at DESC LIMIT 1
     )
     LIMIT 10;
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION pggit_v2.detect_anomalies() IS
+COMMENT ON FUNCTION pggit_v0.detect_anomalies() IS
 'Detect operational anomalies: very large objects, large commits, untracked objects, orphaned commits.';
 
 -- ============================================
@@ -354,7 +340,7 @@ COMMENT ON FUNCTION pggit_v2.detect_anomalies() IS
 -- ============================================
 
 -- Function: Estimated growth projection
-CREATE OR REPLACE FUNCTION pggit_v2.estimate_storage_growth()
+CREATE OR REPLACE FUNCTION pggit_v0.estimate_storage_growth()
 RETURNS TABLE (
     period TEXT,
     projected_size_gb NUMERIC,
@@ -362,15 +348,16 @@ RETURNS TABLE (
     growth_trend TEXT
 ) AS $$
 BEGIN
+    RETURN QUERY
     WITH storage_timeline AS (
         SELECT
             DATE_TRUNC('month', committed_at) as month,
             COUNT(DISTINCT commit_sha) as commits,
             COUNT(DISTINCT object_sha) as objects,
             SUM(size) as total_size
-        FROM pggit_v2.commit_graph cg
-        LEFT JOIN pggit_v2.tree_entries te ON te.tree_sha = cg.tree_sha
-        LEFT JOIN pggit_v2.objects o ON o.sha = te.object_sha
+        FROM pggit_v0.commit_graph cg
+        LEFT JOIN pggit_v0.tree_entries te ON te.tree_sha = cg.tree_sha
+        LEFT JOIN pggit_v0.objects o ON o.sha = te.object_sha
         GROUP BY DATE_TRUNC('month', committed_at)
     ),
     growth_metrics AS (
@@ -399,7 +386,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION pggit_v2.estimate_storage_growth() IS
+COMMENT ON FUNCTION pggit_v0.estimate_storage_growth() IS
 'Historical growth trends for capacity planning: monthly storage and object count with growth trend.';
 
 -- ============================================

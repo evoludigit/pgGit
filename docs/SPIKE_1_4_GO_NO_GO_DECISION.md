@@ -26,7 +26,7 @@
 - Implementation: 8-10 hours core + 4-6 hours edge cases
 - Rollback procedures designed
 
-### 3. ✅ **Do we understand pggit_v2?**
+### 3. ✅ **Do we understand pggit_v0?**
 **YES** - Fully analyzed in Spike 1.1
 - Git-like content-addressable storage understood
 - Objects (blobs/trees/commits) format mastered
@@ -67,7 +67,7 @@
 
 ### Alternatives Considered
 
-#### Path B: pggit_v2 Only (No Migration)
+#### Path B: pggit_v0 Only (No Migration)
 - **Pros**: Faster implementation, no production risk
 - **Cons**: Loses existing v1 history, dual maintenance burden
 - **Verdict**: Not recommended - loses compliance value

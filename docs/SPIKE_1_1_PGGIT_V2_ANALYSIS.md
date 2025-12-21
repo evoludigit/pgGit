@@ -1,4 +1,4 @@
-# Spike 1.1: pggit_v2 Data Format Analysis
+# Spike 1.1: pggit_v0 Data Format Analysis
 
 **Date**: December 21, 2025
 **Engineer**: Claude (Spike Analysis)
@@ -6,17 +6,17 @@
 
 ## Executive Summary
 
-pggit_v2 uses a proper Git-like content-addressable storage system with the following key characteristics:
+pggit_v0 uses a proper Git-like content-addressable storage system with the following key characteristics:
 
 - **Content-addressable**: All objects identified by SHA-256 hash of content
 - **Complete snapshots**: Each commit stores full schema snapshot, not incremental changes
 - **Git-compatible format**: Uses Git's object format (blob, tree, commit)
 - **Performance optimized**: Includes commit graph and tree entry caches
 
-## pggit_v2.objects Table Structure
+## pggit_v0.objects Table Structure
 
 ```sql
-CREATE TABLE pggit_v2.objects (
+CREATE TABLE pggit_v0.objects (
     sha TEXT PRIMARY KEY,
     type TEXT NOT NULL CHECK (type IN ('commit', 'tree', 'blob', 'tag')),
     size INTEGER NOT NULL,
@@ -64,14 +64,14 @@ CREATE TABLE pggit_v2.objects (
 
 ## Performance Optimization Structures
 
-### pggit_v2.commit_graph
+### pggit_v0.commit_graph
 - **Purpose**: Fast commit traversal and merge-base calculation
 - **Key fields**:
   - `parent_shas TEXT[]`: Array of parent commit SHAs
   - `generation INTEGER`: Distance from root commit
   - Denormalized author/committer/timestamp data
 
-### pggit_v2.tree_entries
+### pggit_v0.tree_entries
 - **Purpose**: Fast tree comparison without decoding base64
 - **Structure**: `(tree_sha, path, mode, object_sha)`
 - **Enables O(1) tree diffs**
@@ -94,9 +94,9 @@ CREATE TABLE pggit_v2.objects (
 ```sql
 -- Get DDL for specific object at specific commit
 SELECT o.content
-FROM pggit_v2.commit_graph cg
-JOIN pggit_v2.tree_entries te ON te.tree_sha = cg.tree_sha
-JOIN pggit_v2.objects o ON o.sha = te.object_sha
+FROM pggit_v0.commit_graph cg
+JOIN pggit_v0.tree_entries te ON te.tree_sha = cg.tree_sha
+JOIN pggit_v0.objects o ON o.sha = te.object_sha
 WHERE cg.commit_sha = 'f5bcb99dc602c2532f5b17f13eae2c2adb01eb6775d0b2f0e952829372eb5057'
   AND te.path = 'test_schema.test_table';
 ```
@@ -137,7 +137,7 @@ Based on data format understanding:
 -- 2 trees: Tree with original table, tree with modified table
 -- 2 commits: Initial commit, commit with email column addition
 
-SELECT type, COUNT(*) FROM pggit_v2.objects GROUP BY type;
+SELECT type, COUNT(*) FROM pggit_v0.objects GROUP BY type;
 -- blob: 2, tree: 2, commit: 2
 ```
 
@@ -145,9 +145,9 @@ SELECT type, COUNT(*) FROM pggit_v2.objects GROUP BY type;
 
 1. **Spike 1.2**: Build DDL extraction functions using this understanding
 2. **Spike 1.3**: Design backfill algorithm for v1 → v2 conversion
-3. **Fix remaining bugs**: Test all pggit_v2 functions thoroughly
+3. **Fix remaining bugs**: Test all pggit_v0 functions thoroughly
 
 ## Confidence Level
 
-**High confidence** in pggit_v2 data format understanding. The Git-like structure is well-designed and appropriate for schema versioning. The main remaining unknowns are around extraction implementation details and backfill performance.</content>
+**High confidence** in pggit_v0 data format understanding. The Git-like structure is well-designed and appropriate for schema versioning. The main remaining unknowns are around extraction implementation details and backfill performance.</content>
 <parameter name="filePath">SPIKE_1_1_PGGIT_V2_ANALYSIS.md
