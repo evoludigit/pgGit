@@ -52,7 +52,7 @@ class TestMigrationIdempotency:
 
                 # Get column count
                 cursor1 = sync_conn.execute(
-                    f"""
+                    """
                     SELECT COUNT(*)
                     FROM information_schema.columns
                     WHERE table_name = %s
@@ -67,7 +67,7 @@ class TestMigrationIdempotency:
 
                 # Get column count again
                 cursor2 = sync_conn.execute(
-                    f"""
+                    """
                     SELECT COUNT(*)
                     FROM information_schema.columns
                     WHERE table_name = %s

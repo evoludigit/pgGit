@@ -75,8 +75,7 @@ class TestSerializationFailures:
                         "serialization_error": True,
                         "success": False,
                     }
-                else:
-                    return {"worker": worker_id, "error": str(e), "success": False}
+                return {"worker": worker_id, "error": str(e), "success": False}
 
         # Run concurrent updates
         with ThreadPoolExecutor(max_workers=2) as executor:
@@ -137,15 +136,14 @@ class TestSerializationFailures:
                         "success": True,
                     }
 
-                else:
-                    # Writer: Wait a bit, then try to modify
-                    time.sleep(0.1)
-                    conn.execute(
-                        f"UPDATE {table_name} SET data = 'modified' WHERE id = 1",
-                    )
-                    conn.commit()
+                # Writer: Wait a bit, then try to modify
+                time.sleep(0.1)
+                conn.execute(
+                    f"UPDATE {table_name} SET data = 'modified' WHERE id = 1",
+                )
+                conn.commit()
 
-                    return {"worker": worker_id, "action": "write", "success": True}
+                return {"worker": worker_id, "action": "write", "success": True}
 
             except psycopg.Error as e:
                 conn.rollback()
@@ -158,8 +156,7 @@ class TestSerializationFailures:
                         "error": str(e),
                         "success": False,
                     }
-                else:
-                    return {"worker": worker_id, "error": str(e), "success": False}
+                return {"worker": worker_id, "error": str(e), "success": False}
 
         # Run reader and writer
         with ThreadPoolExecutor(max_workers=2) as executor:
@@ -241,8 +238,7 @@ class TestSerializationFailures:
                         "serialization_error": True,
                         "success": False,
                     }
-                else:
-                    return {"worker": worker_id, "error": str(e), "success": False}
+                return {"worker": worker_id, "error": str(e), "success": False}
 
         # Run multiple workers
         num_workers = 5 if isolation_level == "SERIALIZABLE" else 10
@@ -319,15 +315,15 @@ class TestSerializationFailures:
                         "success": True,
                     }
 
-                else:  # worker 2
-                    # Wait a bit, then insert new row
-                    time.sleep(0.1)
+                # worker 2
+                # Wait a bit, then insert new row
+                time.sleep(0.1)
 
-                    conn.execute(f"INSERT INTO {table_name} VALUES (1, 'phantom')")
-                    conn.commit()
-                    conn.close()
+                conn.execute(f"INSERT INTO {table_name} VALUES (1, 'phantom')")
+                conn.commit()
+                conn.close()
 
-                    return {"worker": worker_id, "inserted": True, "success": True}
+                return {"worker": worker_id, "inserted": True, "success": True}
 
             except psycopg.Error as e:
                 conn.rollback()
@@ -339,8 +335,7 @@ class TestSerializationFailures:
                         "serialization_error": True,
                         "success": False,
                     }
-                else:
-                    return {"worker": worker_id, "error": str(e), "success": False}
+                return {"worker": worker_id, "error": str(e), "success": False}
 
         # Run phantom read scenario
         with ThreadPoolExecutor(max_workers=2) as executor:
@@ -426,8 +421,7 @@ class TestSerializationFailures:
                         "serialization_error": True,
                         "success": False,
                     }
-                else:
-                    return {"worker": worker_id, "error": str(e), "success": False}
+                return {"worker": worker_id, "error": str(e), "success": False}
 
         # Run concurrent commits under SERIALIZABLE
         num_workers = 8
@@ -540,14 +534,13 @@ class TestSerializationFailures:
                         "serialization_error": True,
                         "success": False,
                     }
-                elif "unique" in error_msg or "duplicate" in error_msg:
+                if "unique" in error_msg or "duplicate" in error_msg:
                     return {
                         "worker": worker_id,
                         "unique_violation": True,
                         "success": False,
                     }
-                else:
-                    return {"worker": worker_id, "error": str(e), "success": False}
+                return {"worker": worker_id, "error": str(e), "success": False}
 
         # Run concurrent operations under SERIALIZABLE
         num_workers = 6
@@ -567,7 +560,7 @@ class TestSerializationFailures:
         ]
 
         # Log results for debugging
-        print(f"\nDirect serialization test results:")
+        print("\nDirect serialization test results:")
         print(f"  Successes: {len(successes)}")
         print(f"  Serialization errors: {len(serialization_errors)}")
         print(f"  Unique violations: {len(unique_violations)}")
@@ -656,13 +649,12 @@ class TestSerializationFailures:
                         "elapsed": elapsed,
                         "success": False,
                     }
-                else:
-                    return {
-                        "worker": worker_id,
-                        "error": str(e),
-                        "elapsed": elapsed,
-                        "success": False,
-                    }
+                return {
+                    "worker": worker_id,
+                    "error": str(e),
+                    "elapsed": elapsed,
+                    "success": False,
+                }
 
         # Run long-running transactions
         num_workers = 3

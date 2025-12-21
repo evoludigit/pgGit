@@ -44,7 +44,7 @@ class TestDataIntegrity:
 
         # Verify cascade occurred
         cursor = sync_conn.execute(
-            "SELECT COUNT(*) FROM cascade_child WHERE parent_id = 1"
+            "SELECT COUNT(*) FROM cascade_child WHERE parent_id = 1",
         )
         count = cursor.fetchone()["count"]
 
@@ -52,7 +52,7 @@ class TestDataIntegrity:
 
         # Verify other rows unaffected
         cursor = sync_conn.execute(
-            "SELECT COUNT(*) FROM cascade_child WHERE parent_id = 2"
+            "SELECT COUNT(*) FROM cascade_child WHERE parent_id = 2",
         )
         count = cursor.fetchone()["count"]
 
@@ -69,7 +69,7 @@ class TestDataIntegrity:
         print("\n✅ Cascade delete maintains integrity correctly")
 
     def test_data_type_consistency_after_alteration(
-        self, sync_conn: psycopg.Connection
+        self, sync_conn: psycopg.Connection,
     ):
         """
         Test: Data remains consistent when column types are altered.
@@ -132,7 +132,7 @@ class TestDataIntegrity:
         # Try to insert duplicate
         try:
             sync_conn.execute(
-                "INSERT INTO unique_test (unique_code) VALUES ('CODE-001')"
+                "INSERT INTO unique_test (unique_code) VALUES ('CODE-001')",
             )
             sync_conn.commit()
 
@@ -178,14 +178,14 @@ class TestDataIntegrity:
 
         # Insert valid data
         sync_conn.execute(
-            "INSERT INTO not_null_test (required_field) VALUES ('value1')"
+            "INSERT INTO not_null_test (required_field) VALUES ('value1')",
         )
         sync_conn.commit()
 
         # Try to insert NULL
         try:
             sync_conn.execute(
-                "INSERT INTO not_null_test (required_field) VALUES (NULL)"
+                "INSERT INTO not_null_test (required_field) VALUES (NULL)",
             )
             sync_conn.commit()
 

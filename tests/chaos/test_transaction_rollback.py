@@ -279,7 +279,7 @@ class TestTransactionRollback:
         try:
             sync_conn.execute("DROP TABLE IF EXISTS insert_rollback_test CASCADE")
             sync_conn.execute(
-                "CREATE TABLE insert_rollback_test (id SERIAL PRIMARY KEY, data TEXT)"
+                "CREATE TABLE insert_rollback_test (id SERIAL PRIMARY KEY, data TEXT)",
             )
             sync_conn.commit()
         except psycopg.Error:

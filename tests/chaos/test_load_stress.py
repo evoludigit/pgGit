@@ -38,7 +38,7 @@ class TestLoadStress:
 
                 # Execute simple query
                 cursor = conn.execute(
-                    "SELECT %s as worker_id, NOW() as timestamp", (worker_id,)
+                    "SELECT %s as worker_id, NOW() as timestamp", (worker_id,),
                 )
                 result = cursor.fetchone()
 
@@ -80,7 +80,7 @@ class TestLoadStress:
         avg_time = sum(r["elapsed"] for r in results) / len(results) if results else 0
         max_time = max(r["elapsed"] for r in results) if results else 0
 
-        print(f"\n✅ Concurrent connection test results:")
+        print("\n✅ Concurrent connection test results:")
         print(f"   Success rate: {success_rate:.1%} ({len(results)}/{num_workers})")
         print(f"   Average time: {avg_time:.3f}s")
         print(f"   Max time: {max_time:.3f}s")
@@ -117,7 +117,7 @@ class TestLoadStress:
                     successful += 1
                 else:
                     failed += 1
-            except Exception as e:
+            except Exception:
                 failed += 1
 
         elapsed = time.time() - start
@@ -125,7 +125,7 @@ class TestLoadStress:
 
         conn.close()
 
-        print(f"\n✅ Rapid query execution test:")
+        print("\n✅ Rapid query execution test:")
         print(f"   {num_queries} queries in {elapsed:.2f}s")
         print(f"   {queries_per_second:.1f} queries/second")
         print(f"   Successful: {successful}, Failed: {failed}")
@@ -151,7 +151,7 @@ class TestLoadStress:
         iterations_per_batch = 50
 
         print(
-            f"\n📊 Performance stability test (10 batches, {iterations_per_batch} iterations each):"
+            f"\n📊 Performance stability test (10 batches, {iterations_per_batch} iterations each):",
         )
 
         for batch in range(10):
@@ -160,7 +160,7 @@ class TestLoadStress:
             for i in range(iterations_per_batch):
                 try:
                     cursor = conn.execute(
-                        "SELECT %s", (batch * iterations_per_batch + i,)
+                        "SELECT %s", (batch * iterations_per_batch + i,),
                     )
                     cursor.fetchone()
                 except Exception:
@@ -171,7 +171,7 @@ class TestLoadStress:
 
             total_so_far = (batch + 1) * iterations_per_batch
             print(
-                f"   Batch {batch}: {batch_time:.3f}s (total operations: {total_so_far})"
+                f"   Batch {batch}: {batch_time:.3f}s (total operations: {total_so_far})",
             )
 
         conn.close()
@@ -189,7 +189,7 @@ class TestLoadStress:
                 f"Performance degraded too much: {degradation_factor:.2f}x"
             )
 
-        print(f"✅ Performance remained stable throughout test")
+        print("✅ Performance remained stable throughout test")
 
     def test_concurrent_table_creation(self, db_connection_string: str):
         """
@@ -250,7 +250,7 @@ class TestLoadStress:
 
         success_rate = len(results) / num_workers if num_workers > 0 else 0
 
-        print(f"\n✅ Concurrent table creation results:")
+        print("\n✅ Concurrent table creation results:")
         print(f"   Success: {len(results)}/{num_workers}")
         print(f"   Errors: {len(errors)}")
 

@@ -63,8 +63,7 @@ class TestDeadlockScenarios:
                 # Deadlock is expected
                 if "deadlock" in str(e).lower():
                     return {"worker": 1, "deadlock_detected": True, "success": False}
-                else:
-                    return {"worker": 1, "error": str(e), "success": False}
+                return {"worker": 1, "error": str(e), "success": False}
 
         def worker2():
             """Lock B, then A."""
@@ -90,8 +89,7 @@ class TestDeadlockScenarios:
 
                 if "deadlock" in str(e).lower():
                     return {"worker": 2, "deadlock_detected": True, "success": False}
-                else:
-                    return {"worker": 2, "error": str(e), "success": False}
+                return {"worker": 2, "error": str(e), "success": False}
 
         # Run workers concurrently
         with ThreadPoolExecutor(max_workers=2) as executor:
@@ -157,8 +155,7 @@ class TestDeadlockScenarios:
 
                 if "deadlock" in str(e).lower():
                     return {"worker": 1, "deadlock_detected": True, "success": False}
-                else:
-                    return {"worker": 1, "error": str(e), "success": False}
+                return {"worker": 1, "error": str(e), "success": False}
 
         def pggit_worker2():
             conn = psycopg.connect(db_connection_string)
@@ -188,8 +185,7 @@ class TestDeadlockScenarios:
 
                 if "deadlock" in str(e).lower():
                     return {"worker": 2, "deadlock_detected": True, "success": False}
-                else:
-                    return {"worker": 2, "error": str(e), "success": False}
+                return {"worker": 2, "error": str(e), "success": False}
 
         # Run concurrent pggit operations
         with ThreadPoolExecutor(max_workers=2) as executor:
@@ -265,8 +261,7 @@ class TestDeadlockScenarios:
                         "deadlock_detected": True,
                         "success": False,
                     }
-                else:
-                    return {"worker": worker_id, "error": str(e), "success": False}
+                return {"worker": worker_id, "error": str(e), "success": False}
 
         # Run 3 concurrent workers
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -333,13 +328,12 @@ class TestDeadlockScenarios:
                         "time": elapsed,
                         "success": False,
                     }
-                else:
-                    return {
-                        "worker": 1,
-                        "error": str(e),
-                        "time": elapsed,
-                        "success": False,
-                    }
+                return {
+                    "worker": 1,
+                    "error": str(e),
+                    "time": elapsed,
+                    "success": False,
+                }
 
         def timeout_worker2():
             start_time = time.time()
@@ -369,13 +363,12 @@ class TestDeadlockScenarios:
                         "time": elapsed,
                         "success": False,
                     }
-                else:
-                    return {
-                        "worker": 2,
-                        "error": str(e),
-                        "time": elapsed,
-                        "success": False,
-                    }
+                return {
+                    "worker": 2,
+                    "error": str(e),
+                    "time": elapsed,
+                    "success": False,
+                }
 
         # Run with timeout
         with ThreadPoolExecutor(max_workers=2) as executor:
@@ -465,8 +458,7 @@ class TestDeadlockScenarios:
 
                 if "deadlock" in str(e).lower():
                     return {"worker": 1, "deadlock_detected": True, "success": False}
-                else:
-                    return {"worker": 1, "error": str(e), "success": False}
+                return {"worker": 1, "error": str(e), "success": False}
 
         def integrity_worker2():
             conn = psycopg.connect(db_connection_string)
@@ -490,8 +482,7 @@ class TestDeadlockScenarios:
 
                 if "deadlock" in str(e).lower():
                     return {"worker": 2, "deadlock_detected": True, "success": False}
-                else:
-                    return {"worker": 2, "error": str(e), "success": False}
+                return {"worker": 2, "error": str(e), "success": False}
 
         # Run deadlock scenario
         with ThreadPoolExecutor(max_workers=2) as executor:
@@ -585,13 +576,12 @@ class TestDeadlockScenarios:
                         "success": False,
                         "deadlocks": 1,
                     }
-                else:
-                    return {
-                        "worker": worker_id,
-                        "error": str(e),
-                        "success": False,
-                        "deadlocks": 0,
-                    }
+                return {
+                    "worker": worker_id,
+                    "error": str(e),
+                    "success": False,
+                    "deadlocks": 0,
+                }
 
         # Run many concurrent workers
         num_workers = 15

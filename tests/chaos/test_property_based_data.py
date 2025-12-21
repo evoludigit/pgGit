@@ -143,7 +143,7 @@ class TestDataBranchingProperties:
                         (f"value_{i}",),
                     )
                 sync_conn.commit()
-            except psycopg.Error as e:
+            except psycopg.Error:
                 # If insert fails due to constraints, skip this example since the generated
                 # table definition has incompatible types
                 assume(False)  # Tell hypothesis to skip this example
@@ -394,7 +394,7 @@ class TestDataBranchingProperties:
                     (val1, val2),
                 )
                 sync_conn.commit()
-            except psycopg.Error as e:
+            except psycopg.Error:
                 # If insert fails due to constraints, skip this example since the generated
                 # table definition has incompatible types
                 assume(False)  # Tell hypothesis to skip this example

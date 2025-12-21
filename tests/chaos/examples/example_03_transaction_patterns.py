@@ -44,12 +44,12 @@ class TestTransactionAtomicity:
 
             # First insert succeeds
             sync_conn.execute(
-                "INSERT INTO users (email) VALUES (%s)", ("user1@example.com",)
+                "INSERT INTO users (email) VALUES (%s)", ("user1@example.com",),
             )
 
             # Second insert would violate constraint
             sync_conn.execute(
-                "INSERT INTO users (email) VALUES (%s)", ("user1@example.com",)
+                "INSERT INTO users (email) VALUES (%s)", ("user1@example.com",),
             )
 
             # This would commit if we reached it
@@ -86,12 +86,12 @@ class TestTransactionAtomicity:
 
             # First operation: debit from account 1
             sync_conn.execute(
-                "UPDATE accounts SET balance = balance - 100 WHERE id = 1"
+                "UPDATE accounts SET balance = balance - 100 WHERE id = 1",
             )
 
             # Second operation: credit to account 2
             sync_conn.execute(
-                "UPDATE accounts SET balance = balance + 100 WHERE id = 2"
+                "UPDATE accounts SET balance = balance + 100 WHERE id = 2",
             )
 
             # Third operation: record transfer (intentional error)
@@ -107,10 +107,10 @@ class TestTransactionAtomicity:
 
         # Verify BOTH operations rolled back (not just one)
         account1 = sync_conn.execute(
-            "SELECT balance FROM accounts WHERE id = 1"
+            "SELECT balance FROM accounts WHERE id = 1",
         ).fetchone()[0]
         account2 = sync_conn.execute(
-            "SELECT balance FROM accounts WHERE id = 2"
+            "SELECT balance FROM accounts WHERE id = 2",
         ).fetchone()[0]
         transfers = sync_conn.execute("SELECT COUNT(*) FROM transfers").fetchone()[0]
 
@@ -163,7 +163,7 @@ class TestTransactionIsolation:
 
         # In same transaction, we see the change
         new_price = sync_conn.execute(
-            "SELECT price FROM products WHERE id = 1"
+            "SELECT price FROM products WHERE id = 1",
         ).fetchone()[0]
         assert new_price == 200, "Uncommitted changes visible within transaction"
 
@@ -172,7 +172,7 @@ class TestTransactionIsolation:
 
         # After rollback, original value restored
         restored_price = sync_conn.execute(
-            "SELECT price FROM products WHERE id = 1"
+            "SELECT price FROM products WHERE id = 1",
         ).fetchone()[0]
         assert restored_price == 100, "Rollback should restore original value"
 
@@ -290,7 +290,7 @@ class TestConstraintHandling:
 
         # Insert product with valid FK - succeeds
         sync_conn.execute(
-            "INSERT INTO products (name, category_id) VALUES (%s, %s)", ("laptop", 1)
+            "INSERT INTO products (name, category_id) VALUES (%s, %s)", ("laptop", 1),
         )
         sync_conn.commit()
 
@@ -352,6 +352,6 @@ class TestConstraintHandling:
 
         # Verify value unchanged
         balance = sync_conn.execute(
-            "SELECT balance FROM accounts WHERE id = 1"
+            "SELECT balance FROM accounts WHERE id = 1",
         ).fetchone()[0]
         assert balance == 100, "CHECK constraint should prevent negative balance"

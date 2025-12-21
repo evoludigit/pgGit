@@ -564,7 +564,7 @@ class TestConcurrentBranching:
 
                         time.sleep(0.01)
 
-                    except psycopg.Error as e:
+                    except psycopg.Error:
                         # Expected under high contention - rollback and continue
                         conn.rollback()
                         continue
@@ -715,7 +715,7 @@ class TestConcurrentBranching:
             f"Performance may be degraded under concurrent load."
         )
 
-        print(f"\n✅ Performance test results:")
+        print("\n✅ Performance test results:")
         print(f"   Duration: {total_time:.2f}s")
         print(f"   Total operations: {total_operations}")
         print(f"   Successful workers: {len(successes)}")
@@ -809,7 +809,7 @@ class TestConcurrentBranching:
 
                         operations_completed += 1
 
-                    except psycopg.Error as e:
+                    except psycopg.Error:
                         # Expected under mixed workload chaos
                         conn.rollback()
                         errors_encountered += 1
@@ -854,7 +854,7 @@ class TestConcurrentBranching:
             f"Expected >{num_workers * 2} operations under chaos, got {total_operations}"
         )
 
-        print(f"\n✅ Mixed workload chaos test completed:")
+        print("\n✅ Mixed workload chaos test completed:")
         print(
             f"   Workers: {len(successes)}/{num_workers} succeeded ({len(successes) / num_workers * 100:.1f}%)",
         )

@@ -351,7 +351,7 @@ class TestConstraintViolations:
             pass
 
     def test_constraint_violation_in_nested_transaction(
-        self, sync_conn: psycopg.Connection
+        self, sync_conn: psycopg.Connection,
     ):
         """
         Test: Constraint violation in nested transaction rolls back correctly.

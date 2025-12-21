@@ -91,7 +91,7 @@ def deadlock_setup() -> Callable:
     """Set up connections for deadlock testing."""
 
     def create_deadlock_pair(
-        conn1: psycopg.Connection, conn2: psycopg.Connection
+        conn1: psycopg.Connection, conn2: psycopg.Connection,
     ) -> tuple[psycopg.Connection, psycopg.Connection]:
         """Create a deadlock scenario between two connections."""
         # Start transaction on conn1 and lock resource A
@@ -115,7 +115,7 @@ def deadlock_setup() -> Callable:
             conn2.rollback()
         except Exception as e:
             logger.debug(
-                f"Cleanup rollback failed: {e}"
+                f"Cleanup rollback failed: {e}",
             )  # Ignore cleanup errors in tests
 
     return {
@@ -157,7 +157,7 @@ async def async_deadlock_setup():
             await conn2.rollback()
         except Exception as e:
             logger.debug(
-                f"Async cleanup rollback failed: {e}"
+                f"Async cleanup rollback failed: {e}",
             )  # Ignore cleanup errors in tests
 
     return {
@@ -171,7 +171,7 @@ def load_generator(sync_conn: psycopg.Connection) -> dict:
     """Generate database load for stress testing."""
 
     def create_load_tables(
-        num_tables: int = 5, rows_per_table: int = 1000
+        num_tables: int = 5, rows_per_table: int = 1000,
     ) -> list[str]:
         """Create tables with test data for load generation."""
         tables = []
