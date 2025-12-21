@@ -1,5 +1,14 @@
 # AI Integration Architecture for pgGit
 
+> ⚠️ **EXPERIMENTAL FEATURE**
+>
+> This documentation describes features planned for future releases.
+> These features are **NOT available in pgGit v0.1.1**.
+>
+> **Expected availability**: v0.3.0 or later (Q2 2026)
+>
+> Use this documentation for evaluation and feedback purposes only.
+
 **Built-in AI-powered features using GPT-2 neural network**
 
 ## Overview

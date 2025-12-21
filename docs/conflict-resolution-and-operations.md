@@ -1,5 +1,15 @@
 # pgGit Conflict Resolution & Operations
 
+> ⚠️ **PARTIALLY EXPERIMENTAL**
+>
+> Some features in this documentation (advanced merge strategies, conflict auto-resolution)
+> are planned for future releases and are **NOT available in pgGit v0.1.1**.
+>
+> **Implemented in v0.1.1**: Basic conflict detection, manual resolution
+> **Planned for v0.3.0+**: Advanced strategies (recursive, ours, theirs), auto-resolution
+>
+> See each section for feature availability status.
+
 This guide covers pgGit's conflict resolution API and operational commands for maintenance, emergency controls, and system monitoring.
 
 ## Table of Contents
