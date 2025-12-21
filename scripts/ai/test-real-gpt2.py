@@ -4,18 +4,26 @@ Real AI Migration Analysis using GPT-2 (124M parameters)
 Fixed version with proper imports and error handling
 """
 
-import psycopg
 import json
-import time
+import logging
+import os
 import re
+import time
+from typing import Any
+
+import psycopg
 import torch
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 
+# Set up logging
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
 
-def initialize_gpt2():
+
+def initialize_gpt2() -> tuple[Any | None, Any | None]:
     """Initialize GPT-2 model - smallest real AI model"""
     try:
-        print("📥 Loading GPT-2 (124M parameters)...")
+        logger.info("Loading GPT-2 (124M parameters)...")
 
         model_name = "gpt2"  # 124M parameters - smallest GPT-2
         tokenizer = GPT2Tokenizer.from_pretrained(model_name)
@@ -24,14 +32,16 @@ def initialize_gpt2():
         # Add padding token
         tokenizer.pad_token = tokenizer.eos_token
 
-        print("✅ GPT-2 loaded successfully!")
+        logger.info("GPT-2 loaded successfully!")
         return model, tokenizer
     except Exception as e:
-        print(f"❌ Failed to load GPT-2: {e}")
+        logger.error(f"Failed to load GPT-2: {e}")
         return None, None
 
 
-def analyze_migration_with_gpt2(migration_content, model, tokenizer):
+def analyze_migration_with_gpt2(
+    migration_content: str, model: Any, tokenizer: Any,
+) -> dict[str, Any]:
     """Analyze migration using real GPT-2 model"""
     try:
         # Create a focused prompt for SQL analysis
@@ -42,7 +52,10 @@ This migration does:"""
 
         # Tokenize and generate
         inputs = tokenizer.encode(
-            prompt, return_tensors="pt", max_length=200, truncation=True
+            prompt,
+            return_tensors="pt",
+            max_length=200,
+            truncation=True,
         )
 
         with torch.no_grad():
@@ -80,11 +93,11 @@ This migration does:"""
         }
 
     except Exception as e:
-        print(f"GPT-2 analysis failed: {e}")
+        logger.error(f"GPT-2 analysis failed: {e}")
         return fallback_analysis(migration_content)
 
 
-def calculate_confidence(migration_content, ai_response):
+def calculate_confidence(migration_content: str, ai_response: str) -> float:
     """Calculate confidence based on migration complexity and AI response quality"""
     confidence = 0.8  # Base confidence
 
@@ -103,7 +116,7 @@ def calculate_confidence(migration_content, ai_response):
     return max(0.1, min(0.99, confidence))
 
 
-def extract_intent(migration_content, ai_response):
+def extract_intent(migration_content: str, ai_response: str) -> str:
     """Extract intent from migration content and AI response"""
     content_upper = migration_content.upper()
 
@@ -115,33 +128,31 @@ def extract_intent(migration_content, ai_response):
 
     if "CREATE TABLE" in content_upper:
         return f"Create new table{ai_insight}"
-    elif "ALTER TABLE" in content_upper and "ADD COLUMN" in content_upper:
+    if "ALTER TABLE" in content_upper and "ADD COLUMN" in content_upper:
         return f"Add column to table{ai_insight}"
-    elif "CREATE INDEX" in content_upper:
+    if "CREATE INDEX" in content_upper:
         return f"Create performance index{ai_insight}"
-    elif "DROP" in content_upper:
+    if "DROP" in content_upper:
         return f"Remove database object{ai_insight}"
-    elif "UPDATE" in content_upper:
+    if "UPDATE" in content_upper:
         return f"Data modification{ai_insight}"
-    else:
-        return f"Database modification{ai_insight}"
+    return f"Database modification{ai_insight}"
 
 
-def assess_risk(migration_content):
+def assess_risk(migration_content: str) -> str:
     """Assess risk level of migration"""
     content_upper = migration_content.upper()
 
     if "DROP TABLE" in content_upper or "DROP DATABASE" in content_upper:
         return "HIGH"
-    elif "DELETE FROM" in content_upper or "UPDATE" in content_upper:
+    if "DELETE FROM" in content_upper or "UPDATE" in content_upper:
         return "MEDIUM"
-    elif "ALTER TABLE" in content_upper and "DROP COLUMN" in content_upper:
+    if "ALTER TABLE" in content_upper and "DROP COLUMN" in content_upper:
         return "MEDIUM"
-    else:
-        return "LOW"
+    return "LOW"
 
 
-def fallback_analysis(migration_content):
+def fallback_analysis(migration_content: str) -> dict[str, Any]:
     """Fallback analysis if GPT-2 fails"""
     return {
         "intent": extract_intent(migration_content, ""),
@@ -152,7 +163,7 @@ def fallback_analysis(migration_content):
     }
 
 
-def test_real_ai_migrations():
+def test_real_ai_migrations() -> bool:
     """Test real AI migration analysis"""
     print("🤖 Testing REAL GPT-2 AI Migration Analysis")
     print("==========================================")
@@ -167,7 +178,10 @@ def test_real_ai_migrations():
 
     try:
         conn = psycopg.connect(
-            host="localhost", dbname="pggit_test", user="postgres", password="test123"
+            host="localhost",
+            dbname="pggit_test",
+            user="postgres",
+            password=os.getenv("PGPASSWORD", "test123"),
         )
         cur = conn.cursor()
 
@@ -206,7 +220,9 @@ def test_real_ai_migrations():
 
             # Real GPT-2 analysis
             ai_result = analyze_migration_with_gpt2(
-                test_case["content"], model, tokenizer
+                test_case["content"],
+                model,
+                tokenizer,
             )
 
             end_time = time.time()
@@ -269,7 +285,7 @@ def test_real_ai_migrations():
 
             print(f"      {status} Intent: {ai_result['intent']}")
             print(
-                f"         Confidence: {ai_result['confidence']:.2f} | Risk: {risk_emoji} {ai_result['risk_level']} | Time: {processing_time}ms"
+                f"         Confidence: {ai_result['confidence']:.2f} | Risk: {risk_emoji} {ai_result['risk_level']} | Time: {processing_time}ms",
             )
             if (
                 ai_result["ai_response"]
@@ -286,13 +302,13 @@ def test_real_ai_migrations():
         print("\n📊 REAL GPT-2 Analysis Summary:")
         print(f"   Total migrations: {len(results)}")
         print(
-            f"   Average confidence: {sum(r['confidence'] for r in results) / len(results):.1%}"
+            f"   Average confidence: {sum(r['confidence'] for r in results) / len(results):.1%}",
         )
         print(
-            f"   High confidence (≥80%): {sum(1 for r in results if r['confidence'] >= 0.8)}/{len(results)}"
+            f"   High confidence (≥80%): {sum(1 for r in results if r['confidence'] >= 0.8)}/{len(results)}",
         )
         print(
-            f"   Edge cases flagged: {sum(1 for r in results if r['confidence'] < 0.8 or r['risk_level'] in ['HIGH', 'MEDIUM'])}"
+            f"   Edge cases flagged: {sum(1 for r in results if r['confidence'] < 0.8 or r['risk_level'] in ['HIGH', 'MEDIUM'])}",
         )
         print(f"   Total AI processing time: {total_ai_time}ms")
         print(f"   Average per migration: {total_ai_time // len(results)}ms")
@@ -310,7 +326,7 @@ def test_real_ai_migrations():
         return True
 
     except Exception as e:
-        print(f"❌ Test failed: {e}")
+        logger.error(f"Test failed: {e}")
         return False
 
 

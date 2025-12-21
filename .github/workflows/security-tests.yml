@@ -1,0 +1,57 @@
+name: Security Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  schedule:
+    - cron: '0 0 * * 1'  # Weekly on Monday
+
+jobs:
+  sql-injection-tests:
+    name: SQL Injection Prevention Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pggit_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install pgGit
+      env:
+        PGPASSWORD: postgres
+        PGHOST: localhost
+        PGUSER: postgres
+        PGDATABASE: pggit_test
+      run: |
+        psql -f sql/install.sql
+        psql -f sql/pggit_monitoring.sql
+
+    - name: Run SQL injection tests
+      env:
+        PGPASSWORD: postgres
+        PGHOST: localhost
+        PGUSER: postgres
+        PGDATABASE: pggit_test
+      run: |
+        psql -f tests/security/test-sql-injection.sql
+
+        # Verify all tests passed
+        if [ $? -eq 0 ]; then
+          echo "✅ All SQL injection tests passed"
+        else
+          echo "❌ SQL injection tests failed"
+          exit 1
+        fi

@@ -291,7 +291,7 @@ SELECT pggit.generate_contribution_metrics();
 ```json
 {
   "timestamp": "2024-06-15T10:30:00Z",
-  "pggit_version": "0.1.0",
+  "pggit_version": "0.1.1",
   "database_objects": {
     "tables": 245,
     "indexes": 1032,
@@ -402,4 +402,4 @@ SELECT * FROM pggit.generate_cost_optimization_report();
 
 ---
 
-*This reference covers pgGit 0.1.0. Functions and behavior may change in future versions.*
+*This reference covers pgGit 0.1.1. Functions and behavior may change in future versions.*
