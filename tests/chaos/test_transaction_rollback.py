@@ -199,8 +199,10 @@ class TestTransactionRollback:
             """)
             tables = [row["table_name"] for row in cursor.fetchall()]
 
-            assert 'savepoint_test_1' in tables, "Table before savepoint should exist"
-            assert 'savepoint_test_2' not in tables, "Table after savepoint should not exist"
+            assert "savepoint_test_1" in tables, "Table before savepoint should exist"
+            assert "savepoint_test_2" not in tables, (
+                "Table after savepoint should not exist"
+            )
 
         finally:
             # Cleanup
@@ -253,8 +255,10 @@ class TestTransactionRollback:
             """)
             tables = [row["table_name"] for row in cursor.fetchall()]
 
-            assert 'nested_outer' in tables, "Outer transaction table should exist"
-            assert 'nested_inner' not in tables, "Inner transaction table should not exist"
+            assert "nested_outer" in tables, "Outer transaction table should exist"
+            assert "nested_inner" not in tables, (
+                "Inner transaction table should not exist"
+            )
 
         finally:
             # Cleanup
@@ -274,7 +278,9 @@ class TestTransactionRollback:
         # Create test table
         try:
             sync_conn.execute("DROP TABLE IF EXISTS insert_rollback_test CASCADE")
-            sync_conn.execute("CREATE TABLE insert_rollback_test (id SERIAL PRIMARY KEY, data TEXT)")
+            sync_conn.execute(
+                "CREATE TABLE insert_rollback_test (id SERIAL PRIMARY KEY, data TEXT)"
+            )
             sync_conn.commit()
         except psycopg.Error:
             sync_conn.rollback()

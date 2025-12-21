@@ -19,7 +19,9 @@ class TestConcurrentBranching:
 
     @pytest.mark.parametrize("num_branches", [5, 10, 20])
     def test_concurrent_branch_creation(
-        self, db_connection_string: str, num_branches: int,
+        self,
+        db_connection_string: str,
+        num_branches: int,
     ):
         """
         Test: Multiple workers creating different branches simultaneously.
@@ -193,7 +195,8 @@ class TestConcurrentBranching:
             try:
                 # Try to delete branch (this may not be implemented yet)
                 cursor = conn.execute(
-                    "SELECT pggit.delete_branch_simple(%s)", (branch_name,),
+                    "SELECT pggit.delete_branch_simple(%s)",
+                    (branch_name,),
                 )
                 conn.commit()
                 conn.close()
@@ -218,7 +221,8 @@ class TestConcurrentBranching:
 
         # Validation: At most one succeeds (mutual exclusion)
         both_succeeded = commit_result.get("success", False) and delete_result.get(
-            "success", False,
+            "success",
+            False,
         )
         assert not both_succeeded, (
             "Commit and delete should not both succeed (race condition!)"
@@ -228,7 +232,9 @@ class TestConcurrentBranching:
 
     @pytest.mark.parametrize("num_branches", [3, 6, 9])
     def test_concurrent_branch_operations_mixed(
-        self, db_connection_string: str, num_branches: int,
+        self,
+        db_connection_string: str,
+        num_branches: int,
     ):
         """
         Test: Mix of branch creation, commits, and potential conflicts.

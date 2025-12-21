@@ -43,13 +43,17 @@ class TestDataIntegrity:
         sync_conn.commit()
 
         # Verify cascade occurred
-        cursor = sync_conn.execute("SELECT COUNT(*) FROM cascade_child WHERE parent_id = 1")
+        cursor = sync_conn.execute(
+            "SELECT COUNT(*) FROM cascade_child WHERE parent_id = 1"
+        )
         count = cursor.fetchone()["count"]
 
         assert count == 0, "Cascade should delete all child rows with parent_id=1"
 
         # Verify other rows unaffected
-        cursor = sync_conn.execute("SELECT COUNT(*) FROM cascade_child WHERE parent_id = 2")
+        cursor = sync_conn.execute(
+            "SELECT COUNT(*) FROM cascade_child WHERE parent_id = 2"
+        )
         count = cursor.fetchone()["count"]
 
         assert count == 1, "Other parent's children should be unaffected"
@@ -64,7 +68,9 @@ class TestDataIntegrity:
 
         print("\n✅ Cascade delete maintains integrity correctly")
 
-    def test_data_type_consistency_after_alteration(self, sync_conn: psycopg.Connection):
+    def test_data_type_consistency_after_alteration(
+        self, sync_conn: psycopg.Connection
+    ):
         """
         Test: Data remains consistent when column types are altered.
 
@@ -90,8 +96,9 @@ class TestDataIntegrity:
         cursor = sync_conn.execute("SELECT value FROM type_test WHERE id = 1")
         modified_value = cursor.fetchone()["value"]
 
-        assert original_value == modified_value, \
+        assert original_value == modified_value, (
             f"Data should survive type change. Original: {original_value}, After: {modified_value}"
+        )
 
         # Cleanup
         try:
@@ -124,7 +131,9 @@ class TestDataIntegrity:
 
         # Try to insert duplicate
         try:
-            sync_conn.execute("INSERT INTO unique_test (unique_code) VALUES ('CODE-001')")
+            sync_conn.execute(
+                "INSERT INTO unique_test (unique_code) VALUES ('CODE-001')"
+            )
             sync_conn.commit()
 
             pytest.fail("Should prevent duplicate unique values")
@@ -168,12 +177,16 @@ class TestDataIntegrity:
         sync_conn.commit()
 
         # Insert valid data
-        sync_conn.execute("INSERT INTO not_null_test (required_field) VALUES ('value1')")
+        sync_conn.execute(
+            "INSERT INTO not_null_test (required_field) VALUES ('value1')"
+        )
         sync_conn.commit()
 
         # Try to insert NULL
         try:
-            sync_conn.execute("INSERT INTO not_null_test (required_field) VALUES (NULL)")
+            sync_conn.execute(
+                "INSERT INTO not_null_test (required_field) VALUES (NULL)"
+            )
             sync_conn.commit()
 
             pytest.fail("Should prevent NULL in NOT NULL column")
@@ -244,7 +257,9 @@ class TestDataIntegrity:
         )
         invalid_count = cursor.fetchone()["count"]
 
-        assert invalid_count == 0, "No invalid values should exist with CHECK constraint"
+        assert invalid_count == 0, (
+            "No invalid values should exist with CHECK constraint"
+        )
 
         # Cleanup
         try:

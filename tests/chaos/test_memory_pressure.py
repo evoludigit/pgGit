@@ -77,16 +77,26 @@ class TestMemoryPressure:
 
             # If successful, verify message stored
             if result is not None:
-                print(f"\n✅ Commit message ({len(commit_message)} chars) handled successfully")
+                print(
+                    f"\n✅ Commit message ({len(commit_message)} chars) handled successfully"
+                )
 
         except psycopg.Error as e:
             # If it fails, should be due to size limit, not crash
             error_msg = str(e).lower()
-            if "too large" in error_msg or "limit" in error_msg or "exceed" in error_msg:
-                print(f"\n✅ Commit message rejected gracefully (expected size limit): {error_msg[:60]}")
+            if (
+                "too large" in error_msg
+                or "limit" in error_msg
+                or "exceed" in error_msg
+            ):
+                print(
+                    f"\n✅ Commit message rejected gracefully (expected size limit): {error_msg[:60]}"
+                )
             elif "already exists" in error_msg:
                 # Trinity ID collision despite UUID - skip test
-                pytest.skip("Trinity ID collision detected despite UUID (test isolation issue)")
+                pytest.skip(
+                    "Trinity ID collision detected despite UUID (test isolation issue)"
+                )
             else:
                 pytest.fail(f"Unexpected error with commit message: {e}")
 

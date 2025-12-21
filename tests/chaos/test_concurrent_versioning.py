@@ -19,7 +19,9 @@ class TestConcurrentVersioning:
 
     @pytest.mark.parametrize("num_workers", [5, 10, 20])
     def test_concurrent_version_increments(
-        self, db_connection_string: str, num_workers: int,
+        self,
+        db_connection_string: str,
+        num_workers: int,
     ):
         """
         Test: Multiple workers incrementing version simultaneously.
@@ -35,7 +37,8 @@ class TestConcurrentVersioning:
 
         # Get initial version
         cursor = setup_conn.execute(
-            "SELECT * FROM pggit.get_version(%s)", (table_name,),
+            "SELECT * FROM pggit.get_version(%s)",
+            (table_name,),
         )
         initial_version = cursor.fetchone()
         setup_conn.close()
@@ -54,7 +57,8 @@ class TestConcurrentVersioning:
 
                 # Get version after change
                 cursor = conn.execute(
-                    "SELECT * FROM pggit.get_version(%s)", (table_name,),
+                    "SELECT * FROM pggit.get_version(%s)",
+                    (table_name,),
                 )
                 new_version = cursor.fetchone()
                 conn.close()
@@ -97,7 +101,8 @@ class TestConcurrentVersioning:
         if successes:
             final_conn = psycopg.connect(db_connection_string, row_factory=dict_row)
             cursor = final_conn.execute(
-                "SELECT * FROM pggit.get_version(%s)", (table_name,),
+                "SELECT * FROM pggit.get_version(%s)",
+                (table_name,),
             )
             actual_final_version = cursor.fetchone()
             final_conn.close()
@@ -134,7 +139,8 @@ class TestConcurrentVersioning:
             for _ in range(10):
                 try:
                     cursor = conn.execute(
-                        "SELECT * FROM pggit.get_version(%s)", (table_name,),
+                        "SELECT * FROM pggit.get_version(%s)",
+                        (table_name,),
                     )
                     version = cursor.fetchone()
                     if version:
@@ -199,7 +205,9 @@ class TestConcurrentVersioning:
 
     @pytest.mark.parametrize("version_type", ["major", "minor", "patch"])
     def test_concurrent_explicit_version_increments(
-        self, db_connection_string: str, version_type: str,
+        self,
+        db_connection_string: str,
+        version_type: str,
     ):
         """
         Test concurrent explicit version increments using increment_version function.
@@ -215,7 +223,8 @@ class TestConcurrentVersioning:
 
         # Get initial version
         cursor = setup_conn.execute(
-            "SELECT * FROM pggit.get_version(%s)", (table_name,),
+            "SELECT * FROM pggit.get_version(%s)",
+            (table_name,),
         )
         initial = cursor.fetchone()
         setup_conn.close()
@@ -325,7 +334,8 @@ class TestConcurrentVersioning:
 
         # Get initial version
         cursor = setup_conn.execute(
-            "SELECT * FROM pggit.get_version(%s)", (table_name,),
+            "SELECT * FROM pggit.get_version(%s)",
+            (table_name,),
         )
         initial_version = cursor.fetchone()
         setup_conn.close()
@@ -369,7 +379,8 @@ class TestConcurrentVersioning:
         # Verify version didn't change
         final_conn = psycopg.connect(db_connection_string, row_factory=dict_row)
         cursor = final_conn.execute(
-            "SELECT * FROM pggit.get_version(%s)", (table_name,),
+            "SELECT * FROM pggit.get_version(%s)",
+            (table_name,),
         )
         final_version = cursor.fetchone()
         final_conn.close()
@@ -415,7 +426,8 @@ class TestConcurrentVersioning:
 
                         # Read version
                         cursor = conn.execute(
-                            "SELECT * FROM pggit.get_version(%s)", (table_name,),
+                            "SELECT * FROM pggit.get_version(%s)",
+                            (table_name,),
                         )
                         version = cursor.fetchone()
                         results.append(version)
@@ -459,7 +471,8 @@ class TestConcurrentVersioning:
 
         # Versions should be monotonically increasing (at least not decreasing)
         sorted_versions = sorted(
-            valid_versions, key=lambda v: (v["major"], v["minor"], v["patch"]),
+            valid_versions,
+            key=lambda v: (v["major"], v["minor"], v["patch"]),
         )
         # The highest version should be at the end
         assert sorted_versions[-1]["major"] >= sorted_versions[0]["major"], (

@@ -5,6 +5,7 @@ Fixed version with proper imports and error handling
 """
 
 import json
+import logging
 import os
 import re
 import time
@@ -14,11 +15,15 @@ import psycopg
 import torch
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 
+# Set up logging
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
+
 
 def initialize_gpt2() -> Tuple[Optional[Any], Optional[Any]]:
     """Initialize GPT-2 model - smallest real AI model"""
     try:
-        print("📥 Loading GPT-2 (124M parameters)...")
+        logger.info("Loading GPT-2 (124M parameters)...")
 
         model_name = "gpt2"  # 124M parameters - smallest GPT-2
         tokenizer = GPT2Tokenizer.from_pretrained(model_name)
@@ -27,10 +32,10 @@ def initialize_gpt2() -> Tuple[Optional[Any], Optional[Any]]:
         # Add padding token
         tokenizer.pad_token = tokenizer.eos_token
 
-        print("✅ GPT-2 loaded successfully!")
+        logger.info("GPT-2 loaded successfully!")
         return model, tokenizer
     except Exception as e:
-        print(f"❌ Failed to load GPT-2: {e}")
+        logger.error(f"Failed to load GPT-2: {e}")
         return None, None
 
 
@@ -88,7 +93,7 @@ This migration does:"""
         }
 
     except Exception as e:
-        print(f"GPT-2 analysis failed: {e}")
+        logger.error(f"GPT-2 analysis failed: {e}")
         return fallback_analysis(migration_content)
 
 
@@ -323,7 +328,7 @@ def test_real_ai_migrations() -> bool:
         return True
 
     except Exception as e:
-        print(f"❌ Test failed: {e}")
+        logger.error(f"Test failed: {e}")
         return False
 
 

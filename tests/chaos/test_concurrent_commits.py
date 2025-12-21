@@ -27,7 +27,9 @@ class TestConcurrentCommits:
 
     @pytest.mark.parametrize("num_workers", [2, 5, 10, 20])
     def test_concurrent_commits_same_branch(
-        self, db_connection_string: str, num_workers: int,
+        self,
+        db_connection_string: str,
+        num_workers: int,
     ):
         """
         Test: Multiple workers committing to the same branch concurrently.
@@ -132,7 +134,9 @@ class TestConcurrentCommits:
     @pytest.mark.timeout(120)
     @pytest.mark.asyncio
     async def test_concurrent_commits_with_delays(
-        self, async_conn: psycopg.AsyncConnection, conn_pool,
+        self,
+        async_conn: psycopg.AsyncConnection,
+        conn_pool,
     ):
         """
         Test: Concurrent commits with random delays (simulating network latency).
@@ -206,7 +210,10 @@ class TestConcurrentCommits:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
     def test_property_concurrent_commits_no_collisions(
-        self, db_connection_string: str, num_workers: int, branch: str,
+        self,
+        db_connection_string: str,
+        num_workers: int,
+        branch: str,
     ):
         """
         Property: Concurrent commits never produce Trinity ID collisions.
@@ -258,10 +265,13 @@ class TestConcurrentCommits:
             )
 
     @pytest.mark.parametrize(
-        "isolation_level", ["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"],
+        "isolation_level",
+        ["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"],
     )
     def test_concurrent_commits_different_isolation_levels(
-        self, db_connection_string: str, isolation_level: str,
+        self,
+        db_connection_string: str,
+        isolation_level: str,
     ):
         """
         Test concurrent commits with different transaction isolation levels.

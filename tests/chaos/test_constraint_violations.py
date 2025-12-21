@@ -350,7 +350,9 @@ class TestConstraintViolations:
         except psycopg.Error:
             pass
 
-    def test_constraint_violation_in_nested_transaction(self, sync_conn: psycopg.Connection):
+    def test_constraint_violation_in_nested_transaction(
+        self, sync_conn: psycopg.Connection
+    ):
         """
         Test: Constraint violation in nested transaction rolls back correctly.
 
@@ -413,7 +415,9 @@ class TestConstraintViolations:
             cursor = sync_conn.execute("SELECT COUNT(*) FROM nested_constraint_test")
             count = cursor.fetchone()["count"]
 
-            assert count == 2, "Savepoint rollback should keep outer transaction changes"
+            assert count == 2, (
+                "Savepoint rollback should keep outer transaction changes"
+            )
 
         except psycopg.Error as e:
             sync_conn.rollback()

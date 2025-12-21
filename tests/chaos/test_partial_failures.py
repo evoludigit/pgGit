@@ -56,17 +56,20 @@ class TestPartialFailures:
 
             # Insert into table A (succeeds)
             sync_conn.execute(
-                "INSERT INTO multi_table_a (data) VALUES (%s)", ("data1",),
+                "INSERT INTO multi_table_a (data) VALUES (%s)",
+                ("data1",),
             )
 
             # Insert into table B (succeeds)
             sync_conn.execute(
-                "INSERT INTO multi_table_b (value) VALUES (%s)", (42,),
+                "INSERT INTO multi_table_b (value) VALUES (%s)",
+                (42,),
             )
 
             # Insert into table C (succeeds)
             sync_conn.execute(
-                "INSERT INTO multi_table_c (amount) VALUES (%s)", (100.50,),
+                "INSERT INTO multi_table_c (amount) VALUES (%s)",
+                (100.50,),
             )
 
             # Cause error - all inserts should be rolled back
@@ -150,12 +153,14 @@ class TestPartialFailures:
 
             # Insert valid value (succeeds)
             sync_conn.execute(
-                "INSERT INTO trigger_test (value) VALUES (%s)", (50,),
+                "INSERT INTO trigger_test (value) VALUES (%s)",
+                (50,),
             )
 
             # Insert invalid value (fails trigger)
             sync_conn.execute(
-                "INSERT INTO trigger_test (value) VALUES (%s)", (150,),
+                "INSERT INTO trigger_test (value) VALUES (%s)",
+                (150,),
             )
 
             sync_conn.commit()
@@ -178,7 +183,9 @@ class TestPartialFailures:
 
         # Cleanup
         try:
-            sync_conn.execute("DROP TRIGGER IF EXISTS trigger_test_insert ON trigger_test")
+            sync_conn.execute(
+                "DROP TRIGGER IF EXISTS trigger_test_insert ON trigger_test"
+            )
             sync_conn.execute("DROP FUNCTION IF EXISTS trigger_test_check()")
             sync_conn.execute("DROP TABLE IF EXISTS trigger_test CASCADE")
             sync_conn.commit()
@@ -264,7 +271,8 @@ class TestPartialFailures:
             pass
 
     def test_constraint_violation_in_multi_table_transaction(
-        self, sync_conn: psycopg.Connection,
+        self,
+        sync_conn: psycopg.Connection,
     ):
         """
         Test: Constraint violation in multi-table transaction rolls back all tables.
@@ -347,7 +355,9 @@ class TestPartialFailures:
         except psycopg.Error:
             pass
 
-    def test_transaction_with_pggit_partial_failure(self, sync_conn: psycopg.Connection):
+    def test_transaction_with_pggit_partial_failure(
+        self, sync_conn: psycopg.Connection
+    ):
         """
         Test: Failure during pggit operation causes complete rollback.
 
@@ -373,7 +383,8 @@ class TestPartialFailures:
 
             # Insert data
             sync_conn.execute(
-                "INSERT INTO pggit_partial_test (value) VALUES (%s)", (42,),
+                "INSERT INTO pggit_partial_test (value) VALUES (%s)",
+                (42,),
             )
 
             # Try pggit operation (might fail)

@@ -6,11 +6,14 @@ including concurrent execution helpers, delay injection, and transaction monitor
 """
 
 import asyncio
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable, Generator
 
 import psycopg
 import pytest
+
+logger = logging.getLogger(__name__)
 
 from tests.chaos.utils import AsyncTransactionMonitor, ChaosInjector, TransactionMonitor
 
@@ -110,8 +113,10 @@ def deadlock_setup() -> Callable:
             conn2.execute("SELECT pg_advisory_unlock_all()")
             conn1.rollback()
             conn2.rollback()
-        except Exception:
-            pass  # Ignore cleanup errors
+        except Exception as e:
+            logger.debug(
+                f"Cleanup rollback failed: {e}"
+            )  # Ignore cleanup errors in tests
 
     return {
         "setup": create_deadlock_pair,
@@ -150,8 +155,10 @@ async def async_deadlock_setup():
             await conn2.execute("SELECT pg_advisory_unlock_all()")
             await conn1.rollback()
             await conn2.rollback()
-        except Exception:
-            pass  # Ignore cleanup errors
+        except Exception as e:
+            logger.debug(
+                f"Async cleanup rollback failed: {e}"
+            )  # Ignore cleanup errors in tests
 
     return {
         "setup": create_deadlock_pair,
