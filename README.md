@@ -32,10 +32,10 @@
 ## Option A: Package Installation (Recommended)
 
 ### Debian/Ubuntu
-sudo apt install ./pggit_0.2.0-postgresql.deb
+sudo apt install ./pggit_0.1.1-postgresql.deb
 
 ### RHEL/Rocky Linux
-sudo rpm -i pggit-0.2.0.rpm
+sudo rpm -i pggit-0.1.1.rpm
 
 ## Option B: Manual Installation
 
@@ -286,10 +286,10 @@ SELECT pggit.resolve_conflict(conflict_id, 'use_current', 'Keep production versi
 
 ```bash
 # Debian/Ubuntu
-sudo apt install ./pggit_0.2.0-postgresql.deb
+sudo apt install ./pggit_0.1.1-postgresql.deb
 
 # RHEL/Rocky Linux
-sudo rpm -i pggit-0.2.0.rpm
+sudo rpm -i pggit-0.1.1.rpm
 
 # Create extension
 psql -d your_database -c "CREATE EXTENSION pggit CASCADE;"
