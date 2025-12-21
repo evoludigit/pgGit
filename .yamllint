@@ -8,7 +8,7 @@ rules:
   indentation:
     spaces: 2
   truthy:
-    allowed: ['true', 'false', 'on', 'off']
+    check-keys: false
   brackets:
     min-spaces-inside: 0
     max-spaces-inside: 0
