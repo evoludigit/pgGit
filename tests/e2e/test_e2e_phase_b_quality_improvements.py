@@ -22,17 +22,17 @@ class TestE2EDeploymentScenarios:
 
     def test_blue_green_deployment_workflow(self, db, pggit_installed):
         """Test complete blue-green deployment with branching"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")
+        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
 
         # Create "blue" (current production)
         blue_branch = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('blue-production') RETURNING id"
-        )
+        )[0][0]
 
         # Create "green" (new deployment)
         green_branch = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('green-staging') RETURNING id"
-        )
+        )[0][0]
 
         # Create schema in blue
         db.execute("""
@@ -67,12 +67,12 @@ class TestE2EDeploymentScenarios:
 
     def test_canary_rollout_with_versioning(self, db, pggit_installed):
         """Test canary deployment with incremental versioning"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")
+        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
 
         # Create canary branch
         canary_branch = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('canary-deployment') RETURNING id"
-        )
+        )[0][0]
 
         db.execute("""
             CREATE TABLE public.canary_config (
@@ -239,7 +239,7 @@ class TestE2EDeploymentScenarios:
                 result = db.execute(
                     "SELECT COUNT(*) FROM public.active_queries_test WHERE processed = false"
                 )
-                return result == 100
+                return result[0][0] == 100
             except Exception:
                 return False
 
@@ -256,7 +256,7 @@ class TestE2EDeploymentScenarios:
 
     def test_concurrent_branch_deployments(self, db, pggit_installed):
         """Test concurrent deployments to different branches"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")
+        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
 
         # Create multiple deployment branches
         deploy_branches = []
@@ -264,7 +264,7 @@ class TestE2EDeploymentScenarios:
             branch_id = db.execute_returning(
                 "INSERT INTO pggit.branches (name) VALUES (%s) RETURNING id",
                 f'deploy-{i}'
-            )
+            )[0][0]
             deploy_branches.append(branch_id)
 
         db.execute("""
@@ -330,7 +330,7 @@ class TestE2EDeploymentScenarios:
 
         # Validation result
         validation_result = db.execute("SELECT ALL(passed) FROM public.deployment_validation")
-        assert validation_result, "All validation gates should pass"
+        assert validation_result[0][0], "All validation gates should pass"
 
 
 class TestE2ECrossBranchConsistency:
@@ -338,14 +338,14 @@ class TestE2ECrossBranchConsistency:
 
     def test_data_consistency_across_branches(self, db, pggit_installed):
         """Test data consistency when branches diverge"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")
+        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
 
         branch1 = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('branch-1') RETURNING id"
-        )
+        )[0][0]
         branch2 = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('branch-2') RETURNING id"
-        )
+        )[0][0]
 
         db.execute("""
             CREATE TABLE public.consistency_check (
@@ -366,7 +366,7 @@ class TestE2ECrossBranchConsistency:
         # Verify consistency
         results = db.execute("SELECT DISTINCT value FROM public.consistency_check WHERE id = 1")
         assert len(results) == 1, "All branches should have same initial value"
-        assert results == 'initial-value', "Value should be consistent"
+        assert results[0][0] == 'initial-value', "Value should be consistent"
 
     def test_schema_evolution_consistency(self, db, pggit_installed):
         """Test schema evolution consistency across branches"""
@@ -399,14 +399,14 @@ class TestE2ECrossBranchConsistency:
 
     def test_version_number_uniqueness_across_branches(self, db, pggit_installed):
         """Test version numbers are unique across branches"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")
+        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
 
         branch1 = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('version-branch-1') RETURNING id"
-        )
+        )[0][0]
         branch2 = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('version-branch-2') RETURNING id"
-        )
+        )[0][0]
 
         # Create commits in multiple branches
         commits = []
@@ -416,7 +416,7 @@ class TestE2ECrossBranchConsistency:
                     "INSERT INTO pggit.commits (branch_id, message) VALUES (%s, %s) RETURNING id",
                     branch_id,
                     f'commit-{i}'
-                )
+                )[0][0]
                 commits.append(commit_id)
 
         # All commit IDs should be unique
@@ -424,11 +424,11 @@ class TestE2ECrossBranchConsistency:
 
     def test_timestamp_ordering_across_branches(self, db, pggit_installed):
         """Test timestamp ordering consistency across branches"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")
+        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
 
         branch1 = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('timestamp-branch') RETURNING id"
-        )
+        )[0][0]
 
         db.execute("""
             CREATE TABLE public.timestamp_test (
@@ -461,11 +461,11 @@ class TestE2EMultiTableTransactionConsistency:
 
     def test_multi_branch_multi_table_consistency(self, db, pggit_installed):
         """Test consistency across multiple tables in multiple branches"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")
+        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
 
         branch1 = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('multi-table-branch') RETURNING id"
-        )
+        )[0][0]
 
         # Create related tables
         db.execute("""
@@ -527,7 +527,7 @@ class TestE2EMultiTableTransactionConsistency:
         # Verify cascade delete
         db.execute("DELETE FROM public.departments WHERE id = 1")
         remaining_employees = db.execute("SELECT COUNT(*) FROM public.employees")
-        assert remaining_employees == 0, "Cascade delete should remove employees"
+        assert remaining_employees[0][0] == 0, "Cascade delete should remove employees"
 
     def test_cascade_delete_consistency_multi_table(self, db, pggit_installed):
         """Test cascade delete maintains consistency across multiple tables"""
@@ -561,9 +561,9 @@ class TestE2EMultiTableTransactionConsistency:
         db.execute("DELETE FROM public.users_cascade WHERE id = 1")
 
         # Verify all related data deleted
-        users_count = db.execute("SELECT COUNT(*) FROM public.users_cascade")
-        posts_count = db.execute("SELECT COUNT(*) FROM public.posts_cascade")
-        comments_count = db.execute("SELECT COUNT(*) FROM public.comments_cascade")
+        users_count = db.execute("SELECT COUNT(*) FROM public.users_cascade")[0][0]
+        posts_count = db.execute("SELECT COUNT(*) FROM public.posts_cascade")[0][0]
+        comments_count = db.execute("SELECT COUNT(*) FROM public.comments_cascade")[0][0]
 
         assert users_count == 0, "Users should be deleted"
         assert posts_count == 0, "Posts should be cascade deleted"

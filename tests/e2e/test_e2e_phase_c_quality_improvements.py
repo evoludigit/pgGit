@@ -25,11 +25,11 @@ class TestE2ETimingTimeoutHandling:
 
     def test_long_running_merge_stability(self, db, pggit_installed):
         """Test merge stability during long operations"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")
+        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
 
         long_branch = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('long-merge-branch') RETURNING id"
-        )
+        )[0][0]
 
         # Create large dataset
         db.execute("""
@@ -101,7 +101,7 @@ class TestE2ETimingTimeoutHandling:
 
         finally:
             # Verify inserted data
-            count = db.execute("SELECT COUNT(*) FROM public.timeout_bulk")
+            count = db.execute("SELECT COUNT(*) FROM public.timeout_bulk")[0][0]
             assert count > 0, "Some inserts should succeed even with timeout"
 
     def test_concurrent_operation_timeout_isolation(self, db, pggit_installed):
@@ -175,15 +175,15 @@ class TestE2ETimingTimeoutHandling:
 
         # Verify table is still accessible after error
         result = db.execute("SELECT COUNT(*) FROM public.cleanup_test")
-        assert result > 0, "Table should be accessible after timeout"
+        assert result[0][0] > 0, "Table should be accessible after timeout"
 
     def test_distributed_transaction_timeout(self, db, pggit_installed):
         """Test handling of distributed transaction timeout scenarios"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")
+        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
 
         branch1 = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('timeout-branch-1') RETURNING id"
-        )
+        )[0][0]
 
         db.execute("""
             CREATE TABLE public.distributed_timeout (
@@ -201,8 +201,8 @@ class TestE2ETimingTimeoutHandling:
         main_data = db.execute("SELECT COUNT(*) FROM public.distributed_timeout WHERE branch_id = %s", main_id)
         branch_data = db.execute("SELECT COUNT(*) FROM public.distributed_timeout WHERE branch_id = %s", branch1)
 
-        assert main_data > 0, "Main branch data should exist"
-        assert branch_data > 0, "Branch data should exist"
+        assert main_data[0][0] > 0, "Main branch data should exist"
+        assert branch_data[0][0] > 0, "Branch data should exist"
 
 
 class TestE2EPerformanceRegressionDetection:
@@ -242,7 +242,7 @@ class TestE2EPerformanceRegressionDetection:
 
     def test_regression_in_merge_performance(self, db, pggit_installed):
         """Test regression detection in merge performance"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")
+        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
 
         db.execute("""
             CREATE TABLE public.perf_merge_test (
@@ -254,7 +254,7 @@ class TestE2EPerformanceRegressionDetection:
         # Create test branches
         branch1 = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('perf-merge-1') RETURNING id"
-        )
+        )[0][0]
 
         # Insert baseline data
         for i in range(100):
@@ -277,7 +277,7 @@ class TestE2EPerformanceRegressionDetection:
         # Test merge time (should be similar)
         branch2 = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('perf-merge-2') RETURNING id"
-        )
+        )[0][0]
 
         test_start = time.time()
         db.execute_returning(
@@ -430,7 +430,7 @@ class TestE2EMemoryResourceManagement:
 
     def test_connection_pool_resource_cleanup(self, db, pggit_installed):
         """Test connection pool cleanup"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")
+        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
 
         # Create multiple branches to stress connection pool
         branch_ids = []
@@ -438,7 +438,7 @@ class TestE2EMemoryResourceManagement:
             branch_id = db.execute_returning(
                 "INSERT INTO pggit.branches (name) VALUES (%s) RETURNING id",
                 f'pool-stress-{i}'
-            )
+            )[0][0]
             branch_ids.append(branch_id)
 
         # All branches should be created
@@ -446,7 +446,7 @@ class TestE2EMemoryResourceManagement:
 
         # Verify all branches are queryable
         result = db.execute("SELECT COUNT(*) FROM pggit.branches WHERE name LIKE 'pool-stress-%'")
-        assert result == 20, "All stressed branches should be accessible"
+        assert result[0][0] == 20, "All stressed branches should be accessible"
 
     def test_index_memory_efficiency(self, db, pggit_installed):
         """Test index memory efficiency"""
@@ -475,7 +475,7 @@ class TestE2EMemoryResourceManagement:
         result = db.execute("SELECT COUNT(*) FROM public.index_efficiency WHERE branch_id = 5")
         query_time = time.time() - start
 
-        assert result > 0, "Index query should return results"
+        assert result[0][0] > 0, "Index query should return results"
         assert query_time < 0.1, "Index query should be fast (< 100ms)"
 
     def test_cache_memory_bounds(self, db, pggit_installed):
@@ -519,7 +519,7 @@ class TestE2EConcurrentLoadStress:
                 branch_id = db.execute_returning(
                     "INSERT INTO pggit.branches (name) VALUES (%s) RETURNING id",
                     f'stress-50-{i}'
-                )
+                )[0][0]
                 return branch_id
             except Exception as e:
                 failed_operations.append(str(e))
@@ -539,7 +539,7 @@ class TestE2EConcurrentLoadStress:
 
     def test_100_concurrent_commits(self, db, pggit_installed):
         """Test 100 concurrent commits to same branch"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")
+        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
 
         commit_ids = []
         lock = None
@@ -550,7 +550,7 @@ class TestE2EConcurrentLoadStress:
                     "INSERT INTO pggit.commits (branch_id, message) VALUES (%s, %s) RETURNING id",
                     main_id,
                     f'concurrent-commit-{i}'
-                )
+                )[0][0]
                 return commit_id
             except Exception:
                 return None
@@ -605,7 +605,7 @@ class TestE2EConcurrentLoadStress:
         assert success_count[0] >= 15, f"At least 15 of 20 threads should complete, got {success_count[0]}"
 
         # Verify all data was inserted
-        total_rows = db.execute("SELECT COUNT(*) FROM public.high_write_load")
+        total_rows = db.execute("SELECT COUNT(*) FROM public.high_write_load")[0][0]
         assert total_rows > 0, "Data should be inserted under high load"
 
     def test_recovery_from_resource_exhaustion(self, db, pggit_installed):
@@ -631,12 +631,12 @@ class TestE2EConcurrentLoadStress:
 
         # System should recover - simple query should work
         result = db.execute("SELECT COUNT(*) FROM public.recovery_test")
-        assert result > 0, "System should recover and still be queryable"
+        assert result[0][0] > 0, "System should recover and still be queryable"
 
         # New operations should work
         new_branch = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('recovery-branch') RETURNING id"
-        )
+        )[0][0]
         assert new_branch is not None, "New operations should work after recovery"
 
 
