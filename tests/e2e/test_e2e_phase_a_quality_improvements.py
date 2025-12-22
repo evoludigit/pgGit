@@ -23,7 +23,9 @@ class TestE2EEdgeCasesBoundaryConditions:
     def test_empty_branch_merge_handling(self, db, pggit_installed):
         """Test merging branches with no data"""
         # Create branches
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
+        main_id = db.execute_returning(
+            "SELECT id FROM pggit.branches WHERE name = 'main'"
+        )[0][0]
 
         empty_branch = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('empty-branch') RETURNING id"
@@ -37,7 +39,7 @@ class TestE2EEdgeCasesBoundaryConditions:
             "SELECT pggit.merge_branches(%s, %s, %s)",
             empty_branch,
             main_id,
-            'Test merge empty branches'
+            "Test merge empty branches",
         )
         assert result is not None, "Empty branch merge should succeed"
 
@@ -54,15 +56,21 @@ class TestE2EEdgeCasesBoundaryConditions:
         # Insert data with NULLs
         db.execute(
             "INSERT INTO public.null_test (id, name, value) VALUES (%s, %s, %s)",
-            1, None, None
+            1,
+            None,
+            None,
         )
         db.execute(
             "INSERT INTO public.null_test (id, name, value) VALUES (%s, %s, %s)",
-            2, 'test', None
+            2,
+            "test",
+            None,
         )
 
         # Create branch and verify NULL handling
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
+        main_id = db.execute_returning(
+            "SELECT id FROM pggit.branches WHERE name = 'main'"
+        )[0][0]
         new_branch = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('null-branch') RETURNING id"
         )[0][0]
@@ -84,7 +92,7 @@ class TestE2EEdgeCasesBoundaryConditions:
         # Create snapshot
         snapshot = db.execute_returning(
             "SELECT pggit.create_temporal_snapshot('public', 'single_row', %s)",
-            json.dumps({'purpose': 'single-row-test'})
+            json.dumps({"purpose": "single-row-test"}),
         )
         assert snapshot[0] is not None, "Single row snapshot should succeed"
 
@@ -93,14 +101,15 @@ class TestE2EEdgeCasesBoundaryConditions:
 
         # Diff should show change
         diff = db.execute_returning(
-            "SELECT pggit.temporal_diff(%s, %s)",
-            snapshot[0], datetime.now()
+            "SELECT pggit.temporal_diff(%s, %s)", snapshot[0], datetime.now()
         )
         assert diff is not None, "Temporal diff should detect single-row change"
 
     def test_very_long_commit_messages(self, db, pggit_installed):
         """Test handling of very long commit messages"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
+        main_id = db.execute_returning(
+            "SELECT id FROM pggit.branches WHERE name = 'main'"
+        )[0][0]
 
         # 10KB message
         long_message = "x" * 10000
@@ -108,14 +117,13 @@ class TestE2EEdgeCasesBoundaryConditions:
         result = db.execute_returning(
             "INSERT INTO pggit.commits (branch_id, message) VALUES (%s, %s) RETURNING id",
             main_id,
-            long_message
+            long_message,
         )
         assert result[0] is not None, "Long message should be stored"
 
         # Verify retrieval
         retrieved = db.execute_returning(
-            "SELECT message FROM pggit.commits WHERE id = %s",
-            result[0]
+            "SELECT message FROM pggit.commits WHERE id = %s", result[0]
         )
         assert len(retrieved[0][0]) == 10000, "Long message not preserved"
 
@@ -130,15 +138,13 @@ class TestE2EEdgeCasesBoundaryConditions:
 
         for name in special_names:
             result = db.execute_returning(
-                "INSERT INTO pggit.branches (name) VALUES (%s) RETURNING id",
-                name
+                "INSERT INTO pggit.branches (name) VALUES (%s) RETURNING id", name
             )
-            assert result[0] is not None, f"Branch '{name}' should be created"
+            assert result is not None, f"Branch '{name}' should be created"
 
             # Verify retrieval
             retrieved = db.execute_returning(
-                "SELECT name FROM pggit.branches WHERE id = %s",
-                result[0]
+                "SELECT name FROM pggit.branches WHERE id = %s", result
             )
             assert retrieved[0][0] == name, f"Branch name '{name}' not preserved"
 
@@ -160,8 +166,7 @@ class TestE2EEdgeCasesBoundaryConditions:
 
         for i, value in enumerate(unicode_values, 1):
             db.execute(
-                "INSERT INTO public.unicode_test (id, text) VALUES (%s, %s)",
-                i, value
+                "INSERT INTO public.unicode_test (id, text) VALUES (%s, %s)", i, value
             )
 
         # Verify all unicode preserved
@@ -195,17 +200,20 @@ class TestE2EEdgeCasesBoundaryConditions:
         # Large version number (not quite max integer)
         large_version = 2147483647  # max INT32
         db.execute(
-            "INSERT INTO public.version_limit_test VALUES (1, %s)",
-            large_version
+            "INSERT INTO public.version_limit_test VALUES (1, %s)", large_version
         )
 
-        result = db.execute("SELECT version_num FROM public.version_limit_test WHERE id = 1")
+        result = db.execute(
+            "SELECT version_num FROM public.version_limit_test WHERE id = 1"
+        )
         assert result[0][0] == large_version, "Large version number not preserved"
 
     def test_deeply_nested_conflicts(self, db, pggit_installed):
         """Test deeply nested conflict scenarios"""
         # Create branches for conflict testing
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
+        main_id = db.execute_returning(
+            "SELECT id FROM pggit.branches WHERE name = 'main'"
+        )[0][0]
 
         branch1 = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('conflict-branch-1') RETURNING id"
@@ -224,22 +232,30 @@ class TestE2EEdgeCasesBoundaryConditions:
             )
         """)
 
-        db.execute(
-            "INSERT INTO public.nested_conflict VALUES (1, 'a', 'b', 'c')"
-        )
+        db.execute("INSERT INTO public.nested_conflict VALUES (1, 'a', 'b', 'c')")
 
         # Attempt to analyze complex conflict
         conflict_data = {
-            'base': {'id': 1, 'level_1': 'a', 'level_2': 'b', 'level_3': 'c'},
-            'source': {'id': 1, 'level_1': 'a', 'level_2': 'b_modified', 'level_3': 'c'},
-            'target': {'id': 1, 'level_1': 'a', 'level_2': 'b', 'level_3': 'c_modified'}
+            "base": {"id": 1, "level_1": "a", "level_2": "b", "level_3": "c"},
+            "source": {
+                "id": 1,
+                "level_1": "a",
+                "level_2": "b_modified",
+                "level_3": "c",
+            },
+            "target": {
+                "id": 1,
+                "level_1": "a",
+                "level_2": "b",
+                "level_3": "c_modified",
+            },
         }
 
         result = db.execute_returning(
             "SELECT pggit.analyze_semantic_conflict(%s, %s, %s)",
-            json.dumps(conflict_data['base']),
-            json.dumps(conflict_data['source']),
-            json.dumps(conflict_data['target'])
+            json.dumps(conflict_data["base"]),
+            json.dumps(conflict_data["source"]),
+            json.dumps(conflict_data["target"]),
         )
         assert result[0] is not None, "Nested conflict analysis should succeed"
 
@@ -256,12 +272,12 @@ class TestE2EEdgeCasesBoundaryConditions:
         # Create two snapshots at nearly same time
         snap1 = db.execute_returning(
             "SELECT pggit.create_temporal_snapshot('public', 'duplicate_snap', %s)",
-            json.dumps({'test': 'snap1'})
+            json.dumps({"test": "snap1"}),
         )[0]
 
         snap2 = db.execute_returning(
             "SELECT pggit.create_temporal_snapshot('public', 'duplicate_snap', %s)",
-            json.dumps({'test': 'snap2'})
+            json.dumps({"test": "snap2"}),
         )[0]
 
         # Both should succeed and be different
@@ -279,7 +295,9 @@ class TestE2EEdgeCasesBoundaryConditions:
             )
         """)
 
-        db.execute("INSERT INTO public.temporal_conflict (id, data) VALUES (1, 'initial')")
+        db.execute(
+            "INSERT INTO public.temporal_conflict (id, data) VALUES (1, 'initial')"
+        )
         snap1_time = datetime.now()
         db.execute("UPDATE public.temporal_conflict SET data = 'updated' WHERE id = 1")
         snap2_time = datetime.now()
@@ -287,7 +305,7 @@ class TestE2EEdgeCasesBoundaryConditions:
         # Query overlapping intervals should succeed
         result = db.execute_returning(
             "SELECT pggit.query_historical_data('public', 'temporal_conflict', %s)",
-            snap1_time.isoformat()
+            snap1_time.isoformat(),
         )
         assert result is not None, "Historical query should succeed"
 
@@ -306,9 +324,9 @@ class TestE2EEdgeCasesBoundaryConditions:
         result = db.execute_returning(
             "SELECT pggit.record_temporal_change('public', 'missing_changelog', %s, %s, %s, %s)",
             1,
-            'INSERT',
-            json.dumps({'id': 1, 'value': 'test'}),
-            'test-user'
+            "INSERT",
+            json.dumps({"id": 1, "value": "test"}),
+            "test-user",
         )
         assert result[0] is not None, "Changelog record should succeed"
 
@@ -318,9 +336,11 @@ class TestE2EEdgeCasesBoundaryConditions:
         result = db.execute_returning(
             "SELECT pggit.learn_access_patterns(%s, %s)",
             1,  # object_id
-            'READ'  # operation_type
+            "READ",  # operation_type
         )
-        assert result is not None, "Pattern learning with single observation should succeed"
+        assert result is not None, (
+            "Pattern learning with single observation should succeed"
+        )
 
     def test_prediction_accuracy_with_no_history(self, db, pggit_installed):
         """Test prediction when no historical data exists"""
@@ -328,7 +348,7 @@ class TestE2EEdgeCasesBoundaryConditions:
         result = db.execute_returning(
             "SELECT pggit.predict_next_objects(%s, %s)",
             1,  # object_id
-            0.5  # min_confidence
+            0.5,  # min_confidence
         )
         # Should return empty result, not error
         assert result is not None, "Prediction with no history should handle gracefully"
@@ -350,14 +370,12 @@ class TestE2EBackupRecoveryIntegration:
         # Create snapshot
         snapshot = db.execute_returning(
             "SELECT pggit.create_temporal_snapshot('public', 'export_test', %s)",
-            json.dumps({'purpose': 'export'})
+            json.dumps({"purpose": "export"}),
         )[0]
 
         # Export data
         result = db.execute_returning(
-            "SELECT pggit.export_temporal_data(%s, %s)",
-            snapshot,
-            'public'
+            "SELECT pggit.export_temporal_data(%s, %s)", snapshot, "public"
         )
         assert result is not None, "Export should succeed"
 
@@ -378,7 +396,7 @@ class TestE2EBackupRecoveryIntegration:
         # Restore to point in time
         result = db.execute_returning(
             "SELECT pggit.restore_table_to_point_in_time('public', 'restore_test', %s)",
-            snap_time.isoformat()
+            snap_time.isoformat(),
         )
         assert result[0] is not None, "Restoration should succeed"
 
@@ -400,13 +418,15 @@ class TestE2EBackupRecoveryIntegration:
         # Query at v1 time
         state_v1 = db.execute_returning(
             "SELECT pggit.get_table_state_at_time('public', 'pitr_test', %s)",
-            time_v1.isoformat()
+            time_v1.isoformat(),
         )
         assert state_v1 is not None, "PITR state retrieval should succeed"
 
     def test_data_migration_between_branches(self, db, pggit_installed):
         """Test migrating data between branches"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
+        main_id = db.execute_returning(
+            "SELECT id FROM pggit.branches WHERE name = 'main'"
+        )[0][0]
 
         new_branch = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('migration-target') RETURNING id"
@@ -425,7 +445,7 @@ class TestE2EBackupRecoveryIntegration:
             "SELECT pggit.merge_branches(%s, %s, %s)",
             main_id,
             new_branch,
-            'Data migration'
+            "Data migration",
         )
         assert result is not None, "Data migration should succeed"
 
@@ -444,7 +464,7 @@ class TestE2EBackupRecoveryIntegration:
         # Query historical state
         result = db.execute_returning(
             "SELECT pggit.query_historical_data('public', 'reconstruct_test', %s)",
-            (datetime.now() - timedelta(minutes=1)).isoformat()
+            (datetime.now() - timedelta(minutes=1)).isoformat(),
         )
         assert result is not None, "Historical reconstruction should succeed"
 
@@ -463,12 +483,14 @@ class TestE2EBackupRecoveryIntegration:
         snapshot_time = datetime.now()
 
         # Simulate corruption: update data
-        db.execute("UPDATE public.recovery_scenario SET status = 'corrupted' WHERE id = 1")
+        db.execute(
+            "UPDATE public.recovery_scenario SET status = 'corrupted' WHERE id = 1"
+        )
 
         # Recover from snapshot
         result = db.execute_returning(
             "SELECT pggit.restore_table_to_point_in_time('public', 'recovery_scenario', %s)",
-            snapshot_time.isoformat()
+            snapshot_time.isoformat(),
         )
         assert result[0] is not None, "Recovery should succeed"
 
@@ -478,7 +500,9 @@ class TestE2EMLConflictResolutionIntegration:
 
     def test_ml_pattern_prediction_during_merge(self, db, pggit_installed):
         """Test using ML predictions during merge"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
+        main_id = db.execute_returning(
+            "SELECT id FROM pggit.branches WHERE name = 'main'"
+        )[0][0]
 
         feature_branch = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('feature/ml-test') RETURNING id"
@@ -495,8 +519,7 @@ class TestE2EMLConflictResolutionIntegration:
         # Record patterns
         for i in range(5):
             db.execute(
-                "INSERT INTO public.ml_merge_test VALUES (%s, %s)",
-                i, f'pattern-{i}'
+                "INSERT INTO public.ml_merge_test VALUES (%s, %s)", i, f"pattern-{i}"
             )
 
         # Merge and verify patterns used
@@ -504,7 +527,7 @@ class TestE2EMLConflictResolutionIntegration:
             "SELECT pggit.merge_branches(%s, %s, %s)",
             main_id,
             feature_branch,
-            'ML-guided merge'
+            "ML-guided merge",
         )
         assert result is not None, "ML-guided merge should succeed"
 
@@ -522,14 +545,13 @@ class TestE2EMLConflictResolutionIntegration:
         # Record multiple conflict scenarios
         for i in range(3):
             conflict_data = {
-                'base': {'id': 1, 'value': 'base'},
-                'source': {'id': 1, 'value': f'source-{i}'},
-                'target': {'id': 1, 'value': f'target-{i}'}
+                "base": {"id": 1, "value": "base"},
+                "source": {"id": 1, "value": f"source-{i}"},
+                "target": {"id": 1, "value": f"target-{i}"},
             }
 
             result = db.execute_returning(
-                "SELECT pggit.identify_conflict_patterns(%s)",
-                json.dumps(conflict_data)
+                "SELECT pggit.identify_conflict_patterns(%s)", json.dumps(conflict_data)
             )
             assert result is not None, f"Pattern learning iteration {i} should succeed"
 
@@ -540,7 +562,7 @@ class TestE2EMLConflictResolutionIntegration:
             "SELECT pggit.adaptive_prefetch(%s, %s, %s)",
             1,  # object_id
             100,  # budget_mb
-            'MODERATE'  # strategy
+            "MODERATE",  # strategy
         )
         assert result is not None, "Adaptive prefetch should succeed"
 
@@ -548,17 +570,17 @@ class TestE2EMLConflictResolutionIntegration:
         """Test semantic conflict analysis with ML guidance"""
         # Create realistic conflict
         conflict_scenario = {
-            'base': {'id': 1, 'name': 'Alice', 'age': 30},
-            'source': {'id': 1, 'name': 'Alice', 'age': 31},  # Age updated
-            'target': {'id': 1, 'name': 'Alicia', 'age': 30}  # Name updated
+            "base": {"id": 1, "name": "Alice", "age": 30},
+            "source": {"id": 1, "name": "Alice", "age": 31},  # Age updated
+            "target": {"id": 1, "name": "Alicia", "age": 30},  # Name updated
         }
 
         # Analyze with ML
         result = db.execute_returning(
             "SELECT pggit.analyze_semantic_conflict(%s, %s, %s)",
-            json.dumps(conflict_scenario['base']),
-            json.dumps(conflict_scenario['source']),
-            json.dumps(conflict_scenario['target'])
+            json.dumps(conflict_scenario["base"]),
+            json.dumps(conflict_scenario["source"]),
+            json.dumps(conflict_scenario["target"]),
         )
         assert result is not None, "Semantic conflict analysis should succeed"
 
@@ -599,7 +621,9 @@ class TestE2EMultiTableTransactionScenarios:
 
     def test_foreign_key_cascade_in_merged_branches(self, db, pggit_installed):
         """Test FK cascade during branch merge"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
+        main_id = db.execute_returning(
+            "SELECT id FROM pggit.branches WHERE name = 'main'"
+        )[0][0]
 
         merge_branch = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('fk-cascade-test') RETURNING id"
@@ -626,7 +650,7 @@ class TestE2EMultiTableTransactionScenarios:
             "SELECT pggit.merge_branches(%s, %s, %s)",
             main_id,
             merge_branch,
-            'FK cascade merge'
+            "FK cascade merge",
         )
         assert result is not None, "FK-aware merge should succeed"
 
@@ -652,12 +676,12 @@ class TestE2EMultiTableTransactionScenarios:
         # Create snapshots
         snap_a = db.execute_returning(
             "SELECT pggit.create_temporal_snapshot('public', 'consistency_table_a', %s)",
-            json.dumps({'table': 'a'})
+            json.dumps({"table": "a"}),
         )[0]
 
         snap_b = db.execute_returning(
             "SELECT pggit.create_temporal_snapshot('public', 'consistency_table_b', %s)",
-            json.dumps({'table': 'b'})
+            json.dumps({"table": "b"}),
         )[0]
 
         # Both should exist and be queryable
@@ -686,15 +710,17 @@ class TestE2EMultiTableTransactionScenarios:
         # Create snapshots at same time
         snap_parent = db.execute_returning(
             "SELECT pggit.create_temporal_snapshot('public', 'snapshot_parent', %s)",
-            json.dumps({'type': 'parent'})
+            json.dumps({"type": "parent"}),
         )[0]
 
         snap_child = db.execute_returning(
             "SELECT pggit.create_temporal_snapshot('public', 'snapshot_child', %s)",
-            json.dumps({'type': 'child'})
+            json.dumps({"type": "child"}),
         )[0]
 
-        assert snap_parent is not None and snap_child is not None, "Multi-table snapshots should succeed"
+        assert snap_parent is not None and snap_child is not None, (
+            "Multi-table snapshots should succeed"
+        )
 
     def test_concurrent_multi_table_updates(self, db, pggit_installed):
         """Test concurrent updates across tables"""
@@ -718,11 +744,15 @@ class TestE2EMultiTableTransactionScenarios:
         from concurrent.futures import ThreadPoolExecutor
 
         def update_table_1():
-            db.execute("UPDATE public.concurrent_table_1 SET value = 'updated' WHERE id = 1")
+            db.execute(
+                "UPDATE public.concurrent_table_1 SET value = 'updated' WHERE id = 1"
+            )
             return True
 
         def update_table_2():
-            db.execute("UPDATE public.concurrent_table_2 SET value = 'updated' WHERE id = 1")
+            db.execute(
+                "UPDATE public.concurrent_table_2 SET value = 'updated' WHERE id = 1"
+            )
             return True
 
         with ThreadPoolExecutor(max_workers=2) as executor:

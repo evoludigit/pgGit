@@ -76,14 +76,14 @@ class DockerPostgresSetup:
         try:
             # Parse connection string
             parsed = urlparse(self.connection_string)
-            user = parsed.username or 'postgres'
-            password = parsed.password or 'postgres'
-            host = parsed.hostname or 'localhost'
-            port = str(parsed.port) if parsed.port else '5432'
-            dbname = parsed.path.lstrip('/') or 'pggit_test'
+            user = parsed.username or "postgres"
+            password = parsed.password or "postgres"
+            host = parsed.hostname or "localhost"
+            port = str(parsed.port) if parsed.port else "5432"
+            dbname = parsed.path.lstrip("/") or "pggit_test"
 
             env = os.environ.copy()
-            env['PGPASSWORD'] = password
+            env["PGPASSWORD"] = password
 
             # Get the directory containing the SQL file for psql includes to work
             sql_dir = os.path.dirname(os.path.abspath(file_path))
@@ -91,12 +91,24 @@ class DockerPostgresSetup:
 
             # Run psql from the sql directory so \i includes work with relative paths
             result = subprocess.run(
-                ['psql', '-h', host, '-p', port, '-U', user, '-d', dbname, '-f', abs_file_path],
+                [
+                    "psql",
+                    "-h",
+                    host,
+                    "-p",
+                    port,
+                    "-U",
+                    user,
+                    "-d",
+                    dbname,
+                    "-f",
+                    abs_file_path,
+                ],
                 env=env,
                 cwd=sql_dir,  # Change to sql directory for includes
                 capture_output=True,
                 text=True,
-                timeout=60
+                timeout=60,
             )
 
             print(f"DEBUG: PSQL executed from {sql_dir}")
@@ -141,9 +153,9 @@ class E2ETestFixture:
 
         cursor = self.conn.cursor()
         cursor.execute(query, args)
-        result = cursor.fetchall()
+        result = cursor.fetchone()
         self.conn.commit()
-        return result
+        return result[0] if result else None
 
     def close(self):
         """Close database connection"""
@@ -180,7 +192,9 @@ def db(docker_setup, pggit_installed):
 
     # Create main branch if it doesn't exist (required for tests)
     try:
-        fixture.execute("INSERT INTO pggit.branches (name, status) VALUES ('main', 'ACTIVE')")
+        fixture.execute(
+            "INSERT INTO pggit.branches (name, status) VALUES ('main', 'ACTIVE')"
+        )
     except Exception as e:
         # Branch might already exist, rollback and continue
         fixture.conn.rollback()

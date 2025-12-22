@@ -24,7 +24,9 @@ class TestE2EErrorHandlingValidation:
 
         # Attempt duplicate (should fail)
         with pytest.raises(Exception):  # Unique constraint violation
-            db.execute("INSERT INTO pggit.branches (name) VALUES (%s)", "duplicate-test")
+            db.execute(
+                "INSERT INTO pggit.branches (name) VALUES (%s)", "duplicate-test"
+            )
 
     def test_invalid_branch_name_validation(self, db, pggit_installed):
         """Test branch name validation"""
@@ -77,11 +79,16 @@ class TestE2EErrorHandlingValidation:
         )
 
         # Insert valid row
-        db.execute("INSERT INTO public.constraint_test (email) VALUES (%s)", "user@test.com")
+        db.execute(
+            "INSERT INTO public.constraint_test (email) VALUES (%s)", "user@test.com"
+        )
 
         # Try to insert duplicate
         with pytest.raises(Exception):
-            db.execute("INSERT INTO public.constraint_test (email) VALUES (%s)", "user@test.com")
+            db.execute(
+                "INSERT INTO public.constraint_test (email) VALUES (%s)",
+                "user@test.com",
+            )
 
         # Verify only one row exists
         result = db.execute("SELECT COUNT(*) FROM public.constraint_test")
@@ -192,7 +199,7 @@ class TestE2EConcurrencyScenarios:
 
         # Verify all exist in database
         result = db.execute(
-            "SELECT COUNT(*) FROM pggit.branches WHERE name LIKE 'parallel-%'"
+            "SELECT COUNT(*) FROM pggit.branches WHERE name LIKE %s", ("parallel-%",)
         )
         assert result[0][0] == 10, "Not all parallel branches created"
 
@@ -243,7 +250,9 @@ class TestE2EConcurrencyScenarios:
                     """
                 )
 
-                db.execute(f"INSERT INTO public.{table_name} (value) VALUES (%s)", "test-data")
+                db.execute(
+                    f"INSERT INTO public.{table_name} (value) VALUES (%s)", "test-data"
+                )
                 return table_name
             except Exception:
                 return None
@@ -253,7 +262,10 @@ class TestE2EConcurrencyScenarios:
             created_tables = [f.result() for f in as_completed(futures)]
 
         # Verify tables exist
-        result = db.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name LIKE 'parallel_table_%'")
+        result = db.execute(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name LIKE %s",
+            ("parallel_table_%",),
+        )
         assert result[0][0] == 5, "Not all parallel tables created"
 
     def test_concurrent_snapshot_creation(self, db, pggit_installed):
@@ -275,12 +287,15 @@ class TestE2EConcurrencyScenarios:
                 return None
 
         with ThreadPoolExecutor(max_workers=3) as executor:
-            futures = [executor.submit(create_snapshot, name) for name in snapshot_names]
+            futures = [
+                executor.submit(create_snapshot, name) for name in snapshot_names
+            ]
             created_snapshots = [f.result() for f in as_completed(futures)]
 
         # Verify snapshots created
         result = db.execute(
-            "SELECT COUNT(*) FROM pggit.temporal_snapshots WHERE snapshot_name LIKE 'concurrent-snapshot-%'"
+            "SELECT COUNT(*) FROM pggit.temporal_snapshots WHERE snapshot_name LIKE %s",
+            ("concurrent-snapshot-%",),
         )
         assert result[0][0] == 5, "Not all concurrent snapshots created"
 
@@ -404,26 +419,26 @@ class TestE2EDataIntegrity:
         # Insert different data per branch
         db.execute(
             "INSERT INTO public.isolation_test (branch_id, value) VALUES (%s, %s)",
-            branch1[0],
+            branch1,
             "branch1-data",
         )
 
         db.execute(
             "INSERT INTO public.isolation_test (branch_id, value) VALUES (%s, %s)",
-            branch2[0],
+            branch2,
             "branch2-data",
         )
 
         # Verify isolation
         result1 = db.execute(
             "SELECT COUNT(*) FROM public.isolation_test WHERE branch_id = %s AND value = %s",
-            branch1[0],
+            branch1,
             "branch1-data",
         )
 
         result2 = db.execute(
             "SELECT COUNT(*) FROM public.isolation_test WHERE branch_id = %s AND value = %s",
-            branch2[0],
+            branch2,
             "branch2-data",
         )
 
@@ -668,7 +683,9 @@ class TestE2EPerformance:
         # Large metadata payload
         large_metadata = json.dumps(
             {
-                "changes": [{"field": f"field_{i}", "value": "x" * 100} for i in range(100)]
+                "changes": [
+                    {"field": f"field_{i}", "value": "x" * 100} for i in range(100)
+                ]
             }
         )
 
@@ -692,7 +709,9 @@ class TestE2EPerformance:
     def test_concurrent_query_performance(self, db, pggit_installed):
         """Test query performance under concurrent load"""
         # Setup data
-        db.execute("CREATE TABLE public.concurrent_query_test (id SERIAL PRIMARY KEY, value INTEGER)")
+        db.execute(
+            "CREATE TABLE public.concurrent_query_test (id SERIAL PRIMARY KEY, value INTEGER)"
+        )
 
         for i in range(100):
             db.execute(
