@@ -8,32 +8,32 @@ The pggit End-to-End (E2E) test suite provides comprehensive testing coverage fo
 
 The E2E test suite contains **78 tests** organized across **15 domain-specific modules**:
 
-### Branching Operations (2 modules, ~7 tests)
-- **test_branching_advanced_scenarios.py** - Nested branch creation, parallel branch operations, branch cleanup cascades, branch status tracking, branch retrieval integrity
-- **test_branching_cross_consistency.py** - Cross-branch data consistency validation, version uniqueness constraints
+### Branching Operations (2 modules, 9 tests)
+- **test_branching_advanced_scenarios.py** (5 tests) - Nested branch creation, parallel branch operations, branch cleanup cascades, branch status tracking, branch retrieval integrity
+- **test_branching_cross_consistency.py** (4 tests) - Cross-branch data consistency validation, version uniqueness constraints
 
-### Data Management (3 modules, ~13 tests)
-- **test_data_edge_cases_and_boundaries.py** - Null value handling, Unicode characters, data boundary testing, max value validation, data truncation scenarios
-- **test_data_integrity_validation.py** - Branch data isolation, commit consistency, foreign key constraints, unique constraint validation, transaction rollback consistency
-- **test_consistency_multi_table.py** - Multi-table FK relationships, cascade operations, referential integrity
+### Data Management (3 modules, 19 tests)
+- **test_data_edge_cases_and_boundaries.py** (14 tests) - Null value handling, Unicode characters, data boundary testing, max value validation, data truncation scenarios
+- **test_data_integrity_validation.py** (5 tests) - Branch data isolation, commit consistency, foreign key constraints, unique constraint validation, transaction rollback consistency
+- **test_consistency_multi_table.py** (3 tests) - Multi-table FK relationships, cascade operations, referential integrity
 
-### Deployment & Schema (2 modules, ~8 tests)
-- **test_deployment_strategies.py** - Blue-green deployment, canary releases, schema evolution, rollback procedures
-- **test_schema_evolution_compatibility.py** - Column addition, data type compatibility, index creation, table renaming
+### Deployment & Schema (2 modules, 8 tests)
+- **test_deployment_strategies.py** (8 tests) - Blue-green deployment, canary releases, schema evolution, rollback procedures
+- **test_schema_evolution_compatibility.py** (4 tests) - Column addition, data type compatibility, index creation, table renaming
 
-### System Resilience (2 modules, ~6 tests)
-- **test_reliability_backup_recovery.py** - Snapshot export/import, point-in-time recovery, backup data integrity
-- **test_compatibility_cross_version_operations.py** - Version compatibility, backward compatibility queries, schema introspection
+### System Resilience (2 modules, 9 tests)
+- **test_reliability_backup_recovery.py** (6 tests) - Snapshot export/import, point-in-time recovery, backup data integrity
+- **test_compatibility_cross_version_operations.py** (3 tests) - Version compatibility, backward compatibility queries, schema introspection
 
-### Performance & Load (3 modules, ~12 tests)
-- **test_performance_regression_detection.py** - Branch creation speed, merge performance, snapshot creation speed
-- **test_load_concurrent_stress.py** - 50 concurrent branch operations, 100 concurrent commits, high write load contention
-- **test_resource_memory_management.py** - Memory efficiency, connection pool cleanup, resource utilization
+### Performance & Load (3 modules, 12 tests)
+- **test_performance_regression_detection.py** (4 tests) - Branch creation speed, merge performance, snapshot creation speed
+- **test_load_concurrent_stress.py** (4 tests) - 50 concurrent branch operations, 100 concurrent commits, high write load contention
+- **test_resource_memory_management.py** (4 tests) - Memory efficiency, connection pool cleanup, resource utilization
 
-### Advanced Features (2 modules, ~6 tests)
-- **test_conflict_ml_resolution.py** - ML-based conflict analysis, semantic conflict detection, conflict resolution patterns
-- **test_timing_timeout_handling.py** - Long-running merge stability, bulk operation timeouts
-- **test_transactions_multi_table.py** - Multi-table transaction consistency, cascade behavior
+### Advanced Features (3 modules, 14 tests)
+- **test_conflict_ml_resolution.py** (4 tests) - ML-based conflict analysis, semantic conflict detection, conflict resolution patterns
+- **test_timing_timeout_handling.py** (5 tests) - Long-running merge stability, bulk operation timeouts
+- **test_transactions_multi_table.py** (5 tests) - Multi-table transaction consistency, cascade behavior
 
 ## Test Results
 

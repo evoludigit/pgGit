@@ -35,7 +35,7 @@ The branching capability area tests all branch-related operations including crea
   - Verifies retrieval integrity
 
 ### test_branching_cross_consistency.py
-2 tests validating consistency across branches:
+4 tests validating consistency across branches:
 
 - **test_version_compatibility_check** - Validates version compatibility across branches
   - Checks branch table existence
@@ -46,6 +46,16 @@ The branching capability area tests all branch-related operations including crea
   - Simple SELECT on branches
   - JOIN queries between branches and commits
   - Verifies backward compatibility
+
+- **test_cross_branch_data_isolation** - Validates data isolation between branches
+  - Creates multiple branches with distinct data
+  - Verifies data doesn't leak across branches
+  - Tests isolation under concurrent access
+
+- **test_branch_hierarchy_constraints** - Tests hierarchical integrity constraints
+  - Validates parent-child relationships
+  - Tests circular reference prevention
+  - Verifies cascade behavior on deletion
 
 ## Common Test Patterns
 
@@ -175,7 +185,7 @@ Branching tests are independent but support other capability areas:
 ## Metrics
 
 Branching test coverage:
-- **Test Count**: 7 tests
-- **Coverage**: Basic CRUD, hierarchies, consistency
+- **Test Count**: 9 tests (5 advanced + 4 cross-consistency)
+- **Coverage**: Basic CRUD, hierarchies, consistency, data isolation
 - **Complexity**: Medium (multiple operations per test)
 - **Runtime**: ~1-2 seconds per test
