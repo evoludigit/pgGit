@@ -146,8 +146,10 @@ class TestSerializationFailures:
                 return {"worker": worker_id, "action": "write", "success": True}
 
             except psycopg.Error as e:
-                conn.rollback()
-                conn.close()
+                try:
+                    conn.rollback()
+                except:
+                    pass
 
                 if "serialization" in str(e).lower():
                     return {
@@ -157,6 +159,11 @@ class TestSerializationFailures:
                         "success": False,
                     }
                 return {"worker": worker_id, "error": str(e), "success": False}
+            finally:
+                try:
+                    conn.close()
+                except:
+                    pass
 
         # Run reader and writer
         with ThreadPoolExecutor(max_workers=2) as executor:
