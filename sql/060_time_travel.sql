@@ -348,41 +348,54 @@ $$ LANGUAGE plpgsql;
 
 -- Create a temporal snapshot
 CREATE OR REPLACE FUNCTION pggit.create_temporal_snapshot(
-    snapshot_name TEXT,
-    branch_id INTEGER DEFAULT 1,
-    snapshot_metadata JSONB DEFAULT '{}'
+    p_schema_name TEXT,
+    p_table_name TEXT,
+    p_metadata JSONB DEFAULT '{}'
 ) RETURNS TABLE (
     snapshot_id UUID,
-    snapshot_name TEXT,
-    created_at TIMESTAMPTZ
+    snapshot_timestamp TIMESTAMP WITH TIME ZONE,
+    row_count INTEGER
 ) AS $$
 DECLARE
     v_snapshot_id UUID := gen_random_uuid();
     v_timestamp TIMESTAMP WITH TIME ZONE := CURRENT_TIMESTAMP;
+    v_row_count INTEGER;
+    v_full_table_name TEXT;
 BEGIN
+    -- Validate table exists
+    v_full_table_name := p_schema_name || '.' || p_table_name;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = p_schema_name AND table_name = p_table_name
+    ) THEN
+        RAISE EXCEPTION 'Table %.% does not exist', p_schema_name, p_table_name;
+    END IF;
+
+    -- Count rows in the table
+    EXECUTE format('SELECT COUNT(*) FROM %I.%I', p_schema_name, p_table_name)
+    INTO v_row_count;
+
     -- Insert snapshot metadata
     INSERT INTO pggit.temporal_snapshots (
         snapshot_id,
         snapshot_name,
         snapshot_timestamp,
-        branch_id,
         description,
         created_by
     ) VALUES (
         v_snapshot_id,
-        snapshot_name,
+        format('%s.%s_snapshot_%s', p_schema_name, p_table_name, extract(epoch from v_timestamp)),
         v_timestamp,
-        branch_id,
-        'Temporal snapshot created via API',
+        format('Snapshot of table %s.%s with %s rows', p_schema_name, p_table_name, v_row_count),
         CURRENT_USER
     );
 
     -- Store metadata
     UPDATE pggit.temporal_snapshots
-    SET description = description || jsonb_build_object('user_metadata', snapshot_metadata)::TEXT
+    SET description = description || jsonb_build_object('table_schema', p_schema_name, 'table_name', p_table_name, 'row_count', v_row_count, 'user_metadata', p_metadata)::TEXT
     WHERE snapshot_id = v_snapshot_id;
 
-    RETURN QUERY SELECT v_snapshot_id, snapshot_name, v_timestamp;
+    RETURN QUERY SELECT v_snapshot_id, v_timestamp, v_row_count;
         v_snapshot_id,
         p_snapshot_name,
         CURRENT_TIMESTAMP::TIMESTAMP;
