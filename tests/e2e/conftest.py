@@ -4,6 +4,7 @@ Provides Docker setup, database connection, and pgGit installation
 """
 
 import subprocess
+import threading
 import time
 
 import docker
@@ -118,8 +119,15 @@ class DockerPostgresSetup:
                 print(f"STDOUT: {result.stdout[:1000]}")
             elif result.stderr:
                 # Check for critical errors in stderr
-                stderr_lines = result.stderr.split('\n')
-                critical_errors = [line for line in stderr_lines if 'ERROR' in line and ('060_time_travel' in line or 'create_temporal_snapshot' in line)]
+                stderr_lines = result.stderr.split("\n")
+                critical_errors = [
+                    line
+                    for line in stderr_lines
+                    if "ERROR" in line
+                    and (
+                        "060_time_travel" in line or "create_temporal_snapshot" in line
+                    )
+                ]
                 if critical_errors:
                     print(f"⚠️ Critical errors found in schema installation:")
                     for error in critical_errors[:5]:
@@ -134,14 +142,21 @@ class DockerPostgresSetup:
 class E2ETestFixture:
     """Fixture managing test database connection"""
 
+    _local = threading.local()
+
     def __init__(self, connection_string: str):
         self.connection_string = connection_string
-        self.conn = None
 
     def connect(self):
         """Establish database connection"""
-        self.conn = connect(self.connection_string)
-        return self.conn
+        if not hasattr(self._local, "conn") or self._local.conn is None:
+            self._local.conn = connect(self.connection_string)
+        return self._local.conn
+
+    @property
+    def conn(self):
+        """Get thread-local connection"""
+        return getattr(self._local, "conn", None)
 
     def execute(self, query: str, *args):
         """Execute a query and return results"""
@@ -174,8 +189,9 @@ class E2ETestFixture:
 
     def close(self):
         """Close database connection"""
-        if self.conn:
-            self.conn.close()
+        if hasattr(self._local, "conn") and self._local.conn:
+            self._local.conn.close()
+            self._local.conn = None
 
 
 @pytest.fixture(scope="session")
@@ -199,6 +215,7 @@ def pggit_installed(docker_setup):
     # Verify critical functions exist
     try:
         from psycopg import connect
+
         conn = connect(docker_setup.connection_string)
         cursor = conn.cursor()
         cursor.execute("""

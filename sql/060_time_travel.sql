@@ -394,7 +394,9 @@ CREATE OR REPLACE FUNCTION pggit.record_temporal_change(
     p_row_id TEXT,
     p_old_data JSONB,
     p_new_data JSONB
-) RETURNS VOID AS $$
+) RETURNS INTEGER AS $$
+DECLARE
+    v_change_id INTEGER;
 BEGIN
     INSERT INTO pggit.temporal_changelog (
         snapshot_id,
@@ -414,13 +416,15 @@ BEGIN
         p_new_data,
         p_row_id,
         CURRENT_USER
-    );
+    ) RETURNING change_id INTO v_change_id;
 
     -- Update snapshot frozen status if needed
     UPDATE pggit.temporal_snapshots
     SET frozen = true
     WHERE snapshot_id = p_snapshot_id
     AND frozen = false;
+
+    RETURN v_change_id;
 END;
 $$ LANGUAGE plpgsql;
 

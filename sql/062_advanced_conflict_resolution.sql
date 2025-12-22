@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS pggit.conflict_resolution_history (
 
 -- Perform semantic analysis of conflicts for intelligent resolution
 CREATE OR REPLACE FUNCTION pggit.analyze_semantic_conflict(
-    p_conflict_id INTEGER,
+    p_conflict_id UUID,
     p_base_data JSONB,
     p_source_data JSONB,
     p_target_data JSONB
@@ -196,30 +196,12 @@ DECLARE
     v_confidence NUMERIC := 0.0;
     v_details TEXT := 'No automatic resolution found';
 BEGIN
-    -- Get conflict details
-    SELECT
-        dc.source_data as base_data,
-        dc.source_data as source_data,
-        dc.target_data as target_data
-    INTO
-        v_base_data,
-        v_source_data,
-        v_target_data
-    FROM pggit.data_conflicts dc
-    WHERE dc.conflict_id = p_conflict_id;
-
-    IF NOT FOUND THEN
-        RETURN QUERY SELECT false, 'not_found', NULL::JSONB, 0.0, 'Conflict not found';
-        RETURN;
-    END IF;
-
-    -- Perform semantic analysis
+    -- Perform semantic analysis directly on passed data
     FOR v_analysis IN
         SELECT * FROM pggit.analyze_semantic_conflict(
-            p_conflict_id,
-            v_base_data,
-            v_source_data,
-            v_target_data
+            p_base_data,
+            p_source_data,
+            p_target_data
         )
     LOOP
         -- Apply heuristics based on conflict type
