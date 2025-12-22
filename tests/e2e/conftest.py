@@ -154,7 +154,7 @@ class E2ETestFixture:
         try:
             cursor = self.conn.cursor()
             cursor.execute(query, args)
-            result = cursor.fetchall()
+            result = cursor.fetchone()
             self.conn.commit()
             return result
         except Exception as e:
