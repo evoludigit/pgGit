@@ -153,6 +153,26 @@ CREATE TABLE IF NOT EXISTS pggit.branches (
 -- Insert main branch
 INSERT INTO pggit.branches (id, name) VALUES (1, 'main') ON CONFLICT (name) DO NOTHING;
 
+-- Add CHECK constraints for branch name validation
+ALTER TABLE pggit.branches ADD CONSTRAINT branch_name_not_empty
+  CHECK (name IS NOT NULL AND name != '');
+
+ALTER TABLE pggit.branches ADD CONSTRAINT branch_name_format
+  CHECK (name ~ '^[a-zA-Z0-9._/#-]+$');
+
+-- Add CASCADE DELETE to foreign key relationships
+ALTER TABLE pggit.commits DROP CONSTRAINT IF EXISTS commits_branch_id_fkey;
+ALTER TABLE pggit.commits ADD CONSTRAINT fk_commits_branch_id
+  FOREIGN KEY (branch_id) REFERENCES pggit.branches(id) ON DELETE CASCADE;
+
+ALTER TABLE pggit.history DROP CONSTRAINT IF EXISTS history_branch_id_fkey;
+ALTER TABLE pggit.history ADD CONSTRAINT fk_history_branch_id
+  FOREIGN KEY (branch_id) REFERENCES pggit.branches(id) ON DELETE CASCADE;
+
+ALTER TABLE pggit.data_branches DROP CONSTRAINT IF EXISTS data_branches_branch_id_fkey;
+ALTER TABLE pggit.data_branches ADD CONSTRAINT fk_data_branches_branch_id
+  FOREIGN KEY (branch_id) REFERENCES pggit.branches(id) ON DELETE CASCADE;
+
 -- PATENT #5: Copy-on-write data storage with deduplication
 CREATE TABLE IF NOT EXISTS pggit.data_branches (
     id SERIAL PRIMARY KEY,

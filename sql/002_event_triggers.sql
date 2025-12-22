@@ -47,6 +47,11 @@ DECLARE
     v_old_metadata JSONB;
     v_description TEXT;
 BEGIN
+    -- Skip DDL tracking during schema installation if history table doesn't exist yet
+    IF NOT EXISTS (SELECT 1 FROM information_schema.tables
+                   WHERE table_schema = 'pggit' AND table_name = 'history') THEN
+        RETURN;
+    END IF;
     -- Loop through all objects affected by the DDL command
     FOR v_object IN SELECT * FROM pg_event_trigger_ddl_commands() LOOP
         -- FIRST: Check for temporary objects before ANY processing
