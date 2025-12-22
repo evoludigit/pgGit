@@ -1,0 +1,292 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'tests/e2e/**'
+      - 'docs/e2e/**'
+      - 'sql/**'
+      - '.github/workflows/e2e-tests.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'tests/e2e/**'
+      - 'docs/e2e/**'
+      - 'sql/**'
+      - '.github/workflows/e2e-tests.yml'
+  workflow_dispatch:
+    inputs:
+      test_level:
+        description: 'Test execution level'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - 'smoke'
+          - 'full'
+          - 'extended'
+
+jobs:
+  e2e-test:
+    name: E2E Tests - ${{ matrix.test-level }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ['15', '16', '17']
+        test-level: ['smoke']
+        include:
+          - postgres: '16'
+            test-level: 'full'
+          - postgres: '17'
+            test-level: 'extended'
+
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgres }}
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install PostgreSQL client and dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql-client
+        python -m pip install --upgrade pip
+        pip install -r requirements-dev.txt
+
+    - name: Wait for PostgreSQL
+      run: |
+        until pg_isready -h localhost -p 5432; do
+          echo "Waiting for PostgreSQL..."
+          sleep 2
+        done
+
+    - name: Setup pgGit schema
+      env:
+        PGPASSWORD: postgres
+        PGHOST: localhost
+        PGUSER: postgres
+        PGDATABASE: postgres
+      run: |
+        echo "PostgreSQL version:"
+        psql -c "SELECT version();"
+
+        # Install pgGit
+        cd sql
+        echo "Installing pgGit core..."
+        psql -f install.sql || echo "Warning: Core installation had some issues"
+        cd ..
+
+        # Verify installation
+        echo "Verifying pgGit installation..."
+        psql -c "SELECT pggit.version()" || echo "Note: pggit.version() not available"
+
+    - name: Determine test command
+      id: test_cmd
+      run: |
+        case "${{ matrix.test-level }}" in
+          smoke)
+            echo "cmd=pytest tests/e2e/ -k 'not stress and not load' -v --tb=short" >> $GITHUB_OUTPUT
+            ;;
+          full)
+            echo "cmd=pytest tests/e2e/ -v --tb=short" >> $GITHUB_OUTPUT
+            ;;
+          extended)
+            echo "cmd=pytest tests/e2e/ tests/chaos/ -v --tb=short" >> $GITHUB_OUTPUT
+            ;;
+        esac
+
+    - name: Run E2E tests
+      env:
+        PGPASSWORD: postgres
+        PGHOST: localhost
+        PGUSER: postgres
+        PGDATABASE: postgres
+      run: |
+        ${{ steps.test_cmd.outputs.cmd }}
+
+    - name: Generate test report
+      if: always()
+      run: |
+        echo "## E2E Test Results - PostgreSQL ${{ matrix.postgres }} (${{ matrix.test-level }})" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Configuration" >> $GITHUB_STEP_SUMMARY
+        echo "- **PostgreSQL Version**: ${{ matrix.postgres }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Test Level**: ${{ matrix.test-level }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Test Categories" >> $GITHUB_STEP_SUMMARY
+        echo "- Branching Operations (9 tests)" >> $GITHUB_STEP_SUMMARY
+        echo "- Data Management (19 tests)" >> $GITHUB_STEP_SUMMARY
+        echo "- Deployment & Schema (8 tests)" >> $GITHUB_STEP_SUMMARY
+        echo "- System Resilience (9 tests)" >> $GITHUB_STEP_SUMMARY
+        echo "- Performance & Load (12 tests)" >> $GITHUB_STEP_SUMMARY
+        echo "- Advanced Features (14 tests)" >> $GITHUB_STEP_SUMMARY
+
+  e2e-summary:
+    name: E2E Test Summary
+    needs: [e2e-test]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Generate summary
+      run: |
+        echo "# E2E Test Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ "${{ needs.e2e-test.result }}" == "success" ]; then
+          echo "✅ **All E2E tests passed!**" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **Some E2E tests failed**" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Test Statistics" >> $GITHUB_STEP_SUMMARY
+        echo "- **Total Tests**: 78" >> $GITHUB_STEP_SUMMARY
+        echo "- **Test Modules**: 15" >> $GITHUB_STEP_SUMMARY
+        echo "- **Capability Areas**: 6" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "## Test Levels Executed" >> $GITHUB_STEP_SUMMARY
+        echo "- 🚀 **Smoke** (PostgreSQL 15): Fast validation without stress tests" >> $GITHUB_STEP_SUMMARY
+        echo "- 🔥 **Full** (PostgreSQL 16): Complete test suite" >> $GITHUB_STEP_SUMMARY
+        echo "- 💥 **Extended** (PostgreSQL 17): Full suite + chaos tests" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "## Test Organization" >> $GITHUB_STEP_SUMMARY
+        echo "Tests are organized by capability area for better organization and maintenance:" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Branching Operations (2 modules, 9 tests)" >> $GITHUB_STEP_SUMMARY
+        echo "- test_branching_advanced_scenarios.py" >> $GITHUB_STEP_SUMMARY
+        echo "- test_branching_cross_consistency.py" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "### Data Management (3 modules, 19 tests)" >> $GITHUB_STEP_SUMMARY
+        echo "- test_data_edge_cases_and_boundaries.py" >> $GITHUB_STEP_SUMMARY
+        echo "- test_data_integrity_validation.py" >> $GITHUB_STEP_SUMMARY
+        echo "- test_consistency_multi_table.py" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "### Deployment & Schema (2 modules, 8 tests)" >> $GITHUB_STEP_SUMMARY
+        echo "- test_deployment_strategies.py" >> $GITHUB_STEP_SUMMARY
+        echo "- test_schema_evolution_compatibility.py" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "### System Resilience (2 modules, 9 tests)" >> $GITHUB_STEP_SUMMARY
+        echo "- test_reliability_backup_recovery.py" >> $GITHUB_STEP_SUMMARY
+        echo "- test_compatibility_cross_version_operations.py" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "### Performance & Load (3 modules, 12 tests)" >> $GITHUB_STEP_SUMMARY
+        echo "- test_performance_regression_detection.py" >> $GITHUB_STEP_SUMMARY
+        echo "- test_load_concurrent_stress.py" >> $GITHUB_STEP_SUMMARY
+        echo "- test_resource_memory_management.py" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "### Advanced Features (3 modules, 14 tests)" >> $GITHUB_STEP_SUMMARY
+        echo "- test_conflict_ml_resolution.py" >> $GITHUB_STEP_SUMMARY
+        echo "- test_timing_timeout_handling.py" >> $GITHUB_STEP_SUMMARY
+        echo "- test_transactions_multi_table.py" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "## Documentation" >> $GITHUB_STEP_SUMMARY
+        echo "For detailed test documentation, see:" >> $GITHUB_STEP_SUMMARY
+        echo "- [E2E Test Suite Overview](docs/e2e/README.md)" >> $GITHUB_STEP_SUMMARY
+        echo "- [Running Tests Guide](docs/e2e/RUNNING_TESTS.md)" >> $GITHUB_STEP_SUMMARY
+        echo "- [Branching Operations](docs/e2e/branching.md)" >> $GITHUB_STEP_SUMMARY
+
+  coverage:
+    name: Coverage Report
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql-client
+        python -m pip install --upgrade pip
+        pip install -r requirements-dev.txt
+
+    - name: Wait for PostgreSQL
+      run: |
+        until pg_isready -h localhost -p 5432; do
+          echo "Waiting for PostgreSQL..."
+          sleep 2
+        done
+
+    - name: Setup pgGit schema
+      env:
+        PGPASSWORD: postgres
+        PGHOST: localhost
+        PGUSER: postgres
+        PGDATABASE: postgres
+      run: |
+        cd sql
+        psql -f install.sql || true
+        cd ..
+
+    - name: Run tests with coverage
+      env:
+        PGPASSWORD: postgres
+        PGHOST: localhost
+        PGUSER: postgres
+        PGDATABASE: postgres
+      run: |
+        pytest tests/e2e/ \
+          --cov=src/pggit \
+          --cov-report=xml \
+          --cov-report=term-missing \
+          -v --tb=short
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./coverage.xml
+        flags: e2e
+        name: e2e-coverage
