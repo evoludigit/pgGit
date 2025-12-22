@@ -147,7 +147,7 @@ class E2ETestFixture:
         return None
 
     def execute_returning(self, query: str, *args):
-        """Execute query that returns values"""
+        """Execute query that returns a single row as tuple"""
         if not self.conn:
             self.connect()
 
@@ -159,7 +159,7 @@ class E2ETestFixture:
             return result
         except Exception as e:
             self.conn.rollback()
-            raise
+            raise Exception(f"Query failed: {query} with args {args}") from e
 
     def close(self):
         """Close database connection"""
