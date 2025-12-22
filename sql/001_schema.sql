@@ -107,7 +107,8 @@ CREATE TABLE IF NOT EXISTS pggit.commits (
     committed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     tree_hash TEXT,
     -- PATENT #6: Content-addressable storage for database objects
-    object_hashes JSONB DEFAULT '{}'
+    object_hashes JSONB DEFAULT '{}',
+    metadata JSONB DEFAULT '{}'
 );
 
 -- PATENT #2: Version history with three-way merge support
@@ -147,7 +148,8 @@ CREATE TABLE IF NOT EXISTS pggit.branches (
     -- Copy-on-write statistics
     total_objects INTEGER DEFAULT 0,
     modified_objects INTEGER DEFAULT 0,
-    storage_efficiency DECIMAL(5,2) DEFAULT 100.00
+    storage_efficiency DECIMAL(5,2) DEFAULT 100.00,
+    description TEXT
 );
 
 -- Insert main branch
