@@ -467,10 +467,14 @@ class TestConcurrentDataOperations:
                 conn.commit()
             except psycopg.Error:
                 conn.rollback()
+                conn.close()
                 pytest.skip("Cannot create test table")
+            finally:
+                conn.close()
 
             # Perform concurrent increments using ThreadPoolExecutor
             def increment_counter(worker_id: int):
+                worker_conn = None
                 try:
                     worker_conn = psycopg.connect(
                         db_connection_string,
@@ -493,15 +497,20 @@ class TestConcurrentDataOperations:
                         (new_value,),
                     )
                     worker_conn.commit()
-                    worker_conn.close()
                     return {"worker": worker_id, "success": True, "value": new_value}
                 except Exception as e:
-                    try:
-                        worker_conn.rollback()
-                        worker_conn.close()
-                    except:
-                        pass
+                    if worker_conn:
+                        try:
+                            worker_conn.rollback()
+                        except:
+                            pass
                     return {"worker": worker_id, "success": False, "error": str(e)}
+                finally:
+                    if worker_conn:
+                        try:
+                            worker_conn.close()
+                        except:
+                            pass
 
             # Run concurrent operations
             from concurrent.futures import ThreadPoolExecutor
@@ -521,12 +530,14 @@ class TestConcurrentDataOperations:
 
             # Verify final counter value reflects all successful increments
             final_conn = psycopg.connect(db_connection_string)
-            final_conn.row_factory = psycopg.rows.dict_row
-            cursor = final_conn.execute(
-                f"SELECT counter FROM {table_name} WHERE id = 1",
-            )
-            final_value = cursor.fetchone()["counter"]
-            final_conn.close()
+            try:
+                final_conn.row_factory = psycopg.rows.dict_row
+                cursor = final_conn.execute(
+                    f"SELECT counter FROM {table_name} WHERE id = 1",
+                )
+                final_value = cursor.fetchone()["counter"]
+            finally:
+                final_conn.close()
 
             # Final value should be initial (0) + number of successful increments
             expected_final = len(successes)
@@ -538,9 +549,11 @@ class TestConcurrentDataOperations:
             # Clean up
             try:
                 cleanup_conn = psycopg.connect(db_connection_string)
-                cleanup_conn.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE")
-                cleanup_conn.commit()
-                cleanup_conn.close()
+                try:
+                    cleanup_conn.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE")
+                    cleanup_conn.commit()
+                finally:
+                    cleanup_conn.close()
             except psycopg.Error:
                 pass
 

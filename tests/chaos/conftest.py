@@ -17,6 +17,7 @@ from collections.abc import AsyncGenerator, Generator
 
 import psycopg
 import pytest
+import pytest_asyncio
 from psycopg.rows import dict_row
 
 
@@ -246,11 +247,11 @@ def conn_pool(
         conn.close()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def async_conn_pool(
     db_connection_string: str,
     request,
-) -> AsyncGenerator[list[psycopg.AsyncConnection], None]:
+):
     """Pool of asynchronous database connections for concurrent testing."""
     pool_size = getattr(request, "param", 10)  # Default 10 connections
 
