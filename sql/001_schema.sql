@@ -93,22 +93,6 @@ CREATE TABLE IF NOT EXISTS pggit.objects (
     UNIQUE(object_type, schema_name, object_name, branch_name)
 );
 
--- PATENT #4: Database Branches - True Git branching in PostgreSQL
-CREATE TABLE IF NOT EXISTS pggit.branches (
-    id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
-    parent_branch_id INTEGER REFERENCES pggit.branches(id),
-    head_commit_hash TEXT,
-    status pggit.branch_status DEFAULT 'ACTIVE',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_by TEXT DEFAULT CURRENT_USER,
-    merged_at TIMESTAMP,
-    merged_by TEXT
-);
-
--- Insert default main branch
-INSERT INTO pggit.branches (name, head_commit_hash) 
-VALUES ('main', NULL) ON CONFLICT (name) DO NOTHING;
 
 -- PATENT #5: Commit tracking with merkle tree structure
 CREATE TABLE IF NOT EXISTS pggit.commits (
@@ -158,6 +142,8 @@ CREATE TABLE IF NOT EXISTS pggit.branches (
     created_by TEXT DEFAULT CURRENT_USER,
     merged_at TIMESTAMP,
     merged_by TEXT,
+    -- Branch type: standard, tiered, temporal, or compressed
+    branch_type TEXT DEFAULT 'standard' CHECK (branch_type IN ('standard', 'tiered', 'temporal', 'compressed')),
     -- Copy-on-write statistics
     total_objects INTEGER DEFAULT 0,
     modified_objects INTEGER DEFAULT 0,

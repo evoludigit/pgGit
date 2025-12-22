@@ -647,10 +647,20 @@ CREATE OR REPLACE FUNCTION pggit.create_tiered_branch(
 ) RETURNS INTEGER AS $$
 DECLARE
     v_branch_id INTEGER;
+    v_source_branch_id INTEGER;
 BEGIN
-    -- Create branch with tiered storage strategy
-    INSERT INTO pggit.branches (name, source_branch, branch_type)
-    VALUES (p_branch_name, p_source_branch, 'TIERED')
+    -- Get source branch ID
+    SELECT id INTO v_source_branch_id
+    FROM pggit.branches
+    WHERE name = p_source_branch;
+
+    IF v_source_branch_id IS NULL THEN
+        RAISE EXCEPTION 'Source branch % not found', p_source_branch;
+    END IF;
+
+    -- Create branch with tiered storage strategy, using DEFAULT for branch_type
+    INSERT INTO pggit.branches (name, parent_branch_id, branch_type)
+    VALUES (p_branch_name, v_source_branch_id, 'tiered')
     RETURNING id INTO v_branch_id;
 
     RETURN v_branch_id;
@@ -668,10 +678,20 @@ CREATE OR REPLACE FUNCTION pggit.create_temporal_branch(
 ) RETURNS INTEGER AS $$
 DECLARE
     v_branch_id INTEGER;
+    v_source_branch_id INTEGER;
 BEGIN
-    -- Create branch optimized for temporal queries
-    INSERT INTO pggit.branches (name, source_branch, branch_type)
-    VALUES (p_branch_name, p_source_branch, 'TEMPORAL')
+    -- Get source branch ID
+    SELECT id INTO v_source_branch_id
+    FROM pggit.branches
+    WHERE name = p_source_branch;
+
+    IF v_source_branch_id IS NULL THEN
+        RAISE EXCEPTION 'Source branch % not found', p_source_branch;
+    END IF;
+
+    -- Create branch optimized for temporal queries, using DEFAULT for branch_type
+    INSERT INTO pggit.branches (name, parent_branch_id, branch_type)
+    VALUES (p_branch_name, v_source_branch_id, 'temporal')
     RETURNING id INTO v_branch_id;
 
     RETURN v_branch_id;
