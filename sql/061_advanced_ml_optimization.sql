@@ -586,3 +586,151 @@ GRANT SELECT, INSERT, UPDATE ON pggit.ml_access_patterns TO PUBLIC;
 GRANT SELECT, INSERT, UPDATE ON pggit.ml_prediction_cache TO PUBLIC;
 GRANT SELECT, INSERT, UPDATE ON pggit.ml_model_metadata TO PUBLIC;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
+
+-- =====================================================
+-- Phase 3: Specification-Compliant Functions
+-- =====================================================
+
+-- Learn access patterns for a specific object and operation
+CREATE OR REPLACE FUNCTION pggit.learn_access_patterns(
+    p_object_id BIGINT,
+    p_operation_type TEXT
+) RETURNS TABLE (
+    pattern_id UUID,
+    operation TEXT,
+    frequency INTEGER,
+    avg_response_time_ms NUMERIC
+) AS $$
+DECLARE
+    v_pattern_id UUID := gen_random_uuid();
+    v_frequency INTEGER := 1;
+    v_avg_response_time NUMERIC := 0.0;
+    v_object_id_text TEXT;
+BEGIN
+    -- Convert object_id to text for storage
+    v_object_id_text := p_object_id::TEXT;
+
+    -- Check if pattern already exists
+    SELECT
+        COUNT(*),
+        COALESCE(AVG(avg_latency_ms), 0.0)
+    INTO v_frequency, v_avg_response_time
+    FROM pggit.ml_access_patterns
+    WHERE object_id = v_object_id_text
+    AND pattern_sequence = p_operation_type;
+
+    -- Record or update the pattern
+    INSERT INTO pggit.ml_access_patterns (
+        object_id,
+        pattern_sequence,
+        pattern_frequency,
+        confidence_score,
+        avg_latency_ms,
+        total_occurrences
+    ) VALUES (
+        v_object_id_text,
+        p_operation_type,
+        v_frequency + 1,
+        0.5, -- Default confidence
+        v_avg_response_time,
+        v_frequency + 1
+    )
+    ON CONFLICT (pattern_id) DO UPDATE SET
+        pattern_frequency = EXCLUDED.pattern_frequency,
+        total_occurrences = EXCLUDED.total_occurrences,
+        last_observed = CURRENT_TIMESTAMP;
+
+    RETURN QUERY SELECT
+        v_pattern_id,
+        p_operation_type,
+        v_frequency + 1,
+        v_avg_response_time;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Predict next objects based on access patterns
+CREATE OR REPLACE FUNCTION pggit.predict_next_objects(
+    p_object_id BIGINT,
+    p_min_confidence NUMERIC DEFAULT 0.7
+) RETURNS TABLE (
+    predicted_object_id BIGINT,
+    confidence NUMERIC,
+    based_on_patterns INTEGER
+) AS $$
+DECLARE
+    v_object_id_text TEXT;
+BEGIN
+    v_object_id_text := p_object_id::TEXT;
+
+    -- Return predictions from existing patterns
+    RETURN QUERY
+    SELECT
+        map.object_id::BIGINT,
+        map.confidence_score,
+        map.pattern_frequency
+    FROM pggit.ml_access_patterns map
+    WHERE map.object_id != v_object_id_text
+    AND map.confidence_score >= p_min_confidence
+    ORDER BY map.confidence_score DESC, map.pattern_frequency DESC
+    LIMIT 5;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Adaptive prefetch based on access patterns
+CREATE OR REPLACE FUNCTION pggit.adaptive_prefetch(
+    p_object_id BIGINT,
+    p_budget_mb INTEGER,
+    p_strategy TEXT DEFAULT 'MODERATE'
+) RETURNS TABLE (
+    prefetch_id UUID,
+    strategy_applied TEXT,
+    objects_prefetched INTEGER,
+    improvement_estimate NUMERIC
+) AS $$
+DECLARE
+    v_prefetch_id UUID := gen_random_uuid();
+    v_objects_prefetched INTEGER := 0;
+    v_improvement_estimate NUMERIC := 0.0;
+    v_strategy TEXT := COALESCE(p_strategy, 'MODERATE');
+    v_budget_bytes BIGINT := p_budget_mb * 1024 * 1024;
+BEGIN
+    -- Count objects that would be prefetched based on strategy
+    CASE v_strategy
+        WHEN 'CONSERVATIVE' THEN
+            -- Only highly confident predictions
+            SELECT COUNT(*) INTO v_objects_prefetched
+            FROM pggit.predict_next_objects(p_object_id, 0.8);
+
+            v_improvement_estimate := v_objects_prefetched * 0.1; -- 10% improvement
+
+        WHEN 'MODERATE' THEN
+            -- Moderate confidence predictions
+            SELECT COUNT(*) INTO v_objects_prefetched
+            FROM pggit.predict_next_objects(p_object_id, 0.6);
+
+            v_improvement_estimate := v_objects_prefetched * 0.15; -- 15% improvement
+
+        WHEN 'AGGRESSIVE' THEN
+            -- All predictions above minimum confidence
+            SELECT COUNT(*) INTO v_objects_prefetched
+            FROM pggit.predict_next_objects(p_object_id, 0.4);
+
+            v_improvement_estimate := v_objects_prefetched * 0.2; -- 20% improvement
+
+        ELSE
+            v_objects_prefetched := 0;
+            v_improvement_estimate := 0.0;
+    END CASE;
+
+    -- Limit by budget (simplified - would need actual object size calculation)
+    IF v_objects_prefetched > p_budget_mb THEN
+        v_objects_prefetched := p_budget_mb;
+    END IF;
+
+    RETURN QUERY SELECT
+        v_prefetch_id,
+        v_strategy,
+        v_objects_prefetched,
+        v_improvement_estimate;
+END;
+$$ LANGUAGE plpgsql;
