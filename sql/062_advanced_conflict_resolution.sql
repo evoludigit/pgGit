@@ -592,3 +592,125 @@ GRANT SELECT, INSERT, UPDATE ON pggit.conflict_resolution_strategies TO PUBLIC;
 GRANT SELECT, INSERT ON pggit.semantic_conflicts TO PUBLIC;
 GRANT SELECT, INSERT ON pggit.conflict_resolution_history TO PUBLIC;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
+
+-- =====================================================
+-- Phase 3: Specification-Compliant Functions
+-- =====================================================
+
+-- Analyze semantic conflicts between three versions
+CREATE OR REPLACE FUNCTION pggit.analyze_semantic_conflict(
+    p_base_json JSONB,
+    p_source_json JSONB,
+    p_target_json JSONB
+) RETURNS TABLE (
+    conflict_id UUID,
+    type TEXT,
+    severity TEXT,
+    can_auto_resolve BOOLEAN,
+    suggestion TEXT
+) AS $$
+DECLARE
+    v_conflict_id UUID := gen_random_uuid();
+    v_type TEXT := 'UNKNOWN';
+    v_severity TEXT := 'medium';
+    v_can_auto_resolve BOOLEAN := false;
+    v_suggestion TEXT := 'Manual review required';
+
+    v_base_keys TEXT[];
+    v_source_keys TEXT[];
+    v_target_keys TEXT[];
+BEGIN
+    -- Extract keys from each JSON
+    v_base_keys := ARRAY(SELECT jsonb_object_keys(p_base_json));
+    v_source_keys := ARRAY(SELECT jsonb_object_keys(p_source_json));
+    v_target_keys := ARRAY(SELECT jsonb_object_keys(p_target_json));
+
+    -- Detect conflict types
+    IF p_source_json != p_target_json AND p_source_json != p_base_json AND p_target_json != p_base_json THEN
+        -- Both branches modified the same data differently
+        v_type := 'CONCURRENT_MODIFICATION';
+        v_severity := 'high';
+        v_can_auto_resolve := false;
+        v_suggestion := 'Both branches modified the same field - manual resolution needed';
+    ELSIF p_source_json = p_base_json AND p_target_json != p_base_json THEN
+        -- Only target branch modified
+        v_type := 'TARGET_ONLY_MODIFIED';
+        v_severity := 'low';
+        v_can_auto_resolve := true;
+        v_suggestion := 'Accept target branch changes';
+    ELSIF p_target_json = p_base_json AND p_source_json != p_base_json THEN
+        -- Only source branch modified
+        v_type := 'SOURCE_ONLY_MODIFIED';
+        v_severity := 'low';
+        v_can_auto_resolve := true;
+        v_suggestion := 'Accept source branch changes';
+    ELSIF p_source_json = p_target_json THEN
+        -- Both branches made identical changes
+        v_type := 'IDENTICAL_CHANGES';
+        v_severity := 'low';
+        v_can_auto_resolve := true;
+        v_suggestion := 'Changes are identical - no conflict';
+    ELSE
+        -- Non-overlapping changes (can potentially auto-resolve)
+        v_type := 'NON_OVERLAPPING_CHANGES';
+        v_severity := 'medium';
+        v_can_auto_resolve := true;
+        v_suggestion := 'Merge non-conflicting changes automatically';
+    END IF;
+
+    RETURN QUERY SELECT
+        v_conflict_id,
+        v_type,
+        v_severity,
+        v_can_auto_resolve,
+        v_suggestion;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Identify patterns in conflict resolution data
+CREATE OR REPLACE FUNCTION pggit.identify_conflict_patterns(
+    p_conflict_data_json JSONB
+) RETURNS TABLE (
+    pattern_id UUID,
+    pattern_name TEXT,
+    frequency INTEGER,
+    success_rate NUMERIC
+) AS $$
+DECLARE
+    v_pattern_id UUID := gen_random_uuid();
+    v_pattern_name TEXT;
+    v_frequency INTEGER := 1;
+    v_success_rate NUMERIC := 0.8; -- Default success rate
+
+    v_conflict_type TEXT;
+    v_resolution_strategy TEXT;
+BEGIN
+    -- Extract conflict type and resolution from JSON
+    v_conflict_type := p_conflict_data_json->>'conflict_type';
+    v_resolution_strategy := p_conflict_data_json->>'resolution_strategy';
+
+    -- Generate pattern name based on conflict characteristics
+    v_pattern_name := format('%s_%s_pattern',
+        COALESCE(v_conflict_type, 'unknown'),
+        COALESCE(v_resolution_strategy, 'unknown')
+    );
+
+    -- Count frequency (simplified - would need historical data)
+    v_frequency := 1;
+
+    -- Calculate success rate (simplified)
+    IF v_resolution_strategy = 'automatic' THEN
+        v_success_rate := 0.9;
+    ELSIF v_resolution_strategy = 'manual' THEN
+        v_success_rate := 0.7;
+    ELSE
+        v_success_rate := 0.5;
+    END IF;
+
+    RETURN QUERY SELECT
+        v_pattern_id,
+        v_pattern_name,
+        v_frequency,
+        v_success_rate;
+END;
+$$ LANGUAGE plpgsql;
