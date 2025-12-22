@@ -3,6 +3,7 @@ End-to-End Integration Tests for pgGit
 Tests against a fresh PostgreSQL database in Docker
 """
 
+import json
 import pytest
 from conftest import db, docker_setup, pggit_installed  # noqa: F401
 
@@ -366,7 +367,9 @@ class TestE2ETemporalOperations:
         )
 
         assert len(result) > 0, "No snapshots listed"
-        assert any(row[1] == "snapshot-1" for row in result), "Snapshot not found in list"
+        assert any(row[1] == "snapshot-1" for row in result), (
+            "Snapshot not found in list"
+        )
 
     def test_temporal_changelog_recording(self, db, pggit_installed):
         """Test recording temporal changes"""
