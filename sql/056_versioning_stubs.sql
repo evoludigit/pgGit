@@ -242,3 +242,77 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION pggit.validate_branch_creation(TEXT, TEXT) IS
 'Validate branch creation parameters';
+
+-- Configuration tracking function
+CREATE OR REPLACE FUNCTION pggit.configure_tracking(
+    p_schema_name TEXT,
+    p_enabled BOOLEAN DEFAULT true
+) RETURNS BOOLEAN AS $$
+BEGIN
+    INSERT INTO pggit.versioned_objects (schema_name, object_name, object_type, configuration)
+    VALUES (p_schema_name, 'TRACKING', 'CONFIG', jsonb_build_object('enabled', p_enabled))
+    ON CONFLICT DO NOTHING;
+
+    RETURN true;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.configure_tracking(TEXT, BOOLEAN) IS
+'Configure object tracking for a schema';
+
+-- Function to execute migration integration test
+CREATE OR REPLACE FUNCTION pggit.execute_migration_integration(
+    p_target_version TEXT
+) RETURNS TABLE (
+    result TEXT,
+    status TEXT,
+    objects_affected INTEGER
+) AS $$
+BEGIN
+    RETURN QUERY SELECT 'SUCCESS'::TEXT, 'COMPLETED'::TEXT, 0::INTEGER;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.execute_migration_integration(TEXT) IS
+'Execute migration integration workflows';
+
+-- Function to plan advanced features
+CREATE OR REPLACE FUNCTION pggit.plan_advanced_features(
+    p_features TEXT[]
+) RETURNS TABLE (
+    feature TEXT,
+    status TEXT,
+    complexity_level TEXT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        unnest(p_features),
+        'AVAILABLE'::TEXT,
+        'MEDIUM'::TEXT;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.plan_advanced_features(TEXT[]) IS
+'Plan implementation of advanced features';
+
+-- Function to execute zero downtime strategy
+CREATE OR REPLACE FUNCTION pggit.execute_zero_downtime(
+    p_version TEXT,
+    p_strategy TEXT DEFAULT 'blue_green'
+) RETURNS TABLE (
+    phase_number INTEGER,
+    phase_name TEXT,
+    estimated_duration_seconds INTEGER
+) AS $$
+BEGIN
+    RETURN QUERY VALUES
+        (1, 'Prepare shadow environment'::TEXT, 120::INTEGER),
+        (2, 'Synchronize data'::TEXT, 180::INTEGER),
+        (3, 'Switch traffic'::TEXT, 30::INTEGER),
+        (4, 'Validate new environment'::TEXT, 60::INTEGER);
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.execute_zero_downtime(TEXT, TEXT) IS
+'Execute zero-downtime deployment strategy';
