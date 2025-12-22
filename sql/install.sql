@@ -25,6 +25,9 @@
 \i 051_data_branching_cow.sql
 \i pggit_conflict_resolution_minimal.sql
 \i pggit_diff_functionality.sql
+\i 060_time_travel.sql
+\i 061_advanced_ml_optimization.sql
+\i 062_advanced_conflict_resolution.sql
 
 \echo ''
 \echo 'Installation complete!'
