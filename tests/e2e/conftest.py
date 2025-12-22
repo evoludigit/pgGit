@@ -247,7 +247,7 @@ def db(docker_setup, pggit_installed):
         fixture.execute("""
             CREATE TABLE IF NOT EXISTS pggit.commits (
                 id SERIAL PRIMARY KEY,
-                hash TEXT NOT NULL UNIQUE,
+                hash TEXT NOT NULL UNIQUE DEFAULT (md5(random()::text)),
                 branch_id INTEGER NOT NULL REFERENCES pggit.branches(id),
                 parent_commit_hash TEXT,
                 message TEXT,
