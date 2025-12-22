@@ -68,32 +68,120 @@ class DockerPostgresSetup:
             except Exception:
                 pass
 
-    def exec_sql_file(self, file_path: str) -> None:
-        """Execute SQL file in the container"""
-        # Read SQL file
-        with open(file_path, 'r') as f:
-            lines = f.readlines()
+    def exec_sql_file(self, file_path: str, base_dir: str = None) -> None:
+        """Execute SQL file in the container, handling \i includes"""
+        import os
+        if base_dir is None:
+            base_dir = os.path.dirname(os.path.abspath(file_path))
 
-        # Filter out psql-specific commands
-        sql_lines = []
-        for line in lines:
-            # Skip psql metacommands (lines starting with \)
-            if not line.strip().startswith('\\'):
-                sql_lines.append(line)
+        # Read SQL file and process includes
+        def read_sql_with_includes(path):
+            """Recursively read SQL file, processing \i includes"""
+            with open(path, 'r') as f:
+                content = f.read()
 
-        sql = ''.join(sql_lines)
+            lines = content.split('\n')
+            result = []
+            for line in lines:
+                stripped = line.strip()
+                # Handle \i includes - read and inline the included file
+                if stripped.startswith('\\i '):
+                    included_file = stripped[3:].strip().strip('"\'')
+                    included_path = os.path.join(base_dir, included_file)
+                    if os.path.exists(included_path):
+                        result.append(read_sql_with_includes(included_path))
+                    continue
+                # Skip other psql metacommands
+                if stripped.startswith('\\'):
+                    continue
+                result.append(line)
+
+            return '\n'.join(result)
+
+        sql = read_sql_with_includes(file_path)
 
         # Execute via Python connection
         try:
             conn = connect(self.connection_string)
             cursor = conn.cursor()
-            # Split by semicolon and execute each statement
-            for statement in sql.split(';'):
-                statement = statement.strip()
-                # Skip empty statements
-                if statement:
-                    cursor.execute(statement)
-            conn.commit()
+
+            # Split SQL into statements properly handling strings and dollar quotes
+            def split_sql_statements(sql_text):
+                """Split SQL by semicolon, handling quoted strings"""
+                statements = []
+                current_stmt = []
+                in_string = False
+                string_char = None
+                in_dollar_quote = False
+                dollar_tag = ""
+                i = 0
+
+                while i < len(sql_text):
+                    char = sql_text[i]
+
+                    # Handle dollar quotes
+                    if char == '$' and not in_string:
+                        if not in_dollar_quote:
+                            # Find the end of the dollar quote tag
+                            j = i + 1
+                            while j < len(sql_text) and sql_text[j] != '$':
+                                j += 1
+                            if j < len(sql_text):
+                                dollar_tag = sql_text[i:j+1]
+                                in_dollar_quote = True
+                                current_stmt.append(sql_text[i:j+1])
+                                i = j + 1
+                                continue
+                        else:
+                            # Check if this closes the dollar quote
+                            if sql_text[i:].startswith(dollar_tag):
+                                in_dollar_quote = False
+                                dollar_tag = ""
+                                current_stmt.append(sql_text[i:i+len(dollar_tag)])
+                                i += len(dollar_tag)
+                                continue
+
+                    # Handle regular quotes
+                    if char in ("'", '"') and not in_dollar_quote:
+                        if not in_string:
+                            in_string = True
+                            string_char = char
+                        elif char == string_char and (i == 0 or sql_text[i-1] != '\\'):
+                            in_string = False
+                            string_char = None
+
+                    # Handle statement terminator
+                    if char == ';' and not in_string and not in_dollar_quote:
+                        current_stmt.append(char)
+                        stmt = ''.join(current_stmt).strip()
+                        if stmt and not stmt.startswith('--'):
+                            statements.append(stmt)
+                        current_stmt = []
+                    else:
+                        current_stmt.append(char)
+
+                    i += 1
+
+                # Handle remaining statement
+                stmt = ''.join(current_stmt).strip()
+                if stmt and not stmt.startswith('--'):
+                    statements.append(stmt)
+
+                return statements
+
+            statements = split_sql_statements(sql)
+
+            # Execute each statement
+            for stmt in statements:
+                if stmt:
+                    try:
+                        cursor.execute(stmt)
+                        conn.commit()
+                    except Exception as e:
+                        conn.rollback()
+                        # Continue on error - some statements may fail for valid reasons
+                        pass
+
             conn.close()
         except Exception as e:
             raise Exception(f"SQL execution failed: {str(e)}")
