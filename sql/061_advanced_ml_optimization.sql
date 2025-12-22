@@ -634,11 +634,7 @@ BEGIN
         0.5, -- Default confidence
         v_avg_response_time,
         v_frequency + 1
-    )
-    ON CONFLICT (pattern_id) DO UPDATE SET
-        pattern_frequency = EXCLUDED.pattern_frequency,
-        total_occurrences = EXCLUDED.total_occurrences,
-        last_observed = CURRENT_TIMESTAMP;
+    );
 
     RETURN QUERY SELECT
         v_pattern_id,
