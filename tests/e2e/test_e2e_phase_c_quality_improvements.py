@@ -27,11 +27,11 @@ class TestE2ETimingTimeoutHandling:
         """Test merge stability during long operations"""
         main_id = db.execute_returning(
             "SELECT id FROM pggit.branches WHERE name = 'main'"
-        )[0][0]
+        )[0]
 
         long_branch = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('long-merge-branch') RETURNING id"
-        )[0][0]
+        )[0]
 
         # Create large dataset
         db.execute("""
@@ -187,11 +187,11 @@ class TestE2ETimingTimeoutHandling:
         """Test handling of distributed transaction timeout scenarios"""
         main_id = db.execute_returning(
             "SELECT id FROM pggit.branches WHERE name = 'main'"
-        )[0][0]
+        )[0]
 
         branch1 = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('timeout-branch-1') RETURNING id"
-        )[0][0]
+        )[0]
 
         db.execute("""
             CREATE TABLE public.distributed_timeout (
@@ -265,7 +265,7 @@ class TestE2EPerformanceRegressionDetection:
         """Test regression detection in merge performance"""
         main_id = db.execute_returning(
             "SELECT id FROM pggit.branches WHERE name = 'main'"
-        )[0][0]
+        )[0]
 
         db.execute("""
             CREATE TABLE public.perf_merge_test (
@@ -277,7 +277,7 @@ class TestE2EPerformanceRegressionDetection:
         # Create test branches
         branch1 = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('perf-merge-1') RETURNING id"
-        )[0][0]
+        )[0]
 
         # Insert baseline data
         for i in range(100):
@@ -300,7 +300,7 @@ class TestE2EPerformanceRegressionDetection:
         # Test merge time (should be similar)
         branch2 = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('perf-merge-2') RETURNING id"
-        )[0][0]
+        )[0]
 
         test_start = time.time()
         db.execute_returning(
@@ -455,7 +455,7 @@ class TestE2EMemoryResourceManagement:
         """Test connection pool cleanup"""
         main_id = db.execute_returning(
             "SELECT id FROM pggit.branches WHERE name = 'main'"
-        )[0][0]
+        )[0]
 
         # Create multiple branches to stress connection pool
         branch_ids = []
@@ -463,7 +463,7 @@ class TestE2EMemoryResourceManagement:
             branch_id = db.execute_returning(
                 "INSERT INTO pggit.branches (name) VALUES (%s) RETURNING id",
                 f"pool-stress-{i}",
-            )[0][0]
+            )[0]
             branch_ids.append(branch_id)
 
         # All branches should be created
@@ -471,7 +471,8 @@ class TestE2EMemoryResourceManagement:
 
         # Verify all branches are queryable
         result = db.execute(
-            "SELECT COUNT(*) FROM pggit.branches WHERE name LIKE 'pool-stress-%'"
+            "SELECT COUNT(*) FROM pggit.branches WHERE name LIKE %s",
+            "pool-stress-%"
         )
         assert result[0][0] == 20, "All stressed branches should be accessible"
 
@@ -522,10 +523,12 @@ class TestE2EMemoryResourceManagement:
 
         # Create large cache-like dataset
         for i in range(100):
+            # Create a list of dicts repeated 100 times, then serialize
+            cache_data = [{"key": f"value-{i}"} for _ in range(100)]
             db.execute(
                 "INSERT INTO public.cache_bounds (id, cached_data) VALUES (%s, %s)",
                 i,
-                json.dumps({"key": f"value-{i}"} * 100),  # ~1KB per row
+                json.dumps(cache_data),  # ~1KB per row
             )
 
         mem_after = process.memory_info().rss / 1024 / 1024
@@ -548,7 +551,7 @@ class TestE2EConcurrentLoadStress:
                 branch_id = db.execute_returning(
                     "INSERT INTO pggit.branches (name) VALUES (%s) RETURNING id",
                     f"stress-50-{i}",
-                )[0][0]
+                )[0]
                 return branch_id
             except Exception as e:
                 failed_operations.append(str(e))
@@ -557,10 +560,13 @@ class TestE2EConcurrentLoadStress:
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = [executor.submit(create_branch, i) for i in range(50)]
 
-            for future in as_completed(futures):
-                result = future.result()
-                if result:
-                    created_branches.append(result)
+            for future in as_completed(futures, timeout=30):
+                try:
+                    result = future.result()
+                    if result:
+                        created_branches.append(result)
+                except Exception as e:
+                    failed_operations.append(str(e))
 
         # Most branches should be created
         assert len(created_branches) >= 40, (
@@ -574,7 +580,7 @@ class TestE2EConcurrentLoadStress:
         """Test 100 concurrent commits to same branch"""
         main_id = db.execute_returning(
             "SELECT id FROM pggit.branches WHERE name = 'main'"
-        )[0][0]
+        )[0]
 
         commit_ids = []
         lock = None
@@ -585,7 +591,7 @@ class TestE2EConcurrentLoadStress:
                     "INSERT INTO pggit.commits (branch_id, message) VALUES (%s, %s) RETURNING id",
                     main_id,
                     f"concurrent-commit-{i}",
-                )[0][0]
+                )[0]
                 return commit_id
             except Exception:
                 return None
@@ -677,7 +683,7 @@ class TestE2EConcurrentLoadStress:
         # New operations should work
         new_branch = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('recovery-branch') RETURNING id"
-        )[0][0]
+        )[0]
         assert new_branch is not None, "New operations should work after recovery"
 
 
