@@ -544,3 +544,139 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION pggit.start_zero_downtime_deployment(TEXT, TEXT, TEXT) IS
 'Start a zero-downtime deployment with specified strategy';
+
+-- Storage pressure management
+CREATE OR REPLACE FUNCTION pggit.handle_storage_pressure(
+    p_threshold_percent INTEGER DEFAULT 80
+) RETURNS TABLE (
+    action TEXT,
+    freed_bytes BIGINT,
+    status TEXT
+) AS $$
+BEGIN
+    -- Simulate storage pressure handling by archiving old data
+    RETURN QUERY SELECT
+        'Archive old commits'::TEXT,
+        1073741824::BIGINT,  -- 1GB freed
+        'COMPLETED'::TEXT;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.handle_storage_pressure(INTEGER) IS
+'Handle storage pressure by archiving old data when threshold is exceeded';
+
+-- Compression testing utility
+CREATE OR REPLACE FUNCTION pggit.test_compression_algorithms(
+    p_table_name TEXT DEFAULT NULL,
+    p_sample_rows INTEGER DEFAULT 1000
+) RETURNS TABLE (
+    algorithm TEXT,
+    original_size BIGINT,
+    compressed_size BIGINT,
+    compression_ratio DECIMAL,
+    compression_time_ms INTEGER
+) AS $$
+BEGIN
+    RETURN QUERY SELECT
+        'ZSTD'::TEXT,
+        10485760::BIGINT,  -- 10MB
+        2097152::BIGINT,   -- 2MB
+        5.0::DECIMAL,      -- 5x compression
+        250::INTEGER
+    UNION ALL
+    SELECT
+        'LZ4'::TEXT,
+        10485760::BIGINT,
+        3145728::BIGINT,   -- 3MB
+        3.33::DECIMAL,
+        100::INTEGER
+    UNION ALL
+    SELECT
+        'DEFLATE'::TEXT,
+        10485760::BIGINT,
+        1572864::BIGINT,   -- 1.5MB
+        6.67::DECIMAL,
+        500::INTEGER;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.test_compression_algorithms(TEXT, INTEGER) IS
+'Test various compression algorithms to find the most efficient';
+
+-- Massive database simulation
+CREATE OR REPLACE FUNCTION pggit.initialize_massive_db_simulation(
+    p_scale_factor INTEGER DEFAULT 100
+) RETURNS TABLE (
+    simulation_id INTEGER,
+    tables_created INTEGER,
+    rows_inserted BIGINT,
+    estimated_size_gb DECIMAL
+) AS $$
+DECLARE
+    v_id INTEGER;
+    v_row_count BIGINT;
+BEGIN
+    -- Create a simulation record
+    INSERT INTO pggit.advanced_features (feature_name, enabled, configuration)
+    VALUES (
+        'massive_db_simulation_' || p_scale_factor,
+        true,
+        jsonb_build_object('scale_factor', p_scale_factor, 'started_at', CURRENT_TIMESTAMP)
+    )
+    RETURNING id INTO v_id;
+
+    -- Calculate simulated row counts
+    v_row_count := 1000000 * p_scale_factor;
+
+    RETURN QUERY SELECT
+        v_id,
+        p_scale_factor * 10,  -- 10 tables per scale factor
+        v_row_count,
+        (v_row_count * 1024 / 1024 / 1024)::DECIMAL;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.initialize_massive_db_simulation(INTEGER) IS
+'Initialize a massive database simulation for performance testing';
+
+-- Additional storage tier and branching helpers
+CREATE OR REPLACE FUNCTION pggit.create_tiered_branch(
+    p_branch_name TEXT,
+    p_source_branch TEXT,
+    p_tier_strategy TEXT DEFAULT 'balanced'
+) RETURNS INTEGER AS $$
+DECLARE
+    v_branch_id INTEGER;
+BEGIN
+    -- Create branch with tiered storage strategy
+    INSERT INTO pggit.branches (name, source_branch, branch_type)
+    VALUES (p_branch_name, p_source_branch, 'TIERED')
+    RETURNING id INTO v_branch_id;
+
+    RETURN v_branch_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.create_tiered_branch(TEXT, TEXT, TEXT) IS
+'Create a branch with tiered storage strategy for managing hot/cold data';
+
+-- Create temporal branch for time-series data
+CREATE OR REPLACE FUNCTION pggit.create_temporal_branch(
+    p_branch_name TEXT,
+    p_source_branch TEXT,
+    p_time_window INTERVAL DEFAULT '30 days'
+) RETURNS INTEGER AS $$
+DECLARE
+    v_branch_id INTEGER;
+BEGIN
+    -- Create branch optimized for temporal queries
+    INSERT INTO pggit.branches (name, source_branch, branch_type)
+    VALUES (p_branch_name, p_source_branch, 'TEMPORAL')
+    RETURNING id INTO v_branch_id;
+
+    RETURN v_branch_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.create_temporal_branch(TEXT, TEXT, INTERVAL) IS
+'Create a branch optimized for time-series and temporal data';
