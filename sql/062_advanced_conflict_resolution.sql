@@ -576,6 +576,13 @@ GRANT SELECT, INSERT ON pggit.conflict_resolution_history TO PUBLIC;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
 
 -- =====================================================
+-- Drop Legacy Functions (Before Redefining with New Signatures)
+-- =====================================================
+
+DROP FUNCTION IF EXISTS pggit.analyze_semantic_conflict(UUID, JSONB, JSONB, JSONB) CASCADE;
+DROP FUNCTION IF EXISTS pggit.identify_conflict_patterns(INTEGER) CASCADE;
+
+-- =====================================================
 -- Phase 3: Specification-Compliant Functions
 -- =====================================================
 

@@ -518,6 +518,14 @@ GRANT SELECT, INSERT ON pggit.temporal_changelog TO PUBLIC;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
 
 -- =====================================================
+-- Drop Legacy Functions (Before Redefining with New Signatures)
+-- =====================================================
+
+DROP FUNCTION IF EXISTS pggit.get_table_state_at_time(TEXT, TIMESTAMP) CASCADE;
+DROP FUNCTION IF EXISTS pggit.query_historical_data(TEXT, TIMESTAMP, TIMESTAMP, TEXT) CASCADE;
+DROP FUNCTION IF EXISTS pggit.restore_table_to_point_in_time(TEXT, TIMESTAMP, BOOLEAN) CASCADE;
+
+-- =====================================================
 -- Phase 2: Specification-Matching Functions
 -- =====================================================
 
@@ -602,45 +610,10 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql;
 
--- Export temporal data (updated to match specification)
-CREATE OR REPLACE FUNCTION pggit.export_temporal_data(
-    p_snapshot_id UUID
-) RETURNS TABLE (
-    export_data JSONB,
-    export_timestamp TIMESTAMP WITH TIME ZONE,
-    record_count INTEGER
-) AS $$
-DECLARE
-    v_record_count INTEGER;
-BEGIN
-    -- Count records for this snapshot
-    SELECT COUNT(*) INTO v_record_count
-    FROM pggit.temporal_changelog
-    WHERE snapshot_id = p_snapshot_id;
+-- =====================================================
+-- Schema Migration: Fix Timezone Type Mismatch
+-- =====================================================
 
-    -- Return export data as JSON
-    RETURN QUERY
-    SELECT
-        jsonb_build_object(
-            'snapshot_id', p_snapshot_id,
-            'exported_at', CURRENT_TIMESTAMP,
-            'record_count', v_record_count,
-            'data', COALESCE(
-                (SELECT jsonb_agg(
-                    jsonb_build_object(
-                        'table_schema', tc.table_schema,
-                        'table_name', tc.table_name,
-                        'operation', tc.operation,
-                        'row_id', tc.row_id,
-                        'old_data', tc.old_data,
-                        'new_data', tc.new_data,
-                        'change_timestamp', tc.change_timestamp
-                    )
-                ) FROM pggit.temporal_changelog tc WHERE tc.snapshot_id = p_snapshot_id),
-                '[]'::jsonb
-            )
-        ),
-        CURRENT_TIMESTAMP,
-        v_record_count;
-END;
-$$ LANGUAGE plpgsql;
+-- Alter temporal_changelog.change_timestamp to use timezone-aware TIMESTAMP
+ALTER TABLE pggit.temporal_changelog
+ALTER COLUMN change_timestamp TYPE TIMESTAMP WITH TIME ZONE USING change_timestamp AT TIME ZONE 'UTC';
