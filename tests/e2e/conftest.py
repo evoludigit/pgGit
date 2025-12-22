@@ -242,6 +242,28 @@ def db(docker_setup, pggit_installed):
     fixture = E2ETestFixture(docker_setup.connection_string)
     fixture.connect()
 
+    # Ensure commits table exists (required for tests)
+    try:
+        fixture.execute("""
+            CREATE TABLE IF NOT EXISTS pggit.commits (
+                id SERIAL PRIMARY KEY,
+                hash TEXT NOT NULL UNIQUE,
+                branch_id INTEGER NOT NULL REFERENCES pggit.branches(id),
+                parent_commit_hash TEXT,
+                message TEXT,
+                author TEXT DEFAULT CURRENT_USER,
+                authored_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                committer TEXT DEFAULT CURRENT_USER,
+                committed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                tree_hash TEXT,
+                metadata JSONB,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+    except Exception as e:
+        # Table might already exist, continue
+        fixture.conn.rollback()
+
     # Create main branch if it doesn't exist (required for tests)
     try:
         fixture.execute(
