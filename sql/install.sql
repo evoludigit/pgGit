@@ -19,6 +19,7 @@
 \i 030_ai_migration_analysis.sql
 \i 040_size_management.sql
 \i 050_create_commit.sql
+\i 055_storage_tier_stubs.sql
 \i pggit_cqrs_support.sql
 \i 051_data_branching_cow.sql
 \i pggit_conflict_resolution_minimal.sql

@@ -101,7 +101,18 @@ BEGIN
                 v_column_name,
                 v_column_def->>'type',
                 CASE WHEN (v_column_def->>'nullable')::boolean = false THEN ' NOT NULL' ELSE '' END,
-                CASE WHEN v_column_def->>'default' IS NOT NULL THEN ' DEFAULT ' || v_column_def->>'default' ELSE '' END
+                CASE WHEN v_column_def->>'default' IS NOT NULL
+                     THEN ' DEFAULT ' || (
+                         CASE
+                             -- SQL functions and keywords (don't quote)
+                             WHEN v_column_def->>'default' IN ('CURRENT_TIMESTAMP', 'CURRENT_DATE', 'CURRENT_TIME', 'NULL', 'true', 'false')
+                                  OR v_column_def->>'default' ~ '^[a-z_]+\(' THEN v_column_def->>'default'
+                             -- String values (quote)
+                             ELSE quote_literal(v_column_def->>'default')
+                         END
+                     )
+                     ELSE ''
+                END
             )
         );
     END LOOP;
@@ -137,7 +148,18 @@ BEGIN
                 p_column_name,
                 p_new_def->>'type',
                 CASE WHEN (p_new_def->>'nullable')::boolean = false THEN ' NOT NULL' ELSE '' END,
-                CASE WHEN p_new_def->>'default' IS NOT NULL THEN ' DEFAULT ' || p_new_def->>'default' ELSE '' END
+                CASE WHEN p_new_def->>'default' IS NOT NULL
+                     THEN ' DEFAULT ' || (
+                         CASE
+                             -- SQL functions and keywords (don't quote)
+                             WHEN p_new_def->>'default' IN ('CURRENT_TIMESTAMP', 'CURRENT_DATE', 'CURRENT_TIME', 'NULL', 'true', 'false')
+                                  OR p_new_def->>'default' ~ '^[a-z_]+\(' THEN p_new_def->>'default'
+                             -- String values (quote)
+                             ELSE quote_literal(p_new_def->>'default')
+                         END
+                     )
+                     ELSE ''
+                END
             );
 
         WHEN 'DROP' THEN
