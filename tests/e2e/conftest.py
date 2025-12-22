@@ -113,8 +113,19 @@ class DockerPostgresSetup:
 
             print(f"DEBUG: PSQL executed from {sql_dir}")
             print(f"Return code: {result.returncode}")
-            if result.returncode != 0 and result.stderr:
-                print(f"STDERR: {result.stderr[:300]}")
+            if result.returncode != 0:
+                print(f"STDERR: {result.stderr[:2000]}")
+                print(f"STDOUT: {result.stdout[:1000]}")
+            elif result.stderr:
+                # Check for critical errors in stderr
+                stderr_lines = result.stderr.split('\n')
+                critical_errors = [line for line in stderr_lines if 'ERROR' in line and ('060_time_travel' in line or 'create_temporal_snapshot' in line)]
+                if critical_errors:
+                    print(f"⚠️ Critical errors found in schema installation:")
+                    for error in critical_errors[:5]:
+                        print(f"  {error}")
+                else:
+                    print(f"STDERR (non-fatal): {result.stderr[:500]}")
 
         except Exception as e:
             raise Exception(f"SQL file execution failed: {str(e)}")
@@ -184,6 +195,26 @@ def pggit_installed(docker_setup):
     # Execute install script
     docker_setup.exec_sql_file("sql/install.sql")
     print("\n✅ pgGit extension installed")
+
+    # Verify critical functions exist
+    try:
+        from psycopg import connect
+        conn = connect(docker_setup.connection_string)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT proname FROM pg_proc
+            WHERE pronamespace = (SELECT oid FROM pg_namespace WHERE nspname='pggit')
+            AND proname = 'create_temporal_snapshot'
+        """)
+        result = cursor.fetchone()
+        if result:
+            print(f"✅ Verified: create_temporal_snapshot function exists")
+        else:
+            print("⚠️ WARNING: create_temporal_snapshot function NOT found!")
+        conn.close()
+    except Exception as e:
+        print(f"⚠️ Could not verify functions: {e}")
+
     yield
     # Cleanup is handled by container removal
 

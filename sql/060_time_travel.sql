@@ -350,16 +350,20 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION pggit.create_temporal_snapshot(
     snapshot_name TEXT,
     branch_id INTEGER DEFAULT 1,
-    snapshot_metadata JSONB DEFAULT '{}'
+    snapshot_description TEXT DEFAULT NULL
 ) RETURNS TABLE (
     snapshot_id UUID,
-    snapshot_name TEXT,
+    name TEXT,
     created_at TIMESTAMPTZ
 ) AS $$
 DECLARE
     v_snapshot_id UUID := gen_random_uuid();
     v_timestamp TIMESTAMP WITH TIME ZONE := CURRENT_TIMESTAMP;
+    v_description TEXT;
 BEGIN
+    -- Use provided description or default
+    v_description := COALESCE(snapshot_description, 'Temporal snapshot created via API');
+
     -- Insert snapshot metadata
     INSERT INTO pggit.temporal_snapshots (
         snapshot_id,
@@ -373,14 +377,9 @@ BEGIN
         snapshot_name,
         v_timestamp,
         branch_id,
-        'Temporal snapshot created via API',
+        v_description,
         CURRENT_USER
     );
-
-    -- Store metadata
-    UPDATE pggit.temporal_snapshots
-    SET description = description || jsonb_build_object('user_metadata', snapshot_metadata)::TEXT
-    WHERE snapshot_id = v_snapshot_id;
 
     RETURN QUERY SELECT v_snapshot_id, snapshot_name, v_timestamp;
 END;

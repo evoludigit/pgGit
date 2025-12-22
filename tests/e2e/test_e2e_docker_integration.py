@@ -332,7 +332,7 @@ class TestE2ETemporalOperations:
         """Test creating temporal snapshots"""
         result = db.execute_returning(
             """
-            SELECT snapshot_id, snapshot_name FROM pggit.create_temporal_snapshot(
+            SELECT snapshot_id, name FROM pggit.create_temporal_snapshot(
                 'test-snapshot',
                 1,
                 'Test snapshot for E2E'
