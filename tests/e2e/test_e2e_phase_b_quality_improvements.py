@@ -22,7 +22,9 @@ class TestE2EDeploymentScenarios:
 
     def test_blue_green_deployment_workflow(self, db, pggit_installed):
         """Test complete blue-green deployment with branching"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
+        main_id = db.execute_returning(
+            "SELECT id FROM pggit.branches WHERE name = 'main'"
+        )[0][0]
 
         # Create "blue" (current production)
         blue_branch = db.execute_returning(
@@ -42,12 +44,14 @@ class TestE2EDeploymentScenarios:
                 data TEXT
             )
         """)
-        db.execute("INSERT INTO public.blue_green_app VALUES (1, 'v1.0', 'production-data')")
+        db.execute(
+            "INSERT INTO public.blue_green_app VALUES (1, 'v1.0', 'production-data')"
+        )
 
         # Record blue state
         blue_snapshot = db.execute_returning(
-            "SELECT pggit.create_temporal_snapshot('public', 'blue_green_app', %s)",
-            json.dumps({'deployment': 'blue'})
+            "SELECT pggit.create_temporal_snapshot('blue_green_app', 1, %s)",
+            json.dumps({"deployment": "blue"}),
         )[0]
 
         # Update in green
@@ -58,7 +62,7 @@ class TestE2EDeploymentScenarios:
             "SELECT pggit.merge_branches(%s, %s, %s)",
             green_branch,
             blue_branch,
-            'Blue-green deployment switch'
+            "Blue-green deployment switch",
         )
         assert switch_result[0] is not None, "Blue-green switch should succeed"
 
@@ -67,7 +71,9 @@ class TestE2EDeploymentScenarios:
 
     def test_canary_rollout_with_versioning(self, db, pggit_installed):
         """Test canary deployment with incremental versioning"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
+        main_id = db.execute_returning(
+            "SELECT id FROM pggit.branches WHERE name = 'main'"
+        )[0][0]
 
         # Create canary branch
         canary_branch = db.execute_returning(
@@ -85,29 +91,32 @@ class TestE2EDeploymentScenarios:
 
         # Canary: 5% rollout
         db.execute(
-            "INSERT INTO public.canary_config VALUES (1, 'new-feature', true, %s)",
-            5
+            "INSERT INTO public.canary_config VALUES (1, 'new-feature', true, %s)", 5
         )
 
         canary_v1 = db.execute_returning(
-            "SELECT pggit.create_temporal_snapshot('public', 'canary_config', %s)",
-            json.dumps({'phase': 'canary-5percent'})
+            "SELECT pggit.create_temporal_snapshot('canary_config', 1, %s)",
+            json.dumps({"phase": "canary-5percent"}),
         )[0]
         assert canary_v1 is not None, "5% canary snapshot should succeed"
 
         # Canary: 25% rollout
-        db.execute("UPDATE public.canary_config SET rollout_percentage = 25 WHERE id = 1")
+        db.execute(
+            "UPDATE public.canary_config SET rollout_percentage = 25 WHERE id = 1"
+        )
         canary_v2 = db.execute_returning(
-            "SELECT pggit.create_temporal_snapshot('public', 'canary_config', %s)",
-            json.dumps({'phase': 'canary-25percent'})
+            "SELECT pggit.create_temporal_snapshot('canary_config', 1, %s)",
+            json.dumps({"phase": "canary-25percent"}),
         )[0]
         assert canary_v2 is not None, "25% canary snapshot should succeed"
 
         # Canary: 100% rollout (general availability)
-        db.execute("UPDATE public.canary_config SET rollout_percentage = 100 WHERE id = 1")
+        db.execute(
+            "UPDATE public.canary_config SET rollout_percentage = 100 WHERE id = 1"
+        )
         canary_v3 = db.execute_returning(
-            "SELECT pggit.create_temporal_snapshot('public', 'canary_config', %s)",
-            json.dumps({'phase': 'general-availability'})
+            "SELECT pggit.create_temporal_snapshot('canary_config', 1, %s)",
+            json.dumps({"phase": "general-availability"}),
         )[0]
         assert canary_v3 is not None, "100% rollout snapshot should succeed"
 
@@ -123,24 +132,30 @@ class TestE2EDeploymentScenarios:
 
         # Snapshot before change
         before_snapshot = db.execute_returning(
-            "SELECT pggit.create_temporal_snapshot('public', 'evolving_schema', %s)",
-            json.dumps({'phase': 'before-evolution'})
+            "SELECT pggit.create_temporal_snapshot('evolving_schema', 1, %s)",
+            json.dumps({"phase": "before-evolution"}),
         )[0]
 
         # Add column (zero-downtime compatible)
-        db.execute("ALTER TABLE public.evolving_schema ADD COLUMN email TEXT DEFAULT ''")
+        db.execute(
+            "ALTER TABLE public.evolving_schema ADD COLUMN email TEXT DEFAULT ''"
+        )
 
         # Verify old data still accessible
-        old_data = db.execute("SELECT id, name FROM public.evolving_schema WHERE id = 1")
-        assert old_data[0] == (1, 'test'), "Old data should still be accessible"
+        old_data = db.execute(
+            "SELECT id, name FROM public.evolving_schema WHERE id = 1"
+        )
+        assert old_data[0] == (1, "test"), "Old data should still be accessible"
 
         # Add new data with new column
-        db.execute("INSERT INTO public.evolving_schema (id, name, email) VALUES (2, 'new', 'test@example.com')")
+        db.execute(
+            "INSERT INTO public.evolving_schema (id, name, email) VALUES (2, 'new', 'test@example.com')"
+        )
 
         # Snapshot after evolution
         after_snapshot = db.execute_returning(
-            "SELECT pggit.create_temporal_snapshot('public', 'evolving_schema', %s)",
-            json.dumps({'phase': 'after-evolution'})
+            "SELECT pggit.create_temporal_snapshot('evolving_schema', 1, %s)",
+            json.dumps({"phase": "after-evolution"}),
         )[0]
 
         assert before_snapshot and after_snapshot, "Evolution snapshots should succeed"
@@ -158,19 +173,21 @@ class TestE2EDeploymentScenarios:
 
         # Capture healthy state
         healthy_snapshot = db.execute_returning(
-            "SELECT pggit.create_temporal_snapshot('public', 'deployment_state', %s)",
-            json.dumps({'status': 'healthy'})
+            "SELECT pggit.create_temporal_snapshot('deployment_state', 1, %s)",
+            json.dumps({"status": "healthy"}),
         )[0]
 
         # Deploy new version
         db.execute("UPDATE public.deployment_state SET version = 'v2.0' WHERE id = 1")
-        db.execute("UPDATE public.deployment_state SET status = 'degraded' WHERE id = 1")
+        db.execute(
+            "UPDATE public.deployment_state SET status = 'degraded' WHERE id = 1"
+        )
 
         # Detect problem and rollback
         rollback_time = datetime.now() - timedelta(seconds=5)
         restored = db.execute_returning(
-            "SELECT pggit.restore_table_to_point_in_time('public', 'deployment_state', %s)",
-            rollback_time.isoformat()
+            "SELECT pggit.restore_table_to_point_in_time('public.deployment_state', %s)",
+            rollback_time.isoformat(),
         )
         assert restored[0] is not None, "Rollback should succeed"
 
@@ -187,8 +204,7 @@ class TestE2EDeploymentScenarios:
 
         # Initial: 100% old version
         db.execute(
-            "INSERT INTO public.traffic_routing VALUES (1, 'api-v1', %s, 'v1.0')",
-            100
+            "INSERT INTO public.traffic_routing VALUES (1, 'api-v1', %s, 'v1.0')", 100
         )
 
         routing_states = []
@@ -198,19 +214,19 @@ class TestE2EDeploymentScenarios:
             old_percent = 100 - new_percent
             db.execute(
                 "UPDATE public.traffic_routing SET traffic_percentage = %s WHERE id = 1",
-                old_percent
+                old_percent,
             )
             db.execute(
                 "INSERT INTO public.traffic_routing (id, endpoint, traffic_percentage, deployment_version) VALUES (%s, %s, %s, %s)",
                 2 + len(routing_states),
-                'api-v2',
+                "api-v2",
                 new_percent,
-                'v2.0'
+                "v2.0",
             )
 
             snapshot = db.execute_returning(
-                "SELECT pggit.create_temporal_snapshot('public', 'traffic_routing', %s)",
-                json.dumps({'shift_percent': new_percent})
+                "SELECT pggit.create_temporal_snapshot('traffic_routing', 1, %s)",
+                json.dumps({"shift_percent": new_percent}),
             )[0]
             routing_states.append(snapshot)
 
@@ -230,7 +246,8 @@ class TestE2EDeploymentScenarios:
         for i in range(100):
             db.execute(
                 "INSERT INTO public.active_queries_test (id, data) VALUES (%s, %s)",
-                i, f'data-{i}'
+                i,
+                f"data-{i}",
             )
 
         # Simulate active query execution
@@ -248,7 +265,9 @@ class TestE2EDeploymentScenarios:
             query_futures = [executor.submit(run_query) for _ in range(5)]
 
             # Deploy during queries
-            db.execute("ALTER TABLE public.active_queries_test ADD COLUMN deployment_version TEXT DEFAULT 'v2.0'")
+            db.execute(
+                "ALTER TABLE public.active_queries_test ADD COLUMN deployment_version TEXT DEFAULT 'v2.0'"
+            )
 
             results = [f.result() for f in as_completed(query_futures)]
 
@@ -256,14 +275,16 @@ class TestE2EDeploymentScenarios:
 
     def test_concurrent_branch_deployments(self, db, pggit_installed):
         """Test concurrent deployments to different branches"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
+        main_id = db.execute_returning(
+            "SELECT id FROM pggit.branches WHERE name = 'main'"
+        )[0][0]
 
         # Create multiple deployment branches
         deploy_branches = []
         for i in range(3):
             branch_id = db.execute_returning(
                 "INSERT INTO pggit.branches (name) VALUES (%s) RETURNING id",
-                f'deploy-{i}'
+                f"deploy-{i}",
             )[0][0]
             deploy_branches.append(branch_id)
 
@@ -281,11 +302,11 @@ class TestE2EDeploymentScenarios:
                 "INSERT INTO public.concurrent_deploy (id, deployment_id, status) VALUES (%s, %s, %s)",
                 deploy_num,
                 branch_id,
-                'deploying'
+                "deploying",
             )
             db.execute(
                 "UPDATE public.concurrent_deploy SET status = 'completed' WHERE id = %s",
-                deploy_num
+                deploy_num,
             )
             return True
 
@@ -311,10 +332,10 @@ class TestE2EDeploymentScenarios:
 
         # Validation checks
         checks = [
-            ('health-check', True, 'All services healthy'),
-            ('data-integrity', True, 'All constraints valid'),
-            ('performance-baseline', True, 'P95 < 100ms'),
-            ('schema-migration', True, 'No breaking changes'),
+            ("health-check", True, "All services healthy"),
+            ("data-integrity", True, "All constraints valid"),
+            ("performance-baseline", True, "P95 < 100ms"),
+            ("schema-migration", True, "No breaking changes"),
         ]
 
         all_passed = True
@@ -324,12 +345,14 @@ class TestE2EDeploymentScenarios:
                 i,
                 check_name,
                 passed,
-                result
+                result,
             )
             all_passed = all_passed and passed
 
         # Validation result
-        validation_result = db.execute("SELECT ALL(passed) FROM public.deployment_validation")
+        validation_result = db.execute(
+            "SELECT ALL(passed) FROM public.deployment_validation"
+        )
         assert validation_result[0][0], "All validation gates should pass"
 
 
@@ -338,7 +361,9 @@ class TestE2ECrossBranchConsistency:
 
     def test_data_consistency_across_branches(self, db, pggit_installed):
         """Test data consistency when branches diverge"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
+        main_id = db.execute_returning(
+            "SELECT id FROM pggit.branches WHERE name = 'main'"
+        )[0][0]
 
         branch1 = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('branch-1') RETURNING id"
@@ -359,14 +384,16 @@ class TestE2ECrossBranchConsistency:
         for branch_id in [main_id, branch1, branch2]:
             db.execute(
                 "INSERT INTO public.consistency_check (id, value, branch_id) VALUES (1, %s, %s)",
-                'initial-value',
-                branch_id
+                "initial-value",
+                branch_id,
             )
 
         # Verify consistency
-        results = db.execute("SELECT DISTINCT value FROM public.consistency_check WHERE id = 1")
+        results = db.execute(
+            "SELECT DISTINCT value FROM public.consistency_check WHERE id = 1"
+        )
         assert len(results) == 1, "All branches should have same initial value"
-        assert results[0][0] == 'initial-value', "Value should be consistent"
+        assert results[0][0] == "initial-value", "Value should be consistent"
 
     def test_schema_evolution_consistency(self, db, pggit_installed):
         """Test schema evolution consistency across branches"""
@@ -379,8 +406,8 @@ class TestE2ECrossBranchConsistency:
 
         # Record initial schema
         initial_snapshot = db.execute_returning(
-            "SELECT pggit.create_temporal_snapshot('public', 'schema_evolution', %s)",
-            json.dumps({'version': '1.0'})
+            "SELECT pggit.create_temporal_snapshot('schema_evolution', 1, %s)",
+            json.dumps({"version": "1.0"}),
         )[0]
 
         # Evolve schema
@@ -388,8 +415,8 @@ class TestE2ECrossBranchConsistency:
 
         # Record evolved schema
         evolved_snapshot = db.execute_returning(
-            "SELECT pggit.create_temporal_snapshot('public', 'schema_evolution', %s)",
-            json.dumps({'version': '2.0'})
+            "SELECT pggit.create_temporal_snapshot('schema_evolution', 1, %s)",
+            json.dumps({"version": "2.0"}),
         )[0]
 
         # Both snapshots should reflect their respective schemas
@@ -399,7 +426,9 @@ class TestE2ECrossBranchConsistency:
 
     def test_version_number_uniqueness_across_branches(self, db, pggit_installed):
         """Test version numbers are unique across branches"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
+        main_id = db.execute_returning(
+            "SELECT id FROM pggit.branches WHERE name = 'main'"
+        )[0][0]
 
         branch1 = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('version-branch-1') RETURNING id"
@@ -415,7 +444,7 @@ class TestE2ECrossBranchConsistency:
                 commit_id = db.execute_returning(
                     "INSERT INTO pggit.commits (branch_id, message) VALUES (%s, %s) RETURNING id",
                     branch_id,
-                    f'commit-{i}'
+                    f"commit-{i}",
                 )[0][0]
                 commits.append(commit_id)
 
@@ -424,7 +453,9 @@ class TestE2ECrossBranchConsistency:
 
     def test_timestamp_ordering_across_branches(self, db, pggit_installed):
         """Test timestamp ordering consistency across branches"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
+        main_id = db.execute_returning(
+            "SELECT id FROM pggit.branches WHERE name = 'main'"
+        )[0][0]
 
         branch1 = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('timestamp-branch') RETURNING id"
@@ -444,15 +475,17 @@ class TestE2ECrossBranchConsistency:
             db.execute(
                 "INSERT INTO public.timestamp_test (id, event) VALUES (%s, %s)",
                 i,
-                f'event-{i}'
+                f"event-{i}",
             )
             timestamps.append(datetime.now())
             time.sleep(0.01)  # Ensure time difference
 
         # Query and verify ordering
-        results = db.execute("SELECT event, created_at FROM public.timestamp_test ORDER BY created_at")
+        results = db.execute(
+            "SELECT event, created_at FROM public.timestamp_test ORDER BY created_at"
+        )
         for i, (event, created_at) in enumerate(results):
-            expected_event = f'event-{i}'
+            expected_event = f"event-{i}"
             assert event == expected_event, f"Event ordering should be consistent"
 
 
@@ -461,7 +494,9 @@ class TestE2EMultiTableTransactionConsistency:
 
     def test_multi_branch_multi_table_consistency(self, db, pggit_installed):
         """Test consistency across multiple tables in multiple branches"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
+        main_id = db.execute_returning(
+            "SELECT id FROM pggit.branches WHERE name = 'main'"
+        )[0][0]
 
         branch1 = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('multi-table-branch') RETURNING id"
@@ -488,20 +523,24 @@ class TestE2EMultiTableTransactionConsistency:
 
         # Create snapshot
         snapshot1 = db.execute_returning(
-            "SELECT pggit.create_temporal_snapshot('public', 'accounts', %s)",
-            json.dumps({'phase': 'accounts'})
+            "SELECT pggit.create_temporal_snapshot('accounts', 1, %s)",
+            json.dumps({"phase": "accounts"}),
         )[0]
         snapshot2 = db.execute_returning(
-            "SELECT pggit.create_temporal_snapshot('public', 'transactions', %s)",
-            json.dumps({'phase': 'transactions'})
+            "SELECT pggit.create_temporal_snapshot('transactions', 1, %s)",
+            json.dumps({"phase": "transactions"}),
         )[0]
 
         # Verify referential integrity
         account_result = db.execute("SELECT * FROM public.accounts WHERE id = 1")
-        transaction_result = db.execute("SELECT * FROM public.transactions WHERE account_id = 1")
+        transaction_result = db.execute(
+            "SELECT * FROM public.transactions WHERE account_id = 1"
+        )
 
-        assert account_result[0] == (1, 'Alice'), "Account should be consistent"
-        assert transaction_result[0] == (1, 1, 100), "Transaction should reference correct account"
+        assert account_result[0] == (1, "Alice"), "Account should be consistent"
+        assert transaction_result[0] == (1, 1, 100), (
+            "Transaction should reference correct account"
+        )
 
     def test_constraint_enforcement_across_tables(self, db, pggit_installed):
         """Test constraint enforcement across related tables"""
@@ -563,7 +602,9 @@ class TestE2EMultiTableTransactionConsistency:
         # Verify all related data deleted
         users_count = db.execute("SELECT COUNT(*) FROM public.users_cascade")[0][0]
         posts_count = db.execute("SELECT COUNT(*) FROM public.posts_cascade")[0][0]
-        comments_count = db.execute("SELECT COUNT(*) FROM public.comments_cascade")[0][0]
+        comments_count = db.execute("SELECT COUNT(*) FROM public.comments_cascade")[0][
+            0
+        ]
 
         assert users_count == 0, "Users should be deleted"
         assert posts_count == 0, "Posts should be cascade deleted"

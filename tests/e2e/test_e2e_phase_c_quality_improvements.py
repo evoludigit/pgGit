@@ -25,7 +25,9 @@ class TestE2ETimingTimeoutHandling:
 
     def test_long_running_merge_stability(self, db, pggit_installed):
         """Test merge stability during long operations"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
+        main_id = db.execute_returning(
+            "SELECT id FROM pggit.branches WHERE name = 'main'"
+        )[0][0]
 
         long_branch = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('long-merge-branch') RETURNING id"
@@ -46,7 +48,7 @@ class TestE2ETimingTimeoutHandling:
             db.execute(
                 "INSERT INTO public.long_merge_test (id, data) VALUES (%s, %s)",
                 i,
-                f'data-{i}' * 10  # Larger payload
+                f"data-{i}" * 10,  # Larger payload
             )
         insert_time = time.time() - start_time
 
@@ -56,7 +58,7 @@ class TestE2ETimingTimeoutHandling:
             "SELECT pggit.merge_branches(%s, %s, %s)",
             main_id,
             long_branch,
-            'Long merge test'
+            "Long merge test",
         )
         merge_time = time.time() - merge_start
 
@@ -92,7 +94,7 @@ class TestE2ETimingTimeoutHandling:
                     db.execute(
                         "INSERT INTO public.timeout_bulk (id, value) VALUES (%s, %s)",
                         row_id,
-                        f'value-{row_id}'
+                        f"value-{row_id}",
                     )
                     total_inserts += 1
 
@@ -114,7 +116,7 @@ class TestE2ETimingTimeoutHandling:
             )
         """)
 
-        results = {'success': 0, 'timeout': 0}
+        results = {"success": 0, "timeout": 0}
 
         def long_operation(op_id, duration_ms):
             try:
@@ -122,19 +124,19 @@ class TestE2ETimingTimeoutHandling:
                     "INSERT INTO public.timeout_isolation (id, operation_id, status) VALUES (%s, %s, %s)",
                     op_id,
                     op_id,
-                    'starting'
+                    "starting",
                 )
 
                 time.sleep(duration_ms / 1000.0)
 
                 db.execute(
                     "UPDATE public.timeout_isolation SET status = %s WHERE operation_id = %s",
-                    'completed',
-                    op_id
+                    "completed",
+                    op_id,
                 )
-                results['success'] += 1
+                results["success"] += 1
             except Exception:
-                results['timeout'] += 1
+                results["timeout"] += 1
 
         # Run operations with different durations
         with ThreadPoolExecutor(max_workers=5) as executor:
@@ -142,7 +144,7 @@ class TestE2ETimingTimeoutHandling:
                 executor.submit(long_operation, 1, 100),  # 100ms
                 executor.submit(long_operation, 2, 500),  # 500ms
                 executor.submit(long_operation, 3, 100),  # 100ms
-                executor.submit(long_operation, 4, 1000), # 1000ms
+                executor.submit(long_operation, 4, 1000),  # 1000ms
                 executor.submit(long_operation, 5, 100),  # 100ms
             ]
 
@@ -150,7 +152,9 @@ class TestE2ETimingTimeoutHandling:
                 future.result()
 
         # Most operations should succeed
-        assert results['success'] >= 3, "Most operations should complete without timeout"
+        assert results["success"] >= 3, (
+            "Most operations should complete without timeout"
+        )
 
     def test_transaction_cleanup_after_timeout(self, db, pggit_installed):
         """Test cleanup after transaction timeout"""
@@ -166,7 +170,9 @@ class TestE2ETimingTimeoutHandling:
 
         # Simulate long-running operation that times out
         try:
-            db.execute("UPDATE public.cleanup_test SET state = %s WHERE id = 1", 'processing')
+            db.execute(
+                "UPDATE public.cleanup_test SET state = %s WHERE id = 1", "processing"
+            )
             time.sleep(0.1)
             # Simulate error
             raise Exception("Operation timeout")
@@ -179,7 +185,9 @@ class TestE2ETimingTimeoutHandling:
 
     def test_distributed_transaction_timeout(self, db, pggit_installed):
         """Test handling of distributed transaction timeout scenarios"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
+        main_id = db.execute_returning(
+            "SELECT id FROM pggit.branches WHERE name = 'main'"
+        )[0][0]
 
         branch1 = db.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('timeout-branch-1') RETURNING id"
@@ -194,12 +202,24 @@ class TestE2ETimingTimeoutHandling:
         """)
 
         # Insert across branches
-        db.execute("INSERT INTO public.distributed_timeout (id, branch_id, data) VALUES (1, %s, 'main-data')", main_id)
-        db.execute("INSERT INTO public.distributed_timeout (id, branch_id, data) VALUES (2, %s, 'branch-data')", branch1)
+        db.execute(
+            "INSERT INTO public.distributed_timeout (id, branch_id, data) VALUES (1, %s, 'main-data')",
+            main_id,
+        )
+        db.execute(
+            "INSERT INTO public.distributed_timeout (id, branch_id, data) VALUES (2, %s, 'branch-data')",
+            branch1,
+        )
 
         # Both inserts should be queryable
-        main_data = db.execute("SELECT COUNT(*) FROM public.distributed_timeout WHERE branch_id = %s", main_id)
-        branch_data = db.execute("SELECT COUNT(*) FROM public.distributed_timeout WHERE branch_id = %s", branch1)
+        main_data = db.execute(
+            "SELECT COUNT(*) FROM public.distributed_timeout WHERE branch_id = %s",
+            main_id,
+        )
+        branch_data = db.execute(
+            "SELECT COUNT(*) FROM public.distributed_timeout WHERE branch_id = %s",
+            branch1,
+        )
 
         assert main_data[0][0] > 0, "Main branch data should exist"
         assert branch_data[0][0] > 0, "Branch data should exist"
@@ -216,7 +236,7 @@ class TestE2EPerformanceRegressionDetection:
             start = time.time()
             db.execute_returning(
                 "INSERT INTO pggit.branches (name) VALUES (%s) RETURNING id",
-                f'perf-baseline-{i}'
+                f"perf-baseline-{i}",
             )
             baseline_times.append(time.time() - start)
 
@@ -228,7 +248,7 @@ class TestE2EPerformanceRegressionDetection:
             start = time.time()
             db.execute_returning(
                 "INSERT INTO pggit.branches (name) VALUES (%s) RETURNING id",
-                f'perf-test-{i}'
+                f"perf-test-{i}",
             )
             test_times.append(time.time() - start)
 
@@ -237,12 +257,15 @@ class TestE2EPerformanceRegressionDetection:
         # Regression threshold: 50% slower
         regression_threshold = baseline_avg * 1.5
 
-        assert test_avg < regression_threshold, \
+        assert test_avg < regression_threshold, (
             f"Branch creation regressed: baseline={baseline_avg:.4f}s, current={test_avg:.4f}s"
+        )
 
     def test_regression_in_merge_performance(self, db, pggit_installed):
         """Test regression detection in merge performance"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
+        main_id = db.execute_returning(
+            "SELECT id FROM pggit.branches WHERE name = 'main'"
+        )[0][0]
 
         db.execute("""
             CREATE TABLE public.perf_merge_test (
@@ -261,7 +284,7 @@ class TestE2EPerformanceRegressionDetection:
             db.execute(
                 "INSERT INTO public.perf_merge_test (id, data) VALUES (%s, %s)",
                 i,
-                f'data-{i}'
+                f"data-{i}",
             )
 
         # Baseline merge time
@@ -270,7 +293,7 @@ class TestE2EPerformanceRegressionDetection:
             "SELECT pggit.merge_branches(%s, %s, %s)",
             main_id,
             branch1,
-            'Baseline merge'
+            "Baseline merge",
         )
         baseline_time = time.time() - baseline_start
 
@@ -281,18 +304,16 @@ class TestE2EPerformanceRegressionDetection:
 
         test_start = time.time()
         db.execute_returning(
-            "SELECT pggit.merge_branches(%s, %s, %s)",
-            main_id,
-            branch2,
-            'Test merge'
+            "SELECT pggit.merge_branches(%s, %s, %s)", main_id, branch2, "Test merge"
         )
         test_time = time.time() - test_start
 
         # Regression threshold: 2x slower
         regression_threshold = baseline_time * 2.0
 
-        assert test_time < regression_threshold, \
+        assert test_time < regression_threshold, (
             f"Merge regressed: baseline={baseline_time:.4f}s, current={test_time:.4f}s"
+        )
 
     def test_regression_in_snapshot_creation(self, db, pggit_installed):
         """Test regression detection in snapshot creation"""
@@ -311,13 +332,13 @@ class TestE2EPerformanceRegressionDetection:
                 db.execute(
                     "INSERT INTO public.perf_snapshot (id, data) VALUES (%s, %s)",
                     i,
-                    f'data-{i}'
+                    f"data-{i}",
                 )
 
             start = time.time()
             db.execute_returning(
-                "SELECT pggit.create_temporal_snapshot('public', 'perf_snapshot', %s)",
-                json.dumps({'iteration': j})
+                "SELECT pggit.create_temporal_snapshot('perf_snapshot', 1, %s)",
+                json.dumps({"iteration": j}),
             )
             baseline_times.append(time.time() - start)
 
@@ -328,8 +349,8 @@ class TestE2EPerformanceRegressionDetection:
         for j in range(3, 6):
             start = time.time()
             db.execute_returning(
-                "SELECT pggit.create_temporal_snapshot('public', 'perf_snapshot', %s)",
-                json.dumps({'iteration': j})
+                "SELECT pggit.create_temporal_snapshot('perf_snapshot', 1, %s)",
+                json.dumps({"iteration": j}),
             )
             test_times.append(time.time() - start)
 
@@ -338,8 +359,9 @@ class TestE2EPerformanceRegressionDetection:
         # Regression threshold: 50% slower
         regression_threshold = baseline_avg * 1.5
 
-        assert test_avg < regression_threshold, \
+        assert test_avg < regression_threshold, (
             f"Snapshot creation regressed: baseline={baseline_avg:.4f}s, current={test_avg:.4f}s"
+        )
 
     def test_regression_in_temporal_queries(self, db, pggit_installed):
         """Test regression detection in temporal query performance"""
@@ -356,7 +378,7 @@ class TestE2EPerformanceRegressionDetection:
             db.execute(
                 "INSERT INTO public.perf_temporal (id, data) VALUES (%s, %s)",
                 i,
-                f'data-{i}'
+                f"data-{i}",
             )
 
         # Baseline query time
@@ -364,8 +386,8 @@ class TestE2EPerformanceRegressionDetection:
         for _ in range(5):
             start = time.time()
             db.execute(
-                "SELECT pggit.query_historical_data('public', 'perf_temporal', %s)",
-                datetime.now().isoformat()
+                "SELECT pggit.query_historical_data('public.perf_temporal', %s, NULL)",
+                datetime.now().isoformat(),
             )
             baseline_times.append(time.time() - start)
 
@@ -376,8 +398,8 @@ class TestE2EPerformanceRegressionDetection:
         for _ in range(5):
             start = time.time()
             db.execute(
-                "SELECT pggit.query_historical_data('public', 'perf_temporal', %s)",
-                datetime.now().isoformat()
+                "SELECT pggit.query_historical_data('public.perf_temporal', %s, NULL)",
+                datetime.now().isoformat(),
             )
             test_times.append(time.time() - start)
 
@@ -386,8 +408,9 @@ class TestE2EPerformanceRegressionDetection:
         # Regression threshold: 100% slower (2x)
         regression_threshold = baseline_avg * 2.0
 
-        assert test_avg < regression_threshold, \
+        assert test_avg < regression_threshold, (
             f"Temporal query regressed: baseline={baseline_avg:.4f}s, current={test_avg:.4f}s"
+        )
 
 
 class TestE2EMemoryResourceManagement:
@@ -407,7 +430,7 @@ class TestE2EMemoryResourceManagement:
             db.execute(
                 "INSERT INTO public.large_snapshot_test (id, data) VALUES (%s, %s)",
                 i,
-                'x' * 1000  # 1KB per row
+                "x" * 1000,  # 1KB per row
             )
 
         # Measure memory before snapshot
@@ -416,8 +439,8 @@ class TestE2EMemoryResourceManagement:
 
         # Create snapshot
         snapshot = db.execute_returning(
-            "SELECT pggit.create_temporal_snapshot('public', 'large_snapshot_test', %s)",
-            json.dumps({'size': 'large'})
+            "SELECT pggit.create_temporal_snapshot('large_snapshot_test', 1, %s)",
+            json.dumps({"size": "large"}),
         )[0]
 
         # Measure memory after snapshot
@@ -430,14 +453,16 @@ class TestE2EMemoryResourceManagement:
 
     def test_connection_pool_resource_cleanup(self, db, pggit_installed):
         """Test connection pool cleanup"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
+        main_id = db.execute_returning(
+            "SELECT id FROM pggit.branches WHERE name = 'main'"
+        )[0][0]
 
         # Create multiple branches to stress connection pool
         branch_ids = []
         for i in range(20):
             branch_id = db.execute_returning(
                 "INSERT INTO pggit.branches (name) VALUES (%s) RETURNING id",
-                f'pool-stress-{i}'
+                f"pool-stress-{i}",
             )[0][0]
             branch_ids.append(branch_id)
 
@@ -445,7 +470,9 @@ class TestE2EMemoryResourceManagement:
         assert len(branch_ids) == 20, "All branches should be created"
 
         # Verify all branches are queryable
-        result = db.execute("SELECT COUNT(*) FROM pggit.branches WHERE name LIKE 'pool-stress-%'")
+        result = db.execute(
+            "SELECT COUNT(*) FROM pggit.branches WHERE name LIKE 'pool-stress-%'"
+        )
         assert result[0][0] == 20, "All stressed branches should be accessible"
 
     def test_index_memory_efficiency(self, db, pggit_installed):
@@ -467,12 +494,14 @@ class TestE2EMemoryResourceManagement:
                 "INSERT INTO public.index_efficiency (id, branch_id, data) VALUES (%s, %s, %s)",
                 i,
                 i % 10,
-                f'data-{i}'
+                f"data-{i}",
             )
 
         # Query using index should be fast
         start = time.time()
-        result = db.execute("SELECT COUNT(*) FROM public.index_efficiency WHERE branch_id = 5")
+        result = db.execute(
+            "SELECT COUNT(*) FROM public.index_efficiency WHERE branch_id = 5"
+        )
         query_time = time.time() - start
 
         assert result[0][0] > 0, "Index query should return results"
@@ -496,7 +525,7 @@ class TestE2EMemoryResourceManagement:
             db.execute(
                 "INSERT INTO public.cache_bounds (id, cached_data) VALUES (%s, %s)",
                 i,
-                json.dumps({'key': f'value-{i}'} * 100)  # ~1KB per row
+                json.dumps({"key": f"value-{i}"} * 100),  # ~1KB per row
             )
 
         mem_after = process.memory_info().rss / 1024 / 1024
@@ -518,7 +547,7 @@ class TestE2EConcurrentLoadStress:
             try:
                 branch_id = db.execute_returning(
                     "INSERT INTO pggit.branches (name) VALUES (%s) RETURNING id",
-                    f'stress-50-{i}'
+                    f"stress-50-{i}",
                 )[0][0]
                 return branch_id
             except Exception as e:
@@ -534,12 +563,18 @@ class TestE2EConcurrentLoadStress:
                     created_branches.append(result)
 
         # Most branches should be created
-        assert len(created_branches) >= 40, f"At least 40 of 50 branches should be created, got {len(created_branches)}"
-        assert len(failed_operations) <= 10, f"No more than 10 failures acceptable, got {len(failed_operations)}"
+        assert len(created_branches) >= 40, (
+            f"At least 40 of 50 branches should be created, got {len(created_branches)}"
+        )
+        assert len(failed_operations) <= 10, (
+            f"No more than 10 failures acceptable, got {len(failed_operations)}"
+        )
 
     def test_100_concurrent_commits(self, db, pggit_installed):
         """Test 100 concurrent commits to same branch"""
-        main_id = db.execute_returning("SELECT id FROM pggit.branches WHERE name = 'main'")[0][0]
+        main_id = db.execute_returning(
+            "SELECT id FROM pggit.branches WHERE name = 'main'"
+        )[0][0]
 
         commit_ids = []
         lock = None
@@ -549,7 +584,7 @@ class TestE2EConcurrentLoadStress:
                 commit_id = db.execute_returning(
                     "INSERT INTO pggit.commits (branch_id, message) VALUES (%s, %s) RETURNING id",
                     main_id,
-                    f'concurrent-commit-{i}'
+                    f"concurrent-commit-{i}",
                 )[0][0]
                 return commit_id
             except Exception:
@@ -564,9 +599,13 @@ class TestE2EConcurrentLoadStress:
                     commit_ids.append(result)
 
         # Most commits should succeed
-        assert len(commit_ids) >= 80, f"At least 80 of 100 commits should succeed, got {len(commit_ids)}"
+        assert len(commit_ids) >= 80, (
+            f"At least 80 of 100 commits should succeed, got {len(commit_ids)}"
+        )
         # All commit IDs should be unique
-        assert len(commit_ids) == len(set(commit_ids)), "All commit IDs should be unique"
+        assert len(commit_ids) == len(set(commit_ids)), (
+            "All commit IDs should be unique"
+        )
 
     def test_contention_under_high_write_load(self, db, pggit_installed):
         """Test system under contention with high write load"""
@@ -589,7 +628,7 @@ class TestE2EConcurrentLoadStress:
                         "INSERT INTO public.high_write_load (id, thread_id, value) VALUES (%s, %s, %s)",
                         thread_id * 1000 + i,
                         thread_id,
-                        f'thread-{thread_id}-value-{i}'
+                        f"thread-{thread_id}-value-{i}",
                     )
                 success_count[0] += 1
             except Exception:
@@ -602,7 +641,9 @@ class TestE2EConcurrentLoadStress:
                 future.result()
 
         # Most threads should succeed
-        assert success_count[0] >= 15, f"At least 15 of 20 threads should complete, got {success_count[0]}"
+        assert success_count[0] >= 15, (
+            f"At least 15 of 20 threads should complete, got {success_count[0]}"
+        )
 
         # Verify all data was inserted
         total_rows = db.execute("SELECT COUNT(*) FROM public.high_write_load")[0][0]
@@ -623,7 +664,7 @@ class TestE2EConcurrentLoadStress:
                 db.execute(
                     "INSERT INTO public.recovery_test (id, data) VALUES (%s, %s)",
                     i,
-                    'x' * 100  # Moderate size
+                    "x" * 100,  # Moderate size
                 )
         except Exception as e:
             # May hit resource limit
