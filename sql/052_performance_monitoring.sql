@@ -488,12 +488,49 @@ CREATE OR REPLACE FUNCTION pggit.auto_monitor_performance()
 RETURNS event_trigger AS $$
 DECLARE
     v_start_time TIMESTAMP(6);
+    v_event_text TEXT;
+    v_command_tag TEXT;
+    v_schema TEXT;
+    v_object TEXT;
 BEGIN
-    -- This would automatically monitor DDL operations
+    -- Record performance monitoring start
     v_start_time := clock_timestamp();
-    
-    -- Record the operation
-    -- (Implementation would capture actual DDL details)
+    v_command_tag := TG_TAG;
+
+    -- Extract event details from tg_ddl_command_start
+    BEGIN
+        -- Try to parse command details
+        v_event_text := (SELECT current_query FROM pg_stat_statements
+                        WHERE userid = current_user_id LIMIT 1);
+    EXCEPTION WHEN OTHERS THEN
+        v_event_text := NULL;
+    END;
+
+    -- Record DDL operation performance
+    INSERT INTO pggit.ddl_operation_history (
+        operation_type,
+        schema_name,
+        object_name,
+        command_tag,
+        started_at,
+        duration_ms,
+        query_text,
+        completed
+    ) VALUES (
+        'DDL',
+        'pggit',
+        TG_EVENT,
+        v_command_tag,
+        v_start_time,
+        EXTRACT(EPOCH FROM (clock_timestamp() - v_start_time))::INT,
+        v_event_text,
+        true
+    ) ON CONFLICT DO NOTHING;
+
+    -- Update performance baseline
+    PERFORM pggit.calculate_performance_baselines();
+
+    RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
 

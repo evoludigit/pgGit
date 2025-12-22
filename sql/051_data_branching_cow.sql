@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS pggit.data_conflicts (
 -- Copy-on-Write Implementation
 -- =====================================================
 
--- Create data branch with COW
+-- Create data branch with COW (array version for internal use)
 CREATE OR REPLACE FUNCTION pggit.create_data_branch(
     p_branch_name TEXT,
     p_source_branch TEXT,
@@ -71,12 +71,12 @@ BEGIN
     -- Create branch schema
     v_branch_schema := 'pggit_branch_' || replace(p_branch_name, '/', '_');
     EXECUTE format('CREATE SCHEMA IF NOT EXISTS %I', v_branch_schema);
-    
+
     -- Track branch in storage stats
     INSERT INTO pggit.branch_storage_stats (branch_name)
     VALUES (p_branch_name)
     ON CONFLICT (branch_name) DO NOTHING;
-    
+
     -- Branch each table
     FOREACH v_table IN ARRAY p_tables LOOP
         -- Always create an actual data copy for proper isolation
@@ -88,7 +88,7 @@ BEGIN
 
         -- Note: We're creating a full copy for isolation, not true COW via inheritance
         -- True COW via inheritance would save space but complicates data isolation
-        
+
         -- Track branched table
         INSERT INTO pggit.branched_tables (
             branch_name, source_schema, source_table,
@@ -97,14 +97,98 @@ BEGIN
             p_branch_name, v_source_schema, v_table,
             v_branch_schema, v_table, p_use_cow
         );
-        
+
         v_branch_count := v_branch_count + 1;
     END LOOP;
-    
+
     -- Update storage stats
     PERFORM pggit.update_branch_storage_stats(p_branch_name);
-    
+
     RETURN v_branch_count;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create data branch (simplified version for single table, test-friendly API)
+CREATE OR REPLACE FUNCTION pggit.create_data_branch(
+    p_table_name TEXT,
+    p_source_branch TEXT,
+    p_branch_name TEXT
+) RETURNS INT AS $$
+DECLARE
+    v_branch_schema TEXT;
+    v_table_name TEXT;
+    v_source_schema TEXT := 'public';
+    v_error_msg TEXT;
+BEGIN
+    -- Validate inputs
+    IF p_table_name IS NULL OR p_table_name = '' THEN
+        RAISE EXCEPTION 'Table name cannot be empty';
+    END IF;
+
+    IF p_branch_name IS NULL OR p_branch_name = '' THEN
+        RAISE EXCEPTION 'Branch name cannot be empty';
+    END IF;
+
+    -- Create branch schema
+    v_branch_schema := 'pggit_branch_' || replace(p_branch_name, '/', '_');
+    EXECUTE format('CREATE SCHEMA IF NOT EXISTS %I', v_branch_schema);
+
+    -- Track branch in storage stats
+    INSERT INTO pggit.branch_storage_stats (branch_name)
+    VALUES (p_branch_name)
+    ON CONFLICT (branch_name) DO NOTHING;
+
+    -- Use inheritance for COW-like behavior
+    -- This creates an empty branch table that inherits from main
+    v_table_name := p_table_name;
+
+    BEGIN
+        -- Create inherited table (empty, inherits structure from main)
+        EXECUTE format(
+            'CREATE TABLE %I.%I (LIKE %I.%I INCLUDING ALL) INHERITS (%I.%I)',
+            v_branch_schema, v_table_name,
+            v_source_schema, v_table_name,
+            v_source_schema, v_table_name
+        );
+    EXCEPTION WHEN OTHERS THEN
+        GET STACKED DIAGNOSTICS v_error_msg = MESSAGE_TEXT;
+        -- If inheritance fails (e.g., due to type incompatibility),
+        -- fall back to full copy
+        IF v_error_msg LIKE '%type%' OR v_error_msg LIKE '%incompatible%' THEN
+            -- Try full copy as fallback
+            EXECUTE format('CREATE TABLE %I.%I AS TABLE %I.%I WITH NO DATA',
+                v_branch_schema, v_table_name,
+                v_source_schema, v_table_name
+            );
+        ELSE
+            RAISE;
+        END IF;
+    END;
+
+    -- Add branch-specific system columns
+    BEGIN
+        EXECUTE format(
+            'ALTER TABLE %I.%I ADD COLUMN _pggit_branch_ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
+            v_branch_schema, v_table_name
+        );
+    EXCEPTION WHEN OTHERS THEN
+        -- Column might already exist
+        NULL;
+    END;
+
+    -- Track branched table
+    INSERT INTO pggit.branched_tables (
+        branch_name, source_schema, source_table,
+        branch_schema, branch_table, uses_cow
+    ) VALUES (
+        p_branch_name, v_source_schema, v_table_name,
+        v_branch_schema, v_table_name, true
+    ) ON CONFLICT DO NOTHING;
+
+    -- Update storage stats
+    PERFORM pggit.update_branch_storage_stats(p_branch_name);
+
+    RETURN 1;
 END;
 $$ LANGUAGE plpgsql;
 
