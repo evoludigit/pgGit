@@ -487,7 +487,7 @@ class TestE2EDataIntegrity:
             "SELECT created_at FROM public.timestamp_test ORDER BY id DESC LIMIT 1"
         )
 
-        recorded_time = result[0]
+        recorded_time = result
 
         # Verify timestamp is reasonable
         assert before <= recorded_time <= after, "Timestamp accuracy issue"

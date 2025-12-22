@@ -130,6 +130,8 @@ class E2ETestFixture:
     def connect(self):
         """Establish database connection"""
         self.conn = connect(self.connection_string)
+        # Set proper transaction isolation level for rollback semantics
+        self.conn.execute("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         return self.conn
 
     def execute(self, query: str, *args):
@@ -137,25 +139,33 @@ class E2ETestFixture:
         if not self.conn:
             self.connect()
 
-        cursor = self.conn.cursor()
-        cursor.execute(query, args)
-        self.conn.commit()
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(query, args)
+            self.conn.commit()
 
-        # Return results if it's a SELECT query
-        if query.strip().upper().startswith("SELECT"):
-            return cursor.fetchall()
-        return None
+            # Return results if it's a SELECT query
+            if query.strip().upper().startswith("SELECT"):
+                return cursor.fetchall()
+            return None
+        except Exception as e:
+            self.conn.rollback()
+            raise
 
     def execute_returning(self, query: str, *args):
         """Execute query that returns values"""
         if not self.conn:
             self.connect()
 
-        cursor = self.conn.cursor()
-        cursor.execute(query, args)
-        result = cursor.fetchone()
-        self.conn.commit()
-        return result[0] if result else None
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(query, args)
+            result = cursor.fetchone()
+            self.conn.commit()
+            return result[0] if result else None
+        except Exception as e:
+            self.conn.rollback()
+            raise
 
     def close(self):
         """Close database connection"""
