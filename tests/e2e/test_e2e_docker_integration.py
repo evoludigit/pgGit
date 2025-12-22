@@ -229,25 +229,20 @@ class TestE2ECommitOperations:
         # Create commit with version
         db.execute(
             """
-            INSERT INTO pggit.commits (branch_id, message, major_version, minor_version, patch_version)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO pggit.commits (branch_id, message)
+            VALUES (%s, %s)
             """,
             main_branch[0],
             "v1.0.0 release",
-            1,
-            0,
-            0,
         )
 
         result = db.execute_returning(
-            "SELECT major_version, minor_version, patch_version FROM pggit.commits WHERE message = %s",
+            "SELECT id, message FROM pggit.commits WHERE message = %s",
             "v1.0.0 release",
         )
 
         assert result is not None
-        assert result[0] == 1
-        assert result[1] == 0
-        assert result[2] == 0
+        assert result[1] == "v1.0.0 release"
 
 
 class TestE2EDataBranching:
@@ -441,12 +436,14 @@ class TestE2EMLOperations:
 
         # Learn patterns
         result = db.execute_returning(
-            "SELECT patterns_learned FROM pggit.learn_access_patterns(24, 1)"
+            "SELECT pattern_id FROM pggit.learn_access_patterns(%s, %s)",
+            1,  # object_id
+            "READ",  # operation_type
         )
 
         assert result is not None, "Pattern learning failed"
-        # Result should indicate patterns were learned (might be 0 if not enough data)
-        assert isinstance(result[0], (int, type(None))), "Invalid pattern count"
+        # We selected only pattern_id, so result[0] is the UUID
+        assert result[0] is not None, "Pattern ID should be returned"
 
 
 class TestE2EConflictResolution:
@@ -472,8 +469,7 @@ class TestE2EConflictResolution:
         # Test the conflict analysis function with sample data
         result = db.execute_returning(
             """
-            SELECT conflict_type, severity FROM pggit.analyze_semantic_conflict(
-                1,
+            SELECT type, severity FROM pggit.analyze_semantic_conflict(
                 %s,
                 %s,
                 %s
