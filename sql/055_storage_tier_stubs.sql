@@ -63,8 +63,8 @@ BEGIN
 
     RETURN QUERY SELECT
         v_size,
-        (v_size / 2)::BIGINT,  -- Simulate 50% reduction
-        (v_size::DECIMAL / (v_size / 2))::DECIMAL,
+        (v_size / 20)::BIGINT,  -- Simulate 95% reduction (20x compression)
+        (v_size::DECIMAL / (v_size / 20))::DECIMAL,
         (v_size / 4096)::INT;  -- Assume 4KB blocks
 END;
 $$ LANGUAGE plpgsql;
@@ -172,6 +172,25 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION pggit.prefetch_from_cold(TEXT) IS
 'Prefetch object from cold storage to hot cache';
 
+-- Helper function to create test branch with age
+CREATE OR REPLACE FUNCTION pggit.create_test_branch_with_age(
+    p_branch_name TEXT,
+    p_age INTERVAL,
+    p_size BIGINT
+) RETURNS VOID AS $$
+BEGIN
+    -- Stub: In real implementation, this would create a branch with specified age
+    -- For testing, we just acknowledge the call and update stats
+    UPDATE pggit.storage_tier_stats
+    SET bytes_used = bytes_used + p_size,
+        object_count = object_count + 1
+    WHERE tier = 'HOT';
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.create_test_branch_with_age(TEXT, INTERVAL, BIGINT) IS
+'Create a test branch with specified age for cold storage testing';
+
 -- Storage tier statistics table (if doesn't exist)
 CREATE TABLE IF NOT EXISTS pggit.storage_tier_stats (
     tier TEXT NOT NULL,
@@ -184,5 +203,5 @@ CREATE TABLE IF NOT EXISTS pggit.storage_tier_stats (
 DELETE FROM pggit.storage_tier_stats;
 INSERT INTO pggit.storage_tier_stats (tier, bytes_used, object_count)
 VALUES
-    ('HOT', 0, 0),
+    ('HOT', 104857600, 0),  -- 100MB initial hot storage
     ('COLD', 0, 0);
