@@ -85,20 +85,24 @@ class DockerPostgresSetup:
             env = os.environ.copy()
             env['PGPASSWORD'] = password
 
-            # Run psql with the SQL file
+            # Get the directory containing the SQL file for psql includes to work
+            sql_dir = os.path.dirname(os.path.abspath(file_path))
+            abs_file_path = os.path.abspath(file_path)
+
+            # Run psql from the sql directory so \i includes work with relative paths
             result = subprocess.run(
-                ['psql', '-h', host, '-p', port, '-U', user, '-d', dbname, '-f', file_path],
+                ['psql', '-h', host, '-p', port, '-U', user, '-d', dbname, '-f', abs_file_path],
                 env=env,
+                cwd=sql_dir,  # Change to sql directory for includes
                 capture_output=True,
                 text=True,
                 timeout=60
             )
 
-            # Log output for debugging
-            if result.stdout:
-                print(f"PSQL stdout: {result.stdout[:200]}")
+            print(f"DEBUG: PSQL executed from {sql_dir}")
+            print(f"Return code: {result.returncode}")
             if result.returncode != 0 and result.stderr:
-                print(f"PSQL stderr: {result.stderr[:200]}")
+                print(f"STDERR: {result.stderr[:300]}")
 
         except Exception as e:
             raise Exception(f"SQL file execution failed: {str(e)}")
@@ -137,7 +141,7 @@ class E2ETestFixture:
 
         cursor = self.conn.cursor()
         cursor.execute(query, args)
-        result = cursor.fetchone()
+        result = cursor.fetchall()
         self.conn.commit()
         return result
 
@@ -169,9 +173,17 @@ def pggit_installed(docker_setup):
 
 
 @pytest.fixture
-def db(docker_setup):
+def db(docker_setup, pggit_installed):
     """Fixture providing test database connection"""
     fixture = E2ETestFixture(docker_setup.connection_string)
     fixture.connect()
+
+    # Create main branch if it doesn't exist (required for tests)
+    try:
+        fixture.execute("INSERT INTO pggit.branches (name, status) VALUES ('main', 'ACTIVE')")
+    except Exception as e:
+        # Branch might already exist, rollback and continue
+        fixture.conn.rollback()
+
     yield fixture
     fixture.close()
