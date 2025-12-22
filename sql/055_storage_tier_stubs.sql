@@ -144,9 +144,29 @@ CREATE OR REPLACE FUNCTION pggit.record_access_pattern(
     p_access_type TEXT
 ) RETURNS VOID AS $$
 BEGIN
-    -- Stub: In real implementation, this would record access patterns
-    -- For testing, we just acknowledge the call
-    NULL;
+    -- Record access pattern for ML-based prefetching
+    INSERT INTO pggit.access_patterns (object_name, access_type, accessed_by, response_time_ms)
+    VALUES (
+        p_object_name,
+        p_access_type,
+        CURRENT_USER,
+        (RANDOM() * 500)::INT + 10  -- Simulated response time 10-510ms
+    )
+    ON CONFLICT DO NOTHING;
+
+    -- Update object access count and last accessed timestamp
+    UPDATE pggit.storage_objects
+    SET
+        access_count = access_count + 1,
+        last_accessed = CURRENT_TIMESTAMP
+    WHERE object_name = p_object_name;
+
+    -- Log access pattern for analysis
+    PERFORM pg_logical_emit_message(
+        true,
+        'pggit.access_pattern',
+        format('object=%s type=%s user=%s', p_object_name, p_access_type, CURRENT_USER)
+    );
 END;
 $$ LANGUAGE plpgsql;
 
@@ -161,11 +181,57 @@ CREATE OR REPLACE FUNCTION pggit.prefetch_from_cold(
     bytes_prefetched BIGINT,
     estimated_latency_ms INT
 ) AS $$
+DECLARE
+    v_object_id UUID;
+    v_current_size BIGINT;
+    v_compressed_size BIGINT;
+    v_latency_ms INT;
+    v_start_time TIMESTAMP(6);
 BEGIN
+    -- Record prefetch start time
+    v_start_time := clock_timestamp();
+
+    -- Find the object
+    SELECT object_id, original_size_bytes, compressed_size_bytes
+    INTO v_object_id, v_current_size, v_compressed_size
+    FROM pggit.storage_objects
+    WHERE object_name = p_object_name
+    LIMIT 1;
+
+    -- If object not found, use default size
+    IF v_object_id IS NULL THEN
+        v_current_size := 1048576;  -- 1MB default
+        v_compressed_size := v_current_size;
+    END IF;
+
+    -- Simulate prefetch operation
+    -- In real implementation, this would load data into cache
+    PERFORM pg_sleep(0.05);  -- Simulate I/O delay (50ms)
+
+    -- Update object statistics
+    UPDATE pggit.storage_objects
+    SET
+        current_tier = 'HOT',
+        last_accessed = CURRENT_TIMESTAMP,
+        access_count = access_count + 1,
+        metadata = jsonb_set(
+            COALESCE(metadata, '{}'::JSONB),
+            '{last_prefetch}',
+            to_jsonb(CURRENT_TIMESTAMP)
+        )
+    WHERE object_id = v_object_id;
+
+    -- Record access pattern
+    PERFORM pggit.record_access_pattern(p_object_name, 'PREFETCH');
+
+    -- Calculate estimated latency (50ms base + proportional to size)
+    v_latency_ms := 50 + (v_compressed_size / 1000000)::INT;
+
+    -- Return prefetch result
     RETURN QUERY SELECT
         p_object_name,
-        1048576::BIGINT,  -- 1MB
-        150::INT;  -- 150ms latency
+        COALESCE(v_compressed_size, v_current_size)::BIGINT,
+        v_latency_ms;
 END;
 $$ LANGUAGE plpgsql;
 
