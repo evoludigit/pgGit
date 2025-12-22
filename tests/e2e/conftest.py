@@ -165,10 +165,14 @@ class E2ETestFixture:
 
         cursor = self.conn.cursor()
         cursor.execute(query, args)
-        self.conn.commit()
+
+        # Don't auto-commit transaction control statements
+        query_upper = query.strip().upper()
+        if query_upper not in ("BEGIN", "COMMIT", "ROLLBACK"):
+            self.conn.commit()
 
         # Return results if it's a SELECT query
-        if query.strip().upper().startswith("SELECT"):
+        if query_upper.startswith("SELECT"):
             return cursor.fetchall()
         return None
 
