@@ -588,6 +588,13 @@ GRANT SELECT, INSERT, UPDATE ON pggit.ml_model_metadata TO PUBLIC;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
 
 -- =====================================================
+-- Drop Legacy Functions (Before Redefining with New Signatures)
+-- =====================================================
+
+DROP FUNCTION IF EXISTS pggit.learn_access_patterns(INTEGER, INTEGER) CASCADE;
+DROP FUNCTION IF EXISTS pggit.predict_next_objects(TEXT, INTEGER, NUMERIC) CASCADE;
+
+-- =====================================================
 -- Phase 3: Specification-Compliant Functions
 -- =====================================================
 

@@ -101,7 +101,9 @@ class TestE2EEdgeCasesBoundaryConditions:
 
         # Diff should show change
         diff = db.execute_returning(
-            "SELECT pggit.temporal_diff(%s, %s)", snapshot[0], datetime.now()
+            "SELECT pggit.temporal_diff('public.single_row', %s, %s)",
+            snapshot[2],
+            datetime.now(),
         )
         assert diff is not None, "Temporal diff should detect single-row change"
 
