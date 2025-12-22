@@ -160,9 +160,9 @@ class E2ETestFixture:
         try:
             cursor = self.conn.cursor()
             cursor.execute(query, args)
-            result = cursor.fetchone()
+            result = cursor.fetchall()
             self.conn.commit()
-            return result[0] if result else None
+            return result
         except Exception as e:
             self.conn.rollback()
             raise

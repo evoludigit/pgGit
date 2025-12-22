@@ -79,9 +79,9 @@ BEGIN
     v_cutoff_time := CURRENT_TIMESTAMP - (p_lookback_hours || ' hours')::INTERVAL;
 
     -- Get or create model version
-    SELECT COALESCE(MAX(m.model_version), 0) + 1 INTO v_model_version
-    FROM pggit.ml_model_metadata m
-    WHERE m.model_name = 'sequential_patterns';
+    SELECT COALESCE(MAX(model_version), 0) + 1 INTO v_model_version
+    FROM pggit.ml_model_metadata
+    WHERE model_name = 'sequential_patterns';
 
     -- Analyze access patterns from access_patterns table
     -- Group consecutive accesses into sequences
@@ -206,9 +206,9 @@ DECLARE
     v_model_version INT;
 BEGIN
     -- Get latest model version
-    SELECT COALESCE(MAX(m.model_version), 1) INTO v_model_version
-    FROM pggit.ml_model_metadata m
-    WHERE m.model_name = 'sequential_patterns' AND m.is_active;
+    SELECT COALESCE(MAX(model_version), 1) INTO v_model_version
+    FROM pggit.ml_model_metadata
+    WHERE model_name = 'sequential_patterns' AND is_active;
 
     -- Return predicted next objects based on learned patterns
     RETURN QUERY
