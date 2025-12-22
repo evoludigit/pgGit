@@ -245,6 +245,14 @@ CREATE TABLE IF NOT EXISTS pggit.blobs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Access patterns table for testing and tracking database access patterns
+CREATE TABLE IF NOT EXISTS pggit.access_patterns (
+    pattern_id SERIAL PRIMARY KEY,
+    object_name TEXT NOT NULL,
+    access_type TEXT NOT NULL,
+    response_time_ms NUMERIC(10,2)
+);
+
 -- Indexes for performance
 CREATE INDEX idx_objects_type ON pggit.objects(object_type);
 CREATE INDEX idx_objects_parent ON pggit.objects(parent_id);
