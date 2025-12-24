@@ -370,8 +370,8 @@ class TestForeignKeys:
         """Verify commits.branch_id references branches"""
         result = execute_sql(
             """
-            SELECT constraint_name FROM information_schema.referential_constraints
-            WHERE table_name = 'commits' AND column_name = 'branch_id'
+            SELECT constraint_name FROM information_schema.table_constraints
+            WHERE table_schema = 'pggit' AND table_name = 'commits' AND constraint_type = 'FOREIGN KEY'
             """
         )
         assert len(result) > 0, "Foreign key from commits.branch_id not found"

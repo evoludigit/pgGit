@@ -2,6 +2,9 @@
 -- Complete DDL for all 8 core tables with indexes
 -- Date: 2025-12-24
 
+-- Enable required extensions
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- Create pggit schema
 CREATE SCHEMA IF NOT EXISTS pggit;
 

@@ -86,16 +86,16 @@ $$ LANGUAGE plpgsql;
 
 -- 5. set_current_branch() - Set the current branch in session
 -- Usage: SELECT pggit.set_current_branch('feature/new-branch');
-CREATE OR REPLACE FUNCTION pggit.set_current_branch(branch_name TEXT)
+CREATE OR REPLACE FUNCTION pggit.set_current_branch(p_branch_name TEXT)
 RETURNS VOID AS $$
 BEGIN
     -- Validate branch exists
-    IF NOT EXISTS (SELECT 1 FROM pggit.branches WHERE branch_name = $1) THEN
-        PERFORM pggit.raise_pggit_error('BRANCH_NOT_FOUND', format('Branch "%s" does not exist', $1));
+    IF NOT EXISTS (SELECT 1 FROM pggit.branches b WHERE b.branch_name = p_branch_name) THEN
+        PERFORM pggit.raise_pggit_error('BRANCH_NOT_FOUND', format('Branch "%s" does not exist', p_branch_name));
     END IF;
 
     -- Set session variable
-    EXECUTE format('SET pggit.current_branch = %L', $1);
+    EXECUTE format('SET pggit.current_branch = %L', p_branch_name);
 END;
 $$ LANGUAGE plpgsql;
 
@@ -167,15 +167,15 @@ $$ LANGUAGE plpgsql;
 
 -- 9. get_commit_by_hash() - Get commit_id by commit hash
 -- Usage: SELECT pggit.get_commit_by_hash('abc123...');
-CREATE OR REPLACE FUNCTION pggit.get_commit_by_hash(commit_hash CHAR(64))
+CREATE OR REPLACE FUNCTION pggit.get_commit_by_hash(p_commit_hash CHAR(64))
 RETURNS BIGINT AS $$
 DECLARE
     v_commit_id BIGINT;
 BEGIN
-    SELECT commit_id
+    SELECT c.commit_id
     INTO v_commit_id
-    FROM pggit.commits
-    WHERE commit_hash = $1
+    FROM pggit.commits c
+    WHERE c.commit_hash = p_commit_hash
     LIMIT 1;
 
     RETURN v_commit_id;
@@ -184,15 +184,15 @@ $$ LANGUAGE plpgsql;
 
 -- 10. get_branch_by_name() - Get branch_id by branch name
 -- Usage: SELECT pggit.get_branch_by_name('main');
-CREATE OR REPLACE FUNCTION pggit.get_branch_by_name(branch_name TEXT)
+CREATE OR REPLACE FUNCTION pggit.get_branch_by_name(p_branch_name TEXT)
 RETURNS INTEGER AS $$
 DECLARE
     v_branch_id INTEGER;
 BEGIN
-    SELECT branch_id
+    SELECT b.branch_id
     INTO v_branch_id
-    FROM pggit.branches
-    WHERE branch_name = $1
+    FROM pggit.branches b
+    WHERE b.branch_name = p_branch_name
     LIMIT 1;
 
     RETURN v_branch_id;
