@@ -59,6 +59,7 @@ def test_db_setup(db_connection_params):
                     "sql/031_pggit_object_tracking.sql",
                     "sql/032_pggit_merge_operations.sql",
                     "sql/033_pggit_history_audit.sql",
+                    "sql/034_pggit_rollback_operations.sql",
                 ]
 
                 for schema_file in schema_files:
@@ -93,6 +94,15 @@ def test_db_setup(db_connection_params):
 @pytest.fixture
 def db_conn(test_db_setup):
     """Get database connection for each test"""
+    conn_params = test_db_setup
+    conn = psycopg.connect(**conn_params)
+    yield conn
+    conn.close()
+
+
+@pytest.fixture
+def db_connection(test_db_setup):
+    """Alias for db_conn to support different test styles"""
     conn_params = test_db_setup
     conn = psycopg.connect(**conn_params)
     yield conn
@@ -137,6 +147,8 @@ def clear_tables(db_conn):
     """Helper to clear test tables between tests"""
     def _clear():
         tables = [
+            "pggit.rollback_validations",
+            "pggit.rollback_operations",
             "pggit.object_history",
             "pggit.merge_operations",
             "pggit.object_dependencies",

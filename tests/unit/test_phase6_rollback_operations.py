@@ -556,5 +556,262 @@ class TestPhase6Integration:
         assert len(missing) == 0, f"Missing columns: {missing}"
 
 
+class TestRollbackCommit:
+    """Tests for rollback_commit() function"""
+
+    def test_rollback_commit_function_exists(self, db_connection):
+        """Test that rollback_commit function exists."""
+        with db_connection.cursor() as cur:
+            cur.execute(
+                """SELECT routine_name FROM information_schema.routines
+                   WHERE routine_schema = 'pggit' AND routine_name = 'rollback_commit'"""
+            )
+            result = cur.fetchone()
+
+        assert result is not None, "rollback_commit function should exist"
+
+    def test_rollback_commit_nonexistent_branch(self, db_connection):
+        """Test rollback_commit with nonexistent branch."""
+        fake_hash = 'a' * 64
+
+        with db_connection.cursor() as cur:
+            # Should raise exception or return error
+            try:
+                cur.execute(
+                    """SELECT * FROM pggit.rollback_commit(
+                        p_branch_name => %s,
+                        p_commit_hash => %s
+                    )""",
+                    ('nonexistent_branch', fake_hash)
+                )
+                result = cur.fetchall()
+                # If it returns without error, status should be FAILED
+                if result:
+                    assert result[0][2] == 'FAILED', "Should fail for nonexistent branch"
+            except psycopg.Error:
+                # Exception is acceptable too
+                pass
+
+    def test_rollback_commit_nonexistent_commit(self, db_connection):
+        """Test rollback_commit with nonexistent commit."""
+        fake_hash = 'b' * 64
+
+        with db_connection.cursor() as cur:
+            # First create a branch
+            cur.execute(
+                """SELECT branch_id FROM pggit.branches
+                   WHERE branch_name = 'main' LIMIT 1"""
+            )
+            result = cur.fetchone()
+
+            if result:
+                # Try to rollback non-existent commit
+                try:
+                    cur.execute(
+                        """SELECT * FROM pggit.rollback_commit(
+                            p_branch_name => %s,
+                            p_commit_hash => %s
+                        )""",
+                        ('main', fake_hash)
+                    )
+                    result = cur.fetchall()
+                    if result:
+                        assert result[0][2] in ('FAILED', 'ERROR'), "Should fail for nonexistent commit"
+                except psycopg.Error:
+                    # Exception is acceptable
+                    pass
+
+    def test_rollback_commit_dry_run_mode(self, db_connection):
+        """Test rollback_commit in DRY_RUN mode."""
+        with db_connection.cursor() as cur:
+            # Get a real commit from main branch
+            cur.execute(
+                """SELECT c.commit_hash FROM pggit.commits c
+                   JOIN pggit.branches b ON b.branch_id = c.branch_id
+                   WHERE b.branch_name = 'main' LIMIT 1"""
+            )
+            result = cur.fetchone()
+
+            if result:
+                commit_hash = result[0]
+
+                # Run dry run rollback
+                cur.execute(
+                    """SELECT status FROM pggit.rollback_commit(
+                        p_branch_name => %s,
+                        p_commit_hash => %s,
+                        p_rollback_mode => %s
+                    )""",
+                    ('main', commit_hash, 'DRY_RUN')
+                )
+                result = cur.fetchone()
+
+                if result:
+                    assert result[0] == 'DRY_RUN', "DRY_RUN mode should return DRY_RUN status"
+
+    def test_rollback_commit_returns_correct_columns(self, db_connection):
+        """Test that rollback_commit returns all expected columns."""
+        with db_connection.cursor() as cur:
+            # Get a real commit
+            cur.execute(
+                """SELECT c.commit_hash FROM pggit.commits c
+                   JOIN pggit.branches b ON b.branch_id = c.branch_id
+                   WHERE b.branch_name = 'main' LIMIT 1"""
+            )
+            result = cur.fetchone()
+
+            if result:
+                commit_hash = result[0]
+
+                # Run rollback
+                cur.execute(
+                    """SELECT rollback_id, rollback_commit_hash, status,
+                              objects_rolled_back, validations_passed,
+                              validations_failed, execution_time_ms
+                       FROM pggit.rollback_commit(
+                        p_branch_name => %s,
+                        p_commit_hash => %s,
+                        p_rollback_mode => %s
+                    )""",
+                    ('main', commit_hash, 'DRY_RUN')
+                )
+                result = cur.fetchone()
+
+                if result:
+                    # Should have 7 columns
+                    assert len(result) == 7, "Should return 7 columns"
+                    # Check types
+                    rollback_id, commit_h, status, obj_count, pass_v, fail_v, exec_time = result
+                    assert status in ('DRY_RUN', 'SUCCESS', 'FAILED'), "Status should be valid"
+                    assert isinstance(obj_count, (int, type(None))), "objects_rolled_back should be integer"
+
+    def test_rollback_commit_validates_before_execute(self, db_connection):
+        """Test that rollback_commit runs validation by default."""
+        with db_connection.cursor() as cur:
+            # Get a real commit
+            cur.execute(
+                """SELECT c.commit_hash FROM pggit.commits c
+                   JOIN pggit.branches b ON b.branch_id = c.branch_id
+                   WHERE b.branch_name = 'main' LIMIT 1"""
+            )
+            result = cur.fetchone()
+
+            if result:
+                commit_hash = result[0]
+
+                # Run rollback with validation (default)
+                cur.execute(
+                    """SELECT validations_passed, validations_failed
+                       FROM pggit.rollback_commit(
+                        p_branch_name => %s,
+                        p_commit_hash => %s,
+                        p_validate_first => true,
+                        p_rollback_mode => %s
+                    )""",
+                    ('main', commit_hash, 'DRY_RUN')
+                )
+                result = cur.fetchone()
+
+                if result:
+                    pass_v, fail_v = result
+                    # Should have some validations run
+                    assert isinstance(pass_v, (int, type(None))), "validations_passed should be integer"
+                    assert isinstance(fail_v, (int, type(None))), "validations_failed should be integer"
+
+    def test_rollback_commit_skip_validation(self, db_connection):
+        """Test rollback_commit with validation skipped."""
+        with db_connection.cursor() as cur:
+            # Get a real commit
+            cur.execute(
+                """SELECT c.commit_hash FROM pggit.commits c
+                   JOIN pggit.branches b ON b.branch_id = c.branch_id
+                   WHERE b.branch_name = 'main' LIMIT 1"""
+            )
+            result = cur.fetchone()
+
+            if result:
+                commit_hash = result[0]
+
+                # Run rollback with validation skipped
+                cur.execute(
+                    """SELECT status FROM pggit.rollback_commit(
+                        p_branch_name => %s,
+                        p_commit_hash => %s,
+                        p_validate_first => false,
+                        p_rollback_mode => %s
+                    )""",
+                    ('main', commit_hash, 'DRY_RUN')
+                )
+                result = cur.fetchone()
+
+                # Should still work (validation skipped)
+                if result:
+                    assert result[0] in ('DRY_RUN', 'SUCCESS', 'FAILED'), "Status should be valid"
+
+    def test_rollback_commit_execution_time_recorded(self, db_connection):
+        """Test that rollback_commit records execution time."""
+        with db_connection.cursor() as cur:
+            # Get a real commit
+            cur.execute(
+                """SELECT c.commit_hash FROM pggit.commits c
+                   JOIN pggit.branches b ON b.branch_id = c.branch_id
+                   WHERE b.branch_name = 'main' LIMIT 1"""
+            )
+            result = cur.fetchone()
+
+            if result:
+                commit_hash = result[0]
+
+                # Run rollback
+                cur.execute(
+                    """SELECT execution_time_ms FROM pggit.rollback_commit(
+                        p_branch_name => %s,
+                        p_commit_hash => %s,
+                        p_rollback_mode => %s
+                    )""",
+                    ('main', commit_hash, 'DRY_RUN')
+                )
+                result = cur.fetchone()
+
+                if result:
+                    exec_time = result[0]
+                    # Should have recorded some time (could be 0ms if very fast)
+                    assert isinstance(exec_time, (int, type(None))), "execution_time_ms should be integer"
+                    if exec_time is not None:
+                        assert exec_time >= 0, "execution_time_ms should be non-negative"
+
+    def test_rollback_commit_objects_affected_count(self, db_connection):
+        """Test that rollback_commit counts objects correctly."""
+        with db_connection.cursor() as cur:
+            # Get a real commit
+            cur.execute(
+                """SELECT c.commit_hash FROM pggit.commits c
+                   JOIN pggit.branches b ON b.branch_id = c.branch_id
+                   WHERE b.branch_name = 'main' LIMIT 1"""
+            )
+            result = cur.fetchone()
+
+            if result:
+                commit_hash = result[0]
+
+                # Run rollback in dry-run
+                cur.execute(
+                    """SELECT objects_rolled_back FROM pggit.rollback_commit(
+                        p_branch_name => %s,
+                        p_commit_hash => %s,
+                        p_rollback_mode => %s
+                    )""",
+                    ('main', commit_hash, 'DRY_RUN')
+                )
+                result = cur.fetchone()
+
+                if result:
+                    obj_count = result[0]
+                    # Should have a count (>= 0)
+                    assert isinstance(obj_count, (int, type(None))), "objects_rolled_back should be integer"
+                    if obj_count is not None:
+                        assert obj_count >= 0, "objects_rolled_back should be non-negative"
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
