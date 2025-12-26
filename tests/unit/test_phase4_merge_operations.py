@@ -59,7 +59,10 @@ class MergeOperationsFixture:
 
         try:
             self._delete_object_dependencies()
+            self._delete_merge_conflict_resolutions()
+            self._delete_merge_operations()
             self._delete_object_history()
+            self._delete_commits()
             self._delete_objects()
             self._delete_branches()
             self._is_setup = False
@@ -324,6 +327,21 @@ class MergeOperationsFixture:
     def _delete_branches(self):
         """Delete all branches."""
         sql = "DELETE FROM pggit.branches WHERE name != 'main' OR parent_branch_id IS NOT NULL"
+        self._execute_insert(sql)
+
+    def _delete_merge_conflict_resolutions(self):
+        """Delete all merge conflict resolutions."""
+        sql = "DELETE FROM pggit.merge_conflict_resolutions"
+        self._execute_insert(sql)
+
+    def _delete_merge_operations(self):
+        """Delete all merge operations."""
+        sql = "DELETE FROM pggit.merge_operations"
+        self._execute_insert(sql)
+
+    def _delete_commits(self):
+        """Delete all commits."""
+        sql = "DELETE FROM pggit.commits"
         self._execute_insert(sql)
 
     # Helper methods for tests

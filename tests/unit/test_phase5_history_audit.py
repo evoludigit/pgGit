@@ -50,6 +50,7 @@ class Phase5HistoryFixture:
                 # Delete in reverse order of creation to respect FKs
                 cur.execute("DELETE FROM pggit.merge_conflict_resolutions")
                 cur.execute("DELETE FROM pggit.merge_operations")
+                cur.execute("DELETE FROM pggit.object_dependencies")
                 cur.execute("DELETE FROM pggit.object_history")
                 cur.execute("DELETE FROM pggit.commits")
                 cur.execute("DELETE FROM pggit.schema_objects")
@@ -78,8 +79,22 @@ class Phase5HistoryFixture:
                 )
                 self.branch_ids['main'] = cur.fetchone()[0]
 
-            # Create feature branches (delete if they exist first)
+            # Create feature branches (delete if they exist first, respecting FKs)
             for branch_name in ['feature-a', 'feature-b']:
+                # Get branch_id first
+                cur.execute("SELECT branch_id FROM pggit.branches WHERE branch_name = %s", (branch_name,))
+                branch_result = cur.fetchone()
+                if branch_result:
+                    old_branch_id = branch_result[0]
+                    # Delete dependent data in order (respecting FKs)
+                    cur.execute("DELETE FROM pggit.merge_operations WHERE source_branch_id = %s OR target_branch_id = %s OR merge_base_branch_id = %s",
+                               (old_branch_id, old_branch_id, old_branch_id))
+                    cur.execute("DELETE FROM pggit.object_dependencies WHERE branch_id = %s", (old_branch_id,))
+                    cur.execute("DELETE FROM pggit.object_history WHERE branch_id = %s", (old_branch_id,))
+                    cur.execute("DELETE FROM pggit.commits WHERE branch_id = %s", (old_branch_id,))
+                    # Also delete schema_objects from previous branch (unique constraint)
+                    cur.execute("DELETE FROM pggit.schema_objects WHERE schema_name = 'public'")
+                # Delete the branch
                 cur.execute("DELETE FROM pggit.branches WHERE branch_name = %s", (branch_name,))
                 cur.execute(
                     "INSERT INTO pggit.branches (branch_name, parent_branch_id, created_at, created_by, status) "
