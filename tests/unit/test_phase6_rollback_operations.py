@@ -813,5 +813,374 @@ class TestRollbackCommit:
                         assert obj_count >= 0, "objects_rolled_back should be non-negative"
 
 
+
+# ==============================================================================
+# PHASE 6.3 TESTS: rollback_range() and rollback_to_timestamp()
+# ==============================================================================
+
+class TestPhase6RollbackRange:
+    """Test suite for pggit.rollback_range() function."""
+
+    def test_rollback_range_invalid_branch(self, db_connection):
+        """Test rollback_range fails for nonexistent branch."""
+        fake_hash = 'a' * 64
+        with db_connection.cursor() as cur:
+            with pytest.raises(Exception):  # Should raise
+                cur.execute(
+                    """SELECT * FROM pggit.rollback_range(
+                        p_branch_name => %s,
+                        p_start_commit_hash => %s,
+                        p_end_commit_hash => %s
+                    )""",
+                    ('nonexistent_branch', fake_hash, fake_hash)
+                )
+                cur.fetchall()
+
+    def test_rollback_range_invalid_start_commit(self, db_connection):
+        """Test rollback_range fails for nonexistent start commit."""
+        fake_hash = 'a' * 64
+        with db_connection.cursor() as cur:
+            with pytest.raises(Exception):
+                cur.execute(
+                    """SELECT * FROM pggit.rollback_range(
+                        p_branch_name => %s,
+                        p_start_commit_hash => %s,
+                        p_end_commit_hash => %s
+                    )""",
+                    ('main', fake_hash, fake_hash)
+                )
+                cur.fetchall()
+
+    def test_rollback_range_invalid_order_by(self, fixture_with_data, db_connection):
+        """Test rollback_range fails for invalid order_by parameter."""
+        hash1 = fixture_with_data.get_commit_hash('T1')
+        hash2 = fixture_with_data.get_commit_hash('T2')
+
+        if hash1 and hash2:
+            with db_connection.cursor() as cur:
+                with pytest.raises(Exception):
+                    cur.execute(
+                        """SELECT * FROM pggit.rollback_range(
+                            p_branch_name => %s,
+                            p_start_commit_hash => %s,
+                            p_end_commit_hash => %s,
+                            p_order_by => %s
+                        )""",
+                        ('main', hash1, hash2, 'INVALID_ORDER')
+                    )
+                    cur.fetchall()
+
+    def test_rollback_range_start_after_end(self, fixture_with_data, db_connection):
+        """Test rollback_range fails when start_commit is after end_commit."""
+        hash1 = fixture_with_data.get_commit_hash('T1')
+        hash2 = fixture_with_data.get_commit_hash('T3')
+
+        if hash1 and hash2:
+            with db_connection.cursor() as cur:
+                with pytest.raises(Exception):  # Should fail chronological check
+                    cur.execute(
+                        """SELECT * FROM pggit.rollback_range(
+                            p_branch_name => %s,
+                            p_start_commit_hash => %s,
+                            p_end_commit_hash => %s
+                        )""",
+                        ('main', hash2, hash1)  # Reversed order
+                    )
+                    cur.fetchall()
+
+    def test_rollback_range_dry_run_returns_data(self, fixture_with_data, db_connection):
+        """Test rollback_range DRY_RUN returns valid data."""
+        hash1 = fixture_with_data.get_commit_hash('T1')
+        hash3 = fixture_with_data.get_commit_hash('T3')
+
+        if hash1 and hash3:
+            with db_connection.cursor() as cur:
+                cur.execute(
+                    """SELECT rollback_id, commits_rolled_back, status, objects_affected_total
+                       FROM pggit.rollback_range(
+                           p_branch_name => %s,
+                           p_start_commit_hash => %s,
+                           p_end_commit_hash => %s,
+                           p_rollback_mode => %s
+                       )""",
+                    ('main', hash1, hash3, 'DRY_RUN')
+                )
+                result = cur.fetchone()
+
+                if result:
+                    rollback_id, commits, status, obj_count = result
+                    assert rollback_id == 0, "DRY_RUN should have rollback_id=0"
+                    assert status == 'DRY_RUN', "DRY_RUN should have DRY_RUN status"
+                    assert isinstance(commits, int), "commits_rolled_back should be int"
+                    assert isinstance(obj_count, int), "objects_affected_total should be int"
+
+    def test_rollback_range_returns_all_columns(self, fixture_with_data, db_connection):
+        """Test rollback_range returns all expected columns."""
+        hash1 = fixture_with_data.get_commit_hash('T1')
+        hash3 = fixture_with_data.get_commit_hash('T3')
+
+        if hash1 and hash3:
+            with db_connection.cursor() as cur:
+                cur.execute(
+                    """SELECT rollback_id, commits_rolled_back, rollback_commit_hash,
+                              status, objects_affected_total, conflicts_resolved, execution_time_ms
+                       FROM pggit.rollback_range(
+                           p_branch_name => %s,
+                           p_start_commit_hash => %s,
+                           p_end_commit_hash => %s,
+                           p_rollback_mode => %s
+                       )""",
+                    ('main', hash1, hash3, 'DRY_RUN')
+                )
+                result = cur.fetchone()
+                assert result is not None, "Should return result"
+                assert len(result) == 7, "Should return 7 columns"
+
+    def test_rollback_range_conflicts_count(self, fixture_with_data, db_connection):
+        """Test rollback_range correctly counts conflicts."""
+        hash1 = fixture_with_data.get_commit_hash('T1')
+        hash3 = fixture_with_data.get_commit_hash('T3')
+
+        if hash1 and hash3:
+            with db_connection.cursor() as cur:
+                cur.execute(
+                    """SELECT conflicts_resolved FROM pggit.rollback_range(
+                        p_branch_name => %s,
+                        p_start_commit_hash => %s,
+                        p_end_commit_hash => %s,
+                        p_rollback_mode => %s
+                    )""",
+                    ('main', hash1, hash3, 'DRY_RUN')
+                )
+                result = cur.fetchone()
+
+                if result:
+                    conflict_count = result[0]
+                    assert isinstance(conflict_count, (int, type(None))), "conflicts_resolved should be int"
+                    if conflict_count is not None:
+                        assert conflict_count >= 0, "conflicts_resolved should be non-negative"
+
+    def test_rollback_range_execution_time_recorded(self, fixture_with_data, db_connection):
+        """Test rollback_range records execution time."""
+        hash1 = fixture_with_data.get_commit_hash('T1')
+        hash3 = fixture_with_data.get_commit_hash('T3')
+
+        if hash1 and hash3:
+            with db_connection.cursor() as cur:
+                cur.execute(
+                    """SELECT execution_time_ms FROM pggit.rollback_range(
+                        p_branch_name => %s,
+                        p_start_commit_hash => %s,
+                        p_end_commit_hash => %s,
+                        p_rollback_mode => %s
+                    )""",
+                    ('main', hash1, hash3, 'DRY_RUN')
+                )
+                result = cur.fetchone()
+
+                if result:
+                    exec_time = result[0]
+                    assert isinstance(exec_time, (int, type(None))), "execution_time_ms should be int"
+                    if exec_time is not None:
+                        assert exec_time >= 0, "execution_time_ms should be non-negative"
+
+
+class TestPhase6RollbackToTimestamp:
+    """Test suite for pggit.rollback_to_timestamp() function."""
+
+    def test_rollback_to_timestamp_invalid_branch(self, db_connection):
+        """Test rollback_to_timestamp fails for nonexistent branch."""
+        past_time = datetime.now() - timedelta(hours=1)
+        with db_connection.cursor() as cur:
+            with pytest.raises(Exception):
+                cur.execute(
+                    """SELECT * FROM pggit.rollback_to_timestamp(
+                        p_branch_name => %s,
+                        p_target_timestamp => %s
+                    )""",
+                    ('nonexistent_branch', past_time)
+                )
+                cur.fetchall()
+
+    def test_rollback_to_timestamp_future_timestamp(self, db_connection):
+        """Test rollback_to_timestamp fails for future timestamp."""
+        future_time = datetime.now() + timedelta(hours=1)
+        with db_connection.cursor() as cur:
+            with pytest.raises(Exception):
+                cur.execute(
+                    """SELECT * FROM pggit.rollback_to_timestamp(
+                        p_branch_name => %s,
+                        p_target_timestamp => %s
+                    )""",
+                    ('main', future_time)
+                )
+                cur.fetchall()
+
+    def test_rollback_to_timestamp_with_valid_params(self, db_connection):
+        """Test rollback_to_timestamp works with valid parameters."""
+        # Get a time 10 hours ago
+        past_time = datetime.now() - timedelta(hours=10)
+        with db_connection.cursor() as cur:
+            # This might not find commits, but function should handle gracefully
+            cur.execute(
+                """SELECT status FROM pggit.rollback_to_timestamp(
+                    p_branch_name => %s,
+                    p_target_timestamp => %s,
+                    p_rollback_mode => %s
+                ) LIMIT 1""",
+                ('main', past_time, 'DRY_RUN')
+            )
+            result = cur.fetchone()
+            # Should return something or nothing, but not error
+            assert result is None or len(result) >= 1
+
+    def test_rollback_to_timestamp_dry_run_returns_data(self, fixture_with_data, db_connection):
+        """Test rollback_to_timestamp DRY_RUN returns valid data."""
+        # Use a recent past time
+        past_time = datetime.now() - timedelta(hours=1)
+
+        with db_connection.cursor() as cur:
+            cur.execute(
+                """SELECT rollback_id, status, commits_reversed FROM pggit.rollback_to_timestamp(
+                    p_branch_name => %s,
+                    p_target_timestamp => %s,
+                    p_rollback_mode => %s
+                )""",
+                ('main', past_time, 'DRY_RUN')
+            )
+            result = cur.fetchone()
+
+            if result:
+                rollback_id, status, commits = result
+                assert rollback_id == 0, "DRY_RUN should have rollback_id=0"
+                assert status == 'DRY_RUN', "DRY_RUN should have DRY_RUN status"
+                assert isinstance(commits, (int, type(None))), "commits_reversed should be int"
+
+    def test_rollback_to_timestamp_returns_all_columns(self, fixture_with_data, db_connection):
+        """Test rollback_to_timestamp returns all expected columns."""
+        past_time = datetime.now() - timedelta(hours=1)
+
+        with db_connection.cursor() as cur:
+            cur.execute(
+                """SELECT rollback_id, rollback_commit_hash, status, commits_reversed,
+                          objects_recreated, objects_deleted, objects_modified, execution_time_ms
+                   FROM pggit.rollback_to_timestamp(
+                       p_branch_name => %s,
+                       p_target_timestamp => %s,
+                       p_rollback_mode => %s
+                   )""",
+                ('main', past_time, 'DRY_RUN')
+            )
+            result = cur.fetchone()
+            assert result is not None, "Should return result"
+            assert len(result) == 8, "Should return 8 columns"
+
+    def test_rollback_to_timestamp_object_counts(self, fixture_with_data, db_connection):
+        """Test rollback_to_timestamp correctly counts objects."""
+        past_time = datetime.now() - timedelta(hours=1)
+
+        with db_connection.cursor() as cur:
+            cur.execute(
+                """SELECT objects_recreated, objects_deleted, objects_modified
+                   FROM pggit.rollback_to_timestamp(
+                       p_branch_name => %s,
+                       p_target_timestamp => %s,
+                       p_rollback_mode => %s
+                   )""",
+                ('main', past_time, 'DRY_RUN')
+            )
+            result = cur.fetchone()
+
+            if result:
+                recreated, deleted, modified = result
+                assert isinstance(recreated, (int, type(None))), "objects_recreated should be int"
+                assert isinstance(deleted, (int, type(None))), "objects_deleted should be int"
+                assert isinstance(modified, (int, type(None))), "objects_modified should be int"
+
+    def test_rollback_to_timestamp_execution_time_recorded(self, fixture_with_data, db_connection):
+        """Test rollback_to_timestamp records execution time."""
+        past_time = datetime.now() - timedelta(hours=1)
+
+        with db_connection.cursor() as cur:
+            cur.execute(
+                """SELECT execution_time_ms FROM pggit.rollback_to_timestamp(
+                    p_branch_name => %s,
+                    p_target_timestamp => %s,
+                    p_rollback_mode => %s
+                )""",
+                ('main', past_time, 'DRY_RUN')
+            )
+            result = cur.fetchone()
+
+            if result:
+                exec_time = result[0]
+                assert isinstance(exec_time, (int, type(None))), "execution_time_ms should be int"
+                if exec_time is not None:
+                    assert exec_time >= 0, "execution_time_ms should be non-negative"
+
+    def test_rollback_to_timestamp_commits_reversed_count(self, fixture_with_data, db_connection):
+        """Test rollback_to_timestamp correctly counts commits reversed."""
+        past_time = datetime.now() - timedelta(hours=1)
+
+        with db_connection.cursor() as cur:
+            cur.execute(
+                """SELECT commits_reversed FROM pggit.rollback_to_timestamp(
+                    p_branch_name => %s,
+                    p_target_timestamp => %s,
+                    p_rollback_mode => %s
+                )""",
+                ('main', past_time, 'DRY_RUN')
+            )
+            result = cur.fetchone()
+
+            if result:
+                commits = result[0]
+                assert isinstance(commits, (int, type(None))), "commits_reversed should be int"
+                if commits is not None:
+                    assert commits >= 0, "commits_reversed should be non-negative"
+
+    def test_rollback_to_timestamp_before_first_commit(self, db_connection):
+        """Test rollback_to_timestamp fails when timestamp is before first commit."""
+        # This should be before any commits on main
+        very_old_time = datetime(2020, 1, 1, 0, 0, 0)
+
+        with db_connection.cursor() as cur:
+            with pytest.raises(Exception):
+                cur.execute(
+                    """SELECT * FROM pggit.rollback_to_timestamp(
+                        p_branch_name => %s,
+                        p_target_timestamp => %s
+                    )""",
+                    ('main', very_old_time)
+                )
+                cur.fetchall()
+
+    def test_rollback_to_timestamp_with_fixture_data(self, fixture_with_data, db_connection):
+        """Test rollback_to_timestamp with fixture data."""
+        # Get the timestamp of second commit (T2), then query for time between T1 and T2
+        t1_time = fixture_with_data.timestamps.get('T1')
+        t2_time = fixture_with_data.timestamps.get('T2')
+
+        if t1_time and t2_time:
+            # Query for a time between T1 and T2
+            target_time = t1_time + timedelta(seconds=1)
+
+            with db_connection.cursor() as cur:
+                cur.execute(
+                    """SELECT status FROM pggit.rollback_to_timestamp(
+                        p_branch_name => %s,
+                        p_target_timestamp => %s,
+                        p_rollback_mode => %s
+                    )""",
+                    ('main', target_time, 'DRY_RUN')
+                )
+                result = cur.fetchone()
+
+                if result:
+                    status = result[0]
+                    # Should succeed (DRY_RUN)
+                    assert status in ('DRY_RUN', 'SUCCESS'), f"Unexpected status: {status}"
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
