@@ -207,37 +207,37 @@ BEGIN
     -- Uses object_history to determine which branch has which objects
     RETURN QUERY
     WITH source_objs AS (
-        SELECT DISTINCT
+        SELECT
             so.object_type, so.schema_name, so.object_name,
-            so.content_hash::TEXT as hash, so.object_id
+            (ARRAY_AGG(oh.after_hash ORDER BY oh.created_at DESC))[1]::TEXT as hash,
+            so.object_id
         FROM pggit.schema_objects so
-        WHERE EXISTS (
-            SELECT 1 FROM pggit.object_history oh
-            WHERE oh.object_id = so.object_id
-              AND oh.branch_id = p_source_branch_id
-        ) AND so.is_active = true
+        INNER JOIN pggit.object_history oh
+            ON oh.object_id = so.object_id AND oh.branch_id = p_source_branch_id
+        WHERE so.is_active = true
+        GROUP BY so.object_id, so.object_type, so.schema_name, so.object_name
     ),
     target_objs AS (
-        SELECT DISTINCT
+        SELECT
             so.object_type, so.schema_name, so.object_name,
-            so.content_hash::TEXT as hash, so.object_id
+            (ARRAY_AGG(oh.after_hash ORDER BY oh.created_at DESC))[1]::TEXT as hash,
+            so.object_id
         FROM pggit.schema_objects so
-        WHERE EXISTS (
-            SELECT 1 FROM pggit.object_history oh
-            WHERE oh.object_id = so.object_id
-              AND oh.branch_id = p_target_branch_id
-        ) AND so.is_active = true
+        INNER JOIN pggit.object_history oh
+            ON oh.object_id = so.object_id AND oh.branch_id = p_target_branch_id
+        WHERE so.is_active = true
+        GROUP BY so.object_id, so.object_type, so.schema_name, so.object_name
     ),
     base_objs AS (
-        SELECT DISTINCT
+        SELECT
             so.object_type, so.schema_name, so.object_name,
-            so.content_hash::TEXT as hash, so.object_id
+            (ARRAY_AGG(oh.after_hash ORDER BY oh.created_at DESC))[1]::TEXT as hash,
+            so.object_id
         FROM pggit.schema_objects so
-        WHERE EXISTS (
-            SELECT 1 FROM pggit.object_history oh
-            WHERE oh.object_id = so.object_id
-              AND oh.branch_id = v_base_id
-        ) AND so.is_active = true
+        INNER JOIN pggit.object_history oh
+            ON oh.object_id = so.object_id AND oh.branch_id = v_base_id
+        WHERE so.is_active = true
+        GROUP BY so.object_id, so.object_type, so.schema_name, so.object_name
     ),
     all_objs AS (
         SELECT
@@ -583,7 +583,7 @@ BEGIN
         p_merge_id,
         p_conflict_id,
         p_resolution,
-        NOW(),
+        NOW()::TIMESTAMP,
         false;  -- merge_complete determined separately
 
 END;

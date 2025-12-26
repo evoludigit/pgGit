@@ -445,18 +445,10 @@ class MergeOperationsFixture:
         }
 
         # Create object_history records for each object on each branch
+        # IMPORTANT: Use branch-specific definitions and hashes to enable conflict detection
         for obj_name, branch_variants in objects.items():
             if obj_name not in self.object_ids:
                 continue
-
-            # Get the canonical (main) definition for this object
-            canonical_def = branch_variants.get('main')
-            if canonical_def is None:
-                # If not in main, use the first non-None definition
-                canonical_def = next((d for d in branch_variants.values() if d), None)
-
-            if canonical_def is None:
-                continue  # Skip if no definition available
 
             # Get object_id (should be same for all branches due to unique constraint)
             obj_id = self.object_ids[obj_name].get('main')
@@ -466,14 +458,14 @@ class MergeOperationsFixture:
             if obj_id is None:
                 continue  # Skip if object doesn't have an ID
 
-            # Calculate canonical hash
-            canonical_hash = self.compute_hash(canonical_def['def'], canonical_def['version'])
+            # Use main branch definition for schema_objects.content_hash (the canonical version)
+            main_def = branch_variants.get('main')
+            if main_def:
+                main_hash = self.compute_hash(main_def['def'], main_def['version'])
+                sql_update = "UPDATE pggit.schema_objects SET content_hash = %s WHERE object_id = %s"
+                self._execute_insert(sql_update, (main_hash, obj_id))
 
-            # Update schema_objects with correct hash
-            sql_update = "UPDATE pggit.schema_objects SET content_hash = %s WHERE object_id = %s"
-            self._execute_insert(sql_update, (canonical_hash, obj_id))
-
-            # Create object_history records for each branch
+            # Create object_history records for each branch with BRANCH-SPECIFIC hashes
             for branch_name, obj_def in branch_variants.items():
                 if obj_def is None:
                     continue  # Skip if object doesn't exist on this branch
@@ -484,7 +476,10 @@ class MergeOperationsFixture:
                 branch_id = self.branch_ids[branch_name]
                 change_type = 'CREATE'
 
-                # Create object_history record with canonical hash
+                # Calculate BRANCH-SPECIFIC hash from the actual definition on this branch
+                branch_specific_hash = self.compute_hash(obj_def['def'], obj_def['version'])
+
+                # Create object_history record with BRANCH-SPECIFIC hash and definition
                 sql = """
                     INSERT INTO pggit.object_history
                     (object_id, branch_id, change_type, after_definition, after_hash,
@@ -495,7 +490,7 @@ class MergeOperationsFixture:
                 commit_hash = self.commit_hashes.get(branch_name, 'dummy_hash')
 
                 self._execute_insert(sql, (
-                    obj_id, branch_id, change_type, canonical_def['def'], canonical_hash,
+                    obj_id, branch_id, change_type, obj_def['def'], branch_specific_hash,
                     'MINOR', commit_hash, 'test_fixture'
                 ))
 

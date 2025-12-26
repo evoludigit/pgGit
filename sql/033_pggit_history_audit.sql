@@ -498,7 +498,7 @@ $$ SECURITY DEFINER;
 
 CREATE OR REPLACE FUNCTION pggit.query_at_timestamp(
     p_branch_name TEXT,
-    p_target_timestamp TIMESTAMP,
+    p_target_timestamp TIMESTAMP WITH TIME ZONE,
     p_object_type TEXT DEFAULT NULL,
     p_schema_filter TEXT DEFAULT NULL,
     p_order_by TEXT DEFAULT 'object_name ASC'
@@ -538,16 +538,17 @@ BEGIN
     END IF;
 
     -- Find branch and verify it existed at target timestamp
-    SELECT branch_id, created_at INTO v_branch_id, v_branch_created_at
+    SELECT pggit.branches.branch_id, pggit.branches.created_at INTO v_branch_id, v_branch_created_at
     FROM pggit.branches
-    WHERE branch_name = p_branch_name;
+    WHERE pggit.branches.branch_name = p_branch_name;
 
     IF v_branch_id IS NULL THEN
         RAISE EXCEPTION 'Branch % does not exist', p_branch_name;
     END IF;
 
+    -- If branch didn't exist at target timestamp, return empty result set
     IF p_target_timestamp < v_branch_created_at THEN
-        RAISE EXCEPTION 'Branch % did not exist at timestamp %', p_branch_name, p_target_timestamp;
+        RETURN;
     END IF;
 
     -- Reconstruct schema state at timestamp
