@@ -99,33 +99,33 @@ class MergeOperationsFixture:
         """Create 4-branch hierarchy: main -> feature-a, feature-b, dev."""
         # Main branch (root)
         sql = """
-            INSERT INTO pggit.branches (name, parent_branch_id, status)
-            VALUES (%s, NULL, %s)
-            RETURNING id
+            INSERT INTO pggit.branches (branch_name, parent_branch_id, status, created_by)
+            VALUES (%s, NULL, %s, %s)
+            RETURNING branch_id
         """
-        result = self._execute(sql, ('main', 'ACTIVE'))
+        result = self._execute(sql, ('main', 'ACTIVE', 'test_fixture'))
         if result:
-            self.branch_ids['main'] = result[0]['id']
+            self.branch_ids['main'] = result[0]['branch_id']
         else:
             # If insert returns no result, fetch the branch
-            result = self._execute("SELECT id FROM pggit.branches WHERE name='main' ORDER BY id DESC LIMIT 1")
+            result = self._execute("SELECT branch_id FROM pggit.branches WHERE branch_name='main' ORDER BY branch_id DESC LIMIT 1")
             if result:
-                self.branch_ids['main'] = result[0]['id']
+                self.branch_ids['main'] = result[0]['branch_id']
 
         # Feature branches (children of main)
         for branch_name in ['feature-a', 'feature-b', 'dev']:
             sql = """
-                INSERT INTO pggit.branches (name, parent_branch_id, status)
-                VALUES (%s, %s, %s)
-                RETURNING id
+                INSERT INTO pggit.branches (branch_name, parent_branch_id, status, created_by)
+                VALUES (%s, %s, %s, %s)
+                RETURNING branch_id
             """
-            result = self._execute(sql, (branch_name, self.branch_ids['main'], 'ACTIVE'))
+            result = self._execute(sql, (branch_name, self.branch_ids['main'], 'ACTIVE', 'test_fixture'))
             if result:
-                self.branch_ids[branch_name] = result[0]['id']
+                self.branch_ids[branch_name] = result[0]['branch_id']
             else:
-                result = self._execute(f"SELECT id FROM pggit.branches WHERE name='{branch_name}' ORDER BY id DESC LIMIT 1")
+                result = self._execute(f"SELECT branch_id FROM pggit.branches WHERE branch_name='{branch_name}' ORDER BY branch_id DESC LIMIT 1")
                 if result:
-                    self.branch_ids[branch_name] = result[0]['id']
+                    self.branch_ids[branch_name] = result[0]['branch_id']
 
     def _create_objects(self):
         """Create schema objects with specific definitions and hashes."""
@@ -250,41 +250,57 @@ class MergeOperationsFixture:
             }
         }
 
-        # Create objects for each branch
+        # Create objects (once per object, not per branch)
+        # schema_objects is global with unique constraint on (type, schema, name)
+        created_objects = set()
+
         for obj_name, branch_variants in objects.items():
             self.object_ids[obj_name] = {}
 
-            for branch_name, obj_def in branch_variants.items():
-                if obj_def is None:
-                    continue
+            # Use main branch's definition as the canonical one
+            if 'main' in branch_variants and branch_variants['main'] is not None:
+                obj_def = branch_variants['main']
+                obj_key = (obj_def['type'], 'public', obj_name)
 
-                definition = obj_def['def']
-                version = obj_def['version']
-                obj_hash = self.compute_hash(definition, version)
+                if obj_key not in created_objects:
+                    definition = obj_def['def']
+                    version = obj_def['version']
+                    obj_hash = self.compute_hash(definition, version)
 
-                sql = """
-                    INSERT INTO pggit.schema_objects
-                    (branch_id, object_type, schema_name, object_name, definition,
-                     version_major, version_minor, version_patch, content_hash, is_active)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id
-                """
-                result = self._execute(sql, (
-                    self.branch_ids[branch_name],
-                    obj_def['type'],
-                    'public',
-                    obj_name,
-                    definition,
-                    version, 0, 0,  # version major, minor, patch
-                    obj_hash,
-                    True
-                ))
+                    sql = """
+                        INSERT INTO pggit.schema_objects
+                        (object_type, schema_name, object_name, current_definition,
+                         version_major, version_minor, version_patch, content_hash, is_active)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        RETURNING object_id
+                    """
+                    result = self._execute(sql, (
+                        obj_def['type'],
+                        'public',
+                        obj_name,
+                        definition,
+                        version, 0, 0,  # version major, minor, patch
+                        obj_hash,
+                        True
+                    ))
 
-                self.object_ids[obj_name][branch_name] = result[0]['id']
+                    obj_id = result[0]['object_id']
+                    created_objects.add(obj_key)
+                else:
+                    # Get existing object_id
+                    result = self._execute(f"SELECT object_id FROM pggit.schema_objects WHERE object_type=%s AND schema_name=%s AND object_name=%s",
+                                          (obj_def['type'], 'public', obj_name))
+                    obj_id = result[0]['object_id'] if result else None
 
-                # Store hash for comparison
-                key = f"{obj_name}_{branch_name}"
-                self.hashes[key] = obj_hash
+                # All branches reference the same object
+                for branch_name in branch_variants.keys():
+                    self.object_ids[obj_name][branch_name] = obj_id
+
+                    # Store hash for comparison
+                    key = f"{obj_name}_{branch_name}"
+                    branch_def = branch_variants.get(branch_name, branch_variants['main'])
+                    if branch_def:
+                        self.hashes[key] = self.compute_hash(branch_def['def'], branch_def['version'])
 
     def _create_object_history(self):
         """Create object_history records."""
@@ -294,20 +310,21 @@ class MergeOperationsFixture:
     def _create_object_dependencies(self):
         """Create object dependency relationships."""
         # orders.user_id -> users.id foreign key
-        sql = """
-            INSERT INTO pggit.object_dependencies
-            (dependent_object_id, depends_on_object_id, dependency_type, is_active)
-            SELECT o_orders.id, o_users.id, 'FOREIGN_KEY', true
-            FROM pggit.schema_objects o_orders, pggit.schema_objects o_users
-            WHERE o_orders.object_name = 'orders'
-              AND o_orders.branch_id = %s
-              AND o_users.object_name = 'users'
-              AND o_users.branch_id = %s
-            ON CONFLICT DO NOTHING
-        """
-        # Create for all branches
-        for branch_name in self.branch_ids.keys():
-            self._execute_insert(sql, (self.branch_ids[branch_name], self.branch_ids[branch_name]))
+        # Schema objects are global, so get their IDs once
+        if 'orders' in self.object_ids and 'users' in self.object_ids:
+            if 'main' in self.object_ids['orders'] and 'main' in self.object_ids['users']:
+                orders_id = self.object_ids['orders']['main']
+                users_id = self.object_ids['users']['main']
+
+                # Create dependencies for all branches
+                for branch_name, branch_id in self.branch_ids.items():
+                    sql = """
+                        INSERT INTO pggit.object_dependencies
+                        (dependent_object_id, depends_on_object_id, dependency_type, branch_id)
+                        VALUES (%s, %s, 'FOREIGN_KEY', %s)
+                        ON CONFLICT DO NOTHING
+                    """
+                    self._execute_insert(sql, (orders_id, users_id, branch_id))
 
     def _delete_object_dependencies(self):
         """Delete all object dependencies."""
@@ -326,7 +343,7 @@ class MergeOperationsFixture:
 
     def _delete_branches(self):
         """Delete all branches."""
-        sql = "DELETE FROM pggit.branches WHERE name != 'main' OR parent_branch_id IS NOT NULL"
+        sql = "DELETE FROM pggit.branches WHERE branch_name != 'main' OR parent_branch_id IS NOT NULL"
         self._execute_insert(sql)
 
     def _delete_merge_conflict_resolutions(self):
