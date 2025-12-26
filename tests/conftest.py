@@ -56,6 +56,7 @@ def test_db_setup(db_connection_params):
                     "sql/v1.0.0/phase_1_triggers.sql",
                     "sql/v1.0.0/phase_1_bootstrap.sql",
                     "sql/030_pggit_branch_management.sql",
+                    "sql/031_pggit_object_tracking.sql",
                 ]
 
                 for schema_file in schema_files:
@@ -90,6 +91,15 @@ def test_db_setup(db_connection_params):
 @pytest.fixture
 def db_conn(test_db_setup):
     """Get database connection for each test"""
+    conn_params = test_db_setup
+    conn = psycopg.connect(**conn_params)
+    yield conn
+    conn.close()
+
+
+@pytest.fixture
+def test_db(test_db_setup):
+    """Alias for db_conn to support different test styles"""
     conn_params = test_db_setup
     conn = psycopg.connect(**conn_params)
     yield conn
