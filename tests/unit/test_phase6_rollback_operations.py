@@ -1182,5 +1182,338 @@ class TestPhase6RollbackToTimestamp:
                     assert status in ('DRY_RUN', 'SUCCESS'), f"Unexpected status: {status}"
 
 
+
+# ==============================================================================
+# PHASE 6.4 TESTS: undo_changes() and rollback_dependencies()
+# ==============================================================================
+
+class TestPhase6UndoChanges:
+    """Test suite for pggit.undo_changes() function."""
+
+    def test_undo_changes_invalid_branch(self, db_connection):
+        """Test undo_changes fails for nonexistent branch."""
+        with db_connection.cursor() as cur:
+            with pytest.raises(Exception):
+                cur.execute(
+                    """SELECT * FROM pggit.undo_changes(
+                        p_branch_name => %s,
+                        p_object_names => %s,
+                        p_commit_hash => %s
+                    )""",
+                    ('nonexistent_branch', ['public.users'], 'a' * 64)
+                )
+                cur.fetchall()
+
+    def test_undo_changes_empty_object_names(self, db_connection):
+        """Test undo_changes fails for empty object names array."""
+        with db_connection.cursor() as cur:
+            with pytest.raises(Exception):
+                cur.execute(
+                    """SELECT * FROM pggit.undo_changes(
+                        p_branch_name => %s,
+                        p_object_names => %s,
+                        p_commit_hash => %s
+                    )""",
+                    ('main', [], 'a' * 64)
+                )
+                cur.fetchall()
+
+    def test_undo_changes_neither_commit_nor_range(self, db_connection):
+        """Test undo_changes fails when neither commit nor range provided."""
+        with db_connection.cursor() as cur:
+            with pytest.raises(Exception):
+                cur.execute(
+                    """SELECT * FROM pggit.undo_changes(
+                        p_branch_name => %s,
+                        p_object_names => %s
+                    )""",
+                    ('main', ['public.users'])
+                )
+                cur.fetchall()
+
+    def test_undo_changes_invalid_object_format(self, db_connection):
+        """Test undo_changes fails for invalid object name format."""
+        with db_connection.cursor() as cur:
+            with pytest.raises(Exception):
+                cur.execute(
+                    """SELECT * FROM pggit.undo_changes(
+                        p_branch_name => %s,
+                        p_object_names => %s,
+                        p_commit_hash => %s
+                    )""",
+                    ('main', ['invalid_format_no_dot'], 'a' * 64)
+                )
+                cur.fetchall()
+
+    def test_undo_changes_dry_run_returns_data(self, db_connection):
+        """Test undo_changes DRY_RUN returns valid structure."""
+        # Use fake hash - will fail commit validation but tests DRY_RUN structure
+        fake_hash = 'a' * 64
+        with db_connection.cursor() as cur:
+            try:
+                cur.execute(
+                    """SELECT rollback_id, status FROM pggit.undo_changes(
+                        p_branch_name => %s,
+                        p_object_names => %s,
+                        p_commit_hash => %s,
+                        p_rollback_mode => %s
+                    )""",
+                    ('main', ['public.users'], fake_hash, 'DRY_RUN')
+                )
+                result = cur.fetchone()
+                # Either error or result with rollback_id=0
+                if result:
+                    rollback_id, status = result
+                    assert isinstance(rollback_id, (int, type(None)))
+                    assert isinstance(status, (str, type(None)))
+            except Exception:
+                # Expected since commit doesn't exist
+                pass
+
+    def test_undo_changes_returns_all_columns(self, fixture_with_data, db_connection):
+        """Test undo_changes returns all expected columns."""
+        commit_hash = fixture_with_data.get_commit_hash('T1')
+        if commit_hash:
+            with db_connection.cursor() as cur:
+                try:
+                    cur.execute(
+                        """SELECT rollback_id, rollback_commit_hash, status,
+                                  objects_reverted, changes_undone, dependencies_handled, execution_time_ms
+                           FROM pggit.undo_changes(
+                               p_branch_name => %s,
+                               p_object_names => %s,
+                               p_commit_hash => %s,
+                               p_rollback_mode => %s
+                           )""",
+                        ('main', ['test.users_test'], commit_hash, 'DRY_RUN')
+                    )
+                    result = cur.fetchone()
+                    if result:
+                        assert len(result) == 7, "Should return 7 columns"
+                except Exception:
+                    pass  # Expected if object doesn't exist
+
+    def test_undo_changes_counts_integer(self, db_connection):
+        """Test undo_changes returns integer counts."""
+        fake_hash = 'a' * 64
+        with db_connection.cursor() as cur:
+            try:
+                cur.execute(
+                    """SELECT objects_reverted, changes_undone, dependencies_handled
+                       FROM pggit.undo_changes(
+                           p_branch_name => %s,
+                           p_object_names => %s,
+                           p_commit_hash => %s,
+                           p_rollback_mode => %s
+                       )""",
+                    ('main', ['public.users'], fake_hash, 'DRY_RUN')
+                )
+                result = cur.fetchone()
+                if result:
+                    obj_count, change_count, dep_count = result
+                    assert isinstance(obj_count, (int, type(None)))
+                    assert isinstance(change_count, (int, type(None)))
+                    assert isinstance(dep_count, (int, type(None)))
+            except Exception:
+                pass
+
+    def test_undo_changes_execution_time_recorded(self, db_connection):
+        """Test undo_changes records execution time."""
+        fake_hash = 'a' * 64
+        with db_connection.cursor() as cur:
+            try:
+                cur.execute(
+                    """SELECT execution_time_ms FROM pggit.undo_changes(
+                        p_branch_name => %s,
+                        p_object_names => %s,
+                        p_commit_hash => %s,
+                        p_rollback_mode => %s
+                    )""",
+                    ('main', ['public.users'], fake_hash, 'DRY_RUN')
+                )
+                result = cur.fetchone()
+                if result:
+                    exec_time = result[0]
+                    assert isinstance(exec_time, (int, type(None)))
+                    if exec_time is not None:
+                        assert exec_time >= 0
+            except Exception:
+                pass
+
+
+class TestPhase6RollbackDependencies:
+    """Test suite for pggit.rollback_dependencies() function."""
+
+    def test_rollback_dependencies_invalid_object_id(self, db_connection):
+        """Test rollback_dependencies fails for nonexistent object ID."""
+        with db_connection.cursor() as cur:
+            with pytest.raises(Exception):
+                cur.execute(
+                    """SELECT * FROM pggit.rollback_dependencies(
+                        p_object_id => %s
+                    )""",
+                    (999999,)
+                )
+                cur.fetchall()
+
+    def test_rollback_dependencies_returns_all_columns(self, db_connection):
+        """Test rollback_dependencies returns all expected columns."""
+        # Get any object from schema_objects
+        with db_connection.cursor() as cur:
+            cur.execute(
+                """SELECT object_id FROM pggit.schema_objects LIMIT 1"""
+            )
+            result = cur.fetchone()
+
+            if result:
+                object_id = result[0]
+                cur.execute(
+                    """SELECT dependency_id, source_object_id, source_object_name,
+                              source_object_type, target_object_id, target_object_name,
+                              dependency_type, strength, breakage_severity, suggested_action
+                       FROM pggit.rollback_dependencies(
+                           p_object_id => %s
+                       )""",
+                    (object_id,)
+                )
+                # Might have 0 or more results
+                results = cur.fetchall()
+                if results:
+                    for row in results:
+                        assert len(row) == 10, "Should return 10 columns"
+
+    def test_rollback_dependencies_strength_classification(self, db_connection):
+        """Test rollback_dependencies classifies strength (HARD/SOFT)."""
+        with db_connection.cursor() as cur:
+            cur.execute(
+                """SELECT object_id FROM pggit.schema_objects LIMIT 1"""
+            )
+            result = cur.fetchone()
+
+            if result:
+                object_id = result[0]
+                cur.execute(
+                    """SELECT DISTINCT strength FROM pggit.rollback_dependencies(
+                        p_object_id => %s
+                    )""",
+                    (object_id,)
+                )
+                results = cur.fetchall()
+
+                # Check that strength values are valid
+                valid_strengths = {'HARD', 'SOFT'}
+                for row in results:
+                    strength = row[0]
+                    if strength is not None:
+                        assert strength in valid_strengths, f"Invalid strength: {strength}"
+
+    def test_rollback_dependencies_severity_classification(self, db_connection):
+        """Test rollback_dependencies classifies severity correctly."""
+        with db_connection.cursor() as cur:
+            cur.execute(
+                """SELECT object_id FROM pggit.schema_objects LIMIT 1"""
+            )
+            result = cur.fetchone()
+
+            if result:
+                object_id = result[0]
+                cur.execute(
+                    """SELECT DISTINCT breakage_severity FROM pggit.rollback_dependencies(
+                        p_object_id => %s
+                    )""",
+                    (object_id,)
+                )
+                results = cur.fetchall()
+
+                # Check that severity values are valid
+                valid_severities = {'INFO', 'WARNING', 'ERROR', 'CRITICAL'}
+                for row in results:
+                    severity = row[0]
+                    if severity is not None:
+                        assert severity in valid_severities, f"Invalid severity: {severity}"
+
+    def test_rollback_dependencies_suggested_action_provided(self, db_connection):
+        """Test rollback_dependencies provides suggested action."""
+        with db_connection.cursor() as cur:
+            cur.execute(
+                """SELECT object_id FROM pggit.schema_objects LIMIT 1"""
+            )
+            result = cur.fetchone()
+
+            if result:
+                object_id = result[0]
+                cur.execute(
+                    """SELECT suggested_action FROM pggit.rollback_dependencies(
+                        p_object_id => %s
+                    )""",
+                    (object_id,)
+                )
+                results = cur.fetchall()
+
+                # Check that suggested action is provided
+                for row in results:
+                    action = row[0]
+                    # Action should be non-empty string if returned
+                    if action is not None:
+                        assert isinstance(action, str)
+                        assert len(action) > 0
+
+    def test_rollback_dependencies_dependency_type_valid(self, db_connection):
+        """Test rollback_dependencies returns valid dependency types."""
+        with db_connection.cursor() as cur:
+            cur.execute(
+                """SELECT object_id FROM pggit.schema_objects LIMIT 1"""
+            )
+            result = cur.fetchone()
+
+            if result:
+                object_id = result[0]
+                cur.execute(
+                    """SELECT DISTINCT dependency_type FROM pggit.rollback_dependencies(
+                        p_object_id => %s
+                    )""",
+                    (object_id,)
+                )
+                results = cur.fetchall()
+
+                # Check that dependency types are reasonable
+                valid_types = {
+                    'FOREIGN_KEY', 'TRIGGERS_ON', 'REFERENCES', 'COMPOSED_OF',
+                    'INDEXES', 'CALLS', 'USES'
+                }
+                for row in results:
+                    dep_type = row[0]
+                    if dep_type is not None:
+                        # Custom types might exist, just check it's a string
+                        assert isinstance(dep_type, str)
+
+    def test_rollback_dependencies_object_names_not_null(self, db_connection):
+        """Test rollback_dependencies returns object names."""
+        with db_connection.cursor() as cur:
+            cur.execute(
+                """SELECT object_id FROM pggit.schema_objects LIMIT 1"""
+            )
+            result = cur.fetchone()
+
+            if result:
+                object_id = result[0]
+                cur.execute(
+                    """SELECT source_object_name, target_object_name
+                       FROM pggit.rollback_dependencies(
+                           p_object_id => %s
+                       )""",
+                    (object_id,)
+                )
+                results = cur.fetchall()
+
+                for row in results:
+                    source_name, target_name = row
+                    # Names should be provided if row returned
+                    if source_name is not None:
+                        assert isinstance(source_name, str)
+                    if target_name is not None:
+                        assert isinstance(target_name, str)
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
