@@ -1,0 +1,315 @@
+================================================================================
+PHASE 4: MERGE OPERATIONS - COMPLETE DOCUMENTATION MAP
+================================================================================
+Date: 2025-12-26
+Status: ✅ COMPLETE - READY FOR IMPLEMENTATION
+Total Files: 9
+Total Lines: 4,500+
+Effort Estimate: 5-6 days
+
+================================================================================
+READING PATH BY ROLE
+================================================================================
+
+📚 EVERYONE STARTS HERE:
+  1. PHASE_4_START_HERE.md (5 min)
+     → Navigation guide and overview
+
+🚀 FOR IMPLEMENTERS:
+  1. PHASE_4_START_HERE.md (5 min)
+  2. PHASE_4_IMPLEMENTATION_READY.md (15 min) - Day-by-day workflow
+  3. PHASE_4_STEP_0_FIXTURES.md (30 min) - Fixtures + algorithms
+  4. PHASE_4_PLAN.md (60 min) - Full specification
+  5. PHASE_4_QUICK_REFERENCE.md (Keep open while coding)
+
+👨‍💼 FOR PROJECT MANAGERS:
+  1. PHASE_4_START_HERE.md (5 min)
+  2. PHASE_4_STEP_0_SUMMARY.md (5 min) - What was delivered
+  3. PHASE_4_IMPLEMENTATION_READY.md (10 min) - Timeline & checklist
+
+👨‍🏫 FOR REVIEWERS/ARCHITECTS:
+  1. PHASE_4_START_HERE.md (5 min)
+  2. PHASE_4_REVIEW.md (20 min) - Technical analysis
+  3. PHASE_4_CLARIFICATIONS_SUMMARY.md (10 min) - Concerns addressed
+  4. PHASE_4_STEP_0_SUMMARY.md (10 min) - Improvements made
+  5. PHASE_4_PLAN.md (reference) - Full spec
+
+================================================================================
+DOCUMENT GUIDE
+================================================================================
+
+1. PHASE_4_START_HERE.md (15 KB)
+   ├─ Navigation guide for all roles
+   ├─ Quick overview of Phase 4
+   ├─ What you'll need to know
+   ├─ Timeline summary
+   └─ Getting started steps
+
+2. PHASE_4_IMPLEMENTATION_READY.md (13 KB)
+   ├─ Step 0 accomplishments
+   ├─ Files to create/modify
+   ├─ Day-by-day workflow (5-6 days)
+   ├─ Success criteria checklist
+   ├─ Known challenges & solutions
+   └─ Quality commitment
+
+3. PHASE_4_STEP_0_FIXTURES.md (28 KB) ⭐ CRITICAL FOR IMPLEMENTATION
+   ├─ Enhanced test fixture architecture
+   ├─ Pseudo Code 1: LCA Algorithm (recursive CTE)
+   ├─ Pseudo Code 2: Three-Way Merge Classification
+   ├─ Pseudo Code 3: Merge Strategy Application
+   ├─ Edge cases & solutions (10 documented)
+   ├─ Test fixture implementation guide
+   └─ Test structure template
+
+4. PHASE_4_PLAN.md (42 KB) ⭐ COMPLETE SPECIFICATION
+   ├─ Executive summary
+   ├─ Architecture overview
+   ├─ Clarified implementation details
+   ├─ Implementation pseudo code (from backup)
+   ├─ Function 1: merge_branches() details
+   ├─ Function 2: detect_merge_conflicts() details
+   ├─ Function 3: resolve_conflict() details
+   ├─ 6 real-world examples
+   ├─ Rollback & undo strategy
+   ├─ Testing strategy (40 tests)
+   ├─ Quality checklist
+   ├─ Success metrics
+   └─ Risk mitigation
+
+5. PHASE_4_QUICK_REFERENCE.md (7.5 KB) ⭐ KEEP OPEN WHILE CODING
+   ├─ Updated function signatures
+   ├─ Conflict classification matrix
+   ├─ UNION strategy rules
+   ├─ Breaking change detection
+   ├─ Merge base discovery algorithm
+   ├─ Custom definition validation
+   ├─ Test coverage summary
+   ├─ Timeline breakdown
+   ├─ Key differences from original
+   ├─ Architecture principles
+   └─ Success criteria checklist
+
+6. PHASE_4_REVIEW.md (16 KB)
+   ├─ Technical analysis of original plan
+   ├─ 5 key concerns identified
+   ├─ Quality assessment (4/5)
+   ├─ Readiness assessment (3/5)
+   ├─ Strengths identified
+   ├─ Concerns with solutions
+   ├─ Cross-phase consistency check
+   ├─ Recommendations
+   └─ Sign-off checklist
+
+7. PHASE_4_CLARIFICATIONS_SUMMARY.md (9.5 KB)
+   ├─ Clarification #1: Conflict Classification Logic
+   ├─ Clarification #2: UNION Strategy Details
+   ├─ Clarification #3: Breaking Change Detection Rules
+   ├─ Clarification #4: Merge Base Parameter
+   ├─ Clarification #5: Custom Definition Validation
+   ├─ Additional improvements
+   ├─ Reference to backup implementation
+   └─ Ready for implementation confirmation
+
+8. PHASE_4_STEP_0_SUMMARY.md (11 KB)
+   ├─ What was delivered
+   ├─ Enhanced test fixture architecture
+   ├─ Implementation pseudo code from backup
+   ├─ Comprehensive edge cases & solutions
+   ├─ Updated main plan with pseudo code
+   ├─ Test fixture implementation guide
+   ├─ Documentation status
+   ├─ Key improvements made
+   ├─ Ready for implementation assessment
+   └─ What developer has
+
+9. PHASE_4_INDEX.md (9 KB)
+   ├─ Document guide
+   ├─ Quick navigation
+   ├─ Key information at a glance
+   ├─ Critical implementation details
+   ├─ Files to create
+   ├─ Approval checklist
+   ├─ Success criteria
+   ├─ Reference information
+   ├─ Contact & questions
+   └─ Status summary
+
+10. PHASE_4_DOCUMENT_MAP.txt (this file)
+    └─ Navigation and index of all documents
+
+================================================================================
+KEY INFORMATION LOCATIONS
+================================================================================
+
+FUNCTION SIGNATURES:
+  → PHASE_4_QUICK_REFERENCE.md (lines 9-50)
+  → PHASE_4_PLAN.md (lines 425-467)
+
+CONFLICT CLASSIFICATION (6 TYPES):
+  → PHASE_4_STEP_0_FIXTURES.md (Pseudo Code 2)
+  → PHASE_4_QUICK_REFERENCE.md (Conflict Classification Matrix)
+  → PHASE_4_PLAN.md (lines 95-107)
+
+MERGE STRATEGIES (5 TYPES):
+  → PHASE_4_PLAN.md (6 examples: lines 328-497)
+  → PHASE_4_STEP_0_FIXTURES.md (Pseudo Code 3)
+  → PHASE_4_QUICK_REFERENCE.md (Architecture Principles)
+
+LCA ALGORITHM (MERGE BASE DISCOVERY):
+  → PHASE_4_STEP_0_FIXTURES.md (Pseudo Code 1)
+  → PHASE_4_PLAN.md (Pseudo Code 1: lines 179-221)
+  → Backup: /home/lionel/code/pggit.v0.1.1.bk/sql/04_merge_operations.sql (lines 41-157)
+
+THREE-WAY MERGE LOGIC:
+  → PHASE_4_STEP_0_FIXTURES.md (Pseudo Code 2 - most detailed)
+  → PHASE_4_PLAN.md (Pseudo Code 2: lines 231-305)
+  → PHASE_4_PLAN.md (Conflict Classification Matrix: lines 95-107)
+
+TEST FIXTURE DESIGN:
+  → PHASE_4_STEP_0_FIXTURES.md (Part 1: Test Fixtures)
+  → PHASE_4_STEP_0_FIXTURES.md (Part 4: Test Fixture Implementation)
+
+EDGE CASES (10 DOCUMENTED):
+  → PHASE_4_STEP_0_FIXTURES.md (Part 3: Edge Cases & Solutions)
+
+DAY-BY-DAY WORKFLOW:
+  → PHASE_4_IMPLEMENTATION_READY.md (Implementation Workflow section)
+
+SUCCESS CRITERIA:
+  → PHASE_4_IMPLEMENTATION_READY.md (Success Criteria Checklist)
+  → PHASE_4_QUICK_REFERENCE.md (Success Criteria Checklist)
+
+6 MERGE STRATEGY EXAMPLES:
+  → PHASE_4_PLAN.md (Lines 328-497)
+
+PSEUDO CODE FROM BACKUP:
+  → PHASE_4_STEP_0_FIXTURES.md (Part 2)
+  → PHASE_4_PLAN.md (Lines 175-404)
+
+================================================================================
+CRITICAL SECTIONS FOR IMPLEMENTATION
+================================================================================
+
+⭐ MUST READ BEFORE CODING:
+  1. PHASE_4_STEP_0_FIXTURES.md (Part 1: Fixture Architecture)
+  2. PHASE_4_STEP_0_FIXTURES.md (Pseudo Codes 1-3)
+  3. PHASE_4_PLAN.md (Conflict Classification Matrix)
+
+⭐ REFERENCE WHILE CODING:
+  1. PHASE_4_QUICK_REFERENCE.md (keep open)
+  2. PHASE_4_STEP_0_FIXTURES.md (Part 4: Test Helpers)
+  3. PHASE_4_PLAN.md (Examples section)
+
+⭐ FOR EDGE CASES:
+  1. PHASE_4_STEP_0_FIXTURES.md (Part 3: Edge Cases)
+
+================================================================================
+IMPLEMENTATION FILES TO CREATE
+================================================================================
+
+SQL Implementation:
+  → Create: sql/032_pggit_merge_operations.sql (~500-600 lines)
+     ├─ pggit.merge_branches() (~220-250 lines)
+     ├─ pggit.detect_merge_conflicts() (~180-200 lines)
+     └─ pggit.resolve_conflict() (~130-150 lines)
+
+Python Tests:
+  → Create: tests/unit/test_phase4_merge_operations.py (~800-1000 lines)
+     ├─ TestMergeBranches (10 tests)
+     ├─ TestDetectMergeConflicts (10 tests)
+     ├─ TestResolveConflict (8 tests)
+     ├─ TestIntegration (6 tests)
+     └─ MergeOperationsFixture (complete test data)
+
+================================================================================
+TIMELINE AT A GLANCE
+================================================================================
+
+Day 1-1.5: merge_branches() implementation + 10 tests
+Day 2: detect_merge_conflicts() implementation + 10 tests
+Day 2-2.5: resolve_conflict() implementation + 8 tests
+Day 3: Unit testing (34 tests) + fixes
+Day 4: Integration testing (6 tests) + validation
+Day 5: QA + [GREEN] commit
+
+TOTAL: 5-6 days to production ready
+
+================================================================================
+KEY SUCCESS FACTORS
+================================================================================
+
+✅ Start with test fixture (get it right first)
+✅ Use pseudo code as guide (refer constantly)
+✅ Reference backup only for patterns (don't copy)
+✅ Test continuously (run tests after each function)
+✅ Follow naming conventions (p_ for params, v_ for vars)
+✅ Understand before implementing (read all pseudo code)
+✅ Verify edge cases (all 10 documented cases)
+✅ Achieve 100% test pass rate (no exceptions)
+
+================================================================================
+DOCUMENT STATISTICS
+================================================================================
+
+File                           Lines  Size   Purpose
+─────────────────────────────────────────────────────────────────────────────
+PHASE_4_START_HERE.md          450+   15KB   Navigation guide
+PHASE_4_IMPLEMENTATION_READY    400+   13KB   Checklist & workflow
+PHASE_4_STEP_0_FIXTURES.md     600+   28KB   Fixtures + algorithms ⭐
+PHASE_4_PLAN.md                970    42KB   Complete specification ⭐
+PHASE_4_QUICK_REFERENCE.md     275    7.5KB  Lookup during coding ⭐
+PHASE_4_REVIEW.md              490    16KB   Technical review
+PHASE_4_CLARIFICATIONS_SUMMARY  290    9.5KB  Concerns addressed
+PHASE_4_STEP_0_SUMMARY.md      350    11KB   What was delivered
+PHASE_4_INDEX.md               300    9KB    Documentation index
+─────────────────────────────────────────────────────────────────────────────
+TOTAL                         4,115   151KB  Complete documentation
+
+================================================================================
+BACKUP IMPLEMENTATION REFERENCE
+================================================================================
+
+Location: /home/lionel/code/pggit.v0.1.1.bk/sql/04_merge_operations.sql
+
+Extracted Algorithms:
+  - find_merge_base() (lines 41-157) → LCA algorithm for merge base discovery
+  - detect_merge_conflicts() (lines 192-345) → Three-way merge classification
+  - merge_branches() (lines 640-802) → Merge strategy application
+  - can_merge_safely() (lines 373-478) → Merge safety assessment (not Phase 4)
+  - resolve_conflicts() (lines 506-599) → Conflict resolution (not Phase 4)
+
+Use this file as reference for patterns, algorithms, and design decisions.
+DO NOT copy/paste directly - adapt to Phase 1-3 patterns in current codebase.
+
+================================================================================
+READY FOR IMPLEMENTATION
+================================================================================
+
+Status: ✅ COMPLETE
+Confidence: ⭐⭐⭐⭐⭐ (5/5)
+Readiness: ✅ YES
+
+What You Have:
+  ✅ Complete specifications (4,000+ lines)
+  ✅ Proven algorithms (pseudo code)
+  ✅ Test architecture (fixture design)
+  ✅ Edge case solutions (10 documented)
+  ✅ Reference implementation (backup file)
+  ✅ Success criteria (comprehensive checklist)
+  ✅ Day-by-day workflow (5-6 days)
+
+What You Don't Need:
+  ❌ Guessing about architecture
+  ❌ Figuring out conflict classification
+  ❌ Inventing merge strategies
+  ❌ Designing test fixtures from scratch
+  ❌ Handling edge cases without guidance
+
+BEGIN IMPLEMENTATION WHEN READY.
+
+================================================================================
+CREATED: 2025-12-26
+STATUS: ✅ PHASE_4 STEP 0 COMPLETE
+NEXT: BEGIN PHASE 4 IMPLEMENTATION
+================================================================================

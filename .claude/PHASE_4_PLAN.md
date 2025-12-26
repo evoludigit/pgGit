@@ -1,10 +1,18 @@
 # Phase 4: Merge Operations Implementation Plan
 
-**Status**: Ready for Planning & Approval
+**Status**: Ready for Implementation (Step 0 Complete)
 **Phase**: 4 of 7
 **Complexity**: High - Core feature with conflict detection & resolution
-**Estimated Scope**: 3-4 days implementation + testing
+**Estimated Scope**: 5-6 days implementation + testing
 **Goal**: Enable merging branches with conflict detection and resolution strategies
+
+**Pre-Implementation Documents**:
+- ✅ PHASE_4_PLAN.md (this file) - Main specification
+- ✅ PHASE_4_REVIEW.md - Technical review & concerns
+- ✅ PHASE_4_CLARIFICATIONS_SUMMARY.md - All 5 clarifications addressed
+- ✅ PHASE_4_QUICK_REFERENCE.md - One-page lookup guide
+- ✅ PHASE_4_STEP_0_FIXTURES.md - **NEW**: Fixture architecture + pseudo code from backup
+- ✅ PHASE_4_INDEX.md - Documentation navigation guide
 
 ---
 
@@ -39,16 +47,19 @@ Phase 4 implements the **Merge Operations API** - three critical functions that 
    - Phase A: Detect conflicts (read-only, uses Phase 3 diff_branches)
    - Phase B: Resolve conflicts and create result commit
    - Enables safe preview before actual merge
+   - Supports three-way merge with automatic merge-base discovery
 
 2. **Strategy-Based Resolution**
    - Different strategies for different conflict scenarios
    - Manual override for complex cases
    - Audit trail of decisions made
 
-3. **Conflict Classification**
-   - MODIFIED on both branches = Definite conflict
-   - ADDED/REMOVED on one branch = Auto-resolvable
-   - Breaking changes flagged via dependency graph
+3. **Conflict Classification (Three-Way Merge)**
+   - Uses **base branch** to determine true conflicts from independent changes
+   - Classifies conflicts as: NO_CONFLICT, SOURCE_MODIFIED, TARGET_MODIFIED, BOTH_MODIFIED, DELETED_SOURCE, DELETED_TARGET
+   - Auto-resolvable conflicts: SOURCE_MODIFIED (target unchanged), TARGET_MODIFIED (source unchanged), DELETED_SOURCE, DELETED_TARGET
+   - Manual review required: BOTH_MODIFIED (both branches changed independently)
+   - Breaking changes detected via dependency graph (objects with dependents being dropped)
 
 4. **Content-Hash Driven**
    - Uses Phase 1 compute_hash() for reproducibility
@@ -83,6 +94,325 @@ Phase 4 implements the **Merge Operations API** - three critical functions that 
 
 ---
 
+## Clarified Implementation Details
+
+### Conflict Classification Matrix (Three-Way Merge)
+
+The conflict classification uses three-way merge logic: comparing base → source → target.
+
+| Base State | Source Change | Target Change | Classification | Auto-Resolvable | Action |
+|-----------|---------------|---------------|-----------------|-----------------|--------|
+| EXISTS | MODIFIED | UNCHANGED | SOURCE_MODIFIED | ✅ YES | Apply source change to target |
+| EXISTS | UNCHANGED | MODIFIED | TARGET_MODIFIED | ✅ YES | Keep target change (source didn't change) |
+| EXISTS | DELETED | UNCHANGED | DELETED_SOURCE | ✅ YES | Delete from target |
+| EXISTS | UNCHANGED | DELETED | DELETED_TARGET | ✅ YES | Object already deleted, no action |
+| EXISTS | MODIFIED | MODIFIED (different) | BOTH_MODIFIED | ❌ NO | Requires manual review |
+| EXISTS | DELETED | MODIFIED | BOTH_MODIFIED | ❌ NO | Source deleted but target changed - conflict |
+| NOT EXISTS | ADDED | NOT ADDED | ADDED | ✅ YES | Apply source's addition |
+| NOT EXISTS | NOT ADDED | ADDED | ADDED | ✅ YES | Keep target's addition |
+| NOT EXISTS | ADDED (same) | ADDED (same) | NO_CONFLICT | ✅ YES | Both added identical definition - no conflict |
+| NOT EXISTS | ADDED | ADDED (different) | BOTH_MODIFIED | ❌ NO | Both added differently - requires review |
+
+**Key Insight**: This is true three-way merge semantics:
+- If only one branch changed something, it's auto-resolvable (safe to apply)
+- If both branches changed something independently, it's a conflict requiring manual review
+- This prevents the "lost deletion" problem where one branch deletes while other modifies
+
+### UNION Strategy Details
+
+The UNION strategy merges compatible objects without conflicts. Here are the rules per object type:
+
+| Object Type | UNION Behavior | Notes |
+|-------------|---|---|
+| **TABLE** | Merge ADD COLUMN statements from both branches | Error if same column added differently. Indexes and constraints require MANUAL_REVIEW |
+| **TRIGGER** | Merge non-overlapping ON clauses (e.g., one adds INSERT trigger, other adds UPDATE trigger) | Error if both add trigger for same event |
+| **INDEX** | Merge ADD INDEX statements (error if same index name) | No UNION support for index modifications |
+| **FUNCTION/PROCEDURE** | **NOT SUPPORTED** - use MANUAL_REVIEW | Code merging requires semantic understanding |
+| **VIEW** | **NOT SUPPORTED** - use MANUAL_REVIEW | View definitions are complex to merge safely |
+| **SEQUENCE/DOMAIN** | **NOT SUPPORTED** - use MANUAL_REVIEW | Too risky to auto-merge |
+
+**Practical UNION Examples**:
+```
+✅ WORKS: Table A adds column, Table B adds different column → merge both
+✅ WORKS: Trigger for INSERT on Table A, Trigger for UPDATE on Table A → merge both
+❌ FAILS: Function body modified on both branches → MANUAL_REVIEW required
+❌ FAILS: Trigger ON INSERT added on both branches → conflict, even though same event
+```
+
+**Implementation**: For UNION strategy in merge_branches():
+1. Filter conflicts to only those with BOTH_MODIFIED classification
+2. For each BOTH_MODIFIED:
+   - If object_type in (TABLE, TRIGGER, INDEX):
+     - Attempt smart merge (combine ADD COLUMN, combine non-overlapping triggers)
+     - If merge succeeds, apply result
+     - If merge fails, fall back to MANUAL_REVIEW behavior
+   - Else: Fall back to MANUAL_REVIEW (don't attempt merge)
+
+### Breaking Change Detection Rules
+
+Breaking changes are detected conservatively to avoid false positives:
+
+**Detected as Breaking**:
+1. ✅ **DROP operations on objects with dependents**
+   - Query object_dependencies table
+   - If dependent_object_id references this object, flag as breaking
+   - Example: DROP TABLE that's referenced by foreign keys
+
+2. ✅ **DROP operations on critical object types**
+   - TABLE, FUNCTION, VIEW drops are always flagged as MAJOR severity
+   - TRIGGER/INDEX drops are flagged as MINOR severity
+
+**NOT detected as breaking** (require manual review):
+- Column renames (detected as MODIFIED, needs manual inspection)
+- Parameter additions to functions (requires SQL parsing)
+- Constraint modifications (requires semantic understanding)
+- Schema restructuring
+
+**Implementation**: In detect_merge_conflicts():
+```sql
+-- Check if object being dropped has dependents
+SELECT COUNT(*) FROM pggit.object_dependencies
+WHERE depends_on_object_id = current_object_id
+  AND is_active = true;
+
+-- If count > 0 and object is being DROPPED, flag severity as MAJOR
+```
+
+---
+
+## Implementation Pseudo Code (from v0.1.1.bk backup)
+
+**NOTE**: The following pseudo code sections are extracted from the backup implementation at `/home/lionel/code/pggit.v0.1.1.bk/sql/04_merge_operations.sql`. These provide proven patterns and algorithms for implementation.
+
+### Pseudo Code 1: LCA (Lowest Common Ancestor) Algorithm
+
+**Algorithm Overview** (lines 41-157 of backup):
+
+```
+find_merge_base(branch1_id, branch2_id) RETURNS base_branch_id, depths:
+
+  1. VALIDATE:
+     - Both branch IDs not NULL
+     - Both branches exist
+     - Return if branches identical
+
+  2. BUILD ANCESTRY PATHS with RECURSIVE CTE:
+     ancestry1: Start with branch1, recursively fetch parent_branch_id
+     ancestry2: Start with branch2, recursively fetch parent_branch_id
+
+     WITH RECURSIVE ancestry1 AS (
+       SELECT id, parent_id, 0 AS depth FROM branches WHERE id = branch1_id
+       UNION ALL
+       SELECT b.id, b.parent_id, a.depth + 1
+       FROM branches b
+       JOIN ancestry1 a ON b.id = a.parent_id
+       WHERE a.parent_id IS NOT NULL
+     )
+
+  3. FIND COMMON ANCESTOR via FULL OUTER JOIN:
+     - Join ancestry1 and ancestry2 on ID
+     - Find first row where both are NOT NULL
+     - Order by depth DESC to get closest common ancestor
+     - LIMIT 1
+
+  4. FALLBACK if no common ancestor:
+     - Walk ancestry1 to root (parent_id IS NULL)
+     - Use that as base
+     - Mark distance to branch2 as 999
+
+  5. RETURN base_branch_id, base_branch_name, depth_from_branch1, depth_from_branch2
+
+Key characteristics:
+- O(H1 + H2) complexity where H is branch tree height
+- Handles unbalanced trees
+- Recursion stops at root (parent_id IS NULL)
+```
+
+**Implementation notes for pggit.merge_branches():**
+- Call find_merge_base(source_branch_id, target_branch_id) to auto-discover base
+- If p_merge_base_branch parameter provided, use that instead
+- Fall back to main (id=1) if no LCA found
+- Store depth metrics for user visibility
+
+---
+
+### Pseudo Code 2: Three-Way Merge Conflict Detection
+
+**Algorithm Overview** (lines 192-345 of backup):
+
+```
+detect_merge_conflicts(source_id, target_id, base_id) RETURNS conflicts:
+
+  1. AUTO-DETECT BASE if not provided:
+     IF p_base_branch_id IS NULL:
+       v_base_id := find_merge_base(source_id, target_id).base_branch_id
+       IF NULL: v_base_id := 1  -- default to main
+
+  2. LOAD OBJECTS from each branch:
+     source_objs := SELECT * FROM schema_objects WHERE branch_id = source_id
+     target_objs := SELECT * FROM schema_objects WHERE branch_id = target_id
+     base_objs := SELECT * FROM schema_objects WHERE branch_id = v_base_id
+
+  3. FULL OUTER JOIN all three:
+     all_objects := FULL OUTER JOIN on (object_type, schema_name, object_name)
+
+     Result: One row per unique object, with NULLs where object doesn't exist
+
+  4. CLASSIFY each object using THREE-WAY MERGE logic:
+
+     CASE base_hash, source_hash, target_hash:
+
+       -- No changes at all
+       WHEN (NULL, NULL, NULL) OR (H, H, H) → 'NO_CONFLICT'
+
+       -- Deletions
+       WHEN source IS NULL AND target IS NOT NULL AND base IS NOT NULL
+         → 'DELETED_SOURCE' (auto-resolvable: delete)
+
+       WHEN target IS NULL AND source IS NOT NULL AND base IS NOT NULL
+         → 'DELETED_TARGET' (auto-resolvable: already gone)
+
+       -- Modifications (one branch changes, other doesn't)
+       WHEN base_hash = target_hash AND source_hash != base_hash
+         → 'SOURCE_MODIFIED' (auto-resolvable: apply source change)
+
+       WHEN base_hash = source_hash AND target_hash != base_hash
+         → 'TARGET_MODIFIED' (auto-resolvable: keep target change)
+
+       -- Additions (both add new)
+       WHEN base IS NULL AND source_hash = target_hash
+         → 'NO_CONFLICT' (both added identical)
+
+       WHEN base IS NULL AND source_hash != target_hash
+         → 'BOTH_MODIFIED' (both added different: conflict)
+
+       -- True conflicts (both modified differently)
+       WHEN source_hash != base_hash AND target_hash != base_hash
+         → 'BOTH_MODIFIED' (conflict: requires manual review)
+
+       -- Default for edge cases
+       ELSE → 'BOTH_MODIFIED'
+
+  5. DETERMINE SEVERITY:
+     CASE
+       WHEN object_type IN ('TABLE','FUNCTION','VIEW') AND deleted: 'MAJOR'
+       WHEN object IS NULL in base: 'MAJOR'  -- new object with conflict
+       ELSE: 'MINOR'
+
+  6. CHECK DEPENDENCIES:
+     -- Query object_dependencies table
+     -- If object being dropped has dependents: severity = 'MAJOR'
+     -- Treat as non-auto-resolvable
+
+  7. RETURN only conflicts (WHERE conflict_type != 'NO_CONFLICT'):
+     RETURN conflict_id, object_type, schema_name, object_name,
+            conflict_type, base_hash, source_hash, target_hash,
+            auto_resolvable, severity, dependencies_count
+```
+
+**Key insight**: This is TRUE three-way merge (not two-way diff). The base branch is essential for determining whether changes are independent or conflicting.
+
+---
+
+### Pseudo Code 3: Merge Strategy Application
+
+**Algorithm Overview** (lines 706-767 of backup):
+
+```
+merge_branches strategy logic:
+
+  After detecting conflicts with count:
+    total_conflicts, auto_resolvable_count, manual_count
+
+  APPLY STRATEGY:
+
+    CASE p_merge_strategy:
+
+      WHEN 'ABORT_ON_CONFLICT':
+        IF total_conflicts > 0:
+          RAISE EXCEPTION 'Merge aborted due to conflicts'
+          RETURN status='ABORTED'
+        ELSE:
+          Proceed with merge
+
+      WHEN 'TARGET_WINS':
+        FOR EACH conflict WHERE type IN (SOURCE_MODIFIED, BOTH_MODIFIED):
+          source_definition := get_object(source_id, object_id)
+          target_definition := get_object(target_id, object_id)
+          -- Use TARGET definition, ignore source
+          apply(target_id, object_id, target_definition)
+        merge_complete := true
+
+      WHEN 'SOURCE_WINS':
+        FOR EACH conflict WHERE type IN (TARGET_MODIFIED, BOTH_MODIFIED):
+          source_definition := get_object(source_id, object_id)
+          target_definition := get_object(target_id, object_id)
+          -- Use SOURCE definition, override target
+          apply(target_id, object_id, source_definition)
+        merge_complete := true
+
+      WHEN 'UNION':
+        FOR EACH conflict:
+          IF object_type = 'TABLE':
+            result := try_merge_table_columns(source, target)
+            IF result NOT NULL:
+              apply(target_id, object_id, result)
+            ELSE:
+              mark_for_manual_review(conflict_id)
+
+          ELSE IF object_type = 'TRIGGER':
+            result := try_merge_triggers(source, target)
+            IF result NOT NULL:
+              apply(target_id, object_id, result)
+            ELSE:
+              mark_for_manual_review(conflict_id)
+
+          ELSE:
+            -- FUNCTION, VIEW unsupported
+            mark_for_manual_review(conflict_id)
+
+        IF any unresolved:
+          merge_complete := false
+          status := 'CONFLICT'
+        ELSE:
+          merge_complete := true
+          status := 'SUCCESS'
+
+      WHEN 'MANUAL_REVIEW':
+        FOR EACH conflict:
+          mark_for_manual_review(conflict_id)
+        merge_complete := false
+        status := 'CONFLICT'
+        RETURN (user must call resolve_conflict() for each)
+
+  CREATE RESULT COMMIT:
+    result_commit_hash := compute_hash(merged_objects)
+    INSERT INTO commits:
+      branch_id = target_id
+      commit_message = p_merge_message OR 'Merge source → target'
+      objects_hash = result_commit_hash
+      created_by = CURRENT_USER
+
+  UPDATE MERGE OPERATIONS RECORD:
+    INSERT into merge_operations:
+      merge_id = generated_uuid()
+      source_branch_id = source_id
+      target_branch_id = target_id
+      merge_strategy = p_merge_strategy
+      status = status
+      conflicts_detected = total_conflicts
+      result_commit_hash = result_commit_hash
+      merged_at = NOW()
+
+  IF merge_complete:
+    UPDATE branches SET status='MERGED' WHERE id = source_id
+
+  RETURN merge_id, status, conflicts_detected, auto_resolvable_count,
+         manual_count, merge_complete, result_commit_hash
+```
+
+---
+
 ## Implementation Details
 
 ### Function 1: pggit.merge_branches()
@@ -96,6 +426,7 @@ CREATE OR REPLACE FUNCTION pggit.merge_branches(
     p_target_branch TEXT,
     p_merge_strategy TEXT DEFAULT 'ABORT_ON_CONFLICT',
     p_merge_message TEXT DEFAULT NULL,
+    p_merge_base_branch TEXT DEFAULT NULL,
     p_metadata JSONB DEFAULT NULL
 ) RETURNS TABLE (
     merge_id UUID,
@@ -108,22 +439,36 @@ CREATE OR REPLACE FUNCTION pggit.merge_branches(
 ) AS $$
 ```
 
+**Parameters**:
+- `p_source_branch`: Branch to merge FROM (required)
+- `p_target_branch`: Branch to merge INTO (required)
+- `p_merge_strategy`: Strategy for conflict resolution, default ABORT_ON_CONFLICT (safe)
+- `p_merge_message`: Commit message for merge (optional)
+- `p_merge_base_branch`: Base branch for three-way merge (optional, auto-detected if NULL)
+- `p_metadata`: Additional JSONB metadata (optional)
+
 **Implementation Steps**:
 
-1. **Validation** (20 lines)
+1. **Validation & Merge Base Detection** (30 lines)
    - Validate branch names exist and are ACTIVE
    - Validate merge_strategy is in allowed list
    - Prevent merging with deleted branches
    - Prevent self-merge (source != target)
+   - **NEW**: If p_merge_base_branch is NULL:
+     - Use helper function (or inline logic) to find LCA (Lowest Common Ancestor)
+     - LCA logic: traverse parent_branch_id for both branches, find first common ancestor
+     - If no LCA found, default to 'main' as merge base
+   - If p_merge_base_branch provided, validate it exists
 
-2. **Conflict Detection** (40 lines)
-   - Call `pggit.diff_branches(p_source_branch, p_target_branch)`
-   - Classify differences:
-     - UNCHANGED = skip
-     - ADDED = auto-merge (add to target)
-     - REMOVED = auto-merge (remove from target)
-     - MODIFIED = potential conflict
-   - Count conflicts by type
+2. **Conflict Detection** (60 lines)
+   - Call `pggit.detect_merge_conflicts(p_source_branch, p_target_branch, v_merge_base_branch_id)`
+   - This performs three-way merge analysis:
+     - Compares base → source vs base → target
+     - Classifies as: SOURCE_MODIFIED, TARGET_MODIFIED, BOTH_MODIFIED, DELETED_SOURCE, DELETED_TARGET
+   - Count conflicts:
+     - auto_resolvable_count = SOURCE_MODIFIED + TARGET_MODIFIED + DELETED_*
+     - manual_required_count = BOTH_MODIFIED
+   - If auto_resolvable_count > 0 and strategy supports it, these are safe to apply
 
 3. **Strategy Application** (50 lines)
    - Check merge_strategy against conflicts_detected
@@ -272,27 +617,38 @@ CREATE OR REPLACE FUNCTION pggit.resolve_conflict(
 
 **Implementation Steps**:
 
-1. **Validation** (25 lines)
+1. **Validation** (35 lines)
    - Verify merge_id exists and is MANUAL_REVIEW status
    - Verify object_id is involved in this merge
    - Verify object is in conflict state
    - Validate resolution_choice in ('SOURCE', 'TARGET', 'CUSTOM')
-   - If CUSTOM: validate p_custom_definition is not null
+   - If CUSTOM:
+     - Validate p_custom_definition is not null
+     - **NEW**: Validate SQL syntax via PostgreSQL parser:
+       ```sql
+       BEGIN
+         EXECUTE 'EXPLAIN (FORMAT JSON) ' || p_custom_definition LIMIT 0;
+       EXCEPTION WHEN OTHERS THEN
+         RAISE EXCEPTION 'Custom definition has syntax errors: %', SQLERRM;
+       END;
+       ```
+     - If validation fails, reject the resolution with clear error message
 
-2. **Record Resolution** (20 lines)
+2. **Record Resolution** (25 lines)
    - Get current conflict_details from merge_operations
    - Find the object in conflict_details
    - Mark as resolved with user's choice
-   - If CUSTOM: validate custom definition with compute_hash()
-   - Update merge_operations.conflict_details
+   - If CUSTOM: compute hash via pggit.compute_hash(p_custom_definition)
+   - Update merge_operations.conflict_details with resolution choice and timestamp
+   - Store user who performed resolution in resolution_summary
 
-3. **Apply Resolution** (30 lines)
+3. **Apply Resolution** (40 lines)
    - If SOURCE: use source branch's object definition
    - If TARGET: use target branch's object definition
-   - If CUSTOM: use provided custom definition
-   - Update schema_objects with chosen definition
+   - If CUSTOM: use provided custom definition (already validated)
+   - Update schema_objects with chosen definition and new content_hash
    - Create object_history record: change_type='MERGE', severity='MAJOR'
-   - Update result_commit with new object state
+   - Update result_commit with merged objects
 
 4. **Update Counters** (20 lines)
    - Increment conflicts_resolved counter
@@ -617,28 +973,38 @@ class TestMergeBranches:          # 10 tests
     - test_merge_invalid_strategy
     - test_merge_creates_result_commit
 
-class TestDetectMergeConflicts:  # 8 tests
+class TestDetectMergeConflicts:  # 10 tests (expanded from 8)
     - test_detect_no_conflicts
-    - test_detect_single_conflict
-    - test_detect_multiple_conflicts
-    - test_detect_three_way_merge
-    - test_detect_breaking_change
-    - test_detect_dependency_impact
-    - test_detect_suggests_resolution
+    - test_detect_source_modified_only
+    - test_detect_target_modified_only
+    - test_detect_both_modified_conflict
+    - test_detect_deleted_source
+    - test_detect_deleted_target
+    - test_detect_three_way_merge_with_base
+    - test_detect_breaking_change_with_dependents
+    - test_detect_dependency_impact_count
     - test_detect_complex_scenario
 
 class TestResolveConflict:       # 8 tests
     - test_resolve_with_source_choice
     - test_resolve_with_target_choice
-    - test_resolve_with_custom_definition
+    - test_resolve_with_valid_custom_definition
+    - test_resolve_rejects_invalid_custom_definition
     - test_resolve_invalid_merge_id
-    - test_resolve_non_conflicting_object
     - test_resolve_single_conflict_completes
     - test_resolve_multiple_conflicts_partial
     - test_resolve_shows_progress
+
+class TestIntegration:           # 6 tests (NEW)
+    - test_merge_with_auto_discovered_merge_base
+    - test_merge_with_explicit_merge_base
+    - test_union_strategy_merges_compatible_columns
+    - test_union_strategy_merges_non_overlapping_triggers
+    - test_union_strategy_falls_back_on_complex_objects
+    - test_full_workflow_detect_review_resolve
 ```
 
-**Total**: 26 unit tests
+**Total**: 34 unit tests + 6 integration tests = 40 comprehensive tests
 
 ### Test Data Setup
 
@@ -786,18 +1152,30 @@ Fixture creates:
 
 ## Timeline & Effort
 
-**Estimated Breakdown**:
-- pggit.merge_branches(): 1 day
-- pggit.detect_merge_conflicts(): 1 day
-- pggit.resolve_conflict(): 0.5 days
-- Testing & QA: 1-1.5 days
-- **Total: 3-4 days**
+**Revised Estimated Breakdown** (based on added complexity):
+- pggit.merge_branches(): 1.5 days (merge_base discovery + strategy application)
+- pggit.detect_merge_conflicts(): 1.5 days (three-way merge + breaking change detection)
+- pggit.resolve_conflict(): 1 day (validation + custom definition handling)
+- Unit Testing (34 tests): 1.5 days (test fixture setup + all scenarios)
+- Integration Testing (6 tests): 1 day (workflow validation)
+- Documentation & QA: 0.5 days
+- **Total: 5-6 days** (revised from 3-4 days due to clarifications)
 
 **Key Milestones**:
-- Day 1: merge_branches() complete + 10 tests passing
-- Day 2: detect_merge_conflicts() complete + 8 tests passing
-- Day 3: resolve_conflict() complete + 8 tests passing + integration testing
-- Day 4: QA report + commit
+- Day 1-1.5: merge_branches() complete with merge_base discovery
+- Day 2: detect_merge_conflicts() with three-way merge analysis
+- Day 2-2.5: resolve_conflict() with validation
+- Day 3: Unit testing (34 tests) + fixes
+- Day 4: Integration testing (6 tests) + cross-function validation
+- Day 5: QA report + performance validation + commit with [GREEN] tag
+
+**Why 5-6 days instead of 3-4?**
+1. Merge base discovery adds complexity (LCA algorithm)
+2. Three-way merge logic more intricate than two-way comparison
+3. UNION strategy requires per-object-type merge rules
+4. Custom definition validation requires SQL parsing
+5. Integration tests verify complex multi-step workflows
+6. Breaking change detection needs dependency graph analysis
 
 ---
 
