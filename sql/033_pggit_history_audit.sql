@@ -420,7 +420,7 @@ BEGIN
     RETURN QUERY
     WITH object_history_seq AS (
         SELECT
-            ROW_NUMBER() OVER (ORDER BY oh.created_at ASC) AS timeline_version,
+            ROW_NUMBER() OVER (ORDER BY oh.created_at ASC)::INTEGER AS timeline_version,
             oh.change_type,
             oh.before_definition,
             oh.after_definition,
