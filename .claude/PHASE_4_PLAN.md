@@ -325,6 +325,258 @@ CREATE OR REPLACE FUNCTION pggit.resolve_conflict(
 
 ---
 
+## Documentation Examples
+
+### Example 1: ABORT_ON_CONFLICT Strategy (Safest)
+
+**Use Case**: Production merge where safety is paramount
+
+```sql
+-- Check for conflicts first
+SELECT * FROM pggit.detect_merge_conflicts('feature-a', 'main');
+-- Result: 0 rows = no conflicts
+
+-- Safe to merge
+SELECT * FROM pggit.merge_branches(
+    'feature-a',
+    'main',
+    'ABORT_ON_CONFLICT',
+    'Merge feature-a: Add user preferences feature'
+);
+-- Result: status='SUCCESS', conflicts_detected=0, objects_merged=5
+
+-- Target branch now contains all changes from feature-a
+-- Branch feature-a status = MERGED
+```
+
+---
+
+### Example 2: TARGET_WINS Strategy (Discard Source)
+
+**Use Case**: Source branch changes were experimental, target has correct version
+
+```sql
+-- Preview what would be lost
+SELECT * FROM pggit.detect_merge_conflicts('experimental', 'main');
+-- Result: users table MODIFIED on both (experimental version would be discarded)
+
+-- Merge with TARGET_WINS
+SELECT * FROM pggit.merge_branches(
+    'experimental',
+    'main',
+    'TARGET_WINS',
+    'Merge experimental: Discard experimental users table changes'
+);
+-- Result: status='SUCCESS', conflicts_resolved=1
+-- Main branch keeps its users table definition
+-- experimental branch marked MERGED
+```
+
+---
+
+### Example 3: SOURCE_WINS Strategy (Accept Source)
+
+**Use Case**: Source branch has critical bug fixes that target doesn't have
+
+```sql
+-- Preview incoming changes
+SELECT * FROM pggit.detect_merge_conflicts('hotfix-critical', 'staging');
+-- Result: payment_processor function MODIFIED on both
+
+-- Accept all source changes
+SELECT * FROM pggit.merge_branches(
+    'hotfix-critical',
+    'staging',
+    'SOURCE_WINS',
+    'Merge hotfix-critical: Apply critical payment processor fixes'
+);
+-- Result: status='SUCCESS', conflicts_resolved=1
+-- Staging branch now has hotfix-critical's payment_processor implementation
+```
+
+---
+
+### Example 4: UNION Strategy (Merge Compatible Changes)
+
+**Use Case**: Both branches added non-conflicting features to same object
+
+```sql
+-- Analyze conflicts
+SELECT * FROM pggit.detect_merge_conflicts('feature-logging', 'feature-metrics');
+-- Result: orders table MODIFIED
+--   - feature-logging: Added logging trigger
+--   - feature-metrics: Added metrics trigger
+--   Both triggers target same table but different operations
+
+-- Merge compatible changes
+SELECT * FROM pggit.merge_branches(
+    'feature-logging',
+    'feature-metrics',
+    'UNION',
+    'Merge feature-logging: Combine logging and metrics for orders table'
+);
+-- Result: status='SUCCESS', objects_merged=1
+-- orders table now has BOTH logging AND metrics triggers
+-- Combined definition created via union logic
+```
+
+---
+
+### Example 5: MANUAL_REVIEW Strategy (Conditional Merge)
+
+**Use Case**: Complex conflicts requiring human judgment
+
+```sql
+-- Identify conflicts
+SELECT * FROM pggit.detect_merge_conflicts('refactor-users', 'main');
+-- Result: users table MODIFIED on both
+--   - refactor-users: Restructured columns, new business logic
+--   - main: Added audit columns, different security approach
+--   Conflict reason: "Divergent changes - both modified incompatibly"
+
+-- Start merge with manual review
+SELECT * FROM pggit.merge_branches(
+    'refactor-users',
+    'main',
+    'MANUAL_REVIEW',
+    'Merge refactor-users: Requires manual resolution'
+);
+-- Result: status='CONFLICT', merge_id='abc-123-def'
+-- conflicts_detected=1, conflicts_resolved=0
+-- Merge is created but NOT finalized
+
+-- User examines conflict details
+SELECT conflict_details FROM pggit.merge_operations
+WHERE merge_id = 'abc-123-def';
+-- Can see full diff of both versions
+
+-- User decides to use SOURCE_WINS for this specific object
+SELECT * FROM pggit.resolve_conflict(
+    'abc-123-def',
+    object_id_for_users_table,
+    'SOURCE',
+    NULL
+);
+-- Result: conflicts_resolved=1 (now equals conflicts_detected)
+-- Merge status automatically updates to SUCCESS
+-- Result commit finalized with refactor-users version of users table
+```
+
+---
+
+### Example 6: CUSTOM Resolution Strategy
+
+**Use Case**: Manually crafted definition combining both versions
+
+```sql
+-- Start with MANUAL_REVIEW
+-- (merge_id='xyz-456', 1 conflict detected)
+
+-- User creates custom definition by hand-merging both versions
+-- Combines refactor-users structure + main's audit columns
+SELECT * FROM pggit.resolve_conflict(
+    'xyz-456',
+    object_id_for_users_table,
+    'CUSTOM',
+    'CREATE TABLE schema.users (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        status VARCHAR(50),
+        -- refactor-users restructuring
+        profile_data JSONB,
+        -- main audit columns
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        updated_by VARCHAR(255)
+    )'
+);
+-- Result: Custom definition validated and applied
+-- conflicts_resolved=1
+-- Merge status = SUCCESS
+-- Result commit contains custom merged version
+```
+
+---
+
+## Rollback & Undo Strategy
+
+This section clarifies what happens if a merge causes problems and needs to be undone.
+
+### Current Phase 4 Scope (What's Implemented)
+
+Phase 4 creates merge records in `merge_operations` table with full audit trail:
+- Which branches merged
+- What merge strategy was used
+- Which objects changed
+- Result commit hash
+- Timestamp and user who performed merge
+
+**This enables future rollback capability** by:
+1. Knowing exactly what the previous state was (via commits & object_history)
+2. Having a permanent record of the merge decision
+3. Allowing Phase 5-6 to implement rollback functions
+
+### Proposed Phase 5/6 Rollback Capabilities (OUT OF SCOPE FOR PHASE 4)
+
+While Phase 4 doesn't implement rollback, it sets the foundation:
+
+**Option A: Revert Merge (Simple)**
+```sql
+-- Would be added in Phase 5
+pggit.revert_merge(p_merge_id UUID)
+-- Finds result_commit from merge_operations
+-- Creates new commit restoring previous state
+-- Useful when: merge was correct but caused downstream issues
+```
+
+**Option B: Abort Merge (Soft Delete)**
+```sql
+-- Would be added in Phase 5
+pggit.abort_merge(p_merge_id UUID)
+-- Marks merge as ABORTED without changing current state
+-- Useful when: merge failed partway through manual resolution
+```
+
+**Option C: Branch Rollback**
+```sql
+-- Would be added in Phase 6
+pggit.checkout_commit(p_branch_name TEXT, p_commit_hash CHAR(64))
+-- Restore branch to previous commit state
+-- Allows time-travel within branch history
+```
+
+### Why Rollback Is Phase 5+ Not Phase 4
+
+1. **Phase 4 Foundation**: Merge creates immutable audit trail + result commits
+2. **Phase 5 Complexity**: Rollback requires:
+   - Validating rollback won't break dependent objects
+   - Handling cascade scenarios (if Branch A merged B, and C merged A, what does rollback do?)
+   - Transaction semantics (do we want git-style revert or hard reset?)
+3. **Phase 6 Advanced**: Time-travel, branch history inspection, bisect-style debugging
+
+### Phase 4 Prevents Problems
+
+Even without rollback, Phase 4 reduces need for undo:
+
+1. **detect_merge_conflicts()** - Preview before merging prevents wrong merges
+2. **ABORT_ON_CONFLICT** - Default strategy is safe (returns without changing anything)
+3. **MANUAL_REVIEW** - Complex merges require explicit resolution
+4. **Audit Trail** - Full history means you can always see what happened
+5. **Result Commits** - Each merge creates immutable snapshot you can inspect
+
+### Recommended Phase 4 Testing for Future Rollback Support
+
+Tests should verify merge_operations records are complete:
+- ✅ merge_id is unique and traceable
+- ✅ source_branch_id, target_branch_id stored correctly
+- ✅ result_commit_hash points to valid commit
+- ✅ conflict_details JSONB captures full conflict info
+- ✅ resolution_summary captures how conflicts were resolved
+
+This ensures Phase 5 can implement rollback without data loss or ambiguity.
+
+---
+
 ## Database Changes
 
 ### New SQL File
