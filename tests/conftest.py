@@ -58,6 +58,7 @@ def test_db_setup(db_connection_params):
                     "sql/030_pggit_branch_management.sql",
                     "sql/031_pggit_object_tracking.sql",
                     "sql/032_pggit_merge_operations.sql",
+                    "sql/033_pggit_history_audit.sql",
                 ]
 
                 for schema_file in schema_files:

@@ -12,6 +12,10 @@
 --
 -- ============================================================================
 
+-- Drop existing tables and functions to allow clean rebuild
+DROP TABLE IF EXISTS pggit.merge_conflict_resolutions CASCADE;
+DROP TABLE IF EXISTS pggit.merge_operations CASCADE;
+
 -- Drop existing functions to allow signature changes
 DROP FUNCTION IF EXISTS pggit.find_merge_base(INTEGER, INTEGER) CASCADE;
 DROP FUNCTION IF EXISTS pggit.detect_merge_conflicts(INTEGER, INTEGER, INTEGER) CASCADE;
