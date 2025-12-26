@@ -52,7 +52,7 @@ BEGIN
     IF p_branch_name IS NOT NULL THEN
         SELECT branch_id INTO v_branch_id
         FROM pggit.branches
-        WHERE branch_name = p_branch_name;
+        WHERE pggit.branches.branch_name = p_branch_name;
 
         IF v_branch_id IS NULL THEN
             RAISE EXCEPTION 'Branch % does not exist', p_branch_name;
@@ -230,7 +230,7 @@ BEGIN
     IF p_branch_name IS NOT NULL THEN
         SELECT branch_id INTO v_branch_id
         FROM pggit.branches
-        WHERE branch_name = p_branch_name;
+        WHERE pggit.branches.branch_name = p_branch_name;
 
         IF v_branch_id IS NULL THEN
             RAISE EXCEPTION 'Branch % does not exist', p_branch_name;
@@ -404,7 +404,7 @@ BEGIN
     IF p_branch_name IS NOT NULL THEN
         SELECT branch_id INTO v_branch_id
         FROM pggit.branches
-        WHERE branch_name = p_branch_name;
+        WHERE pggit.branches.branch_name = p_branch_name;
 
         IF v_branch_id IS NULL THEN
             RAISE EXCEPTION 'Branch % does not exist', p_branch_name;
@@ -413,7 +413,7 @@ BEGIN
         -- Default to main branch
         SELECT branch_id INTO v_branch_id
         FROM pggit.branches
-        WHERE branch_name = 'main';
+        WHERE pggit.branches.branch_name = 'main';
     END IF;
 
     -- Return object timeline
