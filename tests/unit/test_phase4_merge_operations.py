@@ -33,6 +33,7 @@ class MergeOperationsFixture:
         self.branch_ids = {}
         self.object_ids = {}
         self.hashes = {}
+        self.commit_hashes = {}  # Map branch_name -> commit_hash
         self._is_setup = False
 
     def compute_hash(self, definition: str, version: int = 1) -> str:
@@ -303,9 +304,186 @@ class MergeOperationsFixture:
                         self.hashes[key] = self.compute_hash(branch_def['def'], branch_def['version'])
 
     def _create_object_history(self):
-        """Create object_history records."""
-        # For now, minimal history (can be extended if needed)
-        pass
+        """Create object_history records linking objects to branches."""
+        # Create object history records for all objects on all branches
+        # This is required for detect_merge_conflicts() to find the objects
+
+        # First, create dummy commits for each branch (required by FK on object_history)
+        for branch_name, branch_id in self.branch_ids.items():
+            # Generate a dummy commit hash for this branch
+            commit_hash = hashlib.sha256(f"branch_{branch_name}".encode()).hexdigest()
+            self.commit_hashes[branch_name] = commit_hash
+
+            sql = """
+                INSERT INTO pggit.commits
+                (branch_id, commit_hash, commit_message, author_name, author_time, object_changes)
+                VALUES (%s, %s, %s, %s, NOW(), %s)
+                ON CONFLICT DO NOTHING
+            """
+            self._execute_insert(sql, (
+                branch_id, commit_hash, f'Initial commit for {branch_name}', 'test_fixture', '{}'
+            ))
+
+        # Define object templates again (same as in _create_objects)
+        objects = {
+            'users': {
+                'main': {
+                    'type': 'TABLE',
+                    'def': 'CREATE TABLE public.users (id INT PRIMARY KEY, name VARCHAR(100))',
+                    'version': 1
+                },
+                'feature-a': {
+                    'type': 'TABLE',
+                    'def': 'CREATE TABLE public.users (id INT PRIMARY KEY, name VARCHAR(100), email VARCHAR(100))',
+                    'version': 2
+                },
+                'feature-b': {
+                    'type': 'TABLE',
+                    'def': 'CREATE TABLE public.users (id INT PRIMARY KEY, name VARCHAR(100), status VARCHAR(50))',
+                    'version': 2
+                },
+                'dev': {
+                    'type': 'TABLE',
+                    'def': 'CREATE TABLE public.users (id INT PRIMARY KEY, name VARCHAR(100), email VARCHAR(100), status VARCHAR(50), role VARCHAR(50))',
+                    'version': 3
+                }
+            },
+            'orders': {
+                'main': {
+                    'type': 'TABLE',
+                    'def': 'CREATE TABLE public.orders (id INT PRIMARY KEY, user_id INT REFERENCES public.users(id))',
+                    'version': 1
+                },
+                'feature-a': {
+                    'type': 'TABLE',
+                    'def': 'CREATE TABLE public.orders (id INT PRIMARY KEY, user_id INT REFERENCES public.users(id))',
+                    'version': 1
+                },
+                'feature-b': {
+                    'type': 'TABLE',
+                    'def': 'CREATE TABLE public.orders (id INT PRIMARY KEY, user_id INT REFERENCES public.users(id))',
+                    'version': 1
+                },
+                'dev': {
+                    'type': 'TABLE',
+                    'def': 'CREATE TABLE public.orders (id INT PRIMARY KEY, user_id INT REFERENCES public.users(id))',
+                    'version': 1
+                }
+            },
+            'products': {
+                'main': None,  # Not in main
+                'feature-a': {
+                    'type': 'TABLE',
+                    'def': 'CREATE TABLE public.products (id INT PRIMARY KEY, product_name VARCHAR(100))',
+                    'version': 1
+                },
+                'feature-b': None,
+                'dev': {
+                    'type': 'TABLE',
+                    'def': 'CREATE TABLE public.products (id INT PRIMARY KEY, product_name VARCHAR(100))',
+                    'version': 1
+                }
+            },
+            'audit_log': {
+                'main': None,
+                'feature-a': None,
+                'feature-b': {
+                    'type': 'TABLE',
+                    'def': 'CREATE TABLE public.audit_log (id INT PRIMARY KEY, table_name VARCHAR(100))',
+                    'version': 1
+                },
+                'dev': {
+                    'type': 'TABLE',
+                    'def': 'CREATE TABLE public.audit_log (id INT PRIMARY KEY, table_name VARCHAR(100))',
+                    'version': 1
+                }
+            },
+            'get_user_count': {
+                'main': {
+                    'type': 'FUNCTION',
+                    'def': 'CREATE FUNCTION public.get_user_count() RETURNS INT AS "SELECT COUNT(*) FROM users" LANGUAGE SQL',
+                    'version': 1
+                },
+                'feature-a': {
+                    'type': 'FUNCTION',
+                    'def': 'CREATE FUNCTION public.get_user_count() RETURNS INT AS "SELECT COUNT(*) FROM users" LANGUAGE SQL',
+                    'version': 1
+                },
+                'feature-b': {
+                    'type': 'FUNCTION',
+                    'def': 'CREATE FUNCTION public.get_user_count() RETURNS INT AS "SELECT COUNT(*) FROM users" LANGUAGE SQL',
+                    'version': 1
+                },
+                'dev': {
+                    'type': 'FUNCTION',
+                    'def': 'CREATE FUNCTION public.get_user_count() RETURNS INT AS "SELECT COUNT(*) FROM active_users" LANGUAGE SQL',
+                    'version': 2
+                }
+            },
+            'payment_trigger': {
+                'main': {
+                    'type': 'TRIGGER',
+                    'def': 'CREATE TRIGGER payment_trigger AFTER INSERT ON public.orders',
+                    'version': 1
+                },
+                'feature-a': {
+                    'type': 'TRIGGER',
+                    'def': 'CREATE TRIGGER payment_trigger AFTER INSERT ON public.orders',
+                    'version': 1
+                },
+                'feature-b': {
+                    'type': 'TRIGGER',
+                    'def': 'CREATE TRIGGER payment_trigger AFTER INSERT ON public.orders',
+                    'version': 1
+                },
+                'dev': {
+                    'type': 'TRIGGER',
+                    'def': 'CREATE TRIGGER payment_trigger AFTER INSERT ON public.orders',
+                    'version': 1
+                }
+            },
+        }
+
+        # Create object_history records for each object on each branch
+        for obj_name, branch_variants in objects.items():
+            if obj_name not in self.object_ids:
+                continue
+
+            for branch_name, obj_def in branch_variants.items():
+                if obj_def is None:
+                    continue  # Skip if object doesn't exist on this branch
+
+                if branch_name not in self.branch_ids:
+                    continue  # Skip if branch doesn't exist
+
+                branch_id = self.branch_ids[branch_name]
+                obj_id = self.object_ids[obj_name].get(branch_name)
+
+                if obj_id is None:
+                    continue  # Skip if object doesn't have an ID for this branch
+
+                # Calculate hash for this object's definition on this branch
+                obj_hash = self.compute_hash(obj_def['def'], obj_def['version'])
+
+                # Determine change type based on whether object exists in parent branch
+                # For simplicity, use CREATE for first appearance, ALTER if modified
+                change_type = 'CREATE'
+
+                # Create object_history record
+                sql = """
+                    INSERT INTO pggit.object_history
+                    (object_id, branch_id, change_type, after_definition, after_hash,
+                     change_severity, commit_hash, author_name, author_time)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                    ON CONFLICT DO NOTHING
+                """
+                # Use the commit hash we created for this branch
+                commit_hash = self.commit_hashes.get(branch_name, 'dummy_hash')
+
+                self._execute_insert(sql, (
+                    obj_id, branch_id, change_type, obj_def['def'], obj_hash,
+                    'MINOR', commit_hash, 'test_fixture'
+                ))
 
     def _create_object_dependencies(self):
         """Create object dependency relationships."""
