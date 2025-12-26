@@ -115,8 +115,26 @@ class Phase6RollbackFixture:
     def _create_objects(self) -> None:
         """Create schema objects."""
         with self.conn.cursor() as cur:
-            # Delete test objects from previous runs
+            # Delete test objects from previous runs (clean in proper order due to FK constraints)
+            # 1. Delete dependencies
+            cur.execute("""DELETE FROM pggit.object_dependencies
+                          WHERE dependent_object_id IN (
+                              SELECT object_id FROM pggit.schema_objects
+                              WHERE schema_name = 'test' OR object_name IN ('users_test', 'orders_test', 'count_users_test')
+                          ) OR depends_on_object_id IN (
+                              SELECT object_id FROM pggit.schema_objects
+                              WHERE schema_name = 'test' OR object_name IN ('users_test', 'orders_test', 'count_users_test')
+                          )""")
+            # 2. Delete object_history records to avoid FK constraint violations
+            cur.execute("""DELETE FROM pggit.object_history
+                          WHERE object_id IN (
+                              SELECT object_id FROM pggit.schema_objects
+                              WHERE schema_name = 'test' OR object_name IN ('users_test', 'orders_test', 'count_users_test')
+                          )""")
+            # 3. Delete the schema_objects
             cur.execute("DELETE FROM pggit.schema_objects WHERE schema_name = 'test' OR object_name IN ('users_test', 'orders_test', 'count_users_test')")
+            # 4. Delete test commits
+            cur.execute("DELETE FROM pggit.commits WHERE commit_hash LIKE 'hash_%'")
 
             objects = [
                 ('users_test', 'TABLE', "CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100))"),
@@ -188,11 +206,11 @@ class Phase6RollbackFixture:
     def _create_dependencies(self) -> None:
         """Create object dependency records."""
         with self.conn.cursor() as cur:
-            # orders depends on users (FK)
+            # orders_test depends on users_test (FK)
             cur.execute(
                 """INSERT INTO pggit.object_dependencies (dependent_object_id, depends_on_object_id,
                    dependency_type) VALUES (%s, %s, %s)""",
-                (self.object_ids['orders'], self.object_ids['users'], 'FOREIGN_KEY')
+                (self.object_ids['orders_test'], self.object_ids['users_test'], 'FOREIGN_KEY')
             )
 
         self.conn.commit()
