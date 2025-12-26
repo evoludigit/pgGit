@@ -55,6 +55,7 @@ def test_db_setup(db_connection_params):
                     "sql/v1.0.0/phase_1_utilities.sql",
                     "sql/v1.0.0/phase_1_triggers.sql",
                     "sql/v1.0.0/phase_1_bootstrap.sql",
+                    "sql/030_pggit_branch_management.sql",
                 ]
 
                 for schema_file in schema_files:

@@ -91,29 +91,22 @@ def db_setup(db):
     """
     cursor = db.cursor()
 
-    # Setup: Load Phase 1 schema (idempotent - uses CREATE IF NOT EXISTS)
+    # Schema is already loaded by conftest.py test_db_setup fixture
+    # Just verify the functions exist
     try:
-        with open('sql/001_schema.sql', 'r') as f:
-            # Split by comments and execute statements
-            sql_content = f.read()
-            cursor.execute(sql_content)
+        cursor.execute("SELECT EXISTS(SELECT 1 FROM pg_proc WHERE proname = 'create_branch' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'pggit'))")
+        result = cursor.fetchone()
+        if not result or not result[0]:
+            pytest.skip("pggit.create_branch() function not found - schema may not be loaded")
     except Exception as e:
-        pytest.skip(f"Cannot load Phase 1 schema: {e}")
-
-    # Setup: Load Phase 2 functions
-    try:
-        with open('sql/030_pggit_branch_management.sql', 'r') as f:
-            sql_content = f.read()
-            cursor.execute(sql_content)
-    except Exception as e:
-        pytest.skip(f"Cannot load Phase 2 functions: {e}")
+        pytest.skip(f"Cannot verify schema: {e}")
 
     # Setup: Ensure main branch exists
     try:
         cursor.execute("""
-            INSERT INTO pggit.branches (id, name, status)
-            VALUES (1, 'main', 'ACTIVE'::pggit.branch_status)
-            ON CONFLICT (name) DO NOTHING
+            INSERT INTO pggit.branches (branch_name, status, created_by)
+            VALUES ('main', 'ACTIVE', CURRENT_USER)
+            ON CONFLICT (branch_name) DO NOTHING
         """)
     except Exception as e:
         pytest.skip(f"Cannot create main branch: {e}")
