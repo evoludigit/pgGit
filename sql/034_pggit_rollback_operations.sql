@@ -400,7 +400,7 @@ BEGIN
                    0, FALSE
             FROM pggit.branches b
             WHERE b.branch_name = p_branch_name
-            RETURNING rollback_id INTO v_rollback_id;
+            RETURNING pggit.rollback_operations.rollback_id INTO v_rollback_id;
 
             RETURN QUERY SELECT v_rollback_id, NULL::CHAR(64), 'FAILED'::TEXT,
                                 0, v_validations_passed, v_validations_failed,
@@ -422,7 +422,7 @@ BEGIN
                    0, FALSE
             FROM pggit.branches b
             WHERE b.branch_name = p_branch_name
-            RETURNING rollback_id INTO v_rollback_id;
+            RETURNING pggit.rollback_operations.rollback_id INTO v_rollback_id;
 
             RETURN QUERY SELECT v_rollback_id, NULL::CHAR(64), 'FAILED'::TEXT,
                                 0, v_validations_passed, v_validations_warned,
@@ -508,7 +508,7 @@ BEGIN
             'SUCCESS', v_objects_to_rollback, TRUE,
             v_validations_warned
         )
-        RETURNING rollback_id INTO v_rollback_id;
+        RETURNING pggit.rollback_operations.rollback_id INTO v_rollback_id;
 
         -- Create inverse change records in object_history
         -- For each object changed in the commit, create ROLLBACK record
@@ -744,7 +744,7 @@ BEGIN
             'RANGE', p_rollback_mode, v_branch_id, CURRENT_USER, NOW(),
             'SUCCESS', v_objects_total, TRUE, v_conflicts_count
         )
-        RETURNING rollback_id INTO v_rollback_id;
+        RETURNING pggit.rollback_operations.rollback_id INTO v_rollback_id;
 
         -- Create inverse change records (reverse order for range)
         INSERT INTO pggit.object_history (
@@ -999,7 +999,7 @@ BEGIN
             'SUCCESS', (v_objects_recreated + v_objects_deleted + v_objects_modified),
             TRUE, 0
         )
-        RETURNING rollback_id INTO v_rollback_id;
+        RETURNING pggit.rollback_operations.rollback_id INTO v_rollback_id;
 
         -- Create inverse change records for all affected objects
         INSERT INTO pggit.object_history (
@@ -1254,7 +1254,7 @@ BEGIN
             v_object_count,
             TRUE
         )
-        RETURNING rollback_id INTO v_rollback_id;
+        RETURNING pggit.rollback_operations.rollback_id INTO v_rollback_id;
 
         -- Create inverse history records (commit-based undo)
         IF p_commit_hash IS NOT NULL THEN
