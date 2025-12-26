@@ -40,26 +40,39 @@ class Phase5HistoryFixture:
 
     def setup(self):
         """Create complete fixture data"""
+        # Clean up any leftover data from previous tests
+        self._cleanup()
         self._create_branches()
         self._create_commits_and_objects()
 
-    def teardown(self):
-        """Clean up all fixture data"""
+    def _cleanup(self):
+        """Internal cleanup method used by both setup and teardown"""
         try:
             with self.conn.cursor() as cur:
-                # Delete in reverse order of creation to respect FKs
-                cur.execute("DELETE FROM pggit.merge_conflict_resolutions")
-                cur.execute("DELETE FROM pggit.merge_operations")
-                cur.execute("DELETE FROM pggit.object_dependencies")
-                cur.execute("DELETE FROM pggit.object_history")
-                cur.execute("DELETE FROM pggit.commits")
-                cur.execute("DELETE FROM pggit.schema_objects")
-                cur.execute("DELETE FROM pggit.branches WHERE branch_name NOT IN ('main')")
+                # Use TRUNCATE CASCADE to efficiently remove all data in correct order
+                tables = [
+                    "pggit.merge_conflict_resolutions",
+                    "pggit.merge_operations",
+                    "pggit.object_dependencies",
+                    "pggit.object_history",
+                    "pggit.commits",
+                    "pggit.schema_objects",
+                    "pggit.branches",
+                ]
+                for table in tables:
+                    try:
+                        cur.execute(f"TRUNCATE TABLE {table} CASCADE")
+                    except Exception:
+                        pass
             self.conn.commit()
         except Exception as e:
             self.conn.rollback()
-            # Silently ignore errors during cleanup
+            # Don't raise during cleanup - just log
             pass
+
+    def teardown(self):
+        """Clean up all fixture data"""
+        self._cleanup()
 
     def _create_branches(self):
         """Create branch hierarchy"""
@@ -92,8 +105,6 @@ class Phase5HistoryFixture:
                     cur.execute("DELETE FROM pggit.object_dependencies WHERE branch_id = %s", (old_branch_id,))
                     cur.execute("DELETE FROM pggit.object_history WHERE branch_id = %s", (old_branch_id,))
                     cur.execute("DELETE FROM pggit.commits WHERE branch_id = %s", (old_branch_id,))
-                    # Also delete schema_objects from previous branch (unique constraint)
-                    cur.execute("DELETE FROM pggit.schema_objects WHERE schema_name = 'public'")
                 # Delete the branch
                 cur.execute("DELETE FROM pggit.branches WHERE branch_name = %s", (branch_name,))
                 cur.execute(

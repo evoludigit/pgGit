@@ -93,10 +93,10 @@ BEGIN
             cb.commit_message,
             cb.branch_id,
             cb.parent_branch_id,
-            COUNT(DISTINCT oh.object_id) AS objects_changed,
-            COALESCE(SUM(CASE WHEN oh.change_type = 'CREATE' THEN 1 ELSE 0 END), 0) AS objects_added,
-            COALESCE(SUM(CASE WHEN oh.change_type = 'DROP' THEN 1 ELSE 0 END), 0) AS objects_deleted,
-            COALESCE(SUM(CASE WHEN oh.change_type = 'ALTER' THEN 1 ELSE 0 END), 0) AS objects_modified
+            COUNT(DISTINCT oh.object_id)::INTEGER AS objects_changed,
+            COALESCE(SUM(CASE WHEN oh.change_type = 'CREATE' THEN 1 ELSE 0 END), 0)::INTEGER AS objects_added,
+            COALESCE(SUM(CASE WHEN oh.change_type = 'DROP' THEN 1 ELSE 0 END), 0)::INTEGER AS objects_deleted,
+            COALESCE(SUM(CASE WHEN oh.change_type = 'ALTER' THEN 1 ELSE 0 END), 0)::INTEGER AS objects_modified
         FROM commit_base cb
         LEFT JOIN pggit.object_history oh ON cb.commit_hash = oh.commit_hash
             AND cb.branch_id = oh.branch_id

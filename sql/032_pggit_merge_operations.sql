@@ -209,7 +209,7 @@ BEGIN
     WITH source_objs AS (
         SELECT DISTINCT
             so.object_type, so.schema_name, so.object_name,
-            so.content_hash as hash, so.object_id
+            so.content_hash::TEXT as hash, so.object_id
         FROM pggit.schema_objects so
         WHERE EXISTS (
             SELECT 1 FROM pggit.object_history oh
@@ -220,7 +220,7 @@ BEGIN
     target_objs AS (
         SELECT DISTINCT
             so.object_type, so.schema_name, so.object_name,
-            so.content_hash as hash, so.object_id
+            so.content_hash::TEXT as hash, so.object_id
         FROM pggit.schema_objects so
         WHERE EXISTS (
             SELECT 1 FROM pggit.object_history oh
@@ -231,7 +231,7 @@ BEGIN
     base_objs AS (
         SELECT DISTINCT
             so.object_type, so.schema_name, so.object_name,
-            so.content_hash as hash, so.object_id
+            so.content_hash::TEXT as hash, so.object_id
         FROM pggit.schema_objects so
         WHERE EXISTS (
             SELECT 1 FROM pggit.object_history oh
@@ -259,43 +259,43 @@ BEGIN
     ),
     classified AS (
         SELECT
-            ROW_NUMBER() OVER (ORDER BY object_type, schema_name, object_name) as id,
-            object_type,
-            schema_name,
-            object_name,
-            base_hash,
-            source_hash,
-            target_hash,
+            ROW_NUMBER() OVER (ORDER BY all_objs.object_type, all_objs.schema_name, all_objs.object_name)::INTEGER as id,
+            all_objs.object_type,
+            all_objs.schema_name,
+            all_objs.object_name,
+            all_objs.base_hash,
+            all_objs.source_hash,
+            all_objs.target_hash,
             -- Three-way merge classification logic
             CASE
                 -- No changes anywhere
-                WHEN base_hash IS NULL AND source_hash IS NULL AND target_hash IS NULL THEN 'NO_CONFLICT'
-                WHEN base_hash IS NOT NULL AND base_hash = source_hash AND source_hash = target_hash THEN 'NO_CONFLICT'
+                WHEN all_objs.base_hash IS NULL AND all_objs.source_hash IS NULL AND all_objs.target_hash IS NULL THEN 'NO_CONFLICT'
+                WHEN all_objs.base_hash IS NOT NULL AND all_objs.base_hash = all_objs.source_hash AND all_objs.source_hash = all_objs.target_hash THEN 'NO_CONFLICT'
 
                 -- Both added same object (new in both branches)
-                WHEN base_hash IS NULL AND source_hash = target_hash THEN 'NO_CONFLICT'
+                WHEN all_objs.base_hash IS NULL AND all_objs.source_hash = all_objs.target_hash THEN 'NO_CONFLICT'
 
                 -- Deletions
-                WHEN source_hash IS NULL AND target_hash IS NOT NULL AND base_hash IS NOT NULL
+                WHEN all_objs.source_hash IS NULL AND all_objs.target_hash IS NOT NULL AND all_objs.base_hash IS NOT NULL
                     THEN 'DELETED_SOURCE'
-                WHEN target_hash IS NULL AND source_hash IS NOT NULL AND base_hash IS NOT NULL
+                WHEN all_objs.target_hash IS NULL AND all_objs.source_hash IS NOT NULL AND all_objs.base_hash IS NOT NULL
                     THEN 'DELETED_TARGET'
 
                 -- Single-branch modifications
-                WHEN base_hash IS NOT NULL AND base_hash = target_hash AND source_hash != base_hash
+                WHEN all_objs.base_hash IS NOT NULL AND all_objs.base_hash = all_objs.target_hash AND all_objs.source_hash != all_objs.base_hash
                     THEN 'SOURCE_MODIFIED'
-                WHEN base_hash IS NOT NULL AND base_hash = source_hash AND target_hash != base_hash
+                WHEN all_objs.base_hash IS NOT NULL AND all_objs.base_hash = all_objs.source_hash AND all_objs.target_hash != all_objs.base_hash
                     THEN 'TARGET_MODIFIED'
 
                 -- True conflicts (both modified independently)
-                WHEN source_hash IS NOT NULL AND target_hash IS NOT NULL AND base_hash IS NOT NULL
-                    AND source_hash != base_hash AND target_hash != base_hash
-                    AND source_hash != target_hash
+                WHEN all_objs.source_hash IS NOT NULL AND all_objs.target_hash IS NOT NULL AND all_objs.base_hash IS NOT NULL
+                    AND all_objs.source_hash != all_objs.base_hash AND all_objs.target_hash != all_objs.base_hash
+                    AND all_objs.source_hash != all_objs.target_hash
                     THEN 'BOTH_MODIFIED'
 
                 -- Both added differently
-                WHEN base_hash IS NULL AND source_hash IS NOT NULL AND target_hash IS NOT NULL
-                    AND source_hash != target_hash
+                WHEN all_objs.base_hash IS NULL AND all_objs.source_hash IS NOT NULL AND all_objs.target_hash IS NOT NULL
+                    AND all_objs.source_hash != all_objs.target_hash
                     THEN 'BOTH_MODIFIED'
 
                 -- Default for edge cases
@@ -303,20 +303,20 @@ BEGIN
             END as conflict_type,
             -- Auto-resolvable if only one branch changed
             CASE
-                WHEN base_hash IS NULL AND source_hash IS NULL AND target_hash IS NULL THEN true
-                WHEN base_hash = source_hash AND source_hash = target_hash THEN true
-                WHEN base_hash IS NULL AND source_hash = target_hash THEN true
-                WHEN source_hash IS NULL AND base_hash IS NOT NULL THEN true
-                WHEN target_hash IS NULL AND base_hash IS NOT NULL THEN true
-                WHEN base_hash = target_hash AND source_hash != base_hash THEN true
-                WHEN base_hash = source_hash AND target_hash != base_hash THEN true
+                WHEN all_objs.base_hash IS NULL AND all_objs.source_hash IS NULL AND all_objs.target_hash IS NULL THEN true
+                WHEN all_objs.base_hash = all_objs.source_hash AND all_objs.source_hash = all_objs.target_hash THEN true
+                WHEN all_objs.base_hash IS NULL AND all_objs.source_hash = all_objs.target_hash THEN true
+                WHEN all_objs.source_hash IS NULL AND all_objs.base_hash IS NOT NULL THEN true
+                WHEN all_objs.target_hash IS NULL AND all_objs.base_hash IS NOT NULL THEN true
+                WHEN all_objs.base_hash = all_objs.target_hash AND all_objs.source_hash != all_objs.base_hash THEN true
+                WHEN all_objs.base_hash = all_objs.source_hash AND all_objs.target_hash != all_objs.base_hash THEN true
                 ELSE false
             END as auto_resolvable,
             -- Severity determination
             CASE
-                WHEN object_type IN ('TABLE', 'FUNCTION', 'VIEW') AND (source_hash IS NULL OR target_hash IS NULL)
+                WHEN all_objs.object_type IN ('TABLE', 'FUNCTION', 'VIEW') AND (all_objs.source_hash IS NULL OR all_objs.target_hash IS NULL)
                     THEN 'MAJOR'
-                WHEN base_hash IS NULL THEN 'MAJOR'  -- New object with conflicts
+                WHEN all_objs.base_hash IS NULL THEN 'MAJOR'  -- New object with conflicts
                 ELSE 'MINOR'
             END as severity
         FROM all_objs
