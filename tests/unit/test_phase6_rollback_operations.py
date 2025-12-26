@@ -70,12 +70,16 @@ class Phase6RollbackFixture:
         """Clean up all fixture data."""
         try:
             with self.conn.cursor() as cur:
-                cur.execute("DELETE FROM pggit.object_dependencies WHERE source_object_id > 8 OR target_object_id > 8")
+                cur.execute("DELETE FROM pggit.object_dependencies WHERE dependent_object_id > 8 OR depends_on_object_id > 8")
                 cur.execute("DELETE FROM pggit.merge_operations")
                 cur.execute("DELETE FROM pggit.rollback_operations")
                 cur.execute("DELETE FROM pggit.rollback_validations")
                 cur.execute("DELETE FROM pggit.object_history WHERE object_id > 8")
-                cur.execute("DELETE FROM pggit.commits WHERE commit_hash LIKE 'hash_%'")
+                cur.execute("""DELETE FROM pggit.commits
+                              WHERE commit_message IN (
+                                  'CREATE TABLE users', 'CREATE TABLE orders', 'ALTER TABLE users ADD email',
+                                  'CREATE INDEX idx_users_email', 'ALTER TABLE orders ADD amount', 'CREATE FUNCTION count_users'
+                              )""")
                 cur.execute("DELETE FROM pggit.schema_objects WHERE schema_name = 'test'")
                 cur.execute("DELETE FROM pggit.branches WHERE branch_name IN ('feature-a', 'feature-b')")
             self.conn.commit()
@@ -133,8 +137,12 @@ class Phase6RollbackFixture:
                           )""")
             # 3. Delete the schema_objects
             cur.execute("DELETE FROM pggit.schema_objects WHERE schema_name = 'test' OR object_name IN ('users_test', 'orders_test', 'count_users_test')")
-            # 4. Delete test commits
-            cur.execute("DELETE FROM pggit.commits WHERE commit_hash LIKE 'hash_%'")
+            # 4. Delete test commits (created with sha256 hashes from test data)
+            cur.execute("""DELETE FROM pggit.commits
+                          WHERE commit_message IN (
+                              'CREATE TABLE users', 'CREATE TABLE orders', 'ALTER TABLE users ADD email',
+                              'CREATE INDEX idx_users_email', 'ALTER TABLE orders ADD amount', 'CREATE FUNCTION count_users'
+                          )""")
 
             objects = [
                 ('users_test', 'TABLE', "CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100))"),
@@ -161,45 +169,53 @@ class Phase6RollbackFixture:
     def _create_commits_and_history(self) -> None:
         """Create commits and object history."""
         with self.conn.cursor() as cur:
+            # Generate proper 64-character hex hashes for commits
+            hash_t1 = hashlib.sha256('CREATE TABLE users T1'.encode()).hexdigest()
+            hash_t2 = hashlib.sha256('CREATE TABLE orders T2'.encode()).hexdigest()
+            hash_t3 = hashlib.sha256('ALTER TABLE users ADD email T3'.encode()).hexdigest()
+
             # T1: CREATE TABLE users_test
-            self._insert_commit(cur, 'main', 'T1', 'CREATE TABLE users', 'hash_T1')
+            self._insert_commit(cur, 'main', 'T1', 'CREATE TABLE users', hash_t1)
             self._insert_history(cur, 'users_test', 'main', 'CREATE',
-                'CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100))', 'hash_T1', 'T1')
+                'CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100))', hash_t1, 'T1')
 
             # T2: CREATE TABLE orders_test
-            self._insert_commit(cur, 'main', 'T2', 'CREATE TABLE orders', 'hash_T2')
+            self._insert_commit(cur, 'main', 'T2', 'CREATE TABLE orders', hash_t2)
             self._insert_history(cur, 'orders_test', 'main', 'CREATE',
-                'CREATE TABLE orders (id INT PRIMARY KEY, user_id INT)', 'hash_T2', 'T2')
+                'CREATE TABLE orders (id INT PRIMARY KEY, user_id INT)', hash_t2, 'T2')
 
             # T3: ALTER TABLE users_test ADD email
-            self._insert_commit(cur, 'main', 'T3', 'ALTER TABLE users ADD email', 'hash_T3')
+            self._insert_commit(cur, 'main', 'T3', 'ALTER TABLE users ADD email', hash_t3)
             self._insert_history(cur, 'users_test', 'main', 'ALTER',
                 'CREATE TABLE users (id INT, name VARCHAR(100), email VARCHAR(100))',
-                'hash_T3', 'T3',
+                hash_t3, 'T3',
                 before_def='CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100))')
 
             # T4: CREATE INDEX
             idx_def = "CREATE INDEX idx_users_email ON users(email)"
             idx_hash = hashlib.sha256(idx_def.encode()).hexdigest()
+            hash_t4 = hashlib.sha256('CREATE INDEX idx_users_email T4'.encode()).hexdigest()
             cur.execute(
                 """INSERT INTO pggit.schema_objects (object_type, schema_name, object_name,
                    current_definition, content_hash, is_active)
                    VALUES (%s, %s, %s, %s, %s, %s) RETURNING object_id""",
                 ('INDEX', 'test', 'idx_users_email_test', idx_def, idx_hash, True)
             )
-            self._insert_commit(cur, 'main', 'T4', 'CREATE INDEX idx_users_email', 'hash_T4')
+            self._insert_commit(cur, 'main', 'T4', 'CREATE INDEX idx_users_email', hash_t4)
 
             # T5: ALTER TABLE orders_test ADD amount
-            self._insert_commit(cur, 'main', 'T5', 'ALTER TABLE orders ADD amount', 'hash_T5')
+            hash_t5 = hashlib.sha256('ALTER TABLE orders ADD amount T5'.encode()).hexdigest()
+            self._insert_commit(cur, 'main', 'T5', 'ALTER TABLE orders ADD amount', hash_t5)
             self._insert_history(cur, 'orders_test', 'main', 'ALTER',
                 'CREATE TABLE orders (id INT, user_id INT, amount DECIMAL)',
-                'hash_T5', 'T5',
+                hash_t5, 'T5',
                 before_def='CREATE TABLE orders (id INT PRIMARY KEY, user_id INT)')
 
             # T6: CREATE FUNCTION count_users_test
-            self._insert_commit(cur, 'main', 'T6', 'CREATE FUNCTION count_users', 'hash_T6')
+            hash_t6 = hashlib.sha256('CREATE FUNCTION count_users T6'.encode()).hexdigest()
+            self._insert_commit(cur, 'main', 'T6', 'CREATE FUNCTION count_users', hash_t6)
             self._insert_history(cur, 'count_users_test', 'main', 'CREATE',
-                'CREATE FUNCTION count_users() RETURNS INT', 'hash_T6', 'T6')
+                'CREATE FUNCTION count_users() RETURNS INT', hash_t6, 'T6')
 
         self.conn.commit()
 
@@ -1034,23 +1050,24 @@ class TestPhase6RollbackToTimestamp:
                 )
                 cur.fetchall()
 
-    def test_rollback_to_timestamp_with_valid_params(self, db_connection):
+    def test_rollback_to_timestamp_with_valid_params(self, fixture_with_data, db_connection):
         """Test rollback_to_timestamp works with valid parameters."""
-        # Get a time 10 hours ago
-        past_time = datetime.now() - timedelta(hours=10)
+        # Use a timestamp from fixture that's after branch creation
+        # (fixture creates commits starting at 2025-12-26 10:00)
+        future_time = datetime(2025, 12, 26, 12, 0, 0)  # 2:00 PM - after all fixture commits
         with db_connection.cursor() as cur:
-            # This might not find commits, but function should handle gracefully
             cur.execute(
                 """SELECT status FROM pggit.rollback_to_timestamp(
                     p_branch_name => %s,
                     p_target_timestamp => %s,
                     p_rollback_mode => %s
                 ) LIMIT 1""",
-                ('main', past_time, 'DRY_RUN')
+                ('main', future_time, 'DRY_RUN')
             )
             result = cur.fetchone()
-            # Should return something or nothing, but not error
-            assert result is None or len(result) >= 1
+            # Should return something since fixture has valid commits
+            assert result is not None, "Should return status for valid timestamp"
+            assert result[0] in ['DRY_RUN', 'SUCCESS', 'PARTIAL_SUCCESS', 'FAILED']
 
     def test_rollback_to_timestamp_dry_run_returns_data(self, fixture_with_data, db_connection):
         """Test rollback_to_timestamp DRY_RUN returns valid data."""
