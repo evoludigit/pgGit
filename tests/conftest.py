@@ -93,29 +93,56 @@ def test_db_setup(db_connection_params):
 
 @pytest.fixture
 def db_conn(test_db_setup):
-    """Get database connection for each test"""
+    """
+    Get database connection with automatic transaction cleanup.
+
+    This fixture provides per-test isolation by using database transactions.
+    Each test starts with a transaction and automatically rolls back after the test,
+    ensuring no test data persists between tests.
+
+    Architecture:
+    - Bootstrap state is preserved (main branch, system objects)
+    - Test-specific data is automatically cleaned up
+    - No manual teardown needed
+    - Faster than delete/truncate operations
+    """
     conn_params = test_db_setup
     conn = psycopg.connect(**conn_params)
-    yield conn
-    conn.close()
+
+    # Start a transaction for this test (auto-rollback on cleanup)
+    try:
+        yield conn
+    finally:
+        # Rollback: all test data is cleaned up
+        # Bootstrap state (committed before this test) remains intact
+        conn.rollback()
+        conn.close()
 
 
 @pytest.fixture
 def db_connection(test_db_setup):
-    """Alias for db_conn to support different test styles"""
+    """Alias for db_conn - provides transaction-scoped database connection"""
     conn_params = test_db_setup
     conn = psycopg.connect(**conn_params)
-    yield conn
-    conn.close()
+
+    try:
+        yield conn
+    finally:
+        conn.rollback()
+        conn.close()
 
 
 @pytest.fixture
 def test_db(test_db_setup):
-    """Alias for db_conn to support different test styles"""
+    """Alias for db_conn - provides transaction-scoped database connection"""
     conn_params = test_db_setup
     conn = psycopg.connect(**conn_params)
-    yield conn
-    conn.close()
+
+    try:
+        yield conn
+    finally:
+        conn.rollback()
+        conn.close()
 
 
 @pytest.fixture
