@@ -25,7 +25,7 @@ from pathlib import Path
 class TestAPIEndpoints:
     """Test REST API endpoints"""
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     async def client(self):
         """Create an async HTTP client for testing"""
         from api.main import app
@@ -113,7 +113,7 @@ class TestAPIEndpoints:
 class TestCacheWarming:
     """Test cache warming strategy"""
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     async def client(self):
         """Create an async HTTP client for testing"""
         from api.main import app
@@ -193,7 +193,7 @@ class TestCacheWarming:
 class TestCacheInvalidation:
     """Test cache invalidation triggers"""
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     async def client(self):
         """Create an async HTTP client for testing"""
         from api.main import app
@@ -293,7 +293,7 @@ class TestCacheInvalidation:
 class TestWebSocketIntegration:
     """Test WebSocket real-time updates"""
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     async def client(self):
         """Create an async HTTP client for testing"""
         from api.main import app
@@ -332,7 +332,7 @@ class TestWebSocketIntegration:
 class TestEndToEndWorkflows:
     """Test complete end-to-end API workflows"""
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     async def client(self):
         """Create an async HTTP client for testing"""
         from api.main import app
@@ -438,7 +438,7 @@ class TestEndToEndWorkflows:
 class TestPerformanceUnderLoad:
     """Test API performance under simulated load"""
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     async def client(self):
         """Create an async HTTP client for testing"""
         from api.main import app
