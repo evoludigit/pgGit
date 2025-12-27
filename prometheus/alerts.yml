@@ -1,0 +1,450 @@
+"""
+Phase 8 Prometheus Alerting Rules
+==================================
+
+Monitoring and alerting configuration for Phase 8 enhancements.
+CRITICAL FIX #9: Defines SLOs and alerting thresholds.
+
+Alert Strategy:
+- API Health: Error rates, latency, availability
+- Database: Connection pool, replication lag, WAL growth
+- Cache: Hit rate, eviction rate, memory usage
+- Multi-Region: Replication lag, failover readiness
+- Business: Webhook delivery, queue depth
+
+Thresholds are production-grade based on expert review.
+"""
+
+groups:
+  - name: pggit_api_health
+    interval: 30s
+    rules:
+      # Alert if error rate > 5% for 2 minutes
+      - alert: HighErrorRate
+        expr: |
+          (sum(rate(http_requests_total{status=~"5.."}[5m]))
+           / sum(rate(http_requests_total[5m]))) * 100 > 5
+        for: 2m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "High error rate detected ({{ $value | humanizePercentage }})"
+          description: "Error rate has exceeded 5% threshold for 2 minutes"
+          runbook: "https://docs.pggit.io/runbooks/high-error-rate"
+
+      # Alert if P99 latency > 5 seconds for 2 minutes
+      - alert: HighLatencyP99
+        expr: |
+          histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])) > 5
+        for: 2m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "High P99 latency detected ({{ $value | humanize }}s)"
+          description: "P99 latency has exceeded 5 seconds for 2 minutes"
+          runbook: "https://docs.pggit.io/runbooks/high-latency"
+
+      # Alert if API is unavailable
+      - alert: APIDown
+        expr: |
+          up{job="pggit-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "API is down or unreachable"
+          description: "Pggit API has been unreachable for 1 minute"
+          runbook: "https://docs.pggit.io/runbooks/api-down"
+
+      # Alert if request rate drops significantly (possible outage)
+      - alert: RequestRateDrop
+        expr: |
+          rate(http_requests_total[5m]) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Request rate has dropped significantly"
+          description: "Request rate is below expected threshold"
+          runbook: "https://docs.pggit.io/runbooks/request-rate-drop"
+
+  - name: pggit_database_health
+    interval: 30s
+    rules:
+      # Alert if connection pool exhaustion risk (>80% utilized)
+      - alert: ConnectionPoolExhaustion
+        expr: |
+          (pg_stat_activity_active / 50) * 100 > 80
+        for: 2m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "Database connection pool {{ $value | humanize }}% utilized"
+          description: "Connection pool is >80% utilized. May cause connection timeouts."
+          runbook: "https://docs.pggit.io/runbooks/connection-pool-exhaustion"
+
+      # Alert if actual connections exceed safe limit
+      - alert: TooManyDatabaseConnections
+        expr: |
+          pg_stat_activity_active > 50
+        for: 1m
+        labels:
+          severity: critical
+          team: database
+        annotations:
+          summary: "Too many active database connections ({{ $value | humanize }})"
+          description: "Active connections exceed safe limit of 50"
+          runbook: "https://docs.pggit.io/runbooks/too-many-connections"
+
+      # Alert if replication lag > 30 seconds (multi-region)
+      - alert: ReplicationLagHigh
+        expr: |
+          pggit_replication_lag_seconds > 30
+        for: 5m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "Replication lag is {{ $value | humanize }}s (threshold: 30s)"
+          description: "Secondary regions are lagging behind primary"
+          runbook: "https://docs.pggit.io/runbooks/replication-lag"
+
+      # Alert if replication lag CRITICAL > 60 seconds
+      - alert: ReplicationLagCritical
+        expr: |
+          pggit_replication_lag_seconds > 60
+        for: 2m
+        labels:
+          severity: critical
+          team: database
+        annotations:
+          summary: "CRITICAL: Replication lag is {{ $value | humanize }}s"
+          description: "Secondary regions are significantly lagging. Failover may be unsafe."
+          runbook: "https://docs.pggit.io/runbooks/replication-lag-critical"
+
+      # Alert if WAL growth is too high (replication lag?)
+      - alert: WALGrowth
+        expr: |
+          rate(pggit_wal_bytes[5m]) > 1000000
+        for: 10m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "High WAL growth rate ({{ $value | humanize }}B/s)"
+          description: "WAL is growing rapidly. Check replication health."
+          runbook: "https://docs.pggit.io/runbooks/high-wal-growth"
+
+      # Alert if database query is slow (> 10 seconds)
+      - alert: SlowQuery
+        expr: |
+          pg_slow_queries > 0
+        for: 5m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "Slow queries detected (count: {{ $value | humanize }})"
+          description: "Queries exceeding 10 second threshold detected"
+          runbook: "https://docs.pggit.io/runbooks/slow-queries"
+
+      # Alert on replication conflicts
+      - alert: ReplicationConflict
+        expr: |
+          pggit_replication_conflicts_unresolved > 0
+        for: 5m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "Unresolved replication conflicts (count: {{ $value | humanize }})"
+          description: "Data conflicts detected in multi-region replication"
+          runbook: "https://docs.pggit.io/runbooks/replication-conflict"
+
+  - name: pggit_cache_health
+    interval: 30s
+    rules:
+      # Alert if cache hit rate drops below 60%
+      - alert: LowCacheHitRate
+        expr: |
+          pggit_cache_hits / (pggit_cache_hits + pggit_cache_misses) < 0.6
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Low cache hit rate ({{ $value | humanizePercentage }})"
+          description: "Cache effectiveness is degraded. Performance may suffer."
+          runbook: "https://docs.pggit.io/runbooks/low-cache-hit-rate"
+
+      # Alert if cache memory usage > 90%
+      - alert: CacheMemoryHigh
+        expr: |
+          (pggit_cache_memory_bytes / 104857600) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Cache memory usage at {{ $value | humanize }}%"
+          description: "Cache is nearing memory limit. LRU eviction may impact performance."
+          runbook: "https://docs.pggit.io/runbooks/cache-memory-high"
+
+      # Alert if cache eviction rate is high (thrashing)
+      - alert: CacheThrashing
+        expr: |
+          rate(pggit_cache_evictions[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "High cache eviction rate ({{ $value | humanize }}/s)"
+          description: "Cache is evicting items too frequently (thrashing)"
+          runbook: "https://docs.pggit.io/runbooks/cache-thrashing"
+
+      # Alert if Redis is down (distributed cache unavailable)
+      - alert: RedisCacheDown
+        expr: |
+          up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "Redis cache is unreachable"
+          description: "Distributed cache is unavailable. Falling back to in-memory only."
+          runbook: "https://docs.pggit.io/runbooks/redis-down"
+
+  - name: pggit_webhook_delivery
+    interval: 30s
+    rules:
+      # Alert if webhook delivery failure rate > 10%
+      - alert: WebhookDeliveryFailures
+        expr: |
+          (sum(rate(webhook_delivery_failures[5m]))
+           / sum(rate(webhook_deliveries[5m]))) * 100 > 10
+        for: 5m
+        labels:
+          severity: critical
+          team: webhooks
+        annotations:
+          summary: "High webhook delivery failure rate ({{ $value | humanizePercentage }})"
+          description: "Webhook delivery failure rate exceeds 10% threshold"
+          runbook: "https://docs.pggit.io/runbooks/webhook-failures"
+
+      # Alert if queue is growing (delivery backlog)
+      - alert: WebhookQueueBacklog
+        expr: |
+          pggit_alert_delivery_queue_depth > 1000
+        for: 5m
+        labels:
+          severity: warning
+          team: webhooks
+        annotations:
+          summary: "Webhook delivery queue has {{ $value | humanize }} pending items"
+          description: "Queue backlog is growing. Delivery may be delayed."
+          runbook: "https://docs.pggit.io/runbooks/webhook-queue-backlog"
+
+      # Alert if webhook queue is not being processed
+      - alert: WebhookQueueStalled
+        expr: |
+          rate(webhook_deliveries[5m]) == 0 and pggit_alert_delivery_queue_depth > 0
+        for: 2m
+        labels:
+          severity: critical
+          team: webhooks
+        annotations:
+          summary: "Webhook delivery queue is stalled"
+          description: "No deliveries in last 5 minutes but queue has pending items"
+          runbook: "https://docs.pggit.io/runbooks/webhook-queue-stalled"
+
+      # Alert if webhook health degrades
+      - alert: DegradedWebhook
+        expr: |
+          pggit_webhook_health_status == 0
+        for: 5m
+        labels:
+          severity: warning
+          team: webhooks
+        annotations:
+          summary: "Webhook {{ $labels.webhook_id }} is degraded"
+          description: "Webhook has consecutive failures or poor health metrics"
+          runbook: "https://docs.pggit.io/runbooks/degraded-webhook"
+
+  - name: pggit_performance
+    interval: 30s
+    rules:
+      # Alert if P95 latency > 1 second
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "High P95 latency ({{ $value | humanize }}s)"
+          description: "P95 latency exceeds 1 second threshold"
+          runbook: "https://docs.pggit.io/runbooks/high-latency"
+
+      # Alert on performance degradation (compared to baseline)
+      - alert: PerformanceDegradation
+        expr: |
+          pggit_performance_degradation_percent > 20
+        for: 10m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Performance degradation detected ({{ $value | humanize }}%)"
+          description: "Current performance is {{ $value | humanize }}% slower than baseline"
+          runbook: "https://docs.pggit.io/runbooks/performance-degradation"
+
+      # Alert if operation has anomalous behavior
+      - alert: AnomalyDetected
+        expr: |
+          pggit_anomaly_severity >= 2
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Anomaly detected in {{ $labels.operation_type }}"
+          description: "Statistical anomaly detected. Investigate potential issues."
+          runbook: "https://docs.pggit.io/runbooks/anomaly-detected"
+
+  - name: pggit_infrastructure
+    interval: 30s
+    rules:
+      # Alert if memory usage is high
+      - alert: HighMemoryUsage
+        expr: |
+          (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High memory usage ({{ $value | humanizePercentage }})"
+          description: "System memory usage exceeds 85% threshold"
+          runbook: "https://docs.pggit.io/runbooks/high-memory"
+
+      # Alert if CPU usage is sustained high
+      - alert: HighCPUUsage
+        expr: |
+          rate(node_cpu_seconds_total{mode="system"}[5m]) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High sustained CPU usage ({{ $value | humanizePercentage }})"
+          description: "CPU usage exceeds 80% for over 10 minutes"
+          runbook: "https://docs.pggit.io/runbooks/high-cpu"
+
+      # Alert if disk usage is critical
+      - alert: DiskSpaceCritical
+        expr: |
+          (node_filesystem_size_bytes{mountpoint="/"} - node_filesystem_avail_bytes{mountpoint="/"})
+           / node_filesystem_size_bytes{mountpoint="/"} > 0.90
+        for: 5m
+        labels:
+          severity: critical
+          team: infrastructure
+        annotations:
+          summary: "Disk space critical ({{ $value | humanizePercentage }} used)"
+          description: "Root filesystem is >90% full. Risk of service disruption."
+          runbook: "https://docs.pggit.io/runbooks/disk-space-critical"
+
+      # Alert if network errors increase
+      - alert: NetworkErrors
+        expr: |
+          rate(node_network_transmit_errs_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "Network transmission errors detected"
+          description: "Network error rate is elevated"
+          runbook: "https://docs.pggit.io/runbooks/network-errors"
+
+  - name: pggit_multiregion
+    interval: 30s
+    rules:
+      # Alert if secondary region is offline
+      - alert: SecondaryRegionDown
+        expr: |
+          up{job="pggit-api", region!="us-east"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: infrastructure
+        annotations:
+          summary: "Secondary region {{ $labels.region }} is down"
+          description: "API in {{ $labels.region }} is unreachable. Failover unavailable."
+          runbook: "https://docs.pggit.io/runbooks/region-down"
+
+      # Alert if cross-region latency is high
+      - alert: HighCrossRegionLatency
+        expr: |
+          pggit_cross_region_latency_ms > 200
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High cross-region latency ({{ $value | humanize }}ms)"
+          description: "Network latency between regions exceeds 200ms"
+          runbook: "https://docs.pggit.io/runbooks/cross-region-latency"
+
+      # Alert if geo-router is not functioning
+      - alert: GeoRouterDown
+        expr: |
+          up{job="geo-router"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: infrastructure
+        annotations:
+          summary: "Geo-router is down"
+          description: "Geographic routing service is unavailable"
+          runbook: "https://docs.pggit.io/runbooks/geo-router-down"
+
+  - name: pggit_slo_compliance
+    interval: 1m
+    rules:
+      # Alert if error budget is at risk (SLO: 99.9% = 43.2 min/month downtime)
+      - alert: SLOErrorBudgetAtRisk
+        expr: |
+          (1 - sum(rate(http_requests_total{status=~"5.."}[5m]))
+           / sum(rate(http_requests_total[5m]))) < 0.999
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+          slo: error_budget
+        annotations:
+          summary: "Error rate SLO at risk ({{ $value | humanizePercentage }})"
+          description: "Error rate exceeds SLO threshold of 99.9% availability"
+          runbook: "https://docs.pggit.io/runbooks/slo-error-budget"
+
+      # Alert if latency SLO is breached (P99 < 500ms)
+      - alert: SLOLatencyBreach
+        expr: |
+          histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+          slo: latency
+        annotations:
+          summary: "Latency SLO breach (P99 {{ $value | humanize }}s, threshold: 500ms)"
+          description: "P99 latency exceeds SLO target of 500ms"
+          runbook: "https://docs.pggit.io/runbooks/slo-latency"
