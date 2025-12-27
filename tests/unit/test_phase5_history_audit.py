@@ -71,8 +71,44 @@ class Phase5HistoryFixture:
             pass
 
     def teardown(self):
-        """Clean up all fixture data"""
-        self._cleanup()
+        """Clean up fixture-created data while preserving bootstrap state"""
+        try:
+            with self.conn.cursor() as cur:
+                # Only delete data created by THIS fixture (feature branches and their commits)
+                # Keep 'main' branch and all bootstrap objects
+
+                # Delete using our tracked branch IDs to ensure we get the right data
+                feature_branch_ids = []
+                if 'feature-a' in self.branch_ids:
+                    feature_branch_ids.append(self.branch_ids['feature-a'])
+                if 'feature-b' in self.branch_ids:
+                    feature_branch_ids.append(self.branch_ids['feature-b'])
+
+                if feature_branch_ids:
+                    # Delete commits on feature branches we created
+                    placeholders = ','.join(['%s'] * len(feature_branch_ids))
+                    cur.execute(f"DELETE FROM pggit.commits WHERE branch_id IN ({placeholders})", feature_branch_ids)
+
+                # Delete object_history for our test objects
+                if self.object_ids:
+                    obj_ids_tuple = tuple(self.object_ids.values())
+                    placeholders = ','.join(['%s'] * len(obj_ids_tuple))
+                    cur.execute(
+                        f"DELETE FROM pggit.object_history WHERE object_id IN ({placeholders})",
+                        obj_ids_tuple
+                    )
+                    # Delete our test schema objects
+                    cur.execute(
+                        f"DELETE FROM pggit.schema_objects WHERE object_id IN ({placeholders})",
+                        obj_ids_tuple
+                    )
+
+                # Delete feature branches (keep main)
+                cur.execute("DELETE FROM pggit.branches WHERE branch_name IN ('feature-a', 'feature-b')")
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            pass
 
     def _create_branches(self):
         """Create branch hierarchy"""

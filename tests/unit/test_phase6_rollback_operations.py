@@ -89,6 +89,18 @@ class Phase6RollbackFixture:
     def _create_branches(self) -> None:
         """Create branch hierarchy."""
         with self.conn.cursor() as cur:
+            # First, clean up ANY leftover test data from other fixtures
+            # Delete in correct FK order: children first, then parents
+            cur.execute("DELETE FROM pggit.object_dependencies WHERE dependent_object_id NOT IN (SELECT object_id FROM pggit.schema_objects WHERE schema_name = 'pggit')")
+            cur.execute("DELETE FROM pggit.object_dependencies WHERE depends_on_object_id NOT IN (SELECT object_id FROM pggit.schema_objects WHERE schema_name = 'pggit')")
+            cur.execute("DELETE FROM pggit.object_history WHERE object_id NOT IN (SELECT object_id FROM pggit.schema_objects WHERE schema_name = 'pggit')")
+            # Delete all non-system objects
+            cur.execute("DELETE FROM pggit.schema_objects WHERE schema_name != 'pggit'")
+            # Delete all commits on feature branches
+            cur.execute("DELETE FROM pggit.commits WHERE branch_id NOT IN (SELECT branch_id FROM pggit.branches WHERE branch_name = 'main')")
+            # Delete all feature branches
+            cur.execute("DELETE FROM pggit.branches WHERE branch_name NOT IN ('main')")
+            self.conn.commit()
             # Get/create main branch
             cur.execute(
                 "SELECT branch_id FROM pggit.branches WHERE branch_name = 'main'"
@@ -106,7 +118,16 @@ class Phase6RollbackFixture:
 
             # Create feature branches
             for branch_name, parent_time in [('feature-a', 'T7'), ('feature-b', 'T8')]:
-                cur.execute("DELETE FROM pggit.branches WHERE branch_name = %s", (branch_name,))
+                # Clean up existing branches with same name (delete FKs first)
+                cur.execute("SELECT branch_id FROM pggit.branches WHERE branch_name = %s", (branch_name,))
+                existing = cur.fetchone()
+                if existing:
+                    existing_id = existing[0]
+                    # Delete dependent records in order
+                    cur.execute("DELETE FROM pggit.object_history WHERE commit_hash IN (SELECT commit_hash FROM pggit.commits WHERE branch_id = %s)", (existing_id,))
+                    cur.execute("DELETE FROM pggit.commits WHERE branch_id = %s", (existing_id,))
+                    cur.execute("DELETE FROM pggit.branches WHERE branch_id = %s", (existing_id,))
+
                 cur.execute(
                     """INSERT INTO pggit.branches (branch_name, parent_branch_id, created_at,
                        created_by, status) VALUES (%s, %s, %s, %s, %s) RETURNING branch_id""",
