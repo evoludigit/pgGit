@@ -1,0 +1,147 @@
+# ============================================================================
+# docker-compose.yml: Local Development Environment
+# ============================================================================
+# Purpose: Complete local development setup for Phase 8 Week 2
+# Services:
+#   - PostgreSQL: Database with pggit schema
+#   - webhook-worker-1, webhook-worker-2: Multiple webhook delivery workers
+# Features:
+#   - Volume mounts for code hot-reload
+#   - Network isolation with pggit-network
+#   - Prometheus metrics on port 8000-8002
+#   - PostgreSQL on port 5432
+# ============================================================================
+
+version: '3.9'
+
+services:
+  # ============================================================================
+  # PostgreSQL Database
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: pggit-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: pggit
+    ports:
+      - "5432:5432"
+    volumes:
+      # Mount SQL schema files for initialization
+      - ./sql/v1.0.0:/docker-entrypoint-initdb.d
+      # Persistent data directory
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - pggit-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command:
+      - "postgres"
+      - "-c"
+      - "log_statement=all"
+      - "-c"
+      - "log_duration=on"
+    labels:
+      - "service=pggit-postgres"
+
+  # ============================================================================
+  # Webhook Worker 1
+  # ============================================================================
+  webhook-worker-1:
+    build:
+      context: ./services
+      dockerfile: Dockerfile
+    container_name: pggit-worker-1
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/pggit
+      WORKER_ID: worker-1
+      BATCH_SIZE: 10
+      POLL_INTERVAL: 1.0
+      HTTP_TIMEOUT: 5.0
+      LOG_LEVEL: info
+    ports:
+      - "8000:8000"  # Prometheus metrics
+    volumes:
+      # Mount source code for hot-reload during development
+      - ./services/webhook_worker.py:/app/webhook_worker.py:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pggit-network
+    restart: unless-stopped
+    labels:
+      - "service=pggit-webhook-worker"
+      - "worker_id=worker-1"
+
+  # ============================================================================
+  # Webhook Worker 2 (for testing concurrent processing)
+  # ============================================================================
+  webhook-worker-2:
+    build:
+      context: ./services
+      dockerfile: Dockerfile
+    container_name: pggit-worker-2
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/pggit
+      WORKER_ID: worker-2
+      BATCH_SIZE: 10
+      POLL_INTERVAL: 1.0
+      HTTP_TIMEOUT: 5.0
+      LOG_LEVEL: info
+    ports:
+      - "8001:8000"  # Prometheus metrics (mapped to different host port)
+    volumes:
+      - ./services/webhook_worker.py:/app/webhook_worker.py:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pggit-network
+    restart: unless-stopped
+    labels:
+      - "service=pggit-webhook-worker"
+      - "worker_id=worker-2"
+
+  # ============================================================================
+  # Webhook Worker 3 (optional: for testing with 3 workers)
+  # ============================================================================
+  webhook-worker-3:
+    build:
+      context: ./services
+      dockerfile: Dockerfile
+    container_name: pggit-worker-3
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/pggit
+      WORKER_ID: worker-3
+      BATCH_SIZE: 10
+      POLL_INTERVAL: 1.0
+      HTTP_TIMEOUT: 5.0
+      LOG_LEVEL: info
+    ports:
+      - "8002:8000"  # Prometheus metrics
+    volumes:
+      - ./services/webhook_worker.py:/app/webhook_worker.py:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pggit-network
+    restart: unless-stopped
+    labels:
+      - "service=pggit-webhook-worker"
+      - "worker_id=worker-3"
+
+networks:
+  pggit-network:
+    driver: bridge
+    name: pggit-network
+
+volumes:
+  postgres_data:
+    driver: local
+    name: pggit-postgres-data
