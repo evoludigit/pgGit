@@ -257,7 +257,13 @@ class TestGetObjectByName:
 
     def test_find_existing_object(self, execute_sql):
         """Test finding an object that exists"""
-        # schema_objects table was registered during bootstrap
+        # Ensure test data exists (schema_objects table from bootstrap)
+        execute_sql("""
+            INSERT INTO pggit.schema_objects (object_type, schema_name, object_name, current_definition, content_hash, version_major, version_minor, version_patch, is_active, created_at, last_modified_at)
+            VALUES ('TABLE', 'pggit', 'schema_objects', 'Core table', pggit.generate_sha256('pggit.schema_objects'), 1, 0, 0, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ON CONFLICT DO NOTHING
+        """)
+
         result = execute_sql(
             "SELECT pggit.get_object_by_name('TABLE', 'pggit', 'schema_objects')"
         )

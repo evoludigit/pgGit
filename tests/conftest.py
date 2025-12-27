@@ -146,6 +146,7 @@ def execute_sql(db_conn):
 def clear_tables(db_conn):
     """Helper to clear test tables between tests"""
     def _clear():
+        # Clear test-created data while preserving system bootstrap state
         tables = [
             "pggit.rollback_validations",
             "pggit.rollback_operations",
@@ -154,9 +155,10 @@ def clear_tables(db_conn):
             "pggit.object_dependencies",
             "pggit.data_tables",
             "pggit.commits",
-            "pggit.branches",
-            "pggit.schema_objects",
-            "pggit.configuration",
+            # Note: Preserve branches and configuration tables for system state
+            # "pggit.branches",
+            # "pggit.schema_objects",
+            # "pggit.configuration",
         ]
         with db_conn.cursor() as cur:
             for table in tables:
@@ -164,5 +166,17 @@ def clear_tables(db_conn):
                     cur.execute(f"TRUNCATE TABLE {table} CASCADE")
                 except:
                     pass
+
+            # Explicitly clear test-created data (preserve bootstrap state)
+            try:
+                cur.execute("DELETE FROM pggit.object_dependencies")
+                # Only delete schema_objects for non-pggit schemas
+                cur.execute("DELETE FROM pggit.schema_objects WHERE schema_name != 'pggit'")
+                # Keep initial system commit, delete test commits
+                cur.execute("DELETE FROM pggit.commits WHERE commit_message NOT LIKE 'Initial commit%'")
+                # Keep main branch, delete feature branches
+                cur.execute("DELETE FROM pggit.branches WHERE branch_name != 'main'")
+            except:
+                pass
         db_conn.commit()
     return _clear

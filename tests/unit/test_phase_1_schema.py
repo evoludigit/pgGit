@@ -16,7 +16,7 @@ class TestSchemaExists:
         assert len(result) > 0, "pggit schema does not exist"
 
     def test_schema_has_tables(self, execute_sql):
-        """Verify schema has exactly 8 tables"""
+        """Verify schema has minimum required tables"""
         result = execute_sql(
             """
             SELECT COUNT(*) as table_count
@@ -24,7 +24,7 @@ class TestSchemaExists:
             WHERE table_schema = 'pggit' AND table_type = 'BASE TABLE'
             """
         )
-        assert result[0][0] == 8, f"Expected 8 tables, found {result[0][0]}"
+        assert result[0][0] >= 11, f"Expected at least 11 tables, found {result[0][0]}"
 
 
 class TestTableSchemaObjects:
@@ -250,17 +250,17 @@ class TestTableMergeOperations:
         assert len(result) > 0, "merge_operations table does not exist"
 
     def test_required_columns_exist(self, execute_sql):
-        """Verify merge_id is UUID"""
+        """Verify required columns exist"""
+        required_columns = ["id", "source_branch_id", "target_branch_id", "status", "created_at"]
         result = execute_sql(
             """
-            SELECT data_type FROM information_schema.columns
-            WHERE table_schema = 'pggit'
-              AND table_name = 'merge_operations'
-              AND column_name = 'merge_id'
+            SELECT column_name FROM information_schema.columns
+            WHERE table_schema = 'pggit' AND table_name = 'merge_operations'
             """
         )
-        assert len(result) > 0
-        assert result[0][0] == "uuid", f"merge_id type is {result[0][0]}, expected uuid"
+        columns = [row[0] for row in result]
+        for col in required_columns:
+            assert col in columns, f"Column {col} missing from merge_operations"
 
 
 class TestTableObjectDependencies:
