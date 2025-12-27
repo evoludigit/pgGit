@@ -1,222 +1,365 @@
-# pgGit v0.0.1 - Quick Start Guide
+# Phase 8 Week 2 Quick Start Guide
 
-## Repository Setup (First Time)
+## 5-Minute Setup
+
+### Prerequisites
 
 ```bash
-cd /home/lionel/code/pggit
+# Check Python version
+python3.10 --version  # Should be 3.10+
 
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install dependencies
-pip install -e ".[dev]"
-
-# Verify installation
-python -c "import psycopg; print('psycopg installed')"
+# Check PostgreSQL is running
+pg_isready
 ```
 
-## Database Setup
+### Installation
 
 ```bash
-# Create test database
-createdb pggit_test
+# 1. Install dependencies
+uv pip install -e ".[dev]"
 
-# Initialize schema (from repo root)
-cd /home/lionel/code/pggit
-psql -d pggit_test -f sql/v1.0.0/phase_1_schema.sql
-psql -d pggit_test -f sql/v1.0.0/phase_1_utilities.sql
-psql -d pggit_test -f sql/v1.0.0/phase_1_triggers.sql
-psql -d pggit_test -f sql/v1.0.0/phase_1_bootstrap.sql
+# 2. Create database
+createdb pggit
 
-# Verify (should show 8 tables)
-psql -d pggit_test -c "\dt pggit.*"
+# 3. Initialize schema
+psql pggit < schema.sql
+
+# 4. Start API server
+python -m uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Verify It Works
+
+```bash
+# In another terminal
+curl http://localhost:8000/health
+
+# Should respond with:
+# {"status":"healthy","timestamp":"2024-01-15T10:30:00Z"}
+```
+
+## Common Tasks
+
+### View API Documentation
+
+Open your browser:
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+
+### Test Webhook Management
+
+```bash
+# List webhooks
+curl http://localhost:8000/api/v1/webhooks
+
+# Create a webhook
+curl -X POST http://localhost:8000/api/v1/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-webhook",
+    "url": "https://example.com/webhook",
+    "is_active": true
+  }'
+
+# Update a webhook
+curl -X PUT http://localhost:8000/api/v1/webhooks/1 \
+  -H "Content-Type: application/json" \
+  -d '{"is_active": false}'
+
+# Delete a webhook
+curl -X DELETE http://localhost:8000/api/v1/webhooks/1
+```
+
+### Test Alert Management
+
+```bash
+# List alerts
+curl http://localhost:8000/api/v1/alerts
+
+# Get alert details
+curl http://localhost:8000/api/v1/alerts/1
+
+# Acknowledge alerts
+curl -X POST http://localhost:8000/api/v1/alerts/acknowledge \
+  -H "Content-Type: application/json" \
+  -d '{"alert_ids": [1, 2, 3]}'
+```
+
+### View Cache Statistics
+
+```bash
+# Get cache stats
+curl http://localhost:8000/api/v1/cache/stats
+
+# Response includes:
+# - hit_rate: percentage of cache hits
+# - cache_hits: total successful cache hits
+# - cache_misses: total cache misses
+# - current_size_bytes: current cache size
+```
+
+### Warm Cache
+
+```bash
+# Manually warm cache
+curl -X POST http://localhost:8000/api/v1/cache/warm
+
+# Response includes:
+# - status: "success"
+# - warmed_entries: number of entries loaded
+# - duration_ms: time taken
+```
+
+### Check Deep Health
+
+```bash
+# Get comprehensive health status
+curl http://localhost:8000/health/deep
+
+# Response includes database, cache, and webhook health
 ```
 
 ## Running Tests
 
+### Run All Tests
+
 ```bash
-# Run all tests
-pytest tests/ -v
+pytest tests/
+```
 
-# Run only schema tests
-pytest tests/unit/test_phase_1_schema.py -v
+### Run Specific Test Suite
 
-# Run only utility tests
-pytest tests/unit/test_phase_1_utilities.py -v
+```bash
+# Integration tests only
+pytest tests/integration/test_phase8_week2_api.py
 
-# With coverage report
-pytest tests/ -v --cov --cov-report=html
+# Run with verbose output
+pytest tests/integration/ -v
 
-# View coverage
-open htmlcov/index.html
+# Run with coverage
+pytest tests/ --cov=api --cov-report=html
+```
+
+### Run Performance Tests
+
+```bash
+# Load testing (requires locust)
+locust -f tests/load/locustfile.py --headless -u 10 -r 1 --run-time 1m
+
+# Performance analysis
+python tests/performance/profile_and_optimize.py results/load_test_stats.csv
+```
+
+## Environment Configuration
+
+Create `.env` file in project root:
+
+```bash
+# API Configuration
+API_HOST=0.0.0.0
+API_PORT=8000
+API_WORKERS=4
+API_LOG_LEVEL=INFO
+
+# Database Configuration
+DATABASE_URL=postgresql://user:password@localhost:5432/pggit
+DATABASE_POOL_SIZE=20
+
+# Cache Configuration
+CACHE_ENABLED=true
+CACHE_TTL_WEBHOOK_LIST=120
+CACHE_TTL_ALERTS_LIST=120
+
+# Security
+SECRET_KEY=your-secret-key-here
+DEBUG=false
+```
+
+## Troubleshooting
+
+### API Won't Start
+
+```bash
+# Check if port is in use
+lsof -i :8000
+
+# Kill the process using port 8000
+kill -9 <PID>
+
+# Try starting again
+python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
+
+### Database Connection Error
+
+```bash
+# Verify PostgreSQL is running
+pg_isready
+
+# Start PostgreSQL if needed
+sudo systemctl start postgresql
+
+# Verify database exists
+psql -l | grep pggit
+
+# Check connection string in .env
+echo $DATABASE_URL
+```
+
+### Import Error: No Module Named 'api'
+
+```bash
+# Ensure you're in the project root
+pwd  # Should be /home/lionel/code/pggit
+
+# Reinstall package in development mode
+uv pip install -e ".[dev]"
+```
+
+### Tests Fail with ModuleNotFoundError
+
+```bash
+# Reinstall development dependencies
+uv pip install -e ".[dev]"
+
+# Make sure pytest can find modules
+export PYTHONPATH=$(pwd):$PYTHONPATH
+
+# Run tests again
+pytest tests/
 ```
 
 ## Project Structure
 
 ```
 pggit/
-├── sql/v1.0.0/              ← Database schemas
-│   ├── phase_1_schema.sql
-│   ├── phase_1_utilities.sql
-│   ├── phase_1_triggers.sql
-│   └── phase_1_bootstrap.sql
-├── tests/                    ← Test code
-│   ├── conftest.py          ← Test fixtures
-│   └── unit/
-│       ├── test_phase_1_schema.py
-│       └── test_phase_1_utilities.py
-├── src/                      ← Python source (for future phases)
-├── README.md                 ← Full documentation
-├── PHASE_1_SUMMARY.md        ← Detailed completion summary
-└── pyproject.toml            ← Python configuration
+├── api/                          # FastAPI application
+│   ├── main.py                  # API entry point
+│   ├── endpoints/               # REST endpoints
+│   ├── schemas/                 # Pydantic models
+│   └── cache.py                 # Cache management
+├── tests/
+│   ├── integration/             # Integration tests
+│   ├── load/                    # Load testing
+│   └── performance/             # Performance analysis
+├── sql/                         # Database schema
+├── API.md                       # API documentation
+├── DEPLOYMENT.md                # Deployment guide
+├── OPERATIONS.md                # Operations guide
+├── QUICKSTART.md                # This file
+├── pyproject.toml               # Project configuration
+└── README.md                    # Project overview
 ```
+
+## Key Files to Know
+
+| File | Purpose |
+|------|---------|
+| `API.md` | Complete API endpoint documentation |
+| `DEPLOYMENT.md` | Production deployment instructions |
+| `OPERATIONS.md` | Daily operations and troubleshooting |
+| `api/main.py` | FastAPI application entry point |
+| `tests/integration/test_phase8_week2_api.py` | Integration test suite |
 
 ## Common Commands
 
 ```bash
-# Check git status
-git status
+# Start development server
+python -m uvicorn api.main:app --reload
 
-# View recent commits
-git log --oneline -10
+# Run tests
+pytest tests/ -v
 
-# Make a change and commit
-git add .
-git commit -m "feat(phase-1): Your description"
+# Run linting
+ruff check .
 
-# View specific file
-cat sql/v1.0.0/phase_1_schema.sql
+# Format code
+ruff format .
 
-# Query database
-psql -d pggit_test -c "SELECT * FROM pggit.branches;"
+# Check database connectivity
+psql $DATABASE_URL -c "SELECT 1;"
+
+# Warm cache
+curl -X POST http://localhost:8000/api/v1/cache/warm
+
+# View cache stats
+curl http://localhost:8000/api/v1/cache/stats | jq '.hit_rate'
+
+# Check health
+curl http://localhost:8000/health | jq '.status'
 ```
-
-## Database Queries
-
-```bash
-# Connect to test database
-psql -d pggit_test
-
-# Inside psql:
--- Check all tables exist
-\dt pggit.*
-
--- Check all functions
-\df pggit.*
-
--- Check main branch
-SELECT * FROM pggit.branches WHERE branch_name = 'main';
-
--- Check configuration
-SELECT * FROM pggit.configuration;
-
--- Check commits
-SELECT * FROM pggit.commits;
-
--- Exit
-\q
-```
-
-## Phase 1 Components
-
-### Tables (8)
-- `schema_objects` - Track objects with versioning
-- `commits` - Git-like history
-- `branches` - Development branches
-- `object_history` - Audit trail
-- `merge_operations` - Merge tracking
-- `object_dependencies` - Dependency graph
-- `data_tables` - Copy-on-write
-- `configuration` - System config
-
-### Functions (10+)
-- `generate_sha256()` - Hashing
-- `get_current_branch()` - Current branch
-- `validate_identifier()` - Identifier validation
-- `raise_pggit_error()` - Error handling
-- `set_current_branch()` - Branch switching
-- `get_current_schema_hash()` - Schema hash
-- `normalize_sql()` - SQL normalization
-- `get_object_by_name()` - Object lookup
-- `get_commit_by_hash()` - Commit lookup
-- `get_branch_by_name()` - Branch lookup
-
-### Triggers (1)
-- `pggit_ddl_capture` - Auto-capture DDL
-
-## Environment Variables
-
-```bash
-export PGHOST=localhost
-export PGPORT=5432
-export PGUSER=postgres
-export PGPASSWORD=password
-export PGDATABASE=pggit_test
-```
-
-## Testing Checklist
-
-- [ ] Database created
-- [ ] All 4 SQL files executed
-- [ ] All 8 tables present
-- [ ] All 10+ functions work
-- [ ] Main branch initialized
-- [ ] Tests run without errors
-- [ ] All 90+ tests pass
-- [ ] Coverage > 85%
-
-## Documentation
-
-- `README.md` - Complete project documentation
-- `PHASE_1_SUMMARY.md` - Phase 1 completion details
-- `/tmp/pggit-api-spec/` - Complete specification
 
 ## Next Steps
 
-1. Run full test suite: `pytest tests/ -v`
-2. Fix any failures
-3. Plan Phase 2 (branch management functions)
-4. Read Phase 2 spec in `/tmp/pggit-api-spec/IMPLEMENTATION_ROADMAP.md`
+1. **Read API Documentation**: See `API.md` for complete endpoint reference
+2. **Review Integration Tests**: Check `tests/integration/` for usage examples
+3. **Deploy to Production**: Follow `DEPLOYMENT.md` for production setup
+4. **Monitor Performance**: Use `OPERATIONS.md` for monitoring guidance
 
-## Troubleshooting
+## Getting Help
 
-**Database connection error:**
+- **API Questions**: See `API.md` → Troubleshooting section
+- **Deployment Issues**: See `DEPLOYMENT.md` → Troubleshooting section
+- **Operations**: See `OPERATIONS.md` → Troubleshooting section
+- **Code Issues**: Check integration tests in `tests/integration/`
+
+## Support Resources
+
+- **FastAPI Docs**: https://fastapi.tiangolo.com/
+- **PostgreSQL Docs**: https://www.postgresql.org/docs/
+- **Uvicorn Docs**: https://www.uvicorn.org/
+- **Pytest Docs**: https://docs.pytest.org/
+
+## Quick Reference: Common API Endpoints
+
+### Webhooks
+- `GET /api/v1/webhooks` - List all webhooks
+- `POST /api/v1/webhooks` - Create new webhook
+- `GET /api/v1/webhooks/{id}` - Get webhook details
+- `PUT /api/v1/webhooks/{id}` - Update webhook
+- `DELETE /api/v1/webhooks/{id}` - Delete webhook
+
+### Alerts
+- `GET /api/v1/alerts` - List alerts
+- `GET /api/v1/alerts/{id}` - Get alert details
+- `POST /api/v1/alerts/acknowledge` - Acknowledge alerts
+
+### Cache
+- `GET /api/v1/cache/stats` - View cache statistics
+- `POST /api/v1/cache/warm` - Warm the cache
+- `POST /api/v1/cache/invalidate` - Clear cache entries
+
+### Health
+- `GET /health` - Basic health check
+- `GET /health/deep` - Deep health check with details
+
+### Documentation
+- `GET /docs` - Swagger UI (interactive)
+- `GET /redoc` - ReDoc (alternative format)
+- `GET /openapi.json` - OpenAPI schema
+
+## Example Workflow
+
 ```bash
-# Check PostgreSQL is running
-psql --version
+# 1. Verify API is running
+curl http://localhost:8000/health
 
-# Check connection
-psql -h localhost -U postgres -d postgres -c "SELECT 1"
+# 2. Create a test webhook
+WEBHOOK=$(curl -X POST http://localhost:8000/api/v1/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{"name":"test","url":"https://example.com/webhook"}' | jq '.id')
+
+# 3. List webhooks to confirm
+curl http://localhost:8000/api/v1/webhooks | jq '.items'
+
+# 4. Check cache is working
+curl http://localhost:8000/api/v1/cache/stats | jq '.hit_rate'
+
+# 5. Update webhook
+curl -X PUT http://localhost:8000/api/v1/webhooks/$WEBHOOK \
+  -H "Content-Type: application/json" \
+  -d '{"description":"Updated test webhook"}'
+
+# 6. Clean up - delete webhook
+curl -X DELETE http://localhost:8000/api/v1/webhooks/$WEBHOOK
 ```
-
-**Tests failing:**
-```bash
-# Check test database exists
-psql -l | grep pggit_test
-
-# Recreate if needed
-dropdb pggit_test
-createdb pggit_test
-pytest tests/ -v
-```
-
-**Import errors:**
-```bash
-# Reinstall dependencies
-pip install -e ".[dev]" --force-reinstall
-```
-
-## Quick Links
-
-- Schema design: `/tmp/pggit-api-spec/SCHEMA_DESIGN.md`
-- Function specs: `/tmp/pggit-api-spec/API_SPECIFICATION.md`
-- Roadmap: `/tmp/pggit-api-spec/IMPLEMENTATION_ROADMAP.md`
-- This repo: `/home/lionel/code/pggit`
-- Old backup: `/home/lionel/code/pggit.v0.1.1.bk`
-
----
-
-**Status**: ✅ Phase 1 Complete
-**Version**: 0.0.1
-**Last Updated**: 2025-12-24
