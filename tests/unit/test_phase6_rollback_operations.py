@@ -273,14 +273,8 @@ class Phase6RollbackFixture:
 # FIXTURES FOR PYTEST
 # ===========================================
 
-@pytest.fixture
-def db_connection():
-    """Provide database connection for tests."""
-    conn = psycopg.connect("dbname=pggit_test")
-    try:
-        yield conn
-    finally:
-        conn.close()
+# Note: db_connection fixture is provided by conftest.py
+# This fixture inherits from test_db_setup which initializes the schema
 
 
 @pytest.fixture
