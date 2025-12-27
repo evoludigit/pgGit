@@ -24,7 +24,10 @@ from collections import OrderedDict
 from datetime import datetime, timedelta
 import hashlib
 
-import aioredis
+try:
+    from redis import asyncio as aioredis
+except ImportError:
+    aioredis = None
 from functools import wraps
 
 from services.config import CacheConfig, get_settings

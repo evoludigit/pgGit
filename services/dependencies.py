@@ -70,6 +70,16 @@ async def close_db_pool() -> None:
         logger.info("Database pool closed")
 
 
+def get_db_pool() -> asyncpg.Pool | None:
+    """
+    Get the database connection pool.
+
+    Returns:
+        The global asyncpg connection pool, or None if not initialized
+    """
+    return _pool
+
+
 async def get_db() -> AsyncGenerator[asyncpg.Connection, None]:
     """
     Dependency: Get database connection from pool.
