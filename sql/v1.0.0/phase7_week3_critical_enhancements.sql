@@ -96,7 +96,7 @@ DECLARE
 BEGIN
     -- Start execution tracking
     v_execution_start := CURRENT_TIMESTAMP;
-    v_max_execution_time := format('%d seconds', p_max_execution_time_seconds)::INTERVAL;
+    v_max_execution_time := (p_max_execution_time_seconds || ' seconds')::INTERVAL;
 
     -- Validate input parameters
     IF p_lookback_days < 1 OR p_lookback_days > 365 THEN
@@ -109,7 +109,7 @@ BEGIN
 
     -- Calculate temporal range with safety checks
     v_lookback_end := CURRENT_TIMESTAMP;
-    v_lookback_start := v_lookback_end - format('%d days', p_lookback_days)::INTERVAL;
+    v_lookback_start := v_lookback_end - (p_lookback_days || ' days')::INTERVAL;
 
     -- Verify temporal bounds are reasonable
     IF v_lookback_start > v_lookback_end THEN
@@ -212,7 +212,7 @@ DECLARE
 BEGIN
     -- Temporal range check
     v_lookback_end := CURRENT_TIMESTAMP;
-    v_lookback_start := v_lookback_end - format('%d days', p_lookback_days)::INTERVAL;
+    v_lookback_start := v_lookback_end - (p_lookback_days || ' days')::INTERVAL;
 
     -- Count samples in temporal window
     SELECT COUNT(*) INTO v_sample_count
@@ -390,26 +390,27 @@ CREATE OR REPLACE FUNCTION pggit.log_baseline_recalc_error(
 )
 RETURNS VOID AS $$
 BEGIN
-    INSERT INTO pggit.performance_alerts (
-        operation_type,
-        alert_type,
-        severity,
-        alert_message,
-        violation_multiplier,
-        alert_data,
-        is_active
+    -- Log to alert_notification_queue instead of creating alert
+    -- This prevents circular references and allows graceful error handling
+    INSERT INTO pggit.alert_notification_queue (
+        alert_id,
+        webhook_id,
+        message_body,
+        message_format,
+        status
     ) VALUES (
-        p_operation_type,
-        'BASELINE_RECALC_ERROR',
-        'CRITICAL',
-        format('Baseline recalculation error: %s', p_error_message),
-        1.0,
+        NULL,  -- No alert_id for error logs
+        NULL,  -- Will be determined by notification router
         jsonb_build_object(
+            'error_type', 'BASELINE_RECALC_ERROR',
+            'operation_type', p_operation_type,
             'error_message', p_error_message,
             'error_detail', p_error_detail,
-            'error_context', p_error_context
-        ),
-        TRUE
+            'error_context', p_error_context,
+            'timestamp', CURRENT_TIMESTAMP
+        )::TEXT,
+        'json',
+        'pending'
     );
 END;
 $$ LANGUAGE plpgsql;
@@ -521,7 +522,7 @@ DECLARE
 BEGIN
     SELECT webhook_url_encrypted INTO v_encrypted_url
     FROM pggit.alert_notification_webhooks
-    WHERE webhook_id = p_webhook_id;
+    WHERE alert_notification_webhooks.webhook_id = p_webhook_id;
 
     IF v_encrypted_url IS NULL THEN
         RAISE EXCEPTION 'Webhook not found: %', p_webhook_id;
@@ -734,7 +735,7 @@ BEGIN
     FROM pggit.notification_batch_queue
     WHERE webhook_id = p_webhook_id
       AND status = 'accumulating'
-      AND created_at >= CURRENT_TIMESTAMP - format('%d minutes', p_timeout_minutes)::INTERVAL
+      AND created_at >= CURRENT_TIMESTAMP - (p_timeout_minutes || ' minutes')::INTERVAL
     ORDER BY created_at DESC
     LIMIT 1;
 
