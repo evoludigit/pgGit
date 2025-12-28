@@ -29,6 +29,15 @@ from fastapi import APIRouter, Depends, HTTPException, status, Path
 from pydantic import BaseModel, Field
 
 from services.dependencies import get_current_user, get_db, rate_limit_dependency
+from services.advisory_locks import acquire_merge_lock, acquire_conflict_resolution_lock
+from api.exceptions import (
+    DatabaseException,
+    TransactionException,
+    InvalidMergeException,
+    MergeOperationException,
+    ResourceNotFoundException,
+    InvalidInputException,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -193,9 +202,19 @@ async def find_merge_base(
     """
     # Input validation
     if branch1_id == branch2_id:
+        exc = InvalidInputException(
+            "Cannot find merge base between identical branches",
+            field_name="branch_ids",
+            field_value=f"{branch1_id}",
+            expected_format="branch1_id != branch2_id"
+        )
+        logger.warning(
+            "Invalid merge base request: identical branches",
+            extra=exc.to_dict()
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot find merge base between identical branches"
+            detail=exc.message
         )
 
     try:
@@ -209,9 +228,18 @@ async def find_merge_base(
         )
 
         if not result:
+            exc = ResourceNotFoundException(
+                f"No common ancestor found between branches {branch1_id} and {branch2_id}",
+                resource_type="merge_base",
+                resource_id=f"{branch1_id},{branch2_id}"
+            )
+            logger.info(
+                "Merge base not found",
+                extra=exc.to_dict()
+            )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"No common ancestor found between branches {branch1_id} and {branch2_id}"
+                detail=exc.message
             )
 
         return MergeBaseResponse(
@@ -221,11 +249,25 @@ async def find_merge_base(
             depth_from_branch2=result['depth_from_branch2']
         )
 
+    except HTTPException:
+        raise
     except asyncpg.PostgresError as e:
-        logger.error(f"Database error finding merge base: {e}")
+        exc = DatabaseException(
+            "Failed to find merge base due to database error",
+            original_error=e,
+            context={
+                "branch1_id": branch1_id,
+                "branch2_id": branch2_id,
+                "error_detail": str(e)
+            }
+        )
+        logger.exception(
+            "Database error finding merge base",
+            extra=exc.to_dict()
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to find merge base: {str(e)}"
+            detail=exc.message
         )
 
 
@@ -262,75 +304,134 @@ async def merge_branches(
     """
     # Input validation
     if merge_request.source_branch_id <= 0:
+        exc = InvalidInputException(
+            "Source branch ID must be positive",
+            field_name="source_branch_id",
+            field_value=merge_request.source_branch_id,
+            expected_format="positive integer"
+        )
+        logger.warning("Invalid source branch ID", extra=exc.to_dict())
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Source branch ID must be positive"
+            detail=exc.message
         )
 
     if merge_request.source_branch_id == target_id:
+        exc = InvalidMergeException(
+            "Cannot merge branch into itself",
+            source_branch_id=merge_request.source_branch_id,
+            target_branch_id=target_id
+        )
+        logger.warning("Self-merge attempt", extra=exc.to_dict())
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot merge branch into itself"
+            detail=exc.message
         )
 
     # Validate merge strategy
     valid_strategies = {'ABORT_ON_CONFLICT', 'TARGET_WINS', 'SOURCE_WINS', 'UNION', 'MANUAL_REVIEW'}
     if merge_request.merge_strategy not in valid_strategies:
+        exc = InvalidInputException(
+            f"Invalid merge strategy. Must be one of: {', '.join(valid_strategies)}",
+            field_name="merge_strategy",
+            field_value=merge_request.merge_strategy,
+            expected_format=f"one of: {', '.join(valid_strategies)}"
+        )
+        logger.warning("Invalid merge strategy", extra=exc.to_dict())
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid merge strategy. Must be one of: {', '.join(valid_strategies)}"
+            detail=exc.message
         )
 
     if merge_request.base_branch_id is not None and merge_request.base_branch_id <= 0:
+        exc = InvalidInputException(
+            "Base branch ID must be positive if provided",
+            field_name="base_branch_id",
+            field_value=merge_request.base_branch_id,
+            expected_format="positive integer or null"
+        )
+        logger.warning("Invalid base branch ID", extra=exc.to_dict())
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Base branch ID must be positive if provided"
+            detail=exc.message
         )
 
     try:
-        # Execute merge operation within a transaction
+        # Execute merge operation within a transaction with advisory lock
         async with db.transaction():
-            result = await db.fetchrow(
-                """
-                SELECT merge_id, status, conflicts_detected, auto_resolvable_count,
-                       manual_count, merge_complete, result_commit_hash, merge_base_branch_id
-                FROM pggit.merge_branches($1, $2, $3, $4, $5)
-                """,
-                merge_request.source_branch_id,
-                target_id,
-                merge_request.merge_message,
-                merge_request.merge_strategy,
-                merge_request.base_branch_id
-            )
-
-            if not result:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Merge operation failed to return result"
+            # Acquire advisory lock to prevent concurrent merges on same branches
+            async with acquire_merge_lock(db, merge_request.source_branch_id, target_id):
+                result = await db.fetchrow(
+                    """
+                    SELECT merge_id, status, conflicts_detected, auto_resolvable_count,
+                           manual_count, merge_complete, result_commit_hash, merge_base_branch_id
+                    FROM pggit.merge_branches($1, $2, $3, $4, $5)
+                    """,
+                    merge_request.source_branch_id,
+                    target_id,
+                    merge_request.merge_message,
+                    merge_request.merge_strategy,
+                    merge_request.base_branch_id
                 )
 
-            logger.info(
-                f"Merge initiated: {result['merge_id']} - "
-                f"{merge_request.source_branch_id} → {target_id} - "
-                f"{result['conflicts_detected']} conflicts"
-            )
+                if not result:
+                    exc = MergeOperationException(
+                        "Merge operation failed to return result",
+                        operation_step="execute_merge",
+                        context={
+                            "source_branch_id": merge_request.source_branch_id,
+                            "target_branch_id": target_id,
+                            "merge_strategy": merge_request.merge_strategy
+                        }
+                    )
+                    logger.error("Merge operation failed", extra=exc.to_dict())
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=exc.message
+                    )
 
-            return MergeResponse(
-                merge_id=result['merge_id'],
-                status=result['status'],
-                conflicts_detected=result['conflicts_detected'],
-                auto_resolvable_count=result['auto_resolvable_count'],
-                manual_count=result['manual_count'],
-                merge_complete=result['merge_complete'],
-                result_commit_hash=result['result_commit_hash'],
-                merge_base_branch_id=result['merge_base_branch_id']
-            )
+                logger.info(
+                    "Merge operation initiated",
+                    extra={
+                        "merge_id": result['merge_id'],
+                        "source_branch_id": merge_request.source_branch_id,
+                        "target_branch_id": target_id,
+                        "conflicts_detected": result['conflicts_detected'],
+                        "auto_resolvable_count": result['auto_resolvable_count'],
+                        "manual_count": result['manual_count'],
+                        "merge_strategy": merge_request.merge_strategy
+                    }
+                )
 
+                return MergeResponse(
+                    merge_id=result['merge_id'],
+                    status=result['status'],
+                    conflicts_detected=result['conflicts_detected'],
+                    auto_resolvable_count=result['auto_resolvable_count'],
+                    manual_count=result['manual_count'],
+                    merge_complete=result['merge_complete'],
+                    result_commit_hash=result['result_commit_hash'],
+                    merge_base_branch_id=result['merge_base_branch_id']
+                )
+
+    except HTTPException:
+        raise
     except asyncpg.PostgresError as e:
-        logger.error(f"Database error during merge: {e}")
+        exc = TransactionException(
+            "Merge operation failed due to database error",
+            original_error=e,
+            operation="merge_branches",
+            context={
+                "source_branch_id": merge_request.source_branch_id,
+                "target_branch_id": target_id,
+                "merge_strategy": merge_request.merge_strategy,
+                "error_detail": str(e)
+            }
+        )
+        logger.exception("Database error during merge", extra=exc.to_dict())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Merge operation failed: {str(e)}"
+            detail=exc.message
         )
 
 
