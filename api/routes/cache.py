@@ -62,7 +62,7 @@ async def warm_cache(user: dict = Depends(get_current_user)):
         Status message
     """
     try:
-        cache = await get_cache()
+        _ = await get_cache()  # Ensure cache is available
         # In a real implementation, this would pre-load common queries
         # For now, just return success
         return {

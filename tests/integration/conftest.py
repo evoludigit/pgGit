@@ -229,7 +229,7 @@ async def client(db_pool):
     from api.main import app
     import services.dependencies as deps
     from services.cache import init_cache, shutdown_cache
-    from services.config import get_settings, CacheConfig
+    from services.config import get_settings
 
     # Override the global pool with test pool
     original_pool = deps._pool

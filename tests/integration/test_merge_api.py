@@ -15,7 +15,6 @@ Test Coverage:
 """
 
 import pytest
-import asyncio
 from httpx import AsyncClient
 
 
@@ -477,7 +476,7 @@ class TestMergeAuthentication:
     @pytest.mark.asyncio
     async def test_merge_requires_authentication(self):
         """Test that merge endpoints require authentication"""
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport
         from api.main import app
 
         # Create client WITHOUT authentication token

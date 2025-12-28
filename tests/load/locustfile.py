@@ -29,10 +29,9 @@ Usage:
 import time
 import json
 import logging
-from typing import Dict, Any
 import asyncio
 
-from locust import HttpUser, WebSocketUser, task, between, events, tag
+from locust import HttpUser, task, between, events, tag
 import websockets
 
 logger = logging.getLogger(__name__)
@@ -308,7 +307,7 @@ class RestApiUser(HttpUser):
     def invalidate_alert_cache(self):
         """POST /api/v1/cache/invalidate/alerts - Invalidate alert cache"""
         with self.client.post(
-            f"/api/v1/cache/invalidate/alerts?alert_id=1&event_type=alert_updated",
+            "/api/v1/cache/invalidate/alerts?alert_id=1&event_type=alert_updated",
             timeout=LoadTestConfig.REQUEST_TIMEOUT,
             catch_response=True
         ) as response:
@@ -397,7 +396,7 @@ class WebSocketUser(HttpUser):
 
                         while time.time() - start_listen < 5:
                             try:
-                                msg = await asyncio.wait_for(
+                                await asyncio.wait_for(
                                     websocket.recv(),
                                     timeout=1
                                 )

@@ -17,7 +17,7 @@ Features:
 import logging
 from typing import Dict, Any
 
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from fastapi import APIRouter, HTTPException, status, Query
 
 from services.query_optimization import get_invalidation_manager
 from services.cache import get_cache
@@ -117,7 +117,7 @@ async def invalidate_dashboard_cache():
         204 No Content
     """
     try:
-        manager = await get_invalidation_manager()
+        _ = await get_invalidation_manager()  # Ensure manager is available
         cache = await get_cache()
 
         # Invalidate dashboard caches

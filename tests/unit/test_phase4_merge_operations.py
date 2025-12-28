@@ -289,7 +289,7 @@ class MergeOperationsFixture:
                     created_objects.add(obj_key)
                 else:
                     # Get existing object_id
-                    result = self._execute(f"SELECT object_id FROM pggit.schema_objects WHERE object_type=%s AND schema_name=%s AND object_name=%s",
+                    result = self._execute("SELECT object_id FROM pggit.schema_objects WHERE object_type=%s AND schema_name=%s AND object_name=%s",
                                           (obj_def['type'], 'public', obj_name))
                     obj_id = result[0]['object_id'] if result else None
 
@@ -682,7 +682,7 @@ class TestDetectMergeConflicts:
         user_conflicts = [c for c in conflicts if c['object_name'] == 'users']
         assert len(user_conflicts) > 0
         assert user_conflicts[0]['conflict_type'] == 'SOURCE_MODIFIED'
-        assert user_conflicts[0]['auto_resolvable'] == True
+        assert user_conflicts[0]['auto_resolvable']
 
     def test_conflict_classification_target_modified(self, merge_fixture):
         """TARGET_MODIFIED: target changed, source unchanged."""

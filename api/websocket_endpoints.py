@@ -22,7 +22,6 @@ Message Types:
 """
 
 import logging
-import json
 import asyncio
 from datetime import datetime
 from typing import Set
@@ -31,7 +30,6 @@ from fastapi import WebSocket, WebSocketDisconnect, Query, status
 from fastapi.exceptions import WebSocketException
 
 from services.dependencies import verify_websocket_token
-from services.cache import get_cache
 
 logger = logging.getLogger(__name__)
 

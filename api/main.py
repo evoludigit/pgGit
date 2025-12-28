@@ -276,8 +276,9 @@ async def deep_health_check():
 # ===== API ROUTES =====
 
 # Import and register route modules
-from api.routes import webhooks, alerts, dashboard, cache_invalidation, cache, merge
-from api.websocket_endpoints import websocket_endpoint
+# Imported here to avoid circular dependencies with lifespan fixtures
+from api.routes import webhooks, alerts, dashboard, cache_invalidation, cache, merge  # noqa: E402
+from api.websocket_endpoints import websocket_endpoint  # noqa: E402
 
 # Include routers
 app.include_router(

@@ -14,7 +14,6 @@ import signal
 import sys
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta
 from typing import Optional, Tuple
 from urllib.parse import urlparse
 

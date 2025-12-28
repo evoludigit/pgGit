@@ -12,7 +12,7 @@ Pattern: Builder pattern combined with transaction-scoped cleanup
 
 from datetime import datetime, timedelta
 import hashlib
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 
 
 class ScenarioBuilder:

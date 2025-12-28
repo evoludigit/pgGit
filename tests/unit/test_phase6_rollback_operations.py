@@ -1534,10 +1534,6 @@ class TestPhase6RollbackDependencies:
                 results = cur.fetchall()
 
                 # Check that dependency types are reasonable
-                valid_types = {
-                    'FOREIGN_KEY', 'TRIGGERS_ON', 'REFERENCES', 'COMPOSED_OF',
-                    'INDEXES', 'CALLS', 'USES'
-                }
                 for row in results:
                     dep_type = row[0]
                     if dep_type is not None:

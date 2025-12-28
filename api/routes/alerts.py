@@ -385,7 +385,7 @@ async def acknowledge_alerts_batch(
     """
     try:
         # Update alerts as acknowledged
-        result = await db.execute(
+        await db.execute(
             """
             UPDATE pggit.alert_delivery_queue
             SET

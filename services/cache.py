@@ -109,7 +109,8 @@ class LRUCache(Generic[T]):
             ttl_seconds: Optional TTL override (uses instance default if not provided)
         """
         async with self._lock:
-            ttl = ttl_seconds or self.ttl_seconds
+            # Note: ttl_seconds parameter reserved for future per-key TTL support
+            _ = ttl_seconds or self.ttl_seconds
 
             # If key exists, remove it first to maintain insertion order
             if key in self._cache:

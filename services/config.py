@@ -16,7 +16,6 @@ import os
 from functools import lru_cache
 from typing import Literal
 from dataclasses import dataclass
-from pathlib import Path
 
 
 @dataclass

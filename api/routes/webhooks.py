@@ -370,7 +370,7 @@ async def update_webhook(
             # No fields to update, fetch current webhook
             return await get_webhook(webhook_id, db, user)
 
-        update_fields.append(f"updated_at = CURRENT_TIMESTAMP")
+        update_fields.append("updated_at = CURRENT_TIMESTAMP")
 
         query = f"""
             UPDATE pggit.webhooks

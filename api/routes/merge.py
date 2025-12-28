@@ -25,7 +25,7 @@ from typing import Optional
 from datetime import datetime
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException, status, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Path
 from pydantic import BaseModel, Field
 
 from services.dependencies import get_current_user, get_db, rate_limit_dependency

@@ -3,8 +3,6 @@ Tests for Phase 7: Performance Monitoring Schema
 Tests table structure, constraints, indexes, and views
 """
 
-import pytest
-from tests.fixtures.scenario_builder import ScenarioBuilder
 
 
 class TestPhase7PerformanceSchema:

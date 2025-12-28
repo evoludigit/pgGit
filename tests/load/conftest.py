@@ -6,7 +6,6 @@ Provides shared fixtures and configuration for load testing suite.
 """
 
 import pytest
-import json
 import os
 from pathlib import Path
 from typing import Dict, Any

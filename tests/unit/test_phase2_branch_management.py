@@ -338,7 +338,7 @@ class TestCreateBranch:
         db = db_setup
 
         # Act & Assert
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(Exception):
             db.execute("""
                 SELECT branch_id FROM pggit.create_branch(
                     'feature/test',
@@ -721,7 +721,7 @@ class TestListBranches:
         result = db.execute("""
             SELECT branch_id FROM pggit.create_branch('feature/active')
         """)
-        active_id = result[0]['branch_id']
+        result[0]['branch_id']
 
         # Create merged branch
         db.execute("""
@@ -906,11 +906,11 @@ class TestListBranches:
         db = db_setup
 
         # Act: Create hierarchy
-        result_a = db.execute("""
+        db.execute("""
             SELECT branch_id FROM pggit.create_branch('feature/a')
         """)
 
-        result_b = db.execute("""
+        db.execute("""
             SELECT branch_id FROM pggit.create_branch('feature/a/sub', 'feature/a')
         """)
 

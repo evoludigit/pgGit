@@ -14,11 +14,9 @@ Total: 28 unit tests
 
 import pytest
 from datetime import datetime, timedelta
-from typing import Any
 import hashlib
 import json
 import uuid
-from psycopg import sql
 
 
 def compute_hash(content: str) -> str:
@@ -661,7 +659,7 @@ class TestDiffBranches:
         # Act: Call with non-existent source branch
         try:
             cursor.execute("SELECT * FROM pggit.diff_branches('nonexistent', 'main')")
-            results = cursor.fetchall()
+            cursor.fetchall()
             # Should raise exception
             assert False, "Should have raised exception"
         except Exception as e:

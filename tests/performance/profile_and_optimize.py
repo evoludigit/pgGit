@@ -14,12 +14,10 @@ Features:
 """
 
 import csv
-import json
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Any
 from dataclasses import dataclass
-from statistics import mean, median, stdev
 
 
 @dataclass

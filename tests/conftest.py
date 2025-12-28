@@ -2,9 +2,7 @@
 Shared pytest configuration for pgGit tests
 """
 import os
-import subprocess
 import psycopg
-from psycopg import sql
 import pytest
 
 
@@ -164,7 +162,7 @@ def execute_sql(db_conn):
                 cur.execute(query)
             try:
                 return cur.fetchall()
-            except:
+            except Exception:  # Query may not return results
                 return None
     return _execute
 
@@ -191,7 +189,7 @@ def clear_tables(db_conn):
             for table in tables:
                 try:
                     cur.execute(f"TRUNCATE TABLE {table} CASCADE")
-                except:
+                except Exception:  # Table may not exist
                     pass
 
             # Explicitly clear test-created data (preserve bootstrap state)
@@ -203,7 +201,7 @@ def clear_tables(db_conn):
                 cur.execute("DELETE FROM pggit.commits WHERE commit_message NOT LIKE 'Initial commit%'")
                 # Keep main branch, delete feature branches
                 cur.execute("DELETE FROM pggit.branches WHERE branch_name != 'main'")
-            except:
+            except Exception:  # Table may not exist or data constraints
                 pass
         db_conn.commit()
     return _clear

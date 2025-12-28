@@ -5,7 +5,6 @@ Tests for get_commit_history, get_audit_trail, get_object_timeline, query_at_tim
 import pytest
 import hashlib
 from datetime import datetime, timedelta
-from decimal import Decimal
 
 
 class Phase5HistoryFixture:
@@ -65,7 +64,7 @@ class Phase5HistoryFixture:
                     except Exception:
                         pass
             self.conn.commit()
-        except Exception as e:
+        except Exception:
             self.conn.rollback()
             # Don't raise during cleanup - just log
             pass
@@ -580,7 +579,7 @@ class TestQueryAtTimestamp:
                 "SELECT COUNT(*) FROM pggit.query_at_timestamp('feature-a', %s)",
                 (phase5_fixture.timestamps['T2'],)
             )
-            count = cur.fetchone()[0]
+            cur.fetchone()[0]
         # feature-a didn't exist until T4, so this should error
         # or return 0 depending on implementation
 

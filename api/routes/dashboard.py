@@ -18,7 +18,7 @@ from datetime import datetime
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from services.dependencies import get_current_user, get_db, rate_limit_dependency
 from services.cache import get_cache

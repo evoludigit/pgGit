@@ -12,11 +12,7 @@ Tests for:
 
 import pytest
 import asyncio
-import json
 import time
-from datetime import datetime
-from httpx import AsyncClient, ASGITransport
-from pathlib import Path
 
 # Assuming the FastAPI app is available at api.main:app
 # These tests will validate the full API integration
@@ -276,7 +272,7 @@ class TestCacheInvalidation:
         # Make a request - should be slower (cache miss)
         start = time.time()
         response = await client.get("/api/v1/webhooks")
-        duration = time.time() - start
+        time.time() - start
         assert response.status_code == 200
 
 
@@ -446,7 +442,7 @@ class TestPerformanceUnderLoad:
 
         async def make_timed_request(endpoint):
             start = time.time()
-            response = await client.get(endpoint)
+            await client.get(endpoint)
             duration = time.time() - start
             return duration
 

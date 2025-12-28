@@ -288,7 +288,7 @@ class TestBaselineCalculationFunctions:
                     VALUES ('baseline_test', %s, %s, CURRENT_TIMESTAMP - INTERVAL '1 minute', CURRENT_TIMESTAMP, 'test', DATE_TRUNC('day', CURRENT_TIMESTAMP))
                 """, (2000 + i * 200, (2000 + i * 200) / 1000))
 
-            baseline_id_2 = cur.execute("""
+            cur.execute("""
                 SELECT pggit.calculate_performance_baseline(
                     p_operation_type := 'baseline_test'
                 )
@@ -347,7 +347,7 @@ class TestAnalysisFunctions:
             # Insert metrics for multiple days
             for day in range(3):
                 for i in range(5):
-                    ts = CURRENT_TIMESTAMP - timedelta(days=day)
+                    ts = datetime.now() - timedelta(days=day)
                     duration = 1000 + (i * 200)
                     cur.execute("""
                         INSERT INTO pggit.performance_metrics

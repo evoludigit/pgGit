@@ -17,8 +17,8 @@ Features:
 
 import logging
 import asyncio
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Callable, Set, Any
+from datetime import datetime
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -266,7 +266,7 @@ class CacheWarmingStrategy:
             return
 
         try:
-            cache = await get_cache()
+            _ = await get_cache()  # Ensure cache is available
             start_time = asyncio.get_event_loop().time()
 
             # Execute query (simulated - in real implementation would execute the query)

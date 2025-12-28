@@ -2,7 +2,6 @@
 Unit tests for Phase 1 Schema
 Tests schema creation, tables, columns, constraints, and indexes
 """
-import pytest
 
 
 class TestSchemaExists:
