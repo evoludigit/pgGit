@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS pggit.alerts (
 
 -- Alert delivery queue for API testing
 CREATE TABLE IF NOT EXISTS pggit.alert_delivery_queue (
-    id SERIAL PRIMARY KEY,
+    alert_id SERIAL PRIMARY KEY,
     queue_id INTEGER,
     webhook_id INTEGER REFERENCES pggit.webhooks(id) ON DELETE CASCADE,
     alert_type TEXT NOT NULL,

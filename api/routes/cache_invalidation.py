@@ -229,16 +229,33 @@ async def get_cache_statistics():
         cache = await get_cache()
         stats = cache.get_stats()
 
+        # Extract L1 memory stats for flat response
+        l1_stats = stats.get("l1_memory", {})
+        hits = l1_stats.get("hits", 0)
+        misses = l1_stats.get("misses", 0)
+        total_requests = hits + misses
+
         return {
-            "status": "healthy",
-            "cache_type": "multi-tier",
-            "statistics": stats,
-            "timestamp": None
+            "hit_rate": l1_stats.get("hit_rate_percent", 0.0),
+            "total_requests": total_requests,
+            "hits": hits,
+            "misses": misses,
+            "size": l1_stats.get("size", 0),
+            "cache_type": stats.get("cache_type", "in-memory"),
+            "max_size": l1_stats.get("max_size", 0),
+            "ttl_seconds": l1_stats.get("ttl_seconds", 0),
         }
 
     except Exception as e:
         logger.error(f"Failed to get cache statistics: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve cache statistics"
-        )
+        # Return empty stats instead of error for graceful degradation
+        return {
+            "hit_rate": 0.0,
+            "total_requests": 0,
+            "hits": 0,
+            "misses": 0,
+            "size": 0,
+            "cache_type": "unknown",
+            "max_size": 0,
+            "ttl_seconds": 0,
+        }

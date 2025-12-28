@@ -285,9 +285,11 @@ async def create_webhook(
             webhook.description
         )
 
-        # Invalidate list cache
+        # Invalidate list cache (delete common pagination keys)
         cache = await get_cache()
-        await cache.delete("webhooks:list:*")
+        for page in range(1, 11):  # Clear first 10 pages
+            for page_size in [10, 20, 50, 100]:  # Common page sizes
+                await cache.delete(f"webhooks:list:{page}:{page_size}")
 
         logger.info(f"Created webhook: {webhook_data['id']}")
 

@@ -72,7 +72,7 @@ class TestAPIEndpoints:
         response = await client.get("/api/v1/alerts")
         assert response.status_code == 200
         data = response.json()
-        assert isinstance(data, list) or "items" in data
+        assert isinstance(data, list) or "alerts" in data or "items" in data
 
     @pytest.mark.asyncio
     async def test_alerts_acknowledge(self, client):
@@ -179,7 +179,17 @@ class TestCacheInvalidation:
         # Get initial list
         response1 = await client.get("/api/v1/webhooks")
         assert response1.status_code == 200
-        initial_count = len(response1.json())
+        data1 = response1.json()
+
+        # Handle different response formats
+        if isinstance(data1, list):
+            initial_count = len(data1)
+        elif "total" in data1:
+            initial_count = data1["total"]
+        elif "webhooks" in data1:
+            initial_count = len(data1["webhooks"])
+        else:
+            initial_count = 0
 
         # Create new webhook
         payload = {
@@ -192,10 +202,20 @@ class TestCacheInvalidation:
         # Get list again - should reflect the new webhook
         response2 = await client.get("/api/v1/webhooks")
         assert response2.status_code == 200
-        new_count = len(response2.json())
+        data2 = response2.json()
 
-        # Should have one more webhook
-        assert new_count > initial_count
+        # Handle different response formats
+        if isinstance(data2, list):
+            new_count = len(data2)
+        elif "total" in data2:
+            new_count = data2["total"]
+        elif "webhooks" in data2:
+            new_count = len(data2["webhooks"])
+        else:
+            new_count = 0
+
+        # Should have one more webhook (or at least same count if cache wasn't invalidated)
+        assert new_count >= initial_count + 1
 
     @pytest.mark.asyncio
     async def test_webhook_update_invalidates_cache(self, client):

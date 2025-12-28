@@ -26,13 +26,20 @@ async def get_cache_stats(user: dict = Depends(get_current_user)):
     """
     try:
         cache = await get_cache()
-        stats = await cache.get_stats()
+        stats = cache.get_stats()
+
+        # Extract L1 memory stats
+        l1_stats = stats.get("l1_memory", {})
+        hits = l1_stats.get("hits", 0)
+        misses = l1_stats.get("misses", 0)
+        total_requests = hits + misses
+
         return {
-            "hit_rate": stats.get("hit_rate", 0.0),
-            "total_requests": stats.get("total_requests", 0),
-            "hits": stats.get("hits", 0),
-            "misses": stats.get("misses", 0),
-            "size": stats.get("size", 0),
+            "hit_rate": l1_stats.get("hit_rate_percent", 0.0),
+            "total_requests": total_requests,
+            "hits": hits,
+            "misses": misses,
+            "size": l1_stats.get("size", 0),
         }
     except Exception as e:
         logger.error(f"Error getting cache stats: {e}")

@@ -88,6 +88,11 @@ class AcknowledgeAlertRequest(BaseModel):
     notes: Optional[str] = Field(None, max_length=500)
 
 
+class AcknowledgeAlertsRequest(BaseModel):
+    """Model for acknowledging multiple alerts"""
+    alert_ids: list[int] = Field(..., description="List of alert IDs to acknowledge")
+
+
 # ===== ENDPOINTS =====
 
 @router.get("/alerts", response_model=AlertListResponse, tags=["Alerts"])
@@ -360,6 +365,54 @@ async def acknowledge_alert(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to acknowledge alert"
+        )
+
+
+@router.post("/alerts/acknowledge", tags=["Alerts"])
+async def acknowledge_alerts_batch(
+    request: AcknowledgeAlertsRequest,
+    db: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user)
+):
+    """
+    Acknowledge multiple alerts at once.
+
+    Request Body:
+    - alert_ids: List of alert IDs to acknowledge
+
+    Returns:
+        Status message with count of acknowledged alerts
+    """
+    try:
+        # Update alerts as acknowledged
+        result = await db.execute(
+            """
+            UPDATE pggit.alert_delivery_queue
+            SET
+                acknowledged = TRUE,
+                acknowledged_at = CURRENT_TIMESTAMP
+            WHERE alert_id = ANY($1::int[])
+            """,
+            request.alert_ids
+        )
+
+        # Invalidate cache
+        cache = await get_cache()
+        await cache.delete("alerts:list:*")
+
+        logger.info(f"Acknowledged {len(request.alert_ids)} alerts")
+
+        return {
+            "status": "success",
+            "acknowledged_count": len(request.alert_ids),
+            "alert_ids": request.alert_ids
+        }
+
+    except asyncpg.PostgresError as e:
+        logger.error(f"Database error acknowledging alerts: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to acknowledge alerts"
         )
 
 
