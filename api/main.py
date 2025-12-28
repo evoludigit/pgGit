@@ -276,7 +276,7 @@ async def deep_health_check():
 # ===== API ROUTES =====
 
 # Import and register route modules
-from api.routes import webhooks, alerts, dashboard, cache_invalidation
+from api.routes import webhooks, alerts, dashboard, cache_invalidation, cache
 from api.websocket_endpoints import websocket_endpoint
 
 # Include routers
@@ -302,6 +302,12 @@ app.include_router(
     cache_invalidation.router,
     prefix="/api/v1",
     tags=["Cache Invalidation"]
+)
+
+app.include_router(
+    cache.router,
+    prefix="/api/v1",
+    tags=["Cache"]
 )
 
 # Register WebSocket endpoint
