@@ -25,16 +25,6 @@ from pathlib import Path
 class TestAPIEndpoints:
     """Test REST API endpoints"""
 
-    @pytest.fixture(scope="function")
-    async def client(self):
-        """Create an async HTTP client for testing"""
-        from api.main import app
-        async with AsyncClient(
-            transport=ASGITransport(app=app),
-            base_url="http://test",
-        ) as client:
-            yield client
-
     @pytest.mark.asyncio
     async def test_health_check(self, client):
         """Test /health endpoint"""
@@ -113,16 +103,6 @@ class TestAPIEndpoints:
 class TestCacheWarming:
     """Test cache warming strategy"""
 
-    @pytest.fixture(scope="function")
-    async def client(self):
-        """Create an async HTTP client for testing"""
-        from api.main import app
-        async with AsyncClient(
-            transport=ASGITransport(app=app),
-            base_url="http://test",
-        ) as client:
-            yield client
-
     @pytest.mark.asyncio
     async def test_cache_warming_initialization(self, client):
         """Test that cache is warmed on startup"""
@@ -192,16 +172,6 @@ class TestCacheWarming:
 
 class TestCacheInvalidation:
     """Test cache invalidation triggers"""
-
-    @pytest.fixture(scope="function")
-    async def client(self):
-        """Create an async HTTP client for testing"""
-        from api.main import app
-        async with AsyncClient(
-            transport=ASGITransport(app=app),
-            base_url="http://test",
-        ) as client:
-            yield client
 
     @pytest.mark.asyncio
     async def test_webhook_creation_invalidates_list_cache(self, client):
@@ -293,16 +263,6 @@ class TestCacheInvalidation:
 class TestWebSocketIntegration:
     """Test WebSocket real-time updates"""
 
-    @pytest.fixture(scope="function")
-    async def client(self):
-        """Create an async HTTP client for testing"""
-        from api.main import app
-        async with AsyncClient(
-            transport=ASGITransport(app=app),
-            base_url="http://test",
-        ) as client:
-            yield client
-
     @pytest.mark.asyncio
     async def test_websocket_connection(self, client):
         """Test WebSocket connection establishment"""
@@ -331,16 +291,6 @@ class TestWebSocketIntegration:
 
 class TestEndToEndWorkflows:
     """Test complete end-to-end API workflows"""
-
-    @pytest.fixture(scope="function")
-    async def client(self):
-        """Create an async HTTP client for testing"""
-        from api.main import app
-        async with AsyncClient(
-            transport=ASGITransport(app=app),
-            base_url="http://test",
-        ) as client:
-            yield client
 
     @pytest.mark.asyncio
     async def test_webhook_lifecycle(self, client):
@@ -437,16 +387,6 @@ class TestEndToEndWorkflows:
 
 class TestPerformanceUnderLoad:
     """Test API performance under simulated load"""
-
-    @pytest.fixture(scope="function")
-    async def client(self):
-        """Create an async HTTP client for testing"""
-        from api.main import app
-        async with AsyncClient(
-            transport=ASGITransport(app=app),
-            base_url="http://test",
-        ) as client:
-            yield client
 
     @pytest.mark.asyncio
     async def test_endpoint_latency_under_load(self, client):
