@@ -261,13 +261,14 @@ async def health_check():
 @app.get("/health/deep", tags=["Health"])
 async def deep_health_check():
     """
-    Deep health check including database and cache connectivity.
+    Deep health check including database, cache, and schema validation.
 
     Checks:
-    - Database connectivity
-    - Cache connectivity
-    - Memory usage
+    - Database connectivity and query execution
+    - Database schema integrity (critical tables exist)
+    - Cache connectivity and performance
     - Connection pool stats
+    - Referential integrity validation
 
     Returns:
         - 200 OK if all services operational
@@ -280,21 +281,77 @@ async def deep_health_check():
         "status": "healthy",
         "service": "pggit-api",
         "database": {"status": "unknown"},
+        "schema": {"status": "unknown"},
         "cache": {"status": "unknown"},
         "connections": {}
     }
 
-    # Check database pool
+    # Check database pool and connectivity
     if _pool:
         try:
-            health_status["database"]["status"] = "healthy"
-            health_status["database"]["size"] = f"{_pool._holders.__len__()}/{_pool._queue.qsize()}"
+            async with _pool.acquire() as conn:
+                # Test query execution
+                await conn.fetchval("SELECT 1")
+
+                health_status["database"]["status"] = "healthy"
+                health_status["database"]["pool_size"] = f"{_pool._holders.__len__()}/{_pool._queue.qsize()}"
+
+                # Schema validation: Check critical tables exist
+                critical_tables = [
+                    'pggit.branches',
+                    'pggit.commits',
+                    'pggit.merge_operations',
+                    'pggit.merge_conflict_resolutions'
+                ]
+
+                schema_issues = []
+                for table in critical_tables:
+                    schema, table_name = table.split('.')
+                    exists = await conn.fetchval(
+                        """
+                        SELECT EXISTS (
+                            SELECT 1 FROM information_schema.tables
+                            WHERE table_schema = $1 AND table_name = $2
+                        )
+                        """,
+                        schema,
+                        table_name
+                    )
+                    if not exists:
+                        schema_issues.append(f"Missing table: {table}")
+
+                if schema_issues:
+                    health_status["schema"]["status"] = "unhealthy"
+                    health_status["schema"]["issues"] = schema_issues
+                    health_status["status"] = "degraded"
+                else:
+                    health_status["schema"]["status"] = "healthy"
+                    health_status["schema"]["tables_validated"] = len(critical_tables)
+
+                # Check for orphaned records (referential integrity)
+                orphaned_merges = await conn.fetchval(
+                    """
+                    SELECT COUNT(*)
+                    FROM pggit.merge_operations mo
+                    LEFT JOIN pggit.branches b ON mo.merge_base_branch_id = b.branch_id
+                    WHERE mo.merge_base_branch_id IS NOT NULL AND b.branch_id IS NULL
+                    """
+                )
+
+                if orphaned_merges > 0:
+                    health_status["schema"]["warnings"] = [
+                        f"{orphaned_merges} orphaned merge operations detected"
+                    ]
+                    health_status["status"] = "degraded"
+
         except Exception as e:
             health_status["database"]["status"] = "unhealthy"
             health_status["database"]["error"] = str(e)
+            health_status["schema"]["status"] = "unavailable"
             health_status["status"] = "degraded"
     else:
         health_status["database"]["status"] = "unavailable"
+        health_status["schema"]["status"] = "unavailable"
         health_status["status"] = "degraded"
 
     # Check cache
