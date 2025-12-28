@@ -1,18 +1,13 @@
 # ============================================================================
-# docker-compose.yml: Complete PGGIT Production Environment
+# docker-compose.prod.yml: Production Deployment Configuration
 # ============================================================================
-# Purpose: Production-ready deployment with all services
-# Services:
-#   - pggit-api: FastAPI application (main API)
-#   - postgres: PostgreSQL database with pggit schema
-#   - redis: Redis for caching layer
-#   - webhook-worker-1, webhook-worker-2, webhook-worker-3: Webhook delivery workers
-# Features:
-#   - Volume mounts for development hot-reload
-#   - Network isolation with pggit-network
-#   - Health checks for all services
-#   - Prometheus metrics endpoints
-#   - Production-ready configuration
+# Purpose: Production-ready deployment WITHOUT development features
+# Usage: docker-compose -f docker-compose.prod.yml up -d
+# Differences from docker-compose.yml:
+#   - No volume mounts (code baked into image)
+#   - Secrets managed via environment or secrets manager
+#   - No exposed internal ports (only API)
+#   - Production restart policies
 # ============================================================================
 
 version: '3.9'
@@ -27,12 +22,12 @@ services:
       dockerfile: Dockerfile
     container_name: pggit-api
     environment:
-      # Database
+      # Database (use secrets manager in real production!)
       DATABASE__HOST: postgres
       DATABASE__PORT: 5432
-      DATABASE__DATABASE: pggit
-      DATABASE__USERNAME: postgres
-      DATABASE__PASSWORD: postgres
+      DATABASE__DATABASE: ${POSTGRES_DB:-pggit}
+      DATABASE__USERNAME: ${POSTGRES_USER:-postgres}
+      DATABASE__PASSWORD: ${POSTGRES_PASSWORD}
       DATABASE__POOL_MIN_SIZE: 10
       DATABASE__POOL_MAX_SIZE: 50
 
@@ -45,21 +40,16 @@ services:
 
       # API
       ENVIRONMENT: production
-      LOG_LEVEL: info
+      LOG_LEVEL: ${LOG_LEVEL:-info}
 
-      # CORS
-      CORS__ORIGINS: '["http://localhost:3000","https://yourdomain.com"]'
+      # CORS (configure for your domain)
+      CORS__ORIGINS: ${CORS_ORIGINS:-'["https://yourdomain.com"]'}
 
-      # JWT (configure these in production!)
-      JWT_SECRET_KEY: change-this-in-production
+      # JWT (MUST be configured via secrets!)
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_ALGORITHM: HS256
     ports:
-      - "8000:8000"  # API endpoint
-    volumes:
-      # Mount source code for development (remove in production)
-      - ./api:/app/api:ro
-      - ./services:/app/services:ro
-      - ./src:/app/src:ro
+      - "${API_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,7 +57,7 @@ services:
         condition: service_healthy
     networks:
       - pggit-network
-    restart: unless-stopped
+    restart: always
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
       interval: 30s
@@ -77,6 +67,15 @@ services:
     labels:
       - "service=pggit-api"
       - "tier=application"
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
 
   # ============================================================================
   # Redis Cache
@@ -84,8 +83,9 @@ services:
   redis:
     image: redis:7-alpine
     container_name: pggit-redis
-    ports:
-      - "6379:6379"
+    # Don't expose Redis externally in production
+    # ports:
+    #   - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -95,11 +95,19 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-    restart: unless-stopped
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    restart: always
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     labels:
       - "service=pggit-redis"
       - "tier=cache"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
   # ============================================================================
   # PostgreSQL Database
@@ -108,31 +116,43 @@ services:
     image: postgres:16-alpine
     container_name: pggit-postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: pggit
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-pggit}
+    # Don't expose PostgreSQL externally in production
+    # ports:
+    #   - "5432:5432"
     volumes:
-      # Mount SQL schema files for initialization
-      - ./sql/v1.0.0:/docker-entrypoint-initdb.d
-      # Persistent data directory
+      # Schema initialization (first-time only)
+      - ./sql/v1.0.0:/docker-entrypoint-initdb.d:ro
+      # Persistent data
       - postgres_data:/var/lib/postgresql/data
     networks:
       - pggit-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: always
+    # Production logging (less verbose)
     command:
       - "postgres"
       - "-c"
-      - "log_statement=all"
+      - "log_statement=ddl"
       - "-c"
-      - "log_duration=on"
+      - "log_min_duration_statement=1000"
     labels:
       - "service=pggit-postgres"
+      - "tier=database"
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
 
   # ============================================================================
   # Webhook Worker 1
@@ -143,17 +163,15 @@ services:
       dockerfile: Dockerfile
     container_name: pggit-worker-1
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/pggit
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-pggit}
       WORKER_ID: worker-1
-      BATCH_SIZE: 10
-      POLL_INTERVAL: 1.0
-      HTTP_TIMEOUT: 5.0
-      LOG_LEVEL: info
-    ports:
-      - "8100:8000"  # Prometheus metrics (mapped to avoid conflict with API)
-    volumes:
-      # Mount source code for hot-reload during development
-      - ./services/webhook_worker.py:/app/webhook_worker.py:ro
+      BATCH_SIZE: ${WORKER_BATCH_SIZE:-10}
+      POLL_INTERVAL: ${WORKER_POLL_INTERVAL:-1.0}
+      HTTP_TIMEOUT: ${WORKER_HTTP_TIMEOUT:-5.0}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    # Don't expose worker metrics externally
+    # ports:
+    #   - "8100:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -161,14 +179,22 @@ services:
         condition: service_healthy
     networks:
       - pggit-network
-    restart: unless-stopped
+    restart: always
     labels:
       - "service=pggit-webhook-worker"
       - "worker_id=worker-1"
       - "tier=worker"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   # ============================================================================
-  # Webhook Worker 2 (for testing concurrent processing)
+  # Webhook Worker 2
   # ============================================================================
   webhook-worker-2:
     build:
@@ -176,16 +202,12 @@ services:
       dockerfile: Dockerfile
     container_name: pggit-worker-2
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/pggit
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-pggit}
       WORKER_ID: worker-2
-      BATCH_SIZE: 10
-      POLL_INTERVAL: 1.0
-      HTTP_TIMEOUT: 5.0
-      LOG_LEVEL: info
-    ports:
-      - "8101:8000"  # Prometheus metrics (mapped to different host port)
-    volumes:
-      - ./services/webhook_worker.py:/app/webhook_worker.py:ro
+      BATCH_SIZE: ${WORKER_BATCH_SIZE:-10}
+      POLL_INTERVAL: ${WORKER_POLL_INTERVAL:-1.0}
+      HTTP_TIMEOUT: ${WORKER_HTTP_TIMEOUT:-5.0}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       postgres:
         condition: service_healthy
@@ -193,53 +215,29 @@ services:
         condition: service_healthy
     networks:
       - pggit-network
-    restart: unless-stopped
+    restart: always
     labels:
       - "service=pggit-webhook-worker"
       - "worker_id=worker-2"
       - "tier=worker"
-
-  # ============================================================================
-  # Webhook Worker 3 (optional: for testing with 3 workers)
-  # ============================================================================
-  webhook-worker-3:
-    build:
-      context: ./services
-      dockerfile: Dockerfile
-    container_name: pggit-worker-3
-    environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/pggit
-      WORKER_ID: worker-3
-      BATCH_SIZE: 10
-      POLL_INTERVAL: 1.0
-      HTTP_TIMEOUT: 5.0
-      LOG_LEVEL: info
-    ports:
-      - "8102:8000"  # Prometheus metrics
-    volumes:
-      - ./services/webhook_worker.py:/app/webhook_worker.py:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-      pggit-api:
-        condition: service_healthy
-    networks:
-      - pggit-network
-    restart: unless-stopped
-    labels:
-      - "service=pggit-webhook-worker"
-      - "worker_id=worker-3"
-      - "tier=worker"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
 networks:
   pggit-network:
     driver: bridge
-    name: pggit-network
+    name: pggit-network-prod
 
 volumes:
   postgres_data:
     driver: local
-    name: pggit-postgres-data
+    name: pggit-postgres-data-prod
   redis_data:
     driver: local
-    name: pggit-redis-data
+    name: pggit-redis-data-prod

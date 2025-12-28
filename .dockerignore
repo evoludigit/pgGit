@@ -1,0 +1,55 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+test_results.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation (not needed in container)
+*.md
+.phases/
+.claude/
+
+# Environment files (configured via docker-compose)
+.env
+.env.*
+
+# Ruff cache
+.ruff_cache/
+
+# Prometheus
+prometheus/
+prometheus.yml
+
+# Database scripts (run separately)
+sql/
+
+# Tests (not needed in production container)
+tests/
+
+# Docker
+docker-compose*.yml
+Dockerfile*
