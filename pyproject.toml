@@ -1,6 +1,6 @@
 [project]
 name = "pggit"
-version = "0.0.1"
+version = "0.1.0"
 description = "Git-like version control system for PostgreSQL schemas"
 authors = [{name = "Lionel", email = "lionel@example.com"}]
 license = {text = "MIT"}
