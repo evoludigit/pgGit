@@ -16,7 +16,7 @@ import logging
 from typing import AsyncGenerator
 
 import asyncpg
-from fastapi import Depends, HTTPException, status, WebSocket, WebSocketException
+from fastapi import Depends, HTTPException, Header, status, WebSocket, WebSocketException
 from jose import JWTError, jwt
 
 from services.config import get_settings
@@ -176,7 +176,7 @@ def decode_token(token: str) -> dict:
         )
 
 
-async def get_current_user(token: str = None) -> dict:
+async def get_current_user(authorization: str | None = Header(None)) -> dict:
     """
     Dependency: Get current authenticated user from JWT token.
 
@@ -185,7 +185,7 @@ async def get_current_user(token: str = None) -> dict:
             user_id = user.get("sub")
 
     Args:
-        token: JWT token (from Authorization header or query param)
+        authorization: Authorization header with Bearer token
 
     Returns:
         User information from token
@@ -193,13 +193,23 @@ async def get_current_user(token: str = None) -> dict:
     Raises:
         HTTPException: If token is missing or invalid
     """
-    if not token:
+    if not authorization:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # Extract token from "Bearer <token>" format
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials format",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = parts[1]
     payload = decode_token(token)
 
     user_id = payload.get("sub")

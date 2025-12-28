@@ -49,7 +49,7 @@ class TestAPIEndpoints:
         response = await client.get("/api/v1/webhooks")
         assert response.status_code == 200
         data = response.json()
-        assert isinstance(data, list) or "items" in data
+        assert isinstance(data, list) or "webhooks" in data or "items" in data
 
     @pytest.mark.asyncio
     async def test_webhooks_create(self, client):

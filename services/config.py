@@ -130,6 +130,9 @@ class Settings:
 
     def __init__(self):
         """Load all configuration from environment"""
+        # Load environment first (used by other loaders)
+        self.environment = os.getenv("ENVIRONMENT", "production")
+
         self._load_database()
         self._load_jwt()
         self._load_webhook()

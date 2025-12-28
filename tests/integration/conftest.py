@@ -6,7 +6,9 @@ import os
 import pytest
 import asyncpg
 from pathlib import Path
+from datetime import datetime, timedelta
 from httpx import AsyncClient, ASGITransport
+from jose import jwt
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -99,6 +101,8 @@ def db_schema_setup(setup_test_env):
                     "sql/032_pggit_merge_operations.sql",
                     "sql/033_pggit_history_audit.sql",
                     "sql/034_pggit_rollback_operations.sql",
+                    # Minimal API tables for testing (webhooks, alerts)
+                    "sql/v1.0.0/test_api_tables.sql",
                     # NOTE: Phase 7+ schemas skipped for now due to FK/data issues
                     # Will be fixed in separate commit
                     # TODO: Fix branch_id references and bootstrap data constraints
@@ -159,6 +163,37 @@ async def db_pool(db_schema_setup):
     await pool.close()
 
 
+def create_test_token(user_id: str = "test_user", expires_minutes: int = 30) -> str:
+    """
+    Create a test JWT token for authentication.
+
+    Args:
+        user_id: User identifier
+        expires_minutes: Token expiration time in minutes
+
+    Returns:
+        JWT token string
+    """
+    from services.config import get_settings
+
+    settings = get_settings()
+    expire = datetime.utcnow() + timedelta(minutes=expires_minutes)
+
+    payload = {
+        "sub": user_id,
+        "exp": expire,
+        "iat": datetime.utcnow(),
+    }
+
+    token = jwt.encode(
+        payload,
+        settings.jwt.secret_key,
+        algorithm=settings.jwt.algorithm,
+    )
+
+    return token
+
+
 @pytest.fixture(scope="function")
 async def client(db_pool):
     """
@@ -166,24 +201,36 @@ async def client(db_pool):
 
     This fixture:
     1. Overrides the database dependency with the test pool
-    2. Provides a properly configured AsyncClient
-    3. Cleans up after each test
+    2. Initializes cache for testing
+    3. Provides a properly configured AsyncClient with authentication
+    4. Cleans up after each test
 
     Scope: function - Each test gets a fresh client instance
     """
     from api.main import app
     import services.dependencies as deps
+    from services.cache import init_cache, shutdown_cache
+    from services.config import get_settings, CacheConfig
 
     # Override the global pool with test pool
     original_pool = deps._pool
     deps._pool = db_pool
 
+    # Initialize cache for tests (in-memory only)
+    settings = get_settings()
+    await init_cache(settings.cache)
+
+    # Create test JWT token
+    test_token = create_test_token()
+
     try:
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",
+            headers={"Authorization": f"Bearer {test_token}"},
         ) as client:
             yield client
     finally:
-        # Restore original pool
+        # Cleanup
+        await shutdown_cache()
         deps._pool = original_pool
