@@ -19,6 +19,7 @@ Phase 8 Week 2 introduces a comprehensive FastAPI-based REST API with WebSocket 
    - Alert management (`/api/v1/alerts`)
    - Cache operations (`/api/v1/cache`)
    - Dashboard views (`/api/v1/dashboard`)
+   - Merge operations (`/api/v1/merge`)
 
 3. **WebSocket Endpoints**
    - Real-time alert notifications (`/api/v1/ws/alerts`)
@@ -405,6 +406,270 @@ Manual invalidation:
 ```
 POST /api/v1/cache/invalidate
 ```
+
+### Merge Operations
+
+#### Initiate Merge
+```
+POST /api/v1/merge/{target_branch_id}/merge
+Content-Type: application/json
+
+{
+  "source_branch_id": 101,
+  "merge_message": "Merge feature/user-auth into main",
+  "merge_strategy": "auto",
+  "base_branch_id": null
+}
+```
+
+**Path Parameters:**
+- `target_branch_id` (required): Branch to merge INTO
+
+**Request Body:**
+- `source_branch_id` (required): Branch to merge FROM
+- `merge_message` (required): Descriptive commit message (1-500 chars)
+- `merge_strategy` (required): One of: `auto`, `three-way`, `fast-forward`, `ours`, `theirs`
+- `base_branch_id` (optional): Common ancestor branch (required for `three-way` strategy)
+
+**Response** (200 OK - Auto-merge successful):
+```json
+{
+  "merge_id": "mrg_abc123def456",
+  "status": "completed",
+  "conflicts_detected": false,
+  "merge_commit_id": 523,
+  "message": "Merge completed successfully",
+  "created_at": "2025-12-28T10:15:00Z",
+  "completed_at": "2025-12-28T10:15:01Z"
+}
+```
+
+**Response** (409 Conflict - Manual resolution required):
+```json
+{
+  "merge_id": "mrg_xyz789abc012",
+  "status": "pending_conflicts",
+  "conflicts_detected": true,
+  "conflicts": [
+    {
+      "conflict_id": 1,
+      "table_name": "users",
+      "conflict_type": "schema_mismatch",
+      "description": "Column 'email' type mismatch"
+    }
+  ],
+  "message": "Merge requires manual conflict resolution"
+}
+```
+
+**Merge Strategies**:
+- `auto`: Automatic merge, fails on conflicts (default)
+- `three-way`: Uses base branch for better conflict detection
+- `fast-forward`: Only succeeds if no divergence (linear history)
+- `ours`: Auto-resolves conflicts using target version
+- `theirs`: Auto-resolves conflicts using source version
+
+#### Get Merge Status
+```
+GET /api/v1/merge/{merge_id}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "merge_id": "mrg_abc123def456",
+  "source_branch_id": 101,
+  "target_branch_id": 100,
+  "merge_base_branch_id": null,
+  "status": "completed",
+  "merge_strategy": "auto",
+  "conflicts_detected": false,
+  "merge_commit_id": 523,
+  "created_at": "2025-12-28T10:15:00Z",
+  "completed_at": "2025-12-28T10:15:01Z"
+}
+```
+
+**Possible Statuses**:
+- `pending_conflicts`: Waiting for conflict resolution
+- `in_progress`: Merge executing
+- `completed`: Successfully merged
+- `aborted`: Merge cancelled
+- `failed`: Merge error
+
+#### List Merges
+```
+GET /api/v1/merge?status=pending_conflicts&limit=20&offset=0
+```
+
+**Query Parameters:**
+- `status` (optional): Filter by status
+- `source_branch_id` (optional): Filter by source branch
+- `target_branch_id` (optional): Filter by target branch
+- `limit` (optional): Default 20, max 100
+- `offset` (optional): Default 0
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "merge_id": "mrg_pending123",
+      "source_branch_id": 103,
+      "target_branch_id": 100,
+      "status": "pending_conflicts",
+      "conflicts_detected": true,
+      "created_at": "2025-12-28T10:30:00Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+#### List Conflicts
+```
+GET /api/v1/merge/{merge_id}/conflicts
+```
+
+**Response:** `200 OK`
+```json
+{
+  "merge_id": "mrg_xyz789abc012",
+  "conflicts": [
+    {
+      "conflict_id": 1,
+      "table_name": "users",
+      "conflict_type": "schema_mismatch",
+      "column_name": "email",
+      "source_schema": {
+        "data_type": "varchar",
+        "max_length": 255
+      },
+      "target_schema": {
+        "data_type": "varchar",
+        "max_length": 100
+      },
+      "description": "Column 'email' type mismatch: varchar(100) vs varchar(255)",
+      "resolution_status": "pending"
+    }
+  ],
+  "total_conflicts": 1
+}
+```
+
+#### Get Conflict Details
+```
+GET /api/v1/merge/{merge_id}/conflicts/{conflict_id}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "conflict_id": 1,
+  "merge_id": "mrg_xyz789abc012",
+  "conflict_type": "schema_mismatch",
+  "table_name": "users",
+  "column_name": "email",
+  "source_schema": {
+    "column_name": "email",
+    "data_type": "varchar",
+    "max_length": 255,
+    "nullable": false
+  },
+  "target_schema": {
+    "column_name": "email",
+    "data_type": "varchar",
+    "max_length": 100,
+    "nullable": false
+  },
+  "description": "Column 'email' type mismatch",
+  "resolution_status": "pending"
+}
+```
+
+#### Resolve Conflict
+```
+POST /api/v1/merge/{merge_id}/conflicts/{conflict_id}/resolve
+Content-Type: application/json
+
+{
+  "resolution_strategy": "use_source",
+  "resolution_notes": "Using source schema for better compatibility",
+  "custom_schema": null
+}
+```
+
+**Resolution Strategies**:
+- `use_source`: Accept source branch version
+- `use_target`: Keep target branch version
+- `custom`: Provide custom schema (requires `custom_schema` field)
+
+**Example Custom Resolution**:
+```json
+{
+  "resolution_strategy": "custom",
+  "custom_schema": {
+    "column_name": "email",
+    "data_type": "varchar",
+    "max_length": 320,
+    "nullable": false,
+    "unique": true
+  },
+  "resolution_notes": "Using RFC 5321 max length"
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "conflict_id": 1,
+  "resolution_id": "res_123456",
+  "resolution_strategy": "use_source",
+  "resolution_notes": "Using source schema for better compatibility",
+  "resolved_at": "2025-12-28T10:22:00Z"
+}
+```
+
+#### Complete Merge
+```
+POST /api/v1/merge/{merge_id}/complete
+Content-Type: application/json
+
+{
+  "merge_message": "Resolved conflicts and merged feature/modify-user-table"
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "merge_id": "mrg_xyz789abc012",
+  "status": "completed",
+  "conflicts_detected": true,
+  "conflicts_resolved": 1,
+  "merge_commit_id": 524,
+  "message": "Merge completed after conflict resolution",
+  "created_at": "2025-12-28T10:20:00Z",
+  "completed_at": "2025-12-28T10:23:00Z"
+}
+```
+
+#### Abort Merge
+```
+POST /api/v1/merge/{merge_id}/abort
+```
+
+**Response:** `200 OK`
+```json
+{
+  "merge_id": "mrg_xyz789abc012",
+  "status": "aborted",
+  "message": "Merge operation aborted",
+  "aborted_at": "2025-12-28T10:25:00Z"
+}
+```
+
+**Tutorial**: For a complete walkthrough, see `MERGE_TUTORIAL.md`
 
 ## Performance Targets
 
