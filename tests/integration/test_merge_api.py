@@ -82,8 +82,8 @@ class TestMergeBase:
 
         if branch_id:
             response = await client.get(f"/api/v1/branches/{branch_id}/merge-base/{branch_id}")
-            # Should return 404 or empty result (no common ancestor for same branch)
-            assert response.status_code in [200, 404]
+            # Should return 400 Bad Request (cannot merge branch with itself)
+            assert response.status_code == 400
 
 
 class TestMergeExecution:
@@ -191,7 +191,7 @@ class TestMergeExecution:
             }
 
             response = await client.post(f"/api/v1/branches/{main_id}/merge", json=payload)
-            assert response.status_code == 500  # Should fail with invalid strategy
+            assert response.status_code == 400  # Should fail with 400 Bad Request (invalid strategy)
 
     @pytest.mark.asyncio
     async def test_merge_same_branch(self, client, db_pool):
@@ -209,7 +209,7 @@ class TestMergeExecution:
             }
 
             response = await client.post(f"/api/v1/branches/{branch_id}/merge", json=payload)
-            assert response.status_code == 500  # Should fail
+            assert response.status_code == 400  # Should fail with 400 Bad Request (cannot merge into self)
 
 
 class TestMergeStatus:
@@ -408,13 +408,13 @@ class TestConflictResolution:
             "custom_definition": None
         }
 
-        # Try to resolve (should fail validation or at DB level)
+        # Try to resolve (should fail validation at API level)
         response = await client.post(
             "/api/v1/merge/any_id/conflicts/1",
             json=resolution_payload
         )
-        # Should fail with validation error or 500
-        assert response.status_code in [422, 500]
+        # Should fail with validation error (400 for business logic, 422 for Pydantic)
+        assert response.status_code in [400, 422]
 
 
 class TestMergeWorkflowEndToEnd:

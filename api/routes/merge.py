@@ -57,13 +57,13 @@ class MergeBaseResponse(BaseModel):
 
 class MergeRequest(BaseModel):
     """Request body for initiating a merge"""
-    source_branch_id: int = Field(..., description="Branch to merge from")
-    merge_message: str = Field(..., max_length=500, description="Commit message for merge")
+    source_branch_id: int = Field(..., gt=0, description="Branch to merge from (must be > 0)")
+    merge_message: str = Field(..., min_length=1, max_length=500, description="Commit message for merge")
     merge_strategy: str = Field(
         default="MANUAL_REVIEW",
         description="Strategy: ABORT_ON_CONFLICT, TARGET_WINS, SOURCE_WINS, UNION, MANUAL_REVIEW"
     )
-    base_branch_id: Optional[int] = Field(None, description="Merge base (auto-discovered if null)")
+    base_branch_id: Optional[int] = Field(None, gt=0, description="Merge base (auto-discovered if null, must be > 0 if provided)")
 
     class Config:
         json_schema_extra = {
@@ -143,8 +143,8 @@ class ConflictListResponse(BaseModel):
 
 class ResolveConflictRequest(BaseModel):
     """Request to resolve a conflict"""
-    resolution: str = Field(..., description="Resolution type: SOURCE, TARGET, CUSTOM")
-    custom_definition: Optional[str] = Field(None, description="Custom SQL definition for CUSTOM resolution")
+    resolution: str = Field(..., min_length=1, max_length=50, description="Resolution type: SOURCE, TARGET, CUSTOM")
+    custom_definition: Optional[str] = Field(None, max_length=10000, description="Custom SQL definition for CUSTOM resolution (max 10000 chars)")
 
     class Config:
         json_schema_extra = {
@@ -172,8 +172,8 @@ class ResolveConflictResponse(BaseModel):
     tags=["Merge Operations"]
 )
 async def find_merge_base(
-    branch1_id: int = Path(..., description="First branch ID"),
-    branch2_id: int = Path(..., description="Second branch ID"),
+    branch1_id: int = Path(..., description="First branch ID", gt=0),
+    branch2_id: int = Path(..., description="Second branch ID", gt=0),
     db: asyncpg.Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
     _: dict = Depends(rate_limit_dependency)
@@ -185,12 +185,19 @@ async def find_merge_base(
     Returns the common ancestor with depth information.
 
     Path Parameters:
-    - branch1_id: First branch ID
-    - branch2_id: Second branch ID
+    - branch1_id: First branch ID (must be > 0)
+    - branch2_id: Second branch ID (must be > 0)
 
     Returns:
         Merge base information with depths from each branch
     """
+    # Input validation
+    if branch1_id == branch2_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot find merge base between identical branches"
+        )
+
     try:
         result = await db.fetchrow(
             """
@@ -229,7 +236,7 @@ async def find_merge_base(
     tags=["Merge Operations"]
 )
 async def merge_branches(
-    target_id: int = Path(..., description="Target branch ID (merge into)"),
+    target_id: int = Path(..., description="Target branch ID (merge into)", gt=0),
     merge_request: MergeRequest = ...,
     db: asyncpg.Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
@@ -242,53 +249,82 @@ async def merge_branches(
     Creates a merge record and returns conflict information.
 
     Path Parameters:
-    - target_id: Branch to merge into
+    - target_id: Branch to merge into (must be > 0)
 
     Request Body:
-    - source_branch_id: Branch to merge from
-    - merge_message: Commit message
+    - source_branch_id: Branch to merge from (must be > 0)
+    - merge_message: Commit message (max 500 chars)
     - merge_strategy: ABORT_ON_CONFLICT, TARGET_WINS, SOURCE_WINS, UNION, MANUAL_REVIEW
     - base_branch_id: Optional merge base (auto-discovered if not provided)
 
     Returns:
         Merge operation result with conflict counts and status
     """
-    try:
-        result = await db.fetchrow(
-            """
-            SELECT merge_id, status, conflicts_detected, auto_resolvable_count,
-                   manual_count, merge_complete, result_commit_hash, merge_base_branch_id
-            FROM pggit.merge_branches($1, $2, $3, $4, $5)
-            """,
-            merge_request.source_branch_id,
-            target_id,
-            merge_request.merge_message,
-            merge_request.merge_strategy,
-            merge_request.base_branch_id
+    # Input validation
+    if merge_request.source_branch_id <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Source branch ID must be positive"
         )
 
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Merge operation failed to return result"
+    if merge_request.source_branch_id == target_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot merge branch into itself"
+        )
+
+    # Validate merge strategy
+    valid_strategies = {'ABORT_ON_CONFLICT', 'TARGET_WINS', 'SOURCE_WINS', 'UNION', 'MANUAL_REVIEW'}
+    if merge_request.merge_strategy not in valid_strategies:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid merge strategy. Must be one of: {', '.join(valid_strategies)}"
+        )
+
+    if merge_request.base_branch_id is not None and merge_request.base_branch_id <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Base branch ID must be positive if provided"
+        )
+
+    try:
+        # Execute merge operation within a transaction
+        async with db.transaction():
+            result = await db.fetchrow(
+                """
+                SELECT merge_id, status, conflicts_detected, auto_resolvable_count,
+                       manual_count, merge_complete, result_commit_hash, merge_base_branch_id
+                FROM pggit.merge_branches($1, $2, $3, $4, $5)
+                """,
+                merge_request.source_branch_id,
+                target_id,
+                merge_request.merge_message,
+                merge_request.merge_strategy,
+                merge_request.base_branch_id
             )
 
-        logger.info(
-            f"Merge initiated: {result['merge_id']} - "
-            f"{merge_request.source_branch_id} → {target_id} - "
-            f"{result['conflicts_detected']} conflicts"
-        )
+            if not result:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Merge operation failed to return result"
+                )
 
-        return MergeResponse(
-            merge_id=result['merge_id'],
-            status=result['status'],
-            conflicts_detected=result['conflicts_detected'],
-            auto_resolvable_count=result['auto_resolvable_count'],
-            manual_count=result['manual_count'],
-            merge_complete=result['merge_complete'],
-            result_commit_hash=result['result_commit_hash'],
-            merge_base_branch_id=result['merge_base_branch_id']
-        )
+            logger.info(
+                f"Merge initiated: {result['merge_id']} - "
+                f"{merge_request.source_branch_id} → {target_id} - "
+                f"{result['conflicts_detected']} conflicts"
+            )
+
+            return MergeResponse(
+                merge_id=result['merge_id'],
+                status=result['status'],
+                conflicts_detected=result['conflicts_detected'],
+                auto_resolvable_count=result['auto_resolvable_count'],
+                manual_count=result['manual_count'],
+                merge_complete=result['merge_complete'],
+                result_commit_hash=result['result_commit_hash'],
+                merge_base_branch_id=result['merge_base_branch_id']
+            )
 
     except asyncpg.PostgresError as e:
         logger.error(f"Database error during merge: {e}")
@@ -461,8 +497,8 @@ async def list_merge_conflicts(
     tags=["Merge Operations"]
 )
 async def resolve_conflict(
-    merge_id: str = Path(..., description="Merge operation ID"),
-    conflict_id: int = Path(..., description="Conflict ID"),
+    merge_id: str = Path(..., description="Merge operation ID", min_length=1, max_length=100),
+    conflict_id: int = Path(..., description="Conflict ID", gt=0),
     resolution: ResolveConflictRequest = ...,
     db: asyncpg.Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
@@ -475,8 +511,8 @@ async def resolve_conflict(
     Updates merge status and checks if all conflicts are resolved.
 
     Path Parameters:
-    - merge_id: Merge operation ID
-    - conflict_id: Conflict ID to resolve
+    - merge_id: Merge operation ID (1-100 chars)
+    - conflict_id: Conflict ID to resolve (must be > 0)
 
     Request Body:
     - resolution: SOURCE (use source version), TARGET (use target version), CUSTOM (provide SQL)
@@ -485,37 +521,59 @@ async def resolve_conflict(
     Returns:
         Resolution result and updated merge status
     """
-    try:
-        result = await db.fetchrow(
-            """
-            SELECT merge_id, conflict_id, resolution_applied, resolved_at, merge_complete
-            FROM pggit.resolve_conflict($1, $2, $3, $4)
-            """,
-            merge_id,
-            conflict_id,
-            resolution.resolution,
-            resolution.custom_definition
+    # Input validation
+    valid_resolutions = {'SOURCE', 'TARGET', 'CUSTOM'}
+    if resolution.resolution not in valid_resolutions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid resolution type. Must be one of: {', '.join(valid_resolutions)}"
         )
 
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Conflict resolution failed to return result"
+    if resolution.resolution == 'CUSTOM' and not resolution.custom_definition:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Custom definition is required when resolution type is CUSTOM"
+        )
+
+    if resolution.custom_definition and len(resolution.custom_definition) > 10000:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Custom definition exceeds maximum length of 10000 characters"
+        )
+
+    try:
+        # Execute conflict resolution within a transaction
+        async with db.transaction():
+            result = await db.fetchrow(
+                """
+                SELECT merge_id, conflict_id, resolution_applied, resolved_at, merge_complete
+                FROM pggit.resolve_conflict($1, $2, $3, $4)
+                """,
+                merge_id,
+                conflict_id,
+                resolution.resolution,
+                resolution.custom_definition
             )
 
-        logger.info(
-            f"Conflict resolved: {merge_id}/{conflict_id} - "
-            f"resolution={resolution.resolution} - "
-            f"merge_complete={result['merge_complete']}"
-        )
+            if not result:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Conflict resolution failed to return result"
+                )
 
-        return ResolveConflictResponse(
-            merge_id=result['merge_id'],
-            conflict_id=result['conflict_id'],
-            resolution_applied=result['resolution_applied'],
-            resolved_at=result['resolved_at'],
-            merge_complete=result['merge_complete']
-        )
+            logger.info(
+                f"Conflict resolved: {merge_id}/{conflict_id} - "
+                f"resolution={resolution.resolution} - "
+                f"merge_complete={result['merge_complete']}"
+            )
+
+            return ResolveConflictResponse(
+                merge_id=result['merge_id'],
+                conflict_id=result['conflict_id'],
+                resolution_applied=result['resolution_applied'],
+                resolved_at=result['resolved_at'],
+                merge_complete=result['merge_complete']
+            )
 
     except asyncpg.PostgresError as e:
         logger.error(f"Database error resolving conflict: {e}")
