@@ -143,12 +143,17 @@ class Settings:
 
     def _load_database(self):
         """Load database configuration"""
+        # Allow empty password for local development/testing with trust auth
+        password = os.getenv("DATABASE_PASSWORD", "")
+        if not password and os.getenv("ENVIRONMENT") not in ("test", "development"):
+            raise ValueError("DATABASE_PASSWORD is required in production environments")
+
         self.database = DatabaseConfig(
             host=os.getenv("DATABASE_HOST", "localhost"),
             port=int(os.getenv("DATABASE_PORT", "5432")),
             database=os.getenv("DATABASE_NAME", "pggit"),
             user=os.getenv("DATABASE_USER", "postgres"),
-            password=self._require_env("DATABASE_PASSWORD", "Database password"),
+            password=password,
         )
 
     def _load_jwt(self):
@@ -261,8 +266,9 @@ class Settings:
         Called at application startup.
         """
         # Check database connectivity is possible (basic validation)
-        if not self.database.password:
-            raise ValueError("Database password not set")
+        # Allow empty password in test/development for trust auth
+        if not self.database.password and os.getenv("ENVIRONMENT") not in ("test", "development"):
+            raise ValueError("Database password not set in production environment")
 
         # Check JWT secret is strong enough
         if len(self.jwt.secret_key) < 32:

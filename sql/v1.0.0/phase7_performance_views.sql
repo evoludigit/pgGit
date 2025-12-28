@@ -48,16 +48,16 @@ ORDER BY execution_count DESC;
 -- v_branch_performance_summary: Performance metrics by branch
 CREATE OR REPLACE VIEW pggit.v_branch_performance_summary AS
 SELECT
-    b.id as branch_id,
-    b.name as branch_name,
+    b.branch_id as branch_id,
+    b.branch_name as branch_name,
     COUNT(pm.metric_id)::INTEGER as operation_count,
     COUNT(DISTINCT pm.operation_type)::INTEGER as operation_types,
     (AVG(pm.duration_microseconds) / 1000)::NUMERIC(10,3) as avg_duration_ms,
     (PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY pm.duration_microseconds) / 1000)::NUMERIC(10,3) as p99_ms,
     MAX(pm.recorded_at) as last_operation
 FROM pggit.branches b
-LEFT JOIN pggit.performance_metrics pm ON b.id = pm.branch_id
-GROUP BY b.id, b.name
+LEFT JOIN pggit.performance_metrics pm ON b.branch_id = pm.branch_id
+GROUP BY b.branch_id, b.branch_name
 ORDER BY operation_count DESC;
 
 -- ============================================================================
@@ -141,8 +141,8 @@ ORDER BY trace_id, depth, span_id;
 CREATE OR REPLACE VIEW pggit.v_merge_performance_summary AS
 SELECT
     mpm.merge_metric_id,
-    sb.name as source_branch,
-    tb.name as target_branch,
+    sb.branch_name as source_branch,
+    tb.branch_name as target_branch,
     (mpm.total_merge_us / 1000)::NUMERIC(10,3) as total_duration_ms,
     (mpm.merge_base_calculation_us / 1000)::NUMERIC(10,3) as merge_base_calc_ms,
     (mpm.conflict_detection_us / 1000)::NUMERIC(10,3) as conflict_detect_ms,
@@ -155,15 +155,15 @@ SELECT
     mpm.started_at,
     mpm.completed_at
 FROM pggit.merge_performance_metrics mpm
-JOIN pggit.branches sb ON mpm.source_branch_id = sb.id
-JOIN pggit.branches tb ON mpm.target_branch_id = tb.id
+JOIN pggit.branches sb ON mpm.source_branch_id = sb.branch_id
+JOIN pggit.branches tb ON mpm.target_branch_id = tb.branch_id
 ORDER BY mpm.started_at DESC;
 
 -- v_merge_statistics: Aggregate merge statistics
 CREATE OR REPLACE VIEW pggit.v_merge_statistics AS
 SELECT
-    sb.name as source_branch,
-    tb.name as target_branch,
+    sb.branch_name as source_branch,
+    tb.branch_name as target_branch,
     COUNT(*) as merge_count,
     (AVG(mpm.total_merge_us) / 1000)::NUMERIC(10,3) as avg_duration_ms,
     (MAX(mpm.total_merge_us) / 1000)::NUMERIC(10,3) as max_duration_ms,
@@ -174,9 +174,9 @@ SELECT
     SUM(CASE WHEN mpm.merge_status = 'FAILED' THEN 1 ELSE 0 END) as failed_merges,
     MAX(mpm.completed_at) as last_merge
 FROM pggit.merge_performance_metrics mpm
-JOIN pggit.branches sb ON mpm.source_branch_id = sb.id
-JOIN pggit.branches tb ON mpm.target_branch_id = tb.id
-GROUP BY sb.name, tb.name
+JOIN pggit.branches sb ON mpm.source_branch_id = sb.branch_id
+JOIN pggit.branches tb ON mpm.target_branch_id = tb.branch_id
+GROUP BY sb.branch_name, tb.branch_name
 ORDER BY merge_count DESC;
 
 -- ============================================================================

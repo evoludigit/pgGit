@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS pggit.performance_metrics (
     end_time TIMESTAMP NOT NULL,                  -- When operation ended
 
     -- Context
-    branch_id INTEGER REFERENCES pggit.branches(id) ON DELETE SET NULL,
+    branch_id INTEGER REFERENCES pggit.branches(branch_id) ON DELETE SET NULL,
     user_name TEXT NOT NULL,                      -- WHO performed the operation
     session_id TEXT,                              -- Session tracking for correlation
 
@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS pggit.operation_traces (
     duration_microseconds BIGINT,
 
     -- Context
-    branch_id INTEGER REFERENCES pggit.branches(id) ON DELETE SET NULL,
+    branch_id INTEGER REFERENCES pggit.branches(branch_id) ON DELETE SET NULL,
     user_name TEXT NOT NULL,
     session_id TEXT,
 
@@ -152,7 +152,7 @@ CREATE TABLE IF NOT EXISTS pggit.performance_baselines (
 
     -- What operation?
     operation_type TEXT NOT NULL,
-    branch_id INTEGER REFERENCES pggit.branches(id) ON DELETE CASCADE,
+    branch_id INTEGER REFERENCES pggit.branches(branch_id) ON DELETE CASCADE,
 
     -- When was this baseline calculated?
     baseline_date DATE NOT NULL,
@@ -227,7 +227,7 @@ CREATE TABLE IF NOT EXISTS pggit.performance_alerts (
     violation_multiplier NUMERIC(6,2),            -- How much over threshold? (2.5x, etc.)
 
     -- Context
-    branch_id INTEGER REFERENCES pggit.branches(id) ON DELETE SET NULL,
+    branch_id INTEGER REFERENCES pggit.branches(branch_id) ON DELETE SET NULL,
     user_name TEXT,
 
     -- Status tracking
@@ -267,8 +267,8 @@ CREATE TABLE IF NOT EXISTS pggit.merge_performance_metrics (
     merge_metric_id BIGSERIAL PRIMARY KEY,
 
     -- Merge identification
-    source_branch_id INTEGER NOT NULL REFERENCES pggit.branches(id) ON DELETE CASCADE,
-    target_branch_id INTEGER NOT NULL REFERENCES pggit.branches(id) ON DELETE CASCADE,
+    source_branch_id INTEGER NOT NULL REFERENCES pggit.branches(branch_id) ON DELETE CASCADE,
+    target_branch_id INTEGER NOT NULL REFERENCES pggit.branches(branch_id) ON DELETE CASCADE,
     merge_base_commit_hash TEXT,
 
     -- Merge workflow phases
