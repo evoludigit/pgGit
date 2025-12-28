@@ -11,6 +11,25 @@ from httpx import AsyncClient, ASGITransport
 from jose import jwt
 
 
+def pytest_collection_modifyitems(items):
+    """
+    Modify test collection order to ensure Phase 8/merge tests run before Phase 6.
+
+    This ensures the database schema with webhooks/alerts tables is set up first,
+    preventing Phase 6 tests (which use a different conftest) from interfering.
+    """
+    def sort_key(item):
+        # Run Phase 8 and merge tests first, then Phase 6
+        if 'phase8' in item.nodeid or 'merge_api' in item.nodeid:
+            return (0, item.nodeid)
+        elif 'phase6' in item.nodeid:
+            return (1, item.nodeid)
+        else:
+            return (2, item.nodeid)
+
+    items.sort(key=sort_key)
+
+
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_env():
     """
