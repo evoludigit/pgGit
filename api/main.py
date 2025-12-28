@@ -35,10 +35,45 @@ from services.cache_warming_strategies import init_cache_warming, shutdown_cache
 
 logger = logging.getLogger(__name__)
 
-# Configure logging
+# Configure structured logging
+import json
+import sys
+
+class JSONFormatter(logging.Formatter):
+    """JSON formatter for structured logging"""
+
+    def format(self, record):
+        log_data = {
+            'timestamp': self.formatTime(record, self.datefmt),
+            'level': record.levelname,
+            'logger': record.name,
+            'message': record.getMessage(),
+        }
+
+        # Add extra fields if present
+        if hasattr(record, 'request_id'):
+            log_data['request_id'] = record.request_id
+        if hasattr(record, 'method'):
+            log_data['method'] = record.method
+        if hasattr(record, 'path'):
+            log_data['path'] = record.path
+        if hasattr(record, 'status_code'):
+            log_data['status_code'] = record.status_code
+        if hasattr(record, 'duration_ms'):
+            log_data['duration_ms'] = record.duration_ms
+
+        # Add exception info if present
+        if record.exc_info:
+            log_data['exception'] = self.formatException(record.exc_info)
+
+        return json.dumps(log_data)
+
+# Configure logging with JSON formatter
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(JSONFormatter())
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    handlers=[handler]
 )
 
 
@@ -130,6 +165,14 @@ app = FastAPI(
 
 
 # ===== MIDDLEWARE =====
+
+# Import custom middleware
+from api.middleware import RequestIDMiddleware, LoggingMiddleware, PerformanceMiddleware
+
+# Add custom middleware (order matters - first added = outermost)
+app.add_middleware(PerformanceMiddleware, slow_request_threshold_ms=1000)
+app.add_middleware(LoggingMiddleware)
+app.add_middleware(RequestIDMiddleware)
 
 # CORS Middleware
 settings = get_settings()
