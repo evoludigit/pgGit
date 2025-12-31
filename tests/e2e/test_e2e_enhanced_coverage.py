@@ -69,6 +69,7 @@ class TestE2EErrorHandlingValidation:
 
     def test_constraint_violation_rollback(self, db, pggit_installed):
         """Test that constraint violations rollback properly"""
+        db.execute("DROP TABLE IF EXISTS public.constraint_test CASCADE")
         db.execute(
             """
             CREATE TABLE public.constraint_test (
@@ -89,6 +90,9 @@ class TestE2EErrorHandlingValidation:
                 "INSERT INTO public.constraint_test (email) VALUES (%s)",
                 "user@test.com",
             )
+
+        # Rollback the failed transaction
+        db.conn.rollback()
 
         # Verify only one row exists
         result = db.execute("SELECT COUNT(*) FROM public.constraint_test")
@@ -182,26 +186,44 @@ class TestE2EConcurrencyScenarios:
         """Test creating multiple branches in parallel"""
         branch_names = [f"parallel-{i}" for i in range(10)]
         created_branches = []
+        errors = []
 
         def create_branch(name):
             try:
+                print(f"Thread {threading.current_thread().name} creating branch {name}")
+                conn = db.connect()  # Explicitly get thread-local connection
+                print(f"Thread {threading.current_thread().name} got connection: {conn}")
                 db.execute("INSERT INTO pggit.branches (name) VALUES (%s)", name)
+                conn.commit()  # Explicitly commit the transaction
+                print(f"Thread {threading.current_thread().name} inserted {name}")
                 return name
             except Exception as e:
+                print(f"Thread {threading.current_thread().name} error: {e}")
+                errors.append(f"{name}: {str(e)}")
+                if hasattr(db, 'conn') and db.conn:
+                    db.conn.rollback()
                 return None
 
         with ThreadPoolExecutor(max_workers=5) as executor:
             futures = [executor.submit(create_branch, name) for name in branch_names]
             created_branches = [f.result() for f in as_completed(futures)]
 
+        # Print errors for debugging
+        print(f"Created branches: {[b for b in created_branches if b]}")
+        if errors:
+            print(f"Branch creation errors: {errors}")
+
         # All branches should be created
-        assert len([b for b in created_branches if b]) == 10, "Parallel creation failed"
+        assert len([b for b in created_branches if b]) == 10, f"Parallel creation failed. Created: {len([b for b in created_branches if b])}, Errors: {errors[:5]}"
+
+        # Commit main thread connection to refresh transaction snapshot
+        db.conn.commit()
 
         # Verify all exist in database
         result = db.execute(
             "SELECT COUNT(*) FROM pggit.branches WHERE name LIKE %s", ("parallel-%",)
         )
-        assert result[0][0] == 10, "Not all parallel branches created"
+        assert result[0][0] == 10, f"Not all parallel branches created. Found {result[0][0]} branches"
 
     def test_concurrent_commits_same_branch(self, db, pggit_installed):
         """Test concurrent commits to the same branch"""
@@ -238,9 +260,11 @@ class TestE2EConcurrencyScenarios:
         """Test concurrent table creation and inserts"""
         table_names = [f"parallel_table_{i}" for i in range(5)]
         created_tables = []
+        errors = []
 
         def create_and_insert(table_name):
             try:
+                conn = db.connect()
                 db.execute(
                     f"""
                     CREATE TABLE public.{table_name} (
@@ -253,28 +277,41 @@ class TestE2EConcurrencyScenarios:
                 db.execute(
                     f"INSERT INTO public.{table_name} (value) VALUES (%s)", "test-data"
                 )
+                conn.commit()  # Explicitly commit
                 return table_name
-            except Exception:
+            except Exception as e:
+                errors.append(f"{table_name}: {str(e)}")
+                if hasattr(db, 'conn') and db.conn:
+                    db.conn.rollback()
                 return None
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             futures = [executor.submit(create_and_insert, name) for name in table_names]
             created_tables = [f.result() for f in as_completed(futures)]
 
+        # Print errors for debugging
+        if errors:
+            print(f"Table creation errors: {errors}")
+
+        # Commit main thread connection to refresh transaction snapshot
+        db.conn.commit()
+
         # Verify tables exist
         result = db.execute(
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name LIKE %s",
             ("parallel_table_%",),
         )
-        assert result[0][0] == 5, "Not all parallel tables created"
+        assert result[0][0] == 5, f"Not all parallel tables created. Errors: {errors[:3]}"
 
     def test_concurrent_snapshot_creation(self, db, pggit_installed):
         """Test creating multiple snapshots concurrently"""
         snapshot_names = [f"concurrent-snapshot-{i}" for i in range(5)]
         created_snapshots = []
+        errors = []
 
         def create_snapshot(name):
             try:
+                conn = db.connect()
                 result = db.execute_returning(
                     """
                     SELECT snapshot_id FROM pggit.create_temporal_snapshot(%s, 1, %s)
@@ -282,8 +319,12 @@ class TestE2EConcurrencyScenarios:
                     name,
                     f"Concurrent snapshot {name}",
                 )
+                conn.commit()  # Explicitly commit
                 return result[0] if result else None
-            except Exception:
+            except Exception as e:
+                errors.append(f"{name}: {str(e)}")
+                if hasattr(db, 'conn') and db.conn:
+                    db.conn.rollback()
                 return None
 
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -292,12 +333,19 @@ class TestE2EConcurrencyScenarios:
             ]
             created_snapshots = [f.result() for f in as_completed(futures)]
 
+        # Print errors for debugging
+        if errors:
+            print(f"Snapshot creation errors: {errors}")
+
+        # Commit main thread connection to refresh transaction snapshot
+        db.conn.commit()
+
         # Verify snapshots created
         result = db.execute(
             "SELECT COUNT(*) FROM pggit.temporal_snapshots WHERE snapshot_name LIKE %s",
             ("concurrent-snapshot-%",),
         )
-        assert result[0][0] == 5, "Not all concurrent snapshots created"
+        assert result[0][0] == 5, f"Not all concurrent snapshots created. Errors: {errors[:3]}"
 
 
 class TestE2EDataIntegrity:
@@ -528,10 +576,11 @@ class TestE2EAdvancedFeatures:
             """
             SELECT pggit.record_temporal_change(
                 %s, 'public', 'test_table', 'UPDATE', 'row-1',
-                json.dumps({"id": 1, "name": "Alice", "age": 30}), %s
+                %s, %s
             )
             """,
             snap2[0],
+            json.dumps({"id": 1, "name": "Alice", "age": 30}),
             json.dumps({"id": 1, "name": "Alice", "age": 31}),
         )
 

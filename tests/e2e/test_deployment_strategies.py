@@ -325,6 +325,7 @@ class TestDeploymentStrategies:
 
     def test_deployment_validation_gates(self, db, pggit_installed):
         """Test validation gates before promoting deployment."""
+        db.execute("DROP TABLE IF EXISTS public.deployment_validation CASCADE")
         db.execute("""
             CREATE TABLE public.deployment_validation (
                 id INTEGER PRIMARY KEY,

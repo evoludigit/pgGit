@@ -160,16 +160,16 @@ class E2ETestFixture:
 
     def execute(self, query: str, *args):
         """Execute a query and return results"""
-        if not self.conn:
-            self.connect()
+        # Get or create thread-local connection
+        conn = self.connect()
 
-        cursor = self.conn.cursor()
+        cursor = conn.cursor()
         cursor.execute(query, args)
 
         # Don't auto-commit transaction control statements
         query_upper = query.strip().upper()
         if query_upper not in ("BEGIN", "COMMIT", "ROLLBACK"):
-            self.conn.commit()
+            conn.commit()
 
         # Return results if it's a SELECT query
         if query_upper.startswith("SELECT"):
@@ -178,17 +178,17 @@ class E2ETestFixture:
 
     def execute_returning(self, query: str, *args):
         """Execute query that returns a single row as tuple"""
-        if not self.conn:
-            self.connect()
+        # Get or create thread-local connection
+        conn = self.connect()
 
         try:
-            cursor = self.conn.cursor()
+            cursor = conn.cursor()
             cursor.execute(query, args)
             result = cursor.fetchone()
-            self.conn.commit()
+            conn.commit()
             return result
         except Exception as e:
-            self.conn.rollback()
+            conn.rollback()
             raise Exception(f"Query failed: {query} with args {args}") from e
 
     def close(self):
