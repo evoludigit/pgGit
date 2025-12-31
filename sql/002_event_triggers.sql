@@ -147,7 +147,39 @@ BEGIN
                         )
                     );
                 END LOOP;
-                
+
+                -- Track foreign key dependencies
+                FOR v_column IN
+                    SELECT
+                        tc.constraint_name,
+                        kcu.column_name,
+                        ccu.table_schema AS foreign_table_schema,
+                        ccu.table_name AS foreign_table_name,
+                        ccu.column_name AS foreign_column_name
+                    FROM information_schema.table_constraints AS tc
+                    JOIN information_schema.key_column_usage AS kcu
+                        ON tc.constraint_name = kcu.constraint_name
+                        AND tc.table_schema = kcu.table_schema
+                    JOIN information_schema.constraint_column_usage AS ccu
+                        ON ccu.constraint_name = tc.constraint_name
+                        AND ccu.table_schema = tc.table_schema
+                    WHERE tc.constraint_type = 'FOREIGN KEY'
+                    AND tc.table_schema = v_schema_name
+                    AND tc.table_name = v_object_name
+                LOOP
+                    -- Record dependency: this table depends on the referenced table
+                    BEGIN
+                        PERFORM pggit.add_dependency(
+                            v_schema_name || '.' || v_object_name,  -- dependent
+                            v_column.foreign_table_schema || '.' || v_column.foreign_table_name,  -- depends_on
+                            'foreign_key'
+                        );
+                    EXCEPTION WHEN OTHERS THEN
+                        -- Ignore errors if referenced table not tracked yet
+                        NULL;
+                    END;
+                END LOOP;
+
             WHEN 'index' THEN
                 -- Get parent table for index
                 SELECT
@@ -190,7 +222,33 @@ BEGIN
                     NULL,
                     v_metadata
                 );
-                
+
+                -- Track view dependencies on tables
+                FOR v_column IN
+                    SELECT DISTINCT
+                        n.nspname AS dep_schema,
+                        c.relname AS dep_table
+                    FROM pg_depend d
+                    JOIN pg_rewrite r ON r.oid = d.objid
+                    JOIN pg_class c ON c.oid = d.refobjid
+                    JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE r.ev_class = v_object.objid
+                    AND c.relkind IN ('r', 'v', 'm')  -- tables, views, materialized views
+                    AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+                LOOP
+                    -- Record dependency: this view depends on the referenced table/view
+                    BEGIN
+                        PERFORM pggit.add_dependency(
+                            v_schema_name || '.' || v_object_name,  -- dependent (the view)
+                            v_column.dep_schema || '.' || v_column.dep_table,  -- depends_on (table/view it references)
+                            'view'
+                        );
+                    EXCEPTION WHEN OTHERS THEN
+                        -- Ignore errors if referenced table not tracked yet
+                        NULL;
+                    END;
+                END LOOP;
+
             WHEN 'function' THEN
                 v_metadata := jsonb_build_object(
                     'oid', v_object.objid
@@ -223,12 +281,56 @@ BEGIN
         END IF;
         
         -- Create description
-        v_description := format('%s %s %s.%s',
-            v_object.command_tag,
-            v_object.object_type,
-            v_schema_name,
-            v_object_name
-        );
+        IF v_change_type = 'ALTER' AND v_object.object_type = 'table' THEN
+            -- For ALTER TABLE, include column change details
+            DECLARE
+                v_old_columns JSONB;
+                v_new_columns JSONB;
+                v_added_columns TEXT[];
+                v_removed_columns TEXT[];
+                v_column_key TEXT;
+            BEGIN
+                v_old_columns := COALESCE(v_old_metadata->'columns', '{}'::jsonb);
+                v_new_columns := COALESCE(v_metadata->'columns', '{}'::jsonb);
+
+                -- Find added columns
+                FOR v_column_key IN SELECT jsonb_object_keys(v_new_columns) LOOP
+                    IF NOT v_old_columns ? v_column_key THEN
+                        v_added_columns := array_append(v_added_columns, v_column_key);
+                    END IF;
+                END LOOP;
+
+                -- Find removed columns (if any)
+                FOR v_column_key IN SELECT jsonb_object_keys(v_old_columns) LOOP
+                    IF NOT v_new_columns ? v_column_key THEN
+                        v_removed_columns := array_append(v_removed_columns, v_column_key);
+                    END IF;
+                END LOOP;
+
+                -- Build description
+                v_description := format('%s %s %s.%s',
+                    v_object.command_tag,
+                    v_object.object_type,
+                    v_schema_name,
+                    v_object_name
+                );
+
+                IF array_length(v_added_columns, 1) > 0 THEN
+                    v_description := v_description || ' - Added column(s): ' || array_to_string(v_added_columns, ', ');
+                END IF;
+
+                IF array_length(v_removed_columns, 1) > 0 THEN
+                    v_description := v_description || ' - Removed column(s): ' || array_to_string(v_removed_columns, ', ');
+                END IF;
+            END;
+        ELSE
+            v_description := format('%s %s %s.%s',
+                v_object.command_tag,
+                v_object.object_type,
+                v_schema_name,
+                v_object_name
+            );
+        END IF;
         
         -- Increment version
         IF v_change_type != 'CREATE' OR v_old_metadata IS NOT NULL THEN

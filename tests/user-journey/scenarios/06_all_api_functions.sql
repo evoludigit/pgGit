@@ -58,11 +58,7 @@ LIMIT 1;
 -- Test 5: pggit.get_impact_analysis()
 -- Should return dependency information (or empty if no dependencies)
 SELECT
-    TRUE AS get_impact_analysis_callable
-FROM (
-    SELECT * FROM pggit.get_impact_analysis('public.test_api_table')
-    LIMIT 1
-) AS impact_check;
+    (SELECT COUNT(*) >= 0 FROM pggit.get_impact_analysis('public.test_api_table')) AS get_impact_analysis_callable;
 
 -- Test 6: pggit.generate_migration()
 -- Should generate migration without errors

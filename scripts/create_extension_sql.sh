@@ -52,14 +52,9 @@ cat > "$TEMP_FILE" <<'EOF'
 --
 -- For documentation, see: docs/README.md
 
--- Check for required extensions
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pgcrypto') THEN
-        RAISE EXCEPTION 'pgGit requires the pgcrypto extension. Please run: CREATE EXTENSION pgcrypto;';
-    END IF;
-END
-$$;
+-- Ensure required extensions are installed
+-- pgGit requires pgcrypto for UUID and cryptographic functions
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- pgGit Extension Installation
 -- Consolidated from multiple SQL files

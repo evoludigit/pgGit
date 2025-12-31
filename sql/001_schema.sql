@@ -93,6 +93,28 @@ CREATE TABLE IF NOT EXISTS pggit.objects (
     UNIQUE(object_type, schema_name, object_name, branch_name)
 );
 
+-- PATENT #4: Database Branches - Revolutionary Git-style data branching
+CREATE TABLE IF NOT EXISTS pggit.branches (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    parent_branch_id INTEGER REFERENCES pggit.branches(id),
+    head_commit_hash TEXT,
+    status pggit.branch_status DEFAULT 'ACTIVE',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT DEFAULT CURRENT_USER,
+    merged_at TIMESTAMP,
+    merged_by TEXT,
+    -- Branch type: standard, tiered, temporal, or compressed
+    branch_type TEXT DEFAULT 'standard' CHECK (branch_type IN ('standard', 'tiered', 'temporal', 'compressed')),
+    -- Copy-on-write statistics
+    total_objects INTEGER DEFAULT 0,
+    modified_objects INTEGER DEFAULT 0,
+    storage_efficiency DECIMAL(5,2) DEFAULT 100.00,
+    description TEXT
+);
+
+-- Insert main branch
+INSERT INTO pggit.branches (id, name) VALUES (1, 'main') ON CONFLICT (name) DO NOTHING;
 
 -- PATENT #5: Commit tracking with merkle tree structure
 CREATE TABLE IF NOT EXISTS pggit.commits (
@@ -131,29 +153,6 @@ CREATE TABLE IF NOT EXISTS pggit.history (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_by TEXT DEFAULT CURRENT_USER
 );
-
--- PATENT #4: Database Branches - Revolutionary Git-style data branching
-CREATE TABLE IF NOT EXISTS pggit.branches (
-    id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
-    parent_branch_id INTEGER REFERENCES pggit.branches(id),
-    head_commit_hash TEXT,
-    status pggit.branch_status DEFAULT 'ACTIVE',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_by TEXT DEFAULT CURRENT_USER,
-    merged_at TIMESTAMP,
-    merged_by TEXT,
-    -- Branch type: standard, tiered, temporal, or compressed
-    branch_type TEXT DEFAULT 'standard' CHECK (branch_type IN ('standard', 'tiered', 'temporal', 'compressed')),
-    -- Copy-on-write statistics
-    total_objects INTEGER DEFAULT 0,
-    modified_objects INTEGER DEFAULT 0,
-    storage_efficiency DECIMAL(5,2) DEFAULT 100.00,
-    description TEXT
-);
-
--- Insert main branch
-INSERT INTO pggit.branches (id, name) VALUES (1, 'main') ON CONFLICT (name) DO NOTHING;
 
 -- Add CHECK constraints for branch name validation
 ALTER TABLE pggit.branches ADD CONSTRAINT branch_name_not_empty
@@ -439,25 +438,24 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Function to get object version
+-- Returns columns matching the documented API in Getting Started guide
 CREATE OR REPLACE FUNCTION pggit.get_version(
     p_object_name TEXT
 ) RETURNS TABLE (
-    object_type pggit.object_type,
-    full_name TEXT,
+    object_name TEXT,
+    schema_name TEXT,
     version INTEGER,
     version_string TEXT,
-    metadata JSONB,
-    updated_at TIMESTAMP
+    created_at TIMESTAMP
 ) AS $$
 BEGIN
     RETURN QUERY
-    SELECT 
-        o.object_type,
-        o.full_name,
+    SELECT
+        split_part(o.full_name, '.', 2) AS object_name,  -- Extract table name from 'schema.table'
+        split_part(o.full_name, '.', 1) AS schema_name,  -- Extract schema name
         o.version,
         o.version_major || '.' || o.version_minor || '.' || o.version_patch AS version_string,
-        o.metadata,
-        o.updated_at
+        o.created_at
     FROM pggit.objects o
     WHERE o.full_name = p_object_name
     AND o.is_active = true;
@@ -465,25 +463,22 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Function to get version history
+-- Returns columns matching the documented API in Getting Started guide
 CREATE OR REPLACE FUNCTION pggit.get_history(
     p_object_name TEXT,
     p_limit INTEGER DEFAULT 10
 ) RETURNS TABLE (
+    version INTEGER,
     change_type pggit.change_type,
-    change_severity pggit.change_severity,
-    old_version INTEGER,
-    new_version INTEGER,
     change_description TEXT,
     created_at TIMESTAMP,
     created_by TEXT
 ) AS $$
 BEGIN
     RETURN QUERY
-    SELECT 
+    SELECT
+        h.new_version AS version,  -- Use new_version as "the version after this change"
         h.change_type,
-        h.change_severity,
-        h.old_version,
-        h.new_version,
         h.change_description,
         h.created_at,
         h.created_by
