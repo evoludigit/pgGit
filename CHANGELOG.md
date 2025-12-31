@@ -5,6 +5,19 @@ All notable changes to pgGit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0](https://github.com/evoludigit/pgGit/compare/v0.1.2...v0.2.0) (2025-12-31)
+
+
+### Features
+
+* **observability:** Implement automatic source context extraction for logging ([e613dc8](https://github.com/evoludigit/pgGit/commit/e613dc859ee7f42114aaee5e981320c7e9e1fe20))
+
+
+### Documentation
+
+* Restructure README for optimal discoverability and alignment ([4167e4d](https://github.com/evoludigit/pgGit/commit/4167e4d32147d1e4cbdee5dab3aa3bb866f9c52b))
+* Update all documentation to version 0.1.2 ([f1d8735](https://github.com/evoludigit/pgGit/commit/f1d873522202ccbfdb8a8eb7734db6ddd65a76b6))
+
 ## [0.1.2] - 2025-12-31
 
 ### Summary
