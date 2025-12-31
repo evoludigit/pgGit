@@ -6,6 +6,7 @@
 
 [![Build](https://github.com/evoludigit/pgGit/actions/workflows/build.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/build.yml)
 [![Tests](https://github.com/evoludigit/pgGit/actions/workflows/test-with-fixes.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/test-with-fixes.yml)
+[![codecov](https://codecov.io/gh/evoludigit/pgGit/branch/main/graph/badge.svg)](https://codecov.io/gh/evoludigit/pgGit)
 [![Security Scanning](https://github.com/evoludigit/pgGit/actions/workflows/security-scan.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/security-scan.yml)
 [![PostgreSQL 15-17](https://img.shields.io/badge/PostgreSQL-15--17-blue.svg)](https://www.postgresql.org/)
 [![Version: 0.1.1](https://img.shields.io/badge/version-0.1.1-green.svg)](CHANGELOG.md)

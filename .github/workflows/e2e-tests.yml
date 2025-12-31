@@ -105,13 +105,13 @@ jobs:
       run: |
         case "${{ matrix.test-level }}" in
           smoke)
-            echo "cmd=pytest tests/e2e/ -k 'not stress and not load' -v --tb=short" >> $GITHUB_OUTPUT
+            echo "cmd=pytest tests/e2e/ -k 'not stress and not load' -v --tb=short --cov=tests --cov-report=xml --cov-report=term" >> $GITHUB_OUTPUT
             ;;
           full)
-            echo "cmd=pytest tests/e2e/ -v --tb=short" >> $GITHUB_OUTPUT
+            echo "cmd=pytest tests/e2e/ -v --tb=short --cov=tests --cov-report=xml --cov-report=term" >> $GITHUB_OUTPUT
             ;;
           extended)
-            echo "cmd=pytest tests/e2e/ tests/chaos/ -v --tb=short" >> $GITHUB_OUTPUT
+            echo "cmd=pytest tests/e2e/ tests/chaos/ -v --tb=short --cov=tests --cov-report=xml --cov-report=term" >> $GITHUB_OUTPUT
             ;;
         esac
 
@@ -123,6 +123,16 @@ jobs:
         PGDATABASE: postgres
       run: |
         ${{ steps.test_cmd.outputs.cmd }}
+
+    - name: Upload coverage reports to Codecov
+      if: matrix.test-level == 'full'
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: ./coverage.xml
+        flags: e2e-tests
+        name: e2e-pg${{ matrix.postgres }}
+        fail_ci_if_error: false
 
     - name: Generate test report
       if: always()
