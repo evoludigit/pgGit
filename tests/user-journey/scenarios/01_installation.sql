@@ -2,13 +2,11 @@
 -- Tests: Fresh installation of pgGit extension
 -- Expected: Extension installs without errors and is ready to use
 
--- Verify extension can be created
-CREATE EXTENSION IF NOT EXISTS pggit;
+-- Install pgGit using the standard installation script
+\i sql/install.sql
 
--- Verify extension is installed
-SELECT EXISTS (
-    SELECT 1 FROM pg_extension WHERE extname = 'pggit'
-) AS extension_installed;
+-- Note: pgGit is installed via SQL files, not as a standard PostgreSQL extension
+-- It creates the pggit schema and functions directly
 
 -- Verify core schema exists
 SELECT EXISTS (

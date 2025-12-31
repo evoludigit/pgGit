@@ -26,6 +26,7 @@ services:
     build:
       context: ../..  # Build from repo root
       dockerfile: tests/user-journey/Dockerfile.clean-install
+    user: root  # Run as root to install extension files
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,8 +54,8 @@ services:
         echo 'Step 1: Building pgGit extension...' &&
         make clean && make &&
         echo '' &&
-        echo 'Step 2: Installing pgGit extension...' &&
-        sudo make install &&
+        echo 'Step 2: pgGit uses direct SQL installation (sql/install.sql approach)' &&
+        echo 'Extension files will be created during test execution' &&
         echo '' &&
         echo 'Step 3: Running user journey tests...' &&
         python3.11 -m pytest tests/user-journey/test_user_journey.py -v --tb=short --color=yes
