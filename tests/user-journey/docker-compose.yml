@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 17 database for testing
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: pggit_user_journey
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5433:5432"  # Use 5433 to avoid conflicts with local PostgreSQL
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d pggit_user_journey"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pggit-test
+
+  # User journey test runner
+  test-runner:
+    build:
+      context: ../..  # Build from repo root
+      dockerfile: tests/user-journey/Dockerfile.clean-install
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: pggit_user_journey
+      PGUSER: testuser
+      PGPASSWORD: testpass
+      # Test configuration
+      PGGIT_TEST_MODE: "user_journey"
+      PGGIT_VERBOSE: "1"
+    networks:
+      - pggit-test
+    volumes:
+      # Mount source code for live testing
+      - ../..:/workspace
+    working_dir: /workspace
+    command: >
+      bash -c "
+        echo '=== User Journey E2E Test Suite ===' &&
+        echo 'PostgreSQL: postgres:5432' &&
+        echo 'Database: pggit_user_journey' &&
+        echo '' &&
+        echo 'Step 1: Building pgGit extension...' &&
+        make clean && make &&
+        echo '' &&
+        echo 'Step 2: Installing pgGit extension...' &&
+        sudo make install &&
+        echo '' &&
+        echo 'Step 3: Running user journey tests...' &&
+        python3.11 -m pytest tests/user-journey/test_user_journey.py -v --tb=short --color=yes
+      "
+
+networks:
+  pggit-test:
+    driver: bridge
+
+volumes:
+  postgres-data:
