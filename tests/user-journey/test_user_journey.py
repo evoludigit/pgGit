@@ -69,12 +69,35 @@ class DatabaseConnection:
 
         results = []
         with self.conn.cursor() as cur:
+            # Handle \i includes (psql meta-command)
+            lines = sql.split("\n")
+            sql_buffer = []
+
+            for line in lines:
+                # Skip psql meta-commands we don't handle
+                if line.strip().startswith("\\echo"):
+                    continue
+
+                # Handle \i directive by reading and including the file
+                if line.strip().startswith("\\i "):
+                    include_file = line.strip()[3:].strip()
+                    include_path = filepath.parent / include_file
+                    if include_path.exists():
+                        with open(include_path, "r") as inc_f:
+                            sql_buffer.append(inc_f.read())
+                    continue
+
+                sql_buffer.append(line)
+
+            # Join all SQL into one string
+            sql = "\n".join(sql_buffer)
+
             # Split by semicolon and execute each statement
             statements = [s.strip() for s in sql.split(";") if s.strip()]
 
             for stmt in statements:
                 # Skip comments-only statements
-                if stmt.startswith("--") or not stmt:
+                if stmt.strip().startswith("--") or not stmt.strip():
                     continue
 
                 try:

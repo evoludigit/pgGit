@@ -7,11 +7,8 @@ FROM ubuntu:22.04
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install PostgreSQL 17 client and development tools
-# This matches what a typical user would install following the docs
+# Install basic tools first (needed to add PostgreSQL repo)
 RUN apt-get update && apt-get install -y \
-    postgresql-client-17 \
-    postgresql-server-dev-17 \
     build-essential \
     make \
     gcc \
@@ -27,9 +24,12 @@ RUN apt-get update && apt-get install -y \
 RUN sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' \
     && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/postgresql-keyring.gpg \
     && chmod 644 /usr/share/keyrings/postgresql-keyring.gpg \
-    && sed -i 's|deb http|deb [signed-by=/usr/share/keyrings/postgresql-keyring.gpg] http|' /etc/apt/sources.list.d/pgdg.list \
-    && apt-get update \
-    && apt-get install -y postgresql-client-17 postgresql-server-dev-17 \
+    && sed -i 's|deb http|deb [signed-by=/usr/share/keyrings/postgresql-keyring.gpg] http|' /etc/apt/sources.list.d/pgdg.list
+
+# Install PostgreSQL 17 client and development tools
+RUN apt-get update && apt-get install -y \
+    postgresql-client-17 \
+    postgresql-server-dev-17 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python 3.11 and dependencies for test runner
@@ -39,7 +39,14 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user (simulates typical user environment)
+# Create virtual environment and install test dependencies
+RUN python3.11 -m venv /opt/venv \
+    && /opt/venv/bin/pip install pytest psycopg[binary] pyyaml
+
+# Add venv to PATH
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Create a non-root user (for reference, though we run as root)
 RUN useradd -m -s /bin/bash testuser \
     && echo 'testuser ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
@@ -51,12 +58,6 @@ COPY . /workspace/
 
 # Set ownership to testuser
 RUN chown -R testuser:testuser /workspace
-
-# Switch to testuser for installation testing
-USER testuser
-
-# Install Python test dependencies
-RUN python3.11 -m pip install --user pytest psycopg[binary] pyyaml
 
 # Default command runs the test suite
 CMD ["python3.11", "-m", "pytest", "tests/user-journey/test_user_journey.py", "-v", "--tb=short"]
