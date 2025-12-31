@@ -7,7 +7,15 @@
 -- covering novel database branching, data versioning, and merge algorithms.
 
 -- Create schema for git versioning objects
-CREATE SCHEMA IF NOT EXISTS pggit;
+-- Note: When installed via CREATE EXTENSION, the schema is created automatically by the extension system
+-- When loaded directly, we need to create it ourselves
+DO $$
+BEGIN
+    -- Only create schema if not in extension context (i.e., loading SQL directly)
+    IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pggit') THEN
+        CREATE SCHEMA IF NOT EXISTS pggit;
+    END IF;
+END $$;
 
 -- Enum types
 CREATE TYPE pggit.object_type AS ENUM (
@@ -170,10 +178,6 @@ ALTER TABLE pggit.history DROP CONSTRAINT IF EXISTS history_branch_id_fkey;
 ALTER TABLE pggit.history ADD CONSTRAINT fk_history_branch_id
   FOREIGN KEY (branch_id) REFERENCES pggit.branches(id) ON DELETE CASCADE;
 
-ALTER TABLE pggit.data_branches DROP CONSTRAINT IF EXISTS data_branches_branch_id_fkey;
-ALTER TABLE pggit.data_branches ADD CONSTRAINT fk_data_branches_branch_id
-  FOREIGN KEY (branch_id) REFERENCES pggit.branches(id) ON DELETE CASCADE;
-
 -- PATENT #5: Copy-on-write data storage with deduplication
 CREATE TABLE IF NOT EXISTS pggit.data_branches (
     id SERIAL PRIMARY KEY,
@@ -188,6 +192,10 @@ CREATE TABLE IF NOT EXISTS pggit.data_branches (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(table_schema, table_name, branch_id)
 );
+
+ALTER TABLE pggit.data_branches DROP CONSTRAINT IF EXISTS data_branches_branch_id_fkey;
+ALTER TABLE pggit.data_branches ADD CONSTRAINT fk_data_branches_branch_id
+  FOREIGN KEY (branch_id) REFERENCES pggit.branches(id) ON DELETE CASCADE;
 
 -- PATENT #6: Three-way merge conflict resolution
 CREATE TABLE IF NOT EXISTS pggit.merge_conflicts (

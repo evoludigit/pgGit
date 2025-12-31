@@ -5,7 +5,13 @@
 -- PART 1: History Table Partitioning
 -- ============================================
 
--- Convert history table to partitioned by time
+-- NOTE: History table partitioning is disabled for fresh installations
+-- The migration code below is only needed when upgrading from older versions
+-- For fresh installs, the history table remains as a regular table for simplicity
+
+-- DISABLED: Convert history table to partitioned by time
+-- This migration code is commented out to avoid issues during fresh installation
+/*
 DO $$
 BEGIN
     -- Check if history table is already partitioned
@@ -78,6 +84,7 @@ BEGIN
         DROP TABLE pggit.history_old;
     END IF;
 END $$;
+*/
 
 -- Function to create monthly partitions
 CREATE OR REPLACE FUNCTION pggit.create_history_partitions(
@@ -128,8 +135,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- DISABLED: Don't create partitions since history table is not partitioned in fresh installs
 -- Create initial partitions
-SELECT pggit.create_history_partitions(6);
+-- SELECT pggit.create_history_partitions(6);
 
 -- ============================================
 -- PART 2: Automated Data Retention
