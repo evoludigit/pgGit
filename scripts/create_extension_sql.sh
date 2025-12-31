@@ -2,14 +2,16 @@
 # create_extension_sql.sh
 #
 # Consolidates all pgGit SQL files referenced in install.sql into a single
-# extension SQL file (pggit--1.0.0.sql) suitable for PostgreSQL extension system.
+# extension SQL file (pggit--VERSION.sql) suitable for PostgreSQL extension system.
+# The version is automatically extracted from pggit.control.
 #
 # This script:
-# 1. Processes sql/install.sql
-# 2. Follows all \i (include) directives
-# 3. Removes psql meta-commands (\echo)
-# 4. Adds dependency checking for pgcrypto
-# 5. Outputs a consolidated pggit--1.0.0.sql file
+# 1. Reads version from pggit.control
+# 2. Processes sql/install.sql
+# 3. Follows all \i (include) directives
+# 4. Removes psql meta-commands (\echo)
+# 5. Adds dependency checking for pgcrypto
+# 6. Outputs a consolidated pggit--VERSION.sql file
 #
 # Usage: ./scripts/create_extension_sql.sh
 
@@ -18,7 +20,16 @@ set -e  # Exit on error
 # Configuration
 SQL_DIR="sql"
 INSTALL_FILE="$SQL_DIR/install.sql"
-OUTPUT_FILE="pggit--1.0.0.sql"
+
+# Extract version from pggit.control
+if [ -f "pggit.control" ]; then
+    VERSION=$(grep "default_version" pggit.control | sed "s/.*'\(.*\)'.*/\1/")
+else
+    echo -e "${RED}Error: pggit.control not found${NC}"
+    exit 1
+fi
+
+OUTPUT_FILE="pggit--${VERSION}.sql"
 TEMP_FILE=$(mktemp)
 
 # Colors for output
@@ -40,8 +51,8 @@ fi
 echo -e "${YELLOW}Step 1: Reading $INSTALL_FILE${NC}"
 
 # Write extension header
-cat > "$TEMP_FILE" <<'EOF'
--- pggit--1.0.0.sql
+cat > "$TEMP_FILE" <<EOF
+-- pggit--${VERSION}.sql
 --
 -- pgGit: Git-like version control for PostgreSQL schemas
 --
