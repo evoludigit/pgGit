@@ -1,4 +1,4 @@
--- pggit--1.0.0.sql
+-- pggit--0.1.2.sql
 --
 -- pgGit: Git-like version control for PostgreSQL schemas
 --
