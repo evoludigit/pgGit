@@ -1,0 +1,57 @@
+---
+name: Commit Message Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    branches: [main, develop]
+
+jobs:
+  commitlint:
+    name: Validate Commit Messages
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for commitlint
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install commitlint
+        run: |
+          npm install --global @commitlint/cli @commitlint/config-conventional
+
+      - name: Validate commit messages
+        run: |
+          # Validate all commits in the PR
+          npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+      - name: Generate validation summary
+        if: always()
+        run: |
+          echo "## Commit Message Validation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --quiet; then
+            echo "✅ **All commit messages follow conventional commit format**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Some commit messages need improvement**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please follow the [Conventional Commits](https://www.conventionalcommits.org/) format:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo 'type(scope): subject' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Examples:" >> $GITHUB_STEP_SUMMARY
+            echo "- feat(core): add branch merging functionality" >> $GITHUB_STEP_SUMMARY
+            echo "- fix(sql): resolve deadlock in concurrent commits" >> $GITHUB_STEP_SUMMARY
+            echo "- docs(api): update function signatures" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "See [Commit Convention Guide](.github/COMMIT_CONVENTION.md) for details." >> $GITHUB_STEP_SUMMARY
+          fi

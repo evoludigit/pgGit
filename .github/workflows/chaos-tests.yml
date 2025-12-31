@@ -52,6 +52,25 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
+
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('.github/workflows/chaos-tests.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+
+      - name: Cache APT packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/cache/apt/archives
+            /var/lib/apt/lists
+          key: ${{ runner.os }}-apt-postgres-dev-${{ hashFiles('.github/workflows/chaos-tests.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-postgres-dev-
 
       - name: Install uv and create test environment
         run: |
@@ -129,6 +148,25 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
+
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('.github/workflows/chaos-tests.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+
+      - name: Cache APT packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/cache/apt/archives
+            /var/lib/apt/lists
+          key: ${{ runner.os }}-apt-postgres-dev-${{ hashFiles('.github/workflows/chaos-tests.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-postgres-dev-
 
       - name: Install uv and create test environment
         run: |

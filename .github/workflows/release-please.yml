@@ -1,0 +1,73 @@
+---
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          release-type: python
+          package-name: pggit
+          changelog-types: |
+            [
+              {"type":"feat","section":"Features","hidden":false},
+              {"type":"fix","section":"Bug Fixes","hidden":false},
+              {"type":"perf","section":"Performance Improvements","hidden":false},
+              {"type":"refactor","section":"Code Refactoring","hidden":false},
+              {"type":"docs","section":"Documentation","hidden":false},
+              {"type":"test","section":"Tests","hidden":true},
+              {"type":"build","section":"Build System","hidden":true},
+              {"type":"ci","section":"Continuous Integration","hidden":true},
+              {"type":"chore","section":"Chores","hidden":true},
+              {"type":"revert","section":"Reverts","hidden":false},
+              {"type":"style","section":"Styles","hidden":true}
+            ]
+          # Version bump strategy
+          bump-minor-pre-major: true
+          bump-patch-for-minor-pre-major: true
+          # PR Configuration
+          pull-request-title-pattern: "chore(release): ${version}"
+          extra-files: |
+            README.md
+            docs/INDEX.md
+
+      - name: Publish package to PyPI
+        if: ${{ steps.release.outputs.release_created }}
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          python -m twine upload dist/*
+
+      - name: Create GitHub Release
+        if: ${{ steps.release.outputs.release_created }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ steps.release.outputs.tag_name }} \
+            --title "${{ steps.release.outputs.tag_name }}" \
+            --notes "${{ steps.release.outputs.release_notes }}"
+
+      - name: Generate release summary
+        if: ${{ steps.release.outputs.release_created }}
+        run: |
+          echo "## 🎉 Release Created!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version**: ${{ steps.release.outputs.tag_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Release PR**: #${{ steps.release.outputs.pr }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Release Notes" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.release.outputs.release_notes }}" >> $GITHUB_STEP_SUMMARY
