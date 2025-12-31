@@ -126,7 +126,28 @@ CREATE OR REPLACE FUNCTION pggit.log(
 ) RETURNS VOID
 LANGUAGE plpgsql
 AS $$
+DECLARE
+    v_context TEXT;
+    v_source_function TEXT;
+    v_source_line INTEGER;
 BEGIN
+    -- Extract caller context from PG call stack
+    GET DIAGNOSTICS v_context = PG_CONTEXT;
+
+    -- Parse context to extract function name (first function in stack)
+    -- Format: "PL/pgSQL function <schema>.<function>(<args>) line <N> at <statement>"
+    v_source_function := COALESCE(
+        substring(v_context FROM 'function ([a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*)\('),
+        current_setting('application_name', true),
+        'unknown'
+    );
+
+    -- Extract line number from context
+    v_source_line := COALESCE(
+        substring(v_context FROM 'line ([0-9]+)')::INTEGER,
+        0
+    );
+
     INSERT INTO pggit.structured_logs (
         severity,
         message,
@@ -141,8 +162,8 @@ BEGIN
         p_attributes,
         p_trace_id,
         p_span_id,
-        current_setting('application_name', true),
-        NULL  -- TODO: Extract from pg_stat_statements if available
+        v_source_function,
+        v_source_line
     );
 END;
 $$;
