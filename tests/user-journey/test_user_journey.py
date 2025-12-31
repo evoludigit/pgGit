@@ -17,6 +17,7 @@ Each test runs SQL scenarios that match the documented examples.
 """
 
 import os
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -81,10 +82,35 @@ class DatabaseConnection:
                 # Handle \i directive by reading and including the file
                 if line.strip().startswith("\\i "):
                     include_file = line.strip()[3:].strip()
-                    include_path = filepath.parent / include_file
+                    include_path = (filepath.parent / include_file).resolve()
+                    print(f"DEBUG: Processing \\i directive: {include_file}")
+                    print(f"DEBUG: Resolved path: {include_path}")
+
                     if include_path.exists():
-                        with open(include_path, "r") as inc_f:
-                            sql_buffer.append(inc_f.read())
+                        file_size = include_path.stat().st_size
+                        print(f"DEBUG: Include file size: {file_size} bytes")
+
+                        # If the included file is large (like pggit--1.0.0.sql), execute it immediately via psql
+                        # This avoids SQL parsing issues with naive semicolon splitting
+                        if file_size > 100000:
+                            print(f"DEBUG: Large file detected, executing via psql immediately")
+                            result = subprocess.run(
+                                ['psql', '-h', self.host, '-p', str(self.port), '-U', self.user, '-d', self.database, '-f', str(include_path)],
+                                env={**os.environ, 'PGPASSWORD': self.password},
+                                capture_output=True,
+                                text=True,
+                                check=True
+                            )
+                            print(f"DEBUG: psql execution of {include_file} successful")
+                            # Don't add to buffer - already executed
+                        else:
+                            # Small files can be included normally
+                            with open(include_path, "r") as inc_f:
+                                included_content = inc_f.read()
+                                sql_buffer.append(included_content)
+                                print(f"DEBUG: Included {len(included_content)} bytes from {include_file}")
+                    else:
+                        print(f"ERROR: Include file not found: {include_path}")
                     continue
 
                 sql_buffer.append(line)
@@ -92,15 +118,32 @@ class DatabaseConnection:
             # Join all SQL into one string
             sql = "\n".join(sql_buffer)
 
+            # Execute remaining SQL statements (large files already executed via psql in \i handler)
             # Split by semicolon and execute each statement
             statements = [s.strip() for s in sql.split(";") if s.strip()]
+            print(f"DEBUG execute_sql_file: {len(statements)} statements to execute from {filepath.name}")
 
-            for stmt in statements:
-                # Skip comments-only statements
-                if stmt.strip().startswith("--") or not stmt.strip():
+            executed_count = 0
+            skipped_count = 0
+
+            for i, stmt in enumerate(statements):
+                # Remove leading/trailing whitespace
+                stmt = stmt.strip()
+
+                # Skip empty statements
+                if not stmt:
+                    skipped_count += 1
+                    continue
+
+                # Skip comment-only statements (all lines start with --)
+                # But don't skip statements that have SQL after comments
+                lines = [l.strip() for l in stmt.split('\n') if l.strip()]
+                if all(l.startswith('--') for l in lines):
+                    skipped_count += 1
                     continue
 
                 try:
+                    executed_count += 1
                     cur.execute(stmt)
 
                     # Collect results if query returns data
@@ -114,6 +157,8 @@ class DatabaseConnection:
                     print(f"❌ Error in statement: {stmt[:100]}...")
                     print(f"   Error: {e}")
                     raise
+
+            print(f"DEBUG execute_sql_file: Executed {executed_count}, Skipped {skipped_count}, Results collected: {len(results)}")
 
         return results
 
@@ -140,6 +185,12 @@ class TestChapter2Installation:
         """Test pgGit extension can be installed."""
         scenario_file = Path(__file__).parent / "scenarios" / "01_installation.sql"
         results = db.execute_sql_file(scenario_file)
+
+        # Debug: Print all results
+        print(f"\n=== DEBUG: Got {len(results)} results ===")
+        for i, r in enumerate(results):
+            print(f"Result {i}: {r}")
+        print("=== END DEBUG ===\n")
 
         # Find the verification results
         assert any(r.get("extension_installed") for r in results), "Extension not installed"

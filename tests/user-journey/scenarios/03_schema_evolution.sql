@@ -76,5 +76,5 @@ SELECT 'Schema evolution tracked successfully' AS status,
 FROM pggit.get_version('public.users');
 
 -- Cleanup temp tables
-DROP TABLE version_before;
-DROP TABLE version_after;
+DROP TABLE IF EXISTS version_before;
+DROP TABLE IF EXISTS version_after;

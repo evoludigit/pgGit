@@ -51,11 +51,11 @@ services:
         echo 'PostgreSQL: postgres:5432' &&
         echo 'Database: pggit_user_journey' &&
         echo '' &&
-        echo 'Step 1: Building pgGit extension...' &&
-        make clean && make &&
+        echo 'Step 1: Generating consolidated extension SQL...' &&
+        ./scripts/create_extension_sql.sh &&
         echo '' &&
-        echo 'Step 2: pgGit uses direct SQL installation (sql/install.sql approach)' &&
-        echo 'Extension files will be created during test execution' &&
+        echo 'Step 2: Extension files ready for testing' &&
+        ls -lh pggit--1.0.0.sql pggit.control &&
         echo '' &&
         echo 'Step 3: Running user journey tests...' &&
         python3.11 -m pytest tests/user-journey/test_user_journey.py -v --tb=short --color=yes
