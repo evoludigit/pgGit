@@ -44,6 +44,16 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Cache APT packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          /var/cache/apt/archives
+          /var/lib/apt/lists
+        key: ${{ runner.os }}-apt-postgres-client-${{ hashFiles('.github/workflows/tests.yml') }}
+        restore-keys: |
+          ${{ runner.os }}-apt-postgres-client-
+
     - name: Install PostgreSQL client
       run: |
         sudo apt-get update

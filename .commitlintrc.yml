@@ -1,0 +1,98 @@
+# Commitlint configuration for pgGit
+# https://commitlint.js.org/
+
+extends:
+  - '@commitlint/config-conventional'
+
+rules:
+  # Type enum - allowed commit types
+  type-enum:
+    - 2  # error level
+    - always
+    - - feat        # New features
+      - fix         # Bug fixes
+      - docs        # Documentation changes
+      - style       # Code style changes (formatting, etc.)
+      - refactor    # Code refactoring
+      - perf        # Performance improvements
+      - test        # Test changes
+      - build       # Build system changes
+      - ci          # CI/CD changes
+      - chore       # Maintenance tasks
+      - revert      # Revert previous commits
+
+  # Scope enum - allowed scopes (optional, project-specific)
+  scope-enum:
+    - 2
+    - always
+    - - core        # Core SQL modules
+      - sql         # SQL extension modules
+      - tests       # Test suite
+      - e2e         # End-to-end tests
+      - chaos       # Chaos engineering tests
+      - docs        # Documentation
+      - ci          # CI/CD workflows
+      - deps        # Dependencies
+      - config      # Configuration
+      - perf        # Performance
+      - security    # Security
+      - api         # API changes
+      - db          # Database schema
+      - ops         # Operations
+      - dev         # Development environment
+      - release     # Release management
+
+  # Subject case - lowercase only
+  subject-case:
+    - 2
+    - never
+    - - upper-case
+      - pascal-case
+      - start-case
+
+  # Subject must not end with period
+  subject-full-stop:
+    - 2
+    - never
+    - '.'
+
+  # Subject minimum length
+  subject-min-length:
+    - 2
+    - always
+    - 10
+
+  # Subject maximum length
+  subject-max-length:
+    - 2
+    - always
+    - 100
+
+  # Body leading blank line
+  body-leading-blank:
+    - 1  # warning
+    - always
+
+  # Footer leading blank line
+  footer-leading-blank:
+    - 1  # warning
+    - always
+
+  # Body max line length
+  body-max-line-length:
+    - 2
+    - always
+    - 100
+
+  # Type always required
+  type-empty:
+    - 2
+    - never
+
+  # Subject always required
+  subject-empty:
+    - 2
+    - never
+
+# Help URL shown when commit fails validation
+helpUrl: 'https://github.com/evoludigit/pgGit/blob/main/.github/COMMIT_CONVENTION.md'

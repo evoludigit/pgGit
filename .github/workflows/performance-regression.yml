@@ -1,0 +1,181 @@
+---
+name: Performance Regression Detection
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'sql/**'
+      - 'core/**'
+      - 'tests/benchmarks/**'
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    name: Run Performance Benchmarks
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pggit_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Wait for PostgreSQL
+        run: |
+          until pg_isready -h localhost -p 5432; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+
+      - name: Install pgGit (PR version)
+        env:
+          PGPASSWORD: postgres
+          PGHOST: localhost
+          PGUSER: postgres
+          PGDATABASE: pggit_test
+        run: |
+          cd sql
+          psql -f install.sql
+          cd ..
+
+      - name: Run benchmarks (PR version)
+        env:
+          PGPASSWORD: postgres
+          PGHOST: localhost
+          PGUSER: postgres
+          PGDATABASE: pggit_test
+        run: |
+          python3 scripts/run_benchmarks.py \
+            --db-url "postgresql://postgres:postgres@localhost/pggit_test" \
+            --benchmark-file tests/benchmarks/baseline.sql \
+            --output pr-benchmarks.json
+
+      - name: Checkout baseline (main branch)
+        run: |
+          git fetch origin main
+          git checkout origin/main -- sql/ core/
+
+      - name: Reinstall pgGit (baseline version)
+        env:
+          PGPASSWORD: postgres
+          PGHOST: localhost
+          PGUSER: postgres
+          PGDATABASE: pggit_test
+        run: |
+          # Drop and recreate database for clean baseline
+          psql -c "DROP DATABASE pggit_test;"
+          psql -c "CREATE DATABASE pggit_test;"
+
+          cd sql
+          psql -d pggit_test -f install.sql
+          cd ..
+
+      - name: Run benchmarks (baseline version)
+        env:
+          PGPASSWORD: postgres
+          PGHOST: localhost
+          PGUSER: postgres
+          PGDATABASE: pggit_test
+        run: |
+          python3 scripts/run_benchmarks.py \
+            --db-url "postgresql://postgres:postgres@localhost/pggit_test" \
+            --benchmark-file tests/benchmarks/baseline.sql \
+            --output baseline-benchmarks.json
+
+      - name: Compare and detect regressions
+        id: comparison
+        continue-on-error: true
+        run: |
+          python3 scripts/run_benchmarks.py \
+            --db-url "postgresql://postgres:postgres@localhost/pggit_test" \
+            --benchmark-file tests/benchmarks/baseline.sql \
+            --baseline baseline-benchmarks.json \
+            --output pr-benchmarks.json \
+            --threshold 10
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            pr-benchmarks.json
+            baseline-benchmarks.json
+
+      - name: Generate comparison report
+        if: always()
+        run: |
+          echo "## 📊 Performance Benchmark Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f pr-benchmarks.json ] && [ -f baseline-benchmarks.json ]; then
+            echo "### Comparison" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Parse and display results (simplified)
+            echo "**Baseline** (main branch) vs **PR** (this change)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            if [ "${{ steps.comparison.outcome }}" == "failure" ]; then
+              echo "⚠️  **Performance regression detected!**" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "Some benchmarks show >10% performance degradation." >> $GITHUB_STEP_SUMMARY
+              echo "Review the artifacts for detailed comparison." >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ **No performance regressions detected**" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "All benchmarks within acceptable threshold (±10%)." >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "❌ Failed to run benchmarks" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Comment on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            let comment = '## 📊 Performance Benchmark Results\n\n';
+
+            if ('${{ steps.comparison.outcome }}' === 'failure') {
+              comment += '⚠️ **Performance regression detected!**\n\n';
+              comment += 'Some benchmarks show >10% performance degradation. ';
+              comment += 'Review the [benchmark artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.\n';
+            } else {
+              comment += '✅ **No performance regressions detected**\n\n';
+              comment += 'All benchmarks within acceptable threshold (±10%).\n';
+            }
+
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
