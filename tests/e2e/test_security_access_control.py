@@ -103,6 +103,7 @@ class TestSecurityAccessControl:
 
     def test_transaction_isolation(self, db, pggit_installed):
         """Test transaction isolation prevents dirty reads"""
+        db.execute("DROP TABLE IF EXISTS public.isolation_test CASCADE")
         db.execute("""
             CREATE TABLE public.isolation_test (
                 id SERIAL PRIMARY KEY,
@@ -136,6 +137,7 @@ class TestSecurityAccessControl:
 
     def test_constraint_violation_handling(self, db, pggit_installed):
         """Test constraint violations are handled securely"""
+        db.execute("DROP TABLE IF EXISTS public.constraint_test CASCADE")
         db.execute("""
             CREATE TABLE public.constraint_test (
                 id SERIAL PRIMARY KEY,

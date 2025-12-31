@@ -615,7 +615,8 @@ class TestE2EFullWorkflow:
             assert False, "Unique constraint violated"
         except Exception:
             # Expected - constraint violation
-            pass
+            # Rollback the failed transaction
+            db.conn.rollback()
 
         # Insert different email (should succeed)
         db.execute(
