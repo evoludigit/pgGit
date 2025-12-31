@@ -99,8 +99,15 @@ class DatabaseConnection:
                                 env={**os.environ, 'PGPASSWORD': self.password},
                                 capture_output=True,
                                 text=True,
-                                check=True
+                                check=False  # Don't raise on errors, we'll check manually
                             )
+                            if result.returncode != 0:
+                                print(f"ERROR: psql execution failed!")
+                                print(f"STDOUT: {result.stdout}")
+                                print(f"STDERR: {result.stderr}")
+                                raise RuntimeError(f"psql execution failed with code {result.returncode}")
+                            if result.stderr:
+                                print(f"PSQL WARNINGS/ERRORS: {result.stderr[:500]}")
                             print(f"DEBUG: psql execution of {include_file} successful")
                             # Don't add to buffer - already executed
                         else:

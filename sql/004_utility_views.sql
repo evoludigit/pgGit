@@ -51,18 +51,19 @@ AND depends_on.is_active = true
 ORDER BY dependent.full_name, depends_on.full_name;
 
 -- Function to get impact analysis for an object
+-- Returns columns matching the user journey test expectations
 CREATE OR REPLACE FUNCTION pggit.get_impact_analysis(
     p_object_name TEXT
 ) RETURNS TABLE (
     level INTEGER,
     object_type pggit.object_type,
-    object_name TEXT,
+    dependent_object TEXT,
     dependency_type TEXT,
     impact_description TEXT
 ) AS $$
 WITH RECURSIVE impact_tree AS (
     -- Base case: direct dependents
-    SELECT 
+    SELECT
         1 AS level,
         o.id,
         o.object_type,
@@ -75,11 +76,11 @@ WITH RECURSIVE impact_tree AS (
     WHERE base.full_name = p_object_name
     AND base.is_active = true
     AND o.is_active = true
-    
+
     UNION ALL
-    
+
     -- Recursive case: indirect dependents
-    SELECT 
+    SELECT
         it.level + 1,
         o.id,
         o.object_type,
@@ -95,11 +96,11 @@ WITH RECURSIVE impact_tree AS (
 SELECT DISTINCT
     level,
     object_type,
-    full_name AS object_name,
+    full_name AS dependent_object,
     dependency_type,
     impact_description
 FROM impact_tree
-ORDER BY level, object_type, object_name;
+ORDER BY level, object_type, dependent_object;
 $$ LANGUAGE sql;
 
 -- Function to generate a version report for a schema
@@ -255,18 +256,34 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- View showing version information for all schemas
+CREATE OR REPLACE VIEW pggit.schema_versions AS
+SELECT
+    schema_name,
+    object_type,
+    object_name,
+    version,
+    version_major || '.' || version_minor || '.' || version_patch AS version_string,
+    created_at,
+    updated_at
+FROM pggit.objects
+WHERE is_active = true
+ORDER BY schema_name, object_type, object_name;
+
 -- Convenience function to show version for all tables
 CREATE OR REPLACE FUNCTION pggit.show_table_versions(
     p_schema_name TEXT DEFAULT 'public'
 ) RETURNS TABLE (
-    table_name TEXT,
-    version TEXT,
+    object_name TEXT,
+    schema_name TEXT,
+    version_string TEXT,
     last_change TIMESTAMP,
     column_count BIGINT
 ) AS $$
-SELECT 
-    object_name AS table_name,
-    version_major || '.' || version_minor || '.' || version_patch AS version,
+SELECT
+    object_name,
+    schema_name,
+    version_major || '.' || version_minor || '.' || version_patch AS version_string,
     updated_at AS last_change,
     COALESCE((SELECT COUNT(*) FROM jsonb_object_keys(metadata->'columns')), 0) AS column_count
 FROM pggit.objects
