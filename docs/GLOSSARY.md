@@ -507,6 +507,6 @@ Need more details? Check these guides:
 
 ---
 
-**Last Updated**: December 21, 2025
-**Version**: pgGit v0.1.1
+**Last Updated**: December 31, 2025
+**Version**: pgGit v0.1.2
 **Questions**: See [Troubleshooting.md](getting-started/Troubleshooting.md) or [../README.md](../README.md) for support

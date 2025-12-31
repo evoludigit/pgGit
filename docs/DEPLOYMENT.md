@@ -107,7 +107,7 @@ psql -f sql/install_pggit_v0.sql
 
 # 4. Verify installation
 psql -c "SELECT * FROM pggit_v0.version();"
-# Expected output: pgGit v0.1.1, timestamp, status=ready
+# Expected output: pgGit v0.1.2, timestamp, status=ready
 ```
 
 **Rollback** (if needed):
@@ -387,7 +387,7 @@ WHERE routine_schema = 'pggit_v0'
 
 -- 3. Check version
 SELECT pggit_v0.version();
--- Expected: pgGit v0.1.1 (or later)
+-- Expected: pgGit v0.1.2 (or later)
 
 -- 4. Test branch operations
 SELECT pggit_v0.get_current_branch();
@@ -538,6 +538,6 @@ After successful deployment:
 
 ---
 
-**Last Updated**: December 21, 2025
-**Version**: pgGit v0.1.1
+**Last Updated**: December 31, 2025
+**Version**: pgGit v0.1.2
 **Maintainer**: pgGit Team
