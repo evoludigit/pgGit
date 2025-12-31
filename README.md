@@ -9,7 +9,7 @@
 [![codecov](https://codecov.io/gh/evoludigit/pgGit/branch/main/graph/badge.svg)](https://codecov.io/gh/evoludigit/pgGit)
 [![Security Scanning](https://github.com/evoludigit/pgGit/actions/workflows/security-scan.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/security-scan.yml)
 [![PostgreSQL 15-17](https://img.shields.io/badge/PostgreSQL-15--17-blue.svg)](https://www.postgresql.org/)
-[![Version: 0.1.1](https://img.shields.io/badge/version-0.1.1-green.svg)](CHANGELOG.md)
+[![Version: 0.1.2](https://img.shields.io/badge/version-0.1.2-green.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Git-like version control for PostgreSQL schemas. Track, branch, and manage database changes like code.**
@@ -24,10 +24,10 @@
 ## Option A: Package Installation (Recommended)
 
 ### Debian/Ubuntu
-sudo apt install ./pggit_0.1.1-postgresql.deb
+sudo apt install ./pggit_0.1.2-postgresql.deb
 
 ### RHEL/Rocky Linux
-sudo rpm -i pggit-0.1.1.rpm
+sudo rpm -i pggit-0.1.2.rpm
 
 ## Option B: Manual Installation
 
@@ -294,10 +294,10 @@ SELECT pggit.resolve_conflict(conflict_id, 'use_current', 'Keep production versi
 
 ```bash
 # Debian/Ubuntu
-sudo apt install ./pggit_0.1.1-postgresql.deb
+sudo apt install ./pggit_0.1.2-postgresql.deb
 
 # RHEL/Rocky Linux
-sudo rpm -i pggit-0.1.1.rpm
+sudo rpm -i pggit-0.1.2.rpm
 
 # Create extension
 psql -d your_database -c "CREATE EXTENSION pggit CASCADE;"
