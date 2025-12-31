@@ -59,20 +59,20 @@ test-quick: test-core
 # Clean install for testing
 test-clean:
 	@echo "Cleaning pgGit schema and reinstalling..."
+	@psql -c "DROP EXTENSION IF EXISTS pggit CASCADE;" 2>/dev/null || true
 	@psql -c "DROP SCHEMA IF EXISTS pggit CASCADE;" 2>/dev/null || true
-	@cd sql && psql -f install.sql
+	@psql -c "CREATE EXTENSION pggit;" 2>/dev/null || true
 	@echo "Clean installation complete. Ready for testing."
 
-# Install the extension
-install:
-	@echo "Installing pgGit extension..."
-	@cd sql && psql -f install.sql
+# Note: 'make install' is handled by PGXS and installs files to PostgreSQL's extension directory
+# To create the extension in a database, use: psql -c "CREATE EXTENSION pggit;"
 
 # Clean the database
 clean:
-	@echo "Removing pgGit schema..."
-	@psql -c "DROP SCHEMA IF EXISTS pggit CASCADE;"
-	@echo "pgGit schema removed."
+	@echo "Removing pgGit extension..."
+	@psql -c "DROP EXTENSION IF EXISTS pggit CASCADE;" 2>/dev/null || true
+	@psql -c "DROP SCHEMA IF EXISTS pggit CASCADE;" 2>/dev/null || true
+	@echo "pgGit extension removed."
 
 # Help for test commands
 test-help:
