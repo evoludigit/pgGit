@@ -58,6 +58,7 @@ chaos = [
     "pytest-timeout>=2.2.0",
     "pytest-xdist>=3.5.0",
     "pytest-html>=4.1.0",
+    "pytest-cov>=4.1.0",
     "psycopg>=3.1.0",
     "psutil>=5.9.0",
 ]
@@ -100,6 +101,36 @@ ignore = ["S101", "S104"]  # Allow assert statements and hardcoded passwords in 
 [tool.ruff.lint.per-file-ignores]
 "tests/chaos/**" = ["S101", "S608", "S311", "S110", "PLR2004", "T201", "BLE001", "TRY300", "PT017", "PERF203", "E722", "F841", "SIM105", "ARG002", "PLC0415", "B011", "G004", "PLR0915", "PT015"]  # Allow additional test-specific patterns in chaos tests
 "scripts/ai/**" = ["T201", "BLE001", "TRY300", "PLR2004"]  # Allow print statements, broad exception handling, try-else patterns, and magic values in AI scripts
+
+[tool.coverage.run]
+source = ["tests"]
+omit = [
+    "tests/chaos/examples/*",
+    "tests/*/conftest.py",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+]
+branch = true
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.xml]
+output = "coverage.xml"
 
 [tool.uv]
 dev-dependencies = [

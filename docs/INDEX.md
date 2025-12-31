@@ -4,6 +4,165 @@
 
 ---
 
+## 📂 Documentation Structure (Visual Sitemap)
+
+**Complete file tree of all 70+ documentation files** - Use this to quickly locate specific documents or understand the overall organization.
+
+```
+📁 pggit/
+├── 📄 README.md                          # Project overview and quick start
+├── 📄 CONTRIBUTING.md                    # How to contribute to pgGit
+├── 📄 CODE_OF_CONDUCT.md                 # Community guidelines
+├── 📄 SECURITY.md                        # Security policy and vulnerability disclosure
+├── 📄 CHANGELOG.md                       # Version history and release notes
+├── 📄 RELEASING.md                       # Release process documentation
+├── 📄 SUPPORT.md                         # Getting help and support
+│
+├── 📁 docs/                              # Main documentation directory
+│   ├── 📄 INDEX.md                       # ⭐ THIS FILE - Documentation sitemap
+│   ├── 📄 README.md                      # Docs directory overview
+│   ├── 📄 Getting_Started.md             # 5-minute installation and setup
+│   ├── 📄 USER_GUIDE.md                  # Complete user manual
+│   ├── 📄 API_Reference.md               # All 50+ functions documented
+│   ├── 📄 GLOSSARY.md                    # Technical terms explained
+│   │
+│   ├── 📁 getting-started/               # Beginner-friendly guides
+│   │   ├── 📄 README.md                  # Getting started overview
+│   │   ├── 📄 Getting_Started.md         # Quick start guide
+│   │   ├── 📄 PgGit_Explained_Like_Im_10.md  # Simple conceptual overview
+│   │   └── 📄 Troubleshooting.md         # Common issues and fixes
+│   │
+│   ├── 📁 guides/                        # Task-oriented guides
+│   │   ├── 📄 README.md                  # Guides overview
+│   │   ├── 📄 IDE_SETUP.md               # VS Code, JetBrains, Vim, Emacs setup
+│   │   ├── 📄 DEBUGGING.md               # Debug schema issues
+│   │   ├── 📄 PERFORMANCE_TUNING.md      # ⭐ 538 lines - Optimize for 100GB+ DBs
+│   │   ├── 📄 Performance.md             # Performance overview
+│   │   ├── 📄 Operations.md              # Operations guide
+│   │   └── 📄 Security.md                # 30+ security hardening checklist
+│   │
+│   ├── 📁 operations/                    # Production operations
+│   │   ├── 📄 RUNBOOK.md                 # ⭐ Incident response (P1-P4)
+│   │   ├── 📄 OPERATIONS_RUNBOOK.md      # Extended operations guide
+│   │   ├── 📄 MONITORING.md              # Health checks, Prometheus integration
+│   │   ├── 📄 SLO.md                     # 99.9% uptime targets
+│   │   ├── 📄 DISASTER_RECOVERY.md       # Backup and recovery procedures
+│   │   ├── 📄 BACKUP_RESTORE.md          # Detailed backup guide
+│   │   ├── 📄 UPGRADE_GUIDE.md           # Version migration procedures
+│   │   ├── 📄 RELEASE_CHECKLIST.md       # Pre-deployment verification
+│   │   └── 📄 CHAOS_TESTING.md           # Chaos engineering overview
+│   │
+│   ├── 📁 security/                      # Security documentation
+│   │   ├── 📄 HARDENING.md               # Security hardening guide
+│   │   ├── 📄 SECURITY_AUDIT.md          # Security audit procedures
+│   │   ├── 📄 SLSA.md                    # Supply chain security (SLSA provenance)
+│   │   └── 📄 VULNERABILITY_DISCLOSURE.md # Vulnerability reporting
+│   │
+│   ├── 📁 compliance/                    # Regulatory compliance
+│   │   ├── 📄 FIPS_COMPLIANCE.md         # ⭐ 278 lines - FIPS 140-2 checklist
+│   │   └── 📄 SOC2_PREPARATION.md        # ⭐ 442 lines - SOC2 Type II prep
+│   │
+│   ├── 📁 testing/                       # Testing documentation
+│   │   ├── 📄 CHAOS_ENGINEERING.md       # Chaos testing philosophy and guide
+│   │   ├── 📄 PATTERNS.md                # Common test patterns
+│   │   └── 📄 TROUBLESHOOTING.md         # Test troubleshooting
+│   │
+│   ├── 📁 e2e/                           # End-to-end testing
+│   │   ├── 📄 README.md                  # E2E testing overview
+│   │   ├── 📄 RUNNING_TESTS.md           # How to run E2E tests
+│   │   └── 📄 branching.md               # Branching test scenarios
+│   │
+│   ├── 📁 architecture/                  # Architecture documentation
+│   │   └── 📄 MODULES.md                 # Module structure and dependencies
+│   │
+│   ├── 📁 reference/                     # API reference
+│   │   ├── 📄 README.md                  # Reference overview
+│   │   └── 📄 API_COMPLETE.md            # Complete API documentation
+│   │
+│   ├── 📁 contributing/                  # Contributor guides
+│   │   ├── 📄 README.md                  # Contributing overview
+│   │   └── 📄 Claude.md                  # AI-assisted development guide
+│   │
+│   ├── 📁 benchmarks/                    # Performance benchmarks
+│   │   └── 📄 BASELINE.md                # Baseline performance metrics
+│   │
+│   ├── 📄 Architecture_Decision.md       # Core design decisions
+│   ├── 📄 Git_Branching_Architecture.md  # Branching design and strategy
+│   ├── 📄 DDL_Hashing_Design.md          # Content-addressable versioning
+│   ├── 📄 Hashing_Usage.md               # SHA-256 hashing explained
+│   ├── 📄 Schema_Reconciliation.md       # Detecting schema drift
+│   ├── 📄 Performance_Analysis.md        # Performance benchmarks
+│   ├── 📄 Pattern_Examples.md            # Real-world patterns
+│   ├── 📄 Onboarding_Guide.md            # Structured learning path
+│   ├── 📄 DEPLOYMENT.md                  # Deployment guide
+│   ├── 📄 CI_CD.md                       # CI/CD integration
+│   ├── 📄 Enterprise_Features.md         # Advanced capabilities
+│   ├── 📄 pggit_v0_integration_guide.md  # Integration workflow patterns
+│   ├── 📄 configuration-system.md        # Configuration options
+│   ├── 📄 conflict-resolution-and-operations.md  # Merge conflict handling
+│   ├── 📄 cqrs-support.md                # CQRS pattern support
+│   ├── 📄 function-versioning.md         # Function version tracking
+│   ├── 📄 migration-integration.md       # Flyway/Liquibase integration
+│   ├── 📄 new-features-index.md          # Planned features overview
+│   ├── 📄 AI_Integration_Architecture.md # ⚠️ Planned v0.3.0 - AI features
+│   ├── 📄 AI_Migration.md                # ⚠️ Planned v0.3.0 - AI migration
+│   ├── 📄 Local_LLM_Quickstart.md        # ⚠️ Planned v0.3.0 - Local AI setup
+│   ├── 📄 DEVELOPER_TRAINING_COURSE.md   # Developer training materials
+│   ├── 📄 SPIKE_1_1_PGGIT_V2_ANALYSIS.md # Technical spike documentation
+│   ├── 📄 SPIKE_1_2_DDL_EXTRACTION_ANALYSIS.md
+│   ├── 📄 SPIKE_1_3_BACKFILL_ALGORITHM.md
+│   └── 📄 SPIKE_1_4_GO_NO_GO_DECISION.md
+│
+├── 📁 tests/                             # Test suite
+│   ├── 📁 chaos/                         # ⭐ Chaos engineering tests (22 modules, 133+ tests)
+│   │   ├── 📄 README.md                  # Quick reference
+│   │   ├── 📄 TESTING.md                 # Comprehensive testing guide
+│   │   ├── 📄 TEST_STATUS.md             # ⭐ NEW - Known failures and progress
+│   │   ├── 📄 pytest.ini                 # Pytest configuration
+│   │   ├── 📄 conftest.py                # Test fixtures
+│   │   ├── 📄 fixtures.py                # Reusable fixtures
+│   │   ├── 📄 utils.py                   # Chaos utilities
+│   │   ├── 📄 strategies.py              # Hypothesis strategies
+│   │   ├── 📁 examples/                  # Learning examples
+│   │   └── test_*.py                     # 22 test modules
+│   │
+│   ├── 📁 e2e/                           # End-to-end tests (22 modules, 78+ tests)
+│   │   ├── 📄 README.md                  # E2E testing guide
+│   │   └── test_*.py                     # E2E test modules
+│   │
+│   ├── 📁 integration/                   # Integration tests
+│   ├── 📁 performance/                   # Performance benchmarks
+│   └── 📁 pgtap/                         # pgTAP unit tests
+│
+└── 📁 .github/                           # CI/CD workflows
+    └── 📁 workflows/                     # ⭐ 14 workflows (security, testing, packaging)
+        ├── 📄 chaos-tests.yml            # Chaos testing workflow
+        ├── 📄 chaos-weekly.yml           # Weekly chaos runs
+        ├── 📄 e2e-tests.yml              # E2E testing workflow
+        ├── 📄 tests.yml                  # Core test suite
+        ├── 📄 security-scan.yml          # Daily Trivy scans
+        ├── 📄 security-tests.yml         # SQL injection prevention
+        ├── 📄 sbom.yml                   # SBOM generation
+        ├── 📄 release.yml                # Release automation
+        └── ... (6 more workflows)
+```
+
+**Legend**:
+- ⭐ = Highlighted/recommended documents
+- ⚠️ = Planned features (not yet implemented)
+- 📊 = Data/metrics
+
+**Key Statistics**:
+- **70+ documentation files** covering all aspects of pgGit
+- **538-line performance tuning guide** for 100GB+ databases
+- **442-line SOC2 preparation guide** for compliance
+- **278-line FIPS 140-2 compliance guide** for regulated industries
+- **133+ chaos tests** across 22 test modules
+- **78+ E2E tests** across 22 test modules
+- **14 CI/CD workflows** for automation and security
+
+---
+
 ## 🚀 Quick Start (5 Minutes)
 
 New to pgGit? Start here:
