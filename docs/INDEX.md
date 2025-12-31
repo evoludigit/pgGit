@@ -470,7 +470,7 @@ Improving pgGit:
 
 ### Release & Deployment
 
-- **Release Readiness**: [../RELEASE_READINESS_v0.1.1.md](../RELEASE_READINESS_v0.1.1.md) - v0.1.1 release status
+- **Release Notes**: [../CHANGELOG.md](../CHANGELOG.md) - Version history and release notes
 - **Release Checklist**: [operations/RELEASE_CHECKLIST.md](operations/RELEASE_CHECKLIST.md) - Pre-release verification
 
 ### Planning & Strategy
@@ -484,14 +484,14 @@ Improving pgGit:
 
 | Item | Value |
 |------|-------|
-| **Current Version** | pgGit v0.1.1 |
-| **Documentation Updated** | December 21, 2025 |
+| **Current Version** | pgGit v0.1.2 |
+| **Documentation Updated** | December 31, 2025 |
 | **Status** | Production Ready ✅ |
-| **Broken Links** | 0 (verified) ✅ |
+| **Test Coverage** | 191 tests, 100% pass rate ✅ |
 
 ### Feature Status Legend
 
-- ✅ **Implemented** - Available in v0.1.1, production-ready
+- ✅ **Implemented** - Available in v0.1.2, production-ready
 - 🚧 **Planned** - In design/development, coming in v0.3.0+
 - 🧪 **Experimental** - Available but may change significantly
 - ⚠️ **Partially Experimental** - Some features implemented, others planned
