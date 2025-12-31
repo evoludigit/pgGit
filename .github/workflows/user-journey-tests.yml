@@ -1,0 +1,190 @@
+name: User Journey E2E Tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'sql/**'
+      - 'src/**'
+      - 'tests/user-journey/**'
+      - 'docs/getting-started/**'
+      - 'Makefile'
+      - '.github/workflows/user-journey-tests.yml'
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run daily at 6 AM UTC to catch regressions
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    # Allow manual triggering
+
+env:
+  PGHOST: postgres
+  PGPORT: 5432
+  PGDATABASE: pggit_user_journey
+  PGUSER: testuser
+  PGPASSWORD: testpass
+
+jobs:
+  user-journey-tests:
+    name: User Journey E2E Tests (Clean Install)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: pggit_user_journey
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U testuser -d pggit_user_journey"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL development tools
+        run: |
+          # Add PostgreSQL 17 repository
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+
+          # Install PostgreSQL 17 client and dev tools
+          sudo apt-get update
+          sudo apt-get install -y \
+            postgresql-client-17 \
+            postgresql-server-dev-17 \
+            build-essential \
+            make \
+            gcc
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest 'psycopg[binary]' pyyaml
+
+      - name: Build pgGit extension
+        run: |
+          echo "=== Building pgGit extension ==="
+          make clean
+          make
+          echo "✅ Build completed successfully"
+
+      - name: Install pgGit extension
+        run: |
+          echo "=== Installing pgGit extension ==="
+          sudo make install
+          echo "✅ Installation completed successfully"
+
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          echo "=== Waiting for PostgreSQL ==="
+          for i in {1..30}; do
+            if pg_isready -h localhost -U testuser -d pggit_user_journey; then
+              echo "✅ PostgreSQL is ready"
+              break
+            fi
+            echo "⏳ Waiting for PostgreSQL... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run User Journey E2E Tests
+        env:
+          PGHOST: localhost
+          PGGIT_TEST_MODE: user_journey
+          PGGIT_VERBOSE: "1"
+        run: |
+          echo "=== Running User Journey E2E Tests ==="
+          echo "Testing user experience from Getting Started guide"
+          echo ""
+
+          python -m pytest tests/user-journey/test_user_journey.py \
+            -v \
+            --tb=short \
+            --color=yes \
+            --junit-xml=test-results/user-journey-results.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: user-journey-test-results
+          path: test-results/
+          retention-days: 30
+
+      - name: Check for documentation drift
+        if: failure()
+        run: |
+          echo "::warning::User journey tests failed!"
+          echo "This means the Getting Started guide examples don't work in a clean environment."
+          echo ""
+          echo "Possible causes:"
+          echo "  1. Documentation examples are outdated"
+          echo "  2. Installation instructions are incorrect"
+          echo "  3. API functions changed but docs weren't updated"
+          echo "  4. Missing dependencies in installation guide"
+          echo ""
+          echo "Action required: Review test failures and update documentation OR fix the code."
+
+      - name: Comment on PR with results
+        if: github.event_name == 'pull_request' && failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const message = `## ⚠️ User Journey Tests Failed
+
+            The end-to-end tests that validate the [Getting Started guide](../docs/getting-started/Getting_Started.md) failed.
+
+            **This means**: Code examples from the documentation don't work in a clean environment.
+
+            **Possible issues**:
+            - 📖 Documentation examples are outdated
+            - 🔧 Installation instructions need updating
+            - 🔌 API changes weren't reflected in docs
+            - 📦 Missing dependencies
+
+            **Required action**: Review failures and update documentation or fix the code.
+
+            See the [test results](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            });
+
+  report-success:
+    name: Report Test Success
+    runs-on: ubuntu-22.04
+    needs: user-journey-tests
+    if: success()
+    steps:
+      - name: Success notification
+        run: |
+          echo "✅ User Journey E2E Tests Passed!"
+          echo ""
+          echo "All examples from the Getting Started guide work correctly."
+          echo "Users can follow the documentation and have a working setup."
+          echo ""
+          echo "Tested scenarios:"
+          echo "  ✅ Chapter 2: Fresh installation"
+          echo "  ✅ Chapter 3: First automatic tracking"
+          echo "  ✅ Chapter 4: Schema evolution"
+          echo "  ✅ Chapter 5: Impact analysis"
+          echo "  ✅ Chapter 6: Migration generation"
+          echo "  ✅ Chapter 9: Complete API reference"
