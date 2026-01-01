@@ -325,7 +325,7 @@ class TestResourceLimits:
             try:
                 db.execute(
                     "INSERT INTO pggit.branches (name) VALUES (%s)",
-                    f"branch-{i}",
+                    f"perftest-large-branch-{i}",
                 )
                 created += 1
             except Exception:
