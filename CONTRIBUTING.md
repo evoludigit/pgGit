@@ -1,4 +1,87 @@
-# Contributing to PgGit
+# Contributing to pgGit
+
+Thank you for your interest in contributing to pgGit! We're excited to have you here.
+
+pgGit is an open-source PostgreSQL extension that brings Git-like version control to databases. Whether you're fixing a bug, adding a feature, improving documentation, or just asking questions, your contribution is valuable.
+
+## 🌟 Ways to Contribute
+
+There are many ways to contribute to pgGit:
+
+- **🐛 Report bugs** - Found something broken? Let us know!
+- **💡 Suggest features** - Have an idea? We'd love to hear it!
+- **📝 Improve documentation** - Help others understand pgGit better
+- **🧪 Write tests** - Increase our test coverage
+- **💻 Submit code changes** - Fix bugs or implement features
+- **🎨 Improve examples** - Add real-world use cases
+- **💬 Answer questions** - Help others in GitHub Discussions
+- **⭐ Star the repo** - Show your support and help others discover pgGit
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+Before you begin, make sure you have:
+
+- **PostgreSQL 15, 16, or 17** installed
+- **C compiler** (gcc or clang)
+- **PostgreSQL development headers** (`postgresql-server-dev-*` package)
+- **Git** for version control
+- **Make** for building
+- **Python 3.8+** and **pytest** for running tests
+
+### Development Setup
+
+1. **Fork the repository**
+   ```bash
+   # Click "Fork" on GitHub, then clone your fork
+   git clone https://github.com/YOUR_USERNAME/pgGit.git
+   cd pgGit
+   ```
+
+2. **Add the upstream remote**
+   ```bash
+   git remote add upstream https://github.com/evoludigit/pgGit.git
+   ```
+
+3. **Install dependencies**
+   ```bash
+   # Install Python dependencies
+   pip install -r requirements-dev.txt
+
+   # Install pre-commit hooks (see section below)
+   pre-commit install
+   pre-commit install --hook-type pre-push
+   ```
+
+4. **Build the extension**
+   ```bash
+   make clean
+   make
+   ```
+
+5. **Install locally (for testing)**
+   ```bash
+   sudo make install
+   ```
+
+6. **Run tests**
+   ```bash
+   make test
+   ```
+
+   All tests should pass. If any fail, please report it as a bug!
+
+## 🏷️ Good First Issues
+
+New to pgGit? Look for issues labeled [`good first issue`](https://github.com/evoludigit/pgGit/labels/good%20first%20issue).
+
+**Great starter tasks:**
+- Improving error messages
+- Adding examples to documentation
+- Writing tests for untested edge cases
+- Fixing typos or formatting
+- Adding code comments
 
 ## Git Workflow
 
@@ -132,3 +215,111 @@ make test
 - All code must be reviewed before merging
 - Ensure tests are included for new features
 - Follow existing code conventions
+
+## 💻 Code Style
+
+pgGit follows PostgreSQL extension coding conventions:
+
+### Python Code Style
+- **Formatter**: Black (line length 88)
+- **Linter**: Ruff
+- **Type hints**: Required for public APIs
+- **Docstrings**: Google style
+
+### SQL Code Style
+- **Keywords**: UPPERCASE (e.g., `CREATE`, `SELECT`)
+- **Identifiers**: lowercase (e.g., `table_name`)
+- **Indentation**: 4 spaces
+- **Functions**: `pggit.function_name()` (use schema prefix)
+
+### C Code Style
+(For PostgreSQL extension C code, if applicable)
+- **Indentation**: Tabs (width 4)
+- **Line length**: Max 80 characters
+- **Naming**:
+  - Functions: `snake_case` (e.g., `pggit_create_branch`)
+  - Types: `PascalCase` with `Pggit` prefix
+  - Macros: `UPPER_SNAKE_CASE`
+
+## 🐛 Reporting Bugs
+
+**Before reporting:**
+1. Check if the bug is already reported in [Issues](https://github.com/evoludigit/pgGit/issues)
+2. Try the latest version from `main` branch
+3. Gather reproduction steps
+
+**Bug report should include:**
+- Clear description of the bug
+- Steps to reproduce
+- Expected vs. actual behavior
+- Environment (pgGit version, PostgreSQL version, OS)
+- Error messages or logs
+- SQL code that reproduces the issue
+
+## 💡 Suggesting Features
+
+We love new ideas! Before suggesting a feature:
+
+1. Check [GitHub Discussions](https://github.com/evoludigit/pgGit/discussions) to see if it's been discussed
+2. Consider if it aligns with pgGit's goals (Git-like database version control)
+3. Think about the implementation complexity
+
+**Feature request should include:**
+- Problem this feature would solve
+- Proposed solution
+- Alternatives considered
+- Real-world use case
+
+## 🤝 Code of Conduct
+
+### Our Standards
+
+- **Be respectful**: Treat everyone with kindness and professionalism
+- **Be constructive**: Provide helpful feedback
+- **Be patient**: Remember that contributors have different experience levels
+- **Be inclusive**: Welcome people of all backgrounds
+
+### Unacceptable Behavior
+
+- Harassment or discrimination
+- Trolling or insulting comments
+- Publishing others' private information
+- Any conduct that would be inappropriate in a professional setting
+
+## 📞 Getting Help
+
+**Need help contributing?**
+
+- **GitHub Discussions**: [Ask questions](https://github.com/evoludigit/pgGit/discussions)
+- **Issues**: [Browse existing issues](https://github.com/evoludigit/pgGit/issues)
+- **Documentation**: [pgGit Docs](https://pggit.dev)
+
+## 🎓 Learning Resources
+
+**PostgreSQL Extension Development:**
+- [PostgreSQL Extension Documentation](https://www.postgresql.org/docs/current/extend.html)
+- [PostgreSQL Server Programming Interface (SPI)](https://www.postgresql.org/docs/current/spi.html)
+
+**pgGit Architecture:**
+- [Architecture Overview](https://pggit.dev/reference/architecture/)
+- [User Guide](https://pggit.dev/guides/user-guide/)
+- [Database Branching Guide](https://pggit.dev/guides/branching/)
+
+## 🙏 Recognition
+
+All contributors will be:
+- Listed in the project README
+- Mentioned in release notes (for significant contributions)
+- Given credit in commit messages
+
+## 📜 License
+
+By contributing to pgGit, you agree that your contributions will be licensed under the [MIT License](LICENSE).
+
+---
+
+**Thank you for contributing to pgGit!** 🎉
+
+Every contribution, no matter how small, makes a difference. Whether you're fixing a typo or implementing a major feature, you're helping make database version control accessible to everyone.
+
+Happy coding! 🚀
