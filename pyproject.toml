@@ -62,6 +62,18 @@ chaos = [
     "psycopg>=3.1.0",
     "psutil>=5.9.0",
 ]
+e2e = [
+    "pytest>=8.0.0",
+    "psycopg>=3.1.0",
+    "docker>=7.0.0",
+]
+dev = [
+    "pytest>=8.0.0",
+    "psycopg>=3.1.0",
+    "docker>=7.0.0",
+    "ruff>=0.1.0",
+    "pytest-cov>=4.1.0",
+]
 
 [tool.pytest.ini_options]
 minversion = "8.0"
@@ -83,6 +95,10 @@ markers = [
     "load: mark test as load/stress test",
     "slow: mark test as slow (>30s)",
     "destructive: mark test as potentially destructive",
+    "requires_time_travel_api: mark test as requiring unimplemented time-travel API functions",
+    "requires_pg17: mark test as requiring PostgreSQL 17+",
+    "e2e: mark test as end-to-end integration test",
+    "integration: mark test as integration test",
 ]
 
 [tool.hypothesis]
