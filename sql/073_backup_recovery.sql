@@ -9,6 +9,67 @@
 --
 
 -- =====================================================
+-- Helper Functions
+-- =====================================================
+
+-- Helper function for JSONB retention policy validation
+CREATE OR REPLACE FUNCTION pggit.validate_retention_policy(
+    p_policy JSONB
+)
+RETURNS TABLE (
+    full_days INTEGER,
+    incremental_days INTEGER
+) AS $$
+DECLARE
+    v_full_days INTEGER;
+    v_incr_days INTEGER;
+BEGIN
+    -- Handle NULL policy with safe defaults
+    IF p_policy IS NULL THEN
+        p_policy := '{"full_days": 30, "incremental_days": 7}'::JSONB;
+    END IF;
+
+    -- Validate required keys exist
+    IF NOT (p_policy ? 'full_days') THEN
+        RAISE EXCEPTION 'Policy missing required key: full_days'
+            USING ERRCODE = '22023',  -- invalid_parameter_value
+                  HINT = 'Provide JSON like: {"full_days": 30, "incremental_days": 7}';
+    END IF;
+
+    IF NOT (p_policy ? 'incremental_days') THEN
+        RAISE EXCEPTION 'Policy missing required key: incremental_days'
+            USING ERRCODE = '22023';
+    END IF;
+
+    -- Extract and validate values with type safety
+    BEGIN
+        v_full_days := (p_policy->>'full_days')::INTEGER;
+        v_incr_days := (p_policy->>'incremental_days')::INTEGER;
+    EXCEPTION WHEN OTHERS THEN
+        RAISE EXCEPTION 'Invalid policy format: %', SQLERRM
+            USING ERRCODE = '22023',
+                  HINT = 'Ensure days are valid integers';
+    END;
+
+    -- Range validation
+    IF v_full_days < 1 OR v_full_days > 3650 THEN
+        RAISE EXCEPTION 'full_days out of range: % (must be 1-3650)', v_full_days
+            USING ERRCODE = '22003';
+    END IF;
+
+    IF v_incr_days < 1 OR v_incr_days > 365 THEN
+        RAISE EXCEPTION 'incremental_days out of range: % (must be 1-365)', v_incr_days
+            USING ERRCODE = '22003';
+    END IF;
+
+    RETURN QUERY SELECT v_full_days, v_incr_days;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.validate_retention_policy IS
+'Reusable helper for validating retention policy JSONB structures';
+
+-- =====================================================
 -- Recovery Planning
 -- =====================================================
 
@@ -26,6 +87,19 @@ RETURNS TABLE (
     exact_match BOOLEAN
 ) AS $$
 BEGIN
+    -- ✅ INPUT VALIDATION: NULL and empty string checks for commit hash
+    IF p_commit_hash IS NULL THEN
+        RAISE EXCEPTION 'Parameter p_commit_hash cannot be NULL'
+            USING ERRCODE = '22004',  -- null_value_not_allowed
+                  HINT = 'Provide a commit hash string';
+    END IF;
+
+    IF p_commit_hash = '' THEN
+        RAISE EXCEPTION 'Parameter p_commit_hash cannot be empty'
+            USING ERRCODE = '22023',  -- invalid_parameter_value
+                  HINT = 'Provide a non-empty commit hash';
+    END IF;
+
     -- Find backups for this exact commit, or closest in time
     RETURN QUERY
     WITH commit_info AS (
@@ -73,6 +147,29 @@ DECLARE
     v_backup RECORD;
     v_step INTEGER := 0;
 BEGIN
+    -- ✅ INPUT VALIDATION: NULL, empty string, and enum checks for recovery plan
+    IF p_target_commit IS NULL THEN
+        RAISE EXCEPTION 'Parameter p_target_commit cannot be NULL'
+            USING ERRCODE = '22004',  -- null_value_not_allowed
+                  HINT = 'Provide a target commit hash string';
+    END IF;
+
+    IF p_target_commit = '' THEN
+        RAISE EXCEPTION 'Parameter p_target_commit cannot be empty'
+            USING ERRCODE = '22023',  -- invalid_parameter_value
+                  HINT = 'Provide a non-empty commit hash';
+    END IF;
+
+    IF p_recovery_mode IS NULL THEN
+        p_recovery_mode := 'disaster';  -- Safe default for recovery operations
+    END IF;
+
+    IF p_recovery_mode NOT IN ('disaster', 'clone') THEN
+        RAISE EXCEPTION 'Invalid recovery mode: %. Use "disaster" or "clone"', p_recovery_mode
+            USING ERRCODE = '22023',  -- invalid_parameter_value
+                  HINT = 'Valid modes are: disaster, clone';
+    END IF;
+
     -- Validate recovery mode
     IF p_recovery_mode NOT IN ('disaster', 'clone') THEN
         RAISE EXCEPTION 'Invalid recovery mode: %. Use "disaster" or "clone"', p_recovery_mode;
@@ -282,10 +379,24 @@ DECLARE
     v_verification_id UUID := gen_random_uuid();
     v_backup RECORD;
 BEGIN
-    -- Get backup info
+    -- ✅ INPUT VALIDATION: NULL check and existence validation for backup
+    IF p_backup_id IS NULL THEN
+        RAISE EXCEPTION 'Backup ID cannot be NULL'
+            USING ERRCODE = '22004';
+    END IF;
+
+    -- Verify backup exists
     SELECT * INTO v_backup
-    FROM pggit.backups b
-    WHERE b.backup_id = p_backup_id;
+    FROM pggit.backups
+    WHERE backup_id = p_backup_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Backup not found: %', p_backup_id
+            USING ERRCODE = '02000',  -- no_data_found
+                  HINT = 'Check backup_id is correct';
+    END IF;
+
+    -- Record verification attempt
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Backup % not found', p_backup_id;
@@ -401,9 +512,16 @@ RETURNS TABLE (
 DECLARE
     v_full_retention INTERVAL;
     v_incr_retention INTERVAL;
+    v_full_days INTEGER;
+    v_incr_days INTEGER;
 BEGIN
-    v_full_retention := ((p_policy->>'full_days')::INTEGER || ' days')::INTERVAL;
-    v_incr_retention := ((p_policy->>'incremental_days')::INTEGER || ' days')::INTERVAL;
+    -- ✅ INPUT VALIDATION: JSONB policy validation using helper function
+    SELECT full_days, incremental_days
+    INTO v_full_days, v_incr_days
+    FROM pggit.validate_retention_policy(p_policy);
+
+    v_full_retention := (v_full_days || ' days')::INTERVAL;
+    v_incr_retention := (v_incr_days || ' days')::INTERVAL;
 
     -- Mark expired full backups
     RETURN QUERY
@@ -449,6 +567,11 @@ RETURNS TABLE (
     location TEXT
 ) AS $$
 BEGIN
+    -- ✅ INPUT VALIDATION: Safe default for dry-run operations
+    IF p_dry_run IS NULL THEN
+        p_dry_run := TRUE;  -- Safe default for destructive operations
+    END IF;
+
     IF p_dry_run THEN
         -- Just list what would be deleted
         RETURN QUERY
@@ -561,7 +684,25 @@ DECLARE
     v_backup RECORD;
     v_result JSONB;
 BEGIN
-    -- Get backup info
+    -- ✅ INPUT VALIDATION: NULL check and existence validation for backup
+    IF p_backup_id IS NULL THEN
+        RAISE EXCEPTION 'Backup ID cannot be NULL'
+            USING ERRCODE = '22004';
+    END IF;
+
+    -- Verify backup exists
+    SELECT * INTO v_backup
+    FROM pggit.backups b
+    WHERE b.backup_id = p_backup_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Backup not found: %', p_backup_id
+            USING ERRCODE = '02000',  -- no_data_found
+                  HINT = 'Check backup_id is correct';
+    END IF;
+    -- END VALIDATION BLOCK
+
+    -- Create test record
     SELECT * INTO v_backup
     FROM pggit.backups b
     WHERE b.backup_id = p_backup_id;
