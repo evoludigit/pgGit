@@ -396,6 +396,24 @@ BEGIN
                   HINT = 'Check backup_id is correct';
     END IF;
 
+    -- ✅ IDEMPOTENT: Check for existing verification of same type
+    SELECT verification_id INTO v_verification_id
+    FROM pggit.backup_verifications
+    WHERE backup_id = p_backup_id
+      AND verification_type = p_verification_type
+      AND status IN ('in_progress', 'completed')
+      AND verified_at > CURRENT_TIMESTAMP - INTERVAL '1 hour'  -- Recent verifications only
+    ORDER BY verified_at DESC
+    LIMIT 1;
+
+    -- If found, return existing verification ID (idempotent)
+    IF FOUND THEN
+        RETURN v_verification_id;
+    END IF;
+
+    -- Generate new ID for new verification
+    v_verification_id := gen_random_uuid();
+
     -- Record verification attempt
 
     IF NOT FOUND THEN
@@ -542,30 +560,30 @@ BEGIN
         RETURN;  -- Exit early, let other transaction finish
     END IF;
 
-    -- Mark expired full backups
+    -- ✅ IDEMPOTENT: Mark expired full backups (only once per backup)
     RETURN QUERY
     WITH expired AS (
         UPDATE pggit.backups b
-        SET expires_at = CURRENT_TIMESTAMP,
-            status = 'expired'
+        SET expires_at = COALESCE(b.expires_at, CURRENT_TIMESTAMP),  -- Only set if NULL
+            status = CASE WHEN b.expires_at IS NULL THEN 'expired' ELSE b.status END  -- Only change status once
         WHERE b.backup_type = 'full'
           AND b.status = 'completed'
           AND b.completed_at < (CURRENT_TIMESTAMP - v_full_retention)
-          AND (b.expires_at IS NULL OR b.expires_at > CURRENT_TIMESTAMP)
+          AND b.expires_at IS NULL  -- Only process backups not yet marked
         RETURNING b.backup_id, b.backup_name, 'full_retention_exceeded' AS reason
     )
     SELECT 'expire'::TEXT, e.backup_id, e.backup_name, e.reason FROM expired e;
 
-    -- Mark expired incremental backups
+    -- ✅ IDEMPOTENT: Mark expired incremental backups (only once per backup)
     RETURN QUERY
     WITH expired AS (
         UPDATE pggit.backups b
-        SET expires_at = CURRENT_TIMESTAMP,
-            status = 'expired'
+        SET expires_at = COALESCE(b.expires_at, CURRENT_TIMESTAMP),  -- Only set if NULL
+            status = CASE WHEN b.expires_at IS NULL THEN 'expired' ELSE b.status END  -- Only change status once
         WHERE b.backup_type IN ('incremental', 'differential')
           AND b.status = 'completed'
           AND b.completed_at < (CURRENT_TIMESTAMP - v_incr_retention)
-          AND (b.expires_at IS NULL OR b.expires_at > CURRENT_TIMESTAMP)
+          AND b.expires_at IS NULL  -- Only process backups not yet marked
         RETURNING b.backup_id, b.backup_name, 'incremental_retention_exceeded' AS reason
     )
     SELECT 'expire'::TEXT, e.backup_id, e.backup_name, e.reason FROM expired e;
@@ -585,25 +603,39 @@ RETURNS TABLE (
     backup_name TEXT,
     location TEXT
 ) AS $$
+DECLARE
+    v_audit_id BIGINT;
+    v_start_time TIMESTAMPTZ := clock_timestamp();
+    v_rows_affected INTEGER := 0;
 BEGIN
     -- ✅ INPUT VALIDATION: Safe default for dry-run operations
     IF p_dry_run IS NULL THEN
         p_dry_run := TRUE;  -- Safe default for destructive operations
     END IF;
 
-    -- ✅ ADVISORY LOCK: Prevent concurrent cleanup operations
-    -- Use transaction-scoped advisory lock to prevent race conditions during deletion
-    IF NOT pg_try_advisory_xact_lock(hashtext('cleanup_expired_backups')) THEN
-        RAISE NOTICE 'Cleanup already running, skipping to prevent conflicts';
-        RETURN;  -- Exit early, let other transaction finish
-    END IF;
+    -- ✅ AUDIT LOGGING: Start operation audit
+    v_audit_id := pggit.audit_operation(
+        'cleanup_expired_backups',
+        CASE WHEN p_dry_run THEN 'read' ELSE 'delete' END,
+        jsonb_build_object('dry_run', p_dry_run)
+    );
 
-    -- ✅ TRANSACTION REQUIREMENT: Destructive operations must be in explicit transaction
-    IF NOT p_dry_run AND pg_current_xact_id_if_assigned() IS NULL THEN
-        RAISE EXCEPTION 'cleanup_expired_backups must be called within a transaction when not in dry-run mode'
-            USING ERRCODE = '25P01',  -- no_active_sql_transaction
-                  HINT = 'Wrap call in BEGIN...COMMIT block to ensure atomicity';
-    END IF;
+    BEGIN
+        -- ✅ ADVISORY LOCK: Prevent concurrent cleanup operations
+        -- Use transaction-scoped advisory lock to prevent race conditions during deletion
+        IF NOT pg_try_advisory_xact_lock(hashtext('cleanup_expired_backups')) THEN
+            -- Complete audit with notice (not an error)
+            PERFORM pggit.complete_audit(v_audit_id, true, 'PGGIT_CONCURRENT',
+                                       'Cleanup already running, skipped to prevent conflicts', 0);
+            RETURN;  -- Exit early, let other transaction finish
+        END IF;
+
+        -- ✅ TRANSACTION REQUIREMENT: Destructive operations must be in explicit transaction
+        IF NOT p_dry_run AND pg_current_xact_id_if_assigned() IS NULL THEN
+            RAISE EXCEPTION 'cleanup_expired_backups must be called within a transaction when not in dry-run mode'
+                USING ERRCODE = '25P01',  -- no_active_sql_transaction
+                      HINT = 'Wrap call in BEGIN...COMMIT block to ensure atomicity';
+        END IF;
 
     IF p_dry_run THEN
         -- Just list what would be deleted
@@ -647,7 +679,21 @@ BEGIN
             RETURNING b.backup_id, b.backup_name, b.location
         )
         SELECT 'deleted'::TEXT, backup_id, backup_name, location FROM deleted;
+
+        -- Get rows affected for audit
+        GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
     END IF;
+
+    -- ✅ AUDIT LOGGING: Complete operation audit successfully
+    PERFORM pggit.complete_audit(v_audit_id, true, NULL, NULL, v_rows_affected);
+
+    EXCEPTION WHEN OTHERS THEN
+        -- ✅ AUDIT LOGGING: Complete operation audit with failure
+        PERFORM pggit.complete_audit(v_audit_id, false, SQLSTATE, SQLERRM, NULL);
+
+        -- Re-raise the exception
+        RAISE;
+    END;
 END;
 $$ LANGUAGE plpgsql;
 

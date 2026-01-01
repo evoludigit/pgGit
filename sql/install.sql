@@ -31,6 +31,8 @@
 \i 071_backup_automation.sql
 \i 072_backup_management.sql
 \i 073_backup_recovery.sql
+\i 074_error_codes.sql
+\i 075_audit_log.sql
 \i 061_advanced_ml_optimization.sql
 \i 062_advanced_conflict_resolution.sql
 
@@ -42,5 +44,14 @@
 \echo '  - Generate pruning recommendations: SELECT * FROM pggit.generate_pruning_recommendations();'
 \echo '  - List branches by size: SELECT * FROM pggit.top_space_consumers;'
 \echo '  - Analyze migration with AI: SELECT * FROM pggit.analyze_migration_with_ai_enhanced(''id'', ''SQL'');'
+\echo '  - View backup audit logs: SELECT * FROM pggit.operation_audit ORDER BY started_at DESC LIMIT 10;'
+\echo '  - Check backup system health: SELECT * FROM pggit.cleanup_expired_backups(TRUE);'
+\echo ''
+\echo 'Phase 3 Features (Reliability & Error Handling):'
+\echo '  - Enterprise-grade concurrency protection with advisory locks'
+\echo '  - Idempotent operations safe to retry'
+\echo '  - Comprehensive audit logging for compliance'
+\echo '  - Structured error codes with actionable hints'
+\echo '  - Transaction safety for destructive operations'
 \echo ''
 \echo 'For full documentation, see docs/README.md'

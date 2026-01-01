@@ -625,6 +625,11 @@ BEGIN
             USING ERRCODE = '55P03';  -- lock_not_available
     END IF;
 
+    -- ✅ IDEMPOTENT: Check if job is already queued (don't reset if already in desired state)
+    IF EXISTS (SELECT 1 FROM pggit.backup_jobs WHERE job_id = p_job_id AND status = 'queued') THEN
+        RETURN TRUE;  -- Already in desired state
+    END IF;
+
     UPDATE pggit.backup_jobs j
     SET status = 'queued',
         attempts = 0,
