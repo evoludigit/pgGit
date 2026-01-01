@@ -159,7 +159,11 @@ class E2ETestFixture:
         return getattr(self._local, "conn", None)
 
     def execute(self, query: str, *args):
-        """Execute a query and return results"""
+        """Execute a query and return results
+
+        Returns results for SELECT, SHOW, and other queries that produce results.
+        Automatically commits unless it's a transaction control statement.
+        """
         # Get or create thread-local connection
         conn = self.connect()
 
@@ -171,9 +175,18 @@ class E2ETestFixture:
         if query_upper not in ("BEGIN", "COMMIT", "ROLLBACK"):
             conn.commit()
 
-        # Return results if it's a SELECT query
-        if query_upper.startswith("SELECT"):
-            return cursor.fetchall()
+        # Return results for queries that produce output
+        # This includes SELECT, SHOW, EXPLAIN, WITH ... SELECT, etc.
+        if (query_upper.startswith("SELECT") or
+            query_upper.startswith("SHOW") or
+            query_upper.startswith("WITH") or
+            query_upper.startswith("EXPLAIN") or
+            cursor.description is not None):  # Has result columns
+            try:
+                return cursor.fetchall()
+            except Exception:
+                # Query didn't produce results (e.g., DDL)
+                return None
         return None
 
     def execute_returning(self, query: str, *args):
