@@ -1,0 +1,312 @@
+#!/usr/bin/env python3
+"""
+pgGit Backup Listener Service
+
+Polls the backup job queue and executes backup commands using
+the appropriate backup tools (pgBackRest, Barman, pg_dump).
+
+Features:
+- Reliable job queue processing
+- Automatic retry with exponential backoff
+- Health monitoring
+- Graceful shutdown
+- Configurable polling interval
+
+Usage:
+    pggit-backup-listener postgresql://user:pass@host:port/dbname
+
+Environment Variables:
+    PGGIT_POLL_INTERVAL - Seconds between poll attempts (default: 10)
+    PGGIT_WORKER_ID - Unique worker identifier (default: hostname)
+    PGGIT_LOG_LEVEL - Logging level (default: INFO)
+"""
+
+import asyncio
+import logging
+import os
+import signal
+import socket
+import sys
+from datetime import datetime
+from typing import Optional
+
+try:
+    import asyncpg
+except ImportError:
+    print("Error: asyncpg is required. Install with: pip install asyncpg")
+    sys.exit(1)
+
+
+# Configure logging
+logging.basicConfig(
+    level=os.getenv('PGGIT_LOG_LEVEL', 'INFO'),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger('pggit_backup_listener')
+
+
+class BackupListener:
+    """Listens for and executes backup jobs from the queue."""
+
+    def __init__(self, db_url: str, poll_interval: int = 10, worker_id: Optional[str] = None):
+        self.db_url = db_url
+        self.poll_interval = poll_interval
+        self.worker_id = worker_id or socket.gethostname()
+        self.pool: Optional[asyncpg.Pool] = None
+        self.running = False
+        self.shutdown_requested = False
+
+    async def start(self):
+        """Start the backup listener service."""
+        logger.info(f"Starting pgGit backup listener (worker: {self.worker_id})")
+        logger.info(f"Database: {self.db_url.split('@')[1] if '@' in self.db_url else 'unknown'}")
+        logger.info(f"Poll interval: {self.poll_interval}s")
+
+        # Create connection pool
+        self.pool = await asyncpg.create_pool(
+            self.db_url,
+            min_size=2,
+            max_size=5,
+            command_timeout=300  # 5 minute timeout for backup commands
+        )
+
+        # Register signal handlers
+        loop = asyncio.get_event_loop()
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            loop.add_signal_handler(sig, self.request_shutdown)
+
+        self.running = True
+        logger.info("✅ Backup listener started successfully")
+
+        try:
+            await self.run()
+        finally:
+            await self.cleanup()
+
+    def request_shutdown(self):
+        """Request graceful shutdown."""
+        logger.info("Shutdown requested...")
+        self.shutdown_requested = True
+
+    async def cleanup(self):
+        """Clean up resources."""
+        logger.info("Cleaning up...")
+        if self.pool:
+            await self.pool.close()
+        logger.info("✅ Cleanup complete")
+
+    async def run(self):
+        """Main processing loop."""
+        while not self.shutdown_requested:
+            try:
+                # Process one job
+                job_processed = await self.process_next_job()
+
+                if not job_processed:
+                    # No jobs available, sleep before next poll
+                    await asyncio.sleep(self.poll_interval)
+                # If job was processed, immediately check for next one
+
+            except Exception as e:
+                logger.error(f"Error in main loop: {e}", exc_info=True)
+                await asyncio.sleep(self.poll_interval)
+
+        logger.info("Shutdown complete")
+
+    async def process_next_job(self) -> bool:
+        """
+        Process the next job from the queue.
+
+        Returns:
+            bool: True if a job was processed, False if queue was empty
+        """
+        async with self.pool.acquire() as conn:
+            # Get next job
+            job = await conn.fetchrow("""
+                SELECT job_id, backup_id, command, tool, attempts, metadata
+                FROM pggit.get_next_backup_job($1)
+            """, self.worker_id)
+
+            if not job:
+                return False
+
+            job_id = job['job_id']
+            backup_id = job['backup_id']
+            command = job['command']
+            tool = job['tool']
+            attempts = job['attempts']
+
+            logger.info(f"Processing job {job_id} (backup: {backup_id}, tool: {tool}, attempt: {attempts})")
+            logger.info(f"Command: {command}")
+
+            try:
+                # Execute the backup command
+                success, output, error = await self.execute_command(command)
+
+                if success:
+                    # Mark job as completed
+                    await conn.execute("""
+                        SELECT pggit.complete_backup_job($1, $2)
+                    """, job_id, output)
+
+                    # Mark backup as completed
+                    await conn.execute("""
+                        SELECT pggit.complete_backup($1)
+                    """, backup_id)
+
+                    logger.info(f"✅ Job {job_id} completed successfully")
+
+                    # Parse and update tool-specific metadata if available
+                    if tool == 'pgbackrest':
+                        await self.parse_pgbackrest_output(conn, backup_id, output)
+
+                else:
+                    # Mark job as failed (will retry if attempts remain)
+                    await conn.execute("""
+                        SELECT pggit.fail_backup_job($1, $2)
+                    """, job_id, error)
+
+                    logger.error(f"❌ Job {job_id} failed: {error}")
+
+                return True
+
+            except Exception as e:
+                logger.error(f"Error executing job {job_id}: {e}", exc_info=True)
+
+                # Mark job as failed
+                try:
+                    await conn.execute("""
+                        SELECT pggit.fail_backup_job($1, $2)
+                    """, job_id, str(e))
+                except Exception as inner_e:
+                    logger.error(f"Failed to mark job as failed: {inner_e}")
+
+                return True
+
+    async def execute_command(self, command: str) -> tuple[bool, str, str]:
+        """
+        Execute a shell command asynchronously.
+
+        Args:
+            command: The command to execute
+
+        Returns:
+            tuple: (success: bool, stdout: str, stderr: str)
+        """
+        try:
+            process = await asyncio.create_subprocess_shell(
+                command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=os.environ.copy()
+            )
+
+            stdout, stderr = await process.communicate()
+
+            stdout_str = stdout.decode('utf-8', errors='replace') if stdout else ''
+            stderr_str = stderr.decode('utf-8', errors='replace') if stderr else ''
+
+            success = process.returncode == 0
+
+            if not success:
+                error_msg = f"Command failed with exit code {process.returncode}\n"
+                error_msg += f"STDERR: {stderr_str[:500]}"  # Truncate to avoid huge errors
+                return False, stdout_str, error_msg
+
+            return True, stdout_str, stderr_str
+
+        except Exception as e:
+            return False, '', f"Exception executing command: {str(e)}"
+
+    async def parse_pgbackrest_output(self, conn, backup_id: str, output: str):
+        """
+        Parse pgBackRest output and update backup metadata.
+
+        Args:
+            conn: Database connection
+            backup_id: The backup ID to update
+            output: Command output from pgBackRest
+        """
+        try:
+            # pgBackRest outputs backup info - we could parse this
+            # For now, just note that the backup completed
+            # In production, you'd parse the actual output format
+
+            # Example: Get backup size from info command
+            # info_cmd = f"pgbackrest --output=json info"
+            # Then parse JSON and update metadata
+
+            logger.debug(f"pgBackRest output for backup {backup_id}: {output[:200]}")
+
+            # You could add actual parsing here if needed
+            # await conn.execute("""
+            #     SELECT pggit.update_pgbackrest_metadata($1, $2::jsonb)
+            # """, backup_id, parsed_json)
+
+        except Exception as e:
+            logger.warning(f"Failed to parse pgBackRest output: {e}")
+
+    async def health_check(self) -> dict:
+        """
+        Perform health check.
+
+        Returns:
+            dict: Health status information
+        """
+        try:
+            async with self.pool.acquire() as conn:
+                # Check database connection
+                result = await conn.fetchval("SELECT 1")
+
+                # Get queue stats
+                stats = await conn.fetchrow("""
+                    SELECT
+                        COUNT(*) FILTER (WHERE status = 'queued') as queued,
+                        COUNT(*) FILTER (WHERE status = 'running') as running,
+                        COUNT(*) FILTER (WHERE status = 'failed' AND attempts < max_attempts) as retrying,
+                        COUNT(*) FILTER (WHERE status = 'failed' AND attempts >= max_attempts) as permanently_failed
+                    FROM pggit.backup_jobs
+                    WHERE created_at > CURRENT_TIMESTAMP - INTERVAL '24 hours'
+                """)
+
+                return {
+                    'status': 'healthy',
+                    'worker_id': self.worker_id,
+                    'db_connected': result == 1,
+                    'queue_stats': dict(stats) if stats else {},
+                    'timestamp': datetime.now().isoformat()
+                }
+
+        except Exception as e:
+            return {
+                'status': 'unhealthy',
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }
+
+
+def main():
+    """Main entry point."""
+    if len(sys.argv) < 2:
+        print(__doc__)
+        print("\nError: Database URL required")
+        print("Usage: pggit-backup-listener postgresql://user:pass@host:port/dbname")
+        sys.exit(1)
+
+    db_url = sys.argv[1]
+    poll_interval = int(os.getenv('PGGIT_POLL_INTERVAL', '10'))
+    worker_id = os.getenv('PGGIT_WORKER_ID')
+
+    listener = BackupListener(db_url, poll_interval, worker_id)
+
+    try:
+        asyncio.run(listener.start())
+    except KeyboardInterrupt:
+        logger.info("Received keyboard interrupt")
+    except Exception as e:
+        logger.error(f"Fatal error: {e}", exc_info=True)
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()

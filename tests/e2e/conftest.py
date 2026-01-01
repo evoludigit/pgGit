@@ -146,6 +146,7 @@ class E2ETestFixture:
 
     def __init__(self, connection_string: str):
         self.connection_string = connection_string
+        self.in_test_transaction = False
 
     def connect(self):
         """Establish database connection"""
@@ -162,7 +163,7 @@ class E2ETestFixture:
         """Execute a query and return results
 
         Returns results for SELECT, SHOW, and other queries that produce results.
-        Automatically commits unless it's a transaction control statement.
+        Automatically commits unless it's a transaction control statement or in test transaction.
         """
         # Get or create thread-local connection
         conn = self.connect()
@@ -170,9 +171,9 @@ class E2ETestFixture:
         cursor = conn.cursor()
         cursor.execute(query, args)
 
-        # Don't auto-commit transaction control statements
+        # Don't auto-commit transaction control statements or when in test transaction
         query_upper = query.strip().upper()
-        if query_upper not in ("BEGIN", "COMMIT", "ROLLBACK"):
+        if query_upper not in ("BEGIN", "COMMIT", "ROLLBACK") and not self.in_test_transaction:
             conn.commit()
 
         # Return results for queries that produce output
@@ -198,10 +199,14 @@ class E2ETestFixture:
             cursor = conn.cursor()
             cursor.execute(query, args)
             result = cursor.fetchone()
-            conn.commit()
+            # Only commit if not in a test transaction
+            if not self.in_test_transaction:
+                conn.commit()
             return result
         except Exception as e:
-            conn.rollback()
+            # Only rollback if not in a test transaction (let fixture handle it)
+            if not self.in_test_transaction:
+                conn.rollback()
             raise Exception(f"Query failed: {query} with args {args}") from e
 
     def close(self):
@@ -255,7 +260,7 @@ def pggit_installed(docker_setup):
 
 @pytest.fixture
 def db(docker_setup, pggit_installed):
-    """Fixture providing test database connection"""
+    """Fixture providing test database connection with transaction isolation"""
     fixture = E2ETestFixture(docker_setup.connection_string)
     fixture.connect()
 
@@ -290,5 +295,19 @@ def db(docker_setup, pggit_installed):
         # Branch might already exist, rollback and continue
         fixture.conn.rollback()
 
+    # Start a transaction for test isolation
+    # This ensures all test changes are rolled back, providing clean state for each test
+    fixture.execute("BEGIN")
+    fixture.in_test_transaction = True
+
     yield fixture
+
+    # Rollback the transaction to undo all test changes
+    # This provides perfect isolation between tests
+    fixture.in_test_transaction = False
+    try:
+        fixture.conn.rollback()
+    except Exception:
+        pass  # Connection might already be closed
+
     fixture.close()
