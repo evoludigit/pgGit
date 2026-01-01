@@ -187,7 +187,7 @@ class TestReferentialIntegrity:
         parent_id = db.execute_returning(
             "INSERT INTO pggit.objects (object_type, schema_name, object_name, branch_id) "
             "VALUES (%s, %s, %s, %s) RETURNING id",
-            "TABLE", "public", "parent_table", main_id
+            "TABLE", "public", "corruption_parent_table_unique", main_id
         )[0]
 
         # Create child object with valid parent (FIXED: added schema_name)
@@ -483,7 +483,7 @@ class TestDataTypeIntegrity:
         obj_id = db.execute_returning(
             "INSERT INTO pggit.objects (object_type, schema_name, object_name, branch_id) "
             "VALUES (%s, %s, %s, %s) RETURNING id",
-            "TABLE", "public", "timestamp_test", main_id
+            "TABLE", "public", "corruption_timestamp_test_unique", main_id
         )[0]
 
         # Corrupt: set updated_at before created_at
