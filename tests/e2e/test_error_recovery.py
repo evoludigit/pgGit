@@ -464,27 +464,11 @@ class TestMigrationErrorRecovery:
 class TestConsistencyValidation:
     """Test consistency validation across pggit tables."""
 
-    @pytest.mark.skip(reason="Complex test needs refactoring")
     def test_verify_objects_match_actual_database_objects(self, db, pggit_installed):
         """Test that pggit.objects matches actual database objects."""
-        # Create test objects
+        # Create test objects (DDL triggers will automatically track them)
         db.execute("CREATE TABLE IF NOT EXISTS public.error_recovery_test_table_99 (id INT)")
         db.execute("CREATE OR REPLACE VIEW public.error_recovery_test_view_99 AS SELECT * FROM public.error_recovery_test_table_99")
-
-        # Record objects
-        branch_id = db.execute_returning(
-            "INSERT INTO pggit.branches (name, status) VALUES (%s, %s) RETURNING id",
-            "consistency-branch", "ACTIVE"
-        )[0]
-
-        db.execute(
-            "INSERT INTO pggit.objects (schema_name, object_name, object_type, branch_id) VALUES (%s, %s, %s, %s)",
-            "public", "error_recovery_test_table_99", 'TABLE', branch_id
-        )
-        db.execute(
-            "INSERT INTO pggit.objects (schema_name, object_name, object_type, branch_id) VALUES (%s, %s, %s, %s)",
-            "error_recovery_test_view_99", "view", branch_id
-        )
 
         # Verify objects exist in pggit.objects
         recorded_objects = db.execute("""
@@ -549,7 +533,6 @@ class TestConsistencyValidation:
 
         assert orphaned == 0, "Orphaned commits detected"
 
-    @pytest.mark.skip(reason="Complex test needs refactoring")
     def test_validate_dependency_graph_consistency(self, db, pggit_installed):
         """Test dependency graph consistency validation."""
         # Create test objects
@@ -561,17 +544,17 @@ class TestConsistencyValidation:
         # Create parent and child objects
         parent_id = db.execute_returning(
             "INSERT INTO pggit.objects (schema_name, object_name, object_type, branch_id) VALUES (%s, %s, %s, %s) RETURNING id",
-            "public", "parent_table", 'TABLE', branch_id
+            "public", "dep_test_parent_table", 'TABLE', branch_id
         )[0]
 
         child_id = db.execute_returning(
             "INSERT INTO pggit.objects (schema_name, object_name, object_type, branch_id) VALUES (%s, %s, %s, %s) RETURNING id",
-            "public", "child_view", 'VIEW', branch_id
+            "public", "dep_test_child_view", 'VIEW', branch_id
         )[0]
 
         # Create dependency relationship using correct column names
         db.execute(
-            "INSERT INTO pggit.dependencies (dependent_id, depends_on_id, dependency_type) VALUES (%s, %s, %s, %s)",
+            "INSERT INTO pggit.dependencies (dependent_id, depends_on_id, dependency_type, branch_id) VALUES (%s, %s, %s, %s)",
             child_id, parent_id, "view_table", branch_id
         )
 
