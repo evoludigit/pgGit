@@ -27,6 +27,8 @@
 \i pggit_conflict_resolution_minimal.sql
 \i pggit_diff_functionality.sql
 \i 060_time_travel.sql
+\i 070_backup_integration.sql
+\i 071_backup_automation.sql
 \i 061_advanced_ml_optimization.sql
 \i 062_advanced_conflict_resolution.sql
 
