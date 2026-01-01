@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS pggit.backup_jobs (
     tool TEXT NOT NULL,
 
     -- Status tracking
-    status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'running', 'completed', 'failed', 'cancelled')),
+    status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'running', 'completed', 'failed', 'cancelled', 'paused')),
 
     -- Retry logic
     attempts INTEGER DEFAULT 0,

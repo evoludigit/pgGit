@@ -29,6 +29,8 @@
 \i 060_time_travel.sql
 \i 070_backup_integration.sql
 \i 071_backup_automation.sql
+\i 072_backup_management.sql
+\i 073_backup_recovery.sql
 \i 061_advanced_ml_optimization.sql
 \i 062_advanced_conflict_resolution.sql
 
