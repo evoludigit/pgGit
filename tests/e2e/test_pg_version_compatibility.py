@@ -208,28 +208,27 @@ class TestPG17Features:
             pytest.skip(f"PG17-specific features require PostgreSQL 17+ (running {version})")
 
     def test_pg17_compression_setting_available(self, db, pggit_installed):
-        """Test toast_compression setting is available in PG17."""
+        """Test column compression setting is available in PG14+."""
         db.execute("CREATE TABLE pg17_test (data TEXT)")
 
-        # Should not error on PG17
-        db.execute("ALTER TABLE pg17_test SET (toast_compression = lz4)")
+        # Compression is set per-column, not per-table (available since PG14)
+        db.execute("ALTER TABLE pg17_test ALTER COLUMN data SET COMPRESSION lz4")
 
         # Verify setting applied
         result = db.execute("""
-            SELECT reloptions
-            FROM pg_class
-            WHERE relname = 'pg17_test'
+            SELECT attcompression
+            FROM pg_attribute
+            WHERE attrelid = 'pg17_test'::regclass
+            AND attname = 'data'
         """)
 
-        assert result, "Table settings not found"
-        # Check if compression is in options
-        if result[0][0]:
-            options_str = str(result[0][0])
-            assert 'toast_compression' in options_str, "Compression setting not applied"
+        assert result, "Column compression settings not found"
+        # Check if compression is set to lz4 (stored as 'l')
+        assert result[0][0] in ('l', 'lz4'), f"Compression not set to lz4, got: {result[0][0]}"
 
         # Cleanup
         db.execute("DROP TABLE pg17_test")
-        print("✓ PG17 compression settings work")
+        print("✓ Column compression settings work")
 
     def test_pg17_compression_with_pggit_tracking(self, db, pggit_installed):
         """Test compressed tables are tracked correctly by pgGit."""
@@ -240,7 +239,8 @@ class TestPG17Features:
                 large_text TEXT
             )
         """)
-        db.execute("ALTER TABLE compressed_tracked SET (toast_compression = zstd)")
+        # Set compression per-column (zstd available in PG15+)
+        db.execute("ALTER TABLE compressed_tracked ALTER COLUMN large_text SET COMPRESSION lz4")
 
         # Insert large data to trigger TOAST
         large_text = "Lorem ipsum " * 1000  # ~11KB
@@ -276,7 +276,8 @@ class TestPG17Features:
                 payload TEXT
             )
         """)
-        db.execute("ALTER TABLE large_compressed SET (toast_compression = zstd)")
+        # Set compression per-column
+        db.execute("ALTER TABLE large_compressed ALTER COLUMN payload SET COMPRESSION lz4")
 
         # Insert 50 rows of compressible data
         large_payload = ("Lorem ipsum dolor sit amet " * 100)  # ~2.5KB per row

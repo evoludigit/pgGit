@@ -31,7 +31,7 @@ class DockerPostgresSetup:
 
         # Start new container
         self.container = self.client.containers.run(
-            "postgres:16-alpine",
+            "postgres:17-alpine",
             name="pggit-e2e-test",
             environment={
                 "POSTGRES_USER": "postgres",
