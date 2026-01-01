@@ -82,7 +82,9 @@ class TestEdgeCasesAndBoundaries:
 
         # Verify other row
         result2 = db.execute("SELECT * FROM public.null_test WHERE id = 2")
-        assert result2[0] == (2, "test", None), "Mixed NULL/non-NULL values not preserved"
+        assert result2[0] == (2, "test", None), (
+            "Mixed NULL/non-NULL values not preserved"
+        )
 
     def test_single_row_table_versioning(self, db, pggit_installed):
         """Test versioning a single-row table."""
@@ -97,14 +99,18 @@ class TestEdgeCasesAndBoundaries:
 
         # Verify initial state
         result = db.execute("SELECT * FROM public.single_row WHERE id = 1")
-        assert result[0] == (1, 'config-v1', 1), "Initial single-row insert should succeed"
+        assert result[0] == (1, "config-v1", 1), (
+            "Initial single-row insert should succeed"
+        )
 
         # Update
-        db.execute("UPDATE public.single_row SET config = 'config-v2', version = 2 WHERE id = 1")
+        db.execute(
+            "UPDATE public.single_row SET config = 'config-v2', version = 2 WHERE id = 1"
+        )
 
         # Verify update
         result = db.execute("SELECT * FROM public.single_row WHERE id = 1")
-        assert result[0] == (1, 'config-v2', 2), "Single-row update should succeed"
+        assert result[0] == (1, "config-v2", 2), "Single-row update should succeed"
 
     def test_very_long_commit_messages(self, db, pggit_installed):
         """Test handling of very long commit messages."""
@@ -125,9 +131,7 @@ class TestEdgeCasesAndBoundaries:
         )
 
         # Verify retrieval
-        result = db.execute(
-            "SELECT message FROM public.long_message_test WHERE id = 1"
-        )
+        result = db.execute("SELECT message FROM public.long_message_test WHERE id = 1")
         assert len(result[0][0]) == 10000, "Long message should be preserved"
 
     def test_special_chars_in_branch_names(self, db, pggit_installed):
@@ -235,16 +239,20 @@ class TestEdgeCasesAndBoundaries:
 
         # Verify structure can be queried
         result = db.execute("SELECT * FROM public.nested_conflict WHERE id = 1")
-        assert result[0] == (1, 'a', 'b', 'c'), "Nested structure insert should succeed"
+        assert result[0] == (1, "a", "b", "c"), "Nested structure insert should succeed"
 
         # Test updates at different levels
-        db.execute("UPDATE public.nested_conflict SET level_2 = 'b_modified' WHERE id = 1")
+        db.execute(
+            "UPDATE public.nested_conflict SET level_2 = 'b_modified' WHERE id = 1"
+        )
         result = db.execute("SELECT * FROM public.nested_conflict WHERE id = 1")
-        assert result[0][2] == 'b_modified', "Level-2 update should succeed"
+        assert result[0][2] == "b_modified", "Level-2 update should succeed"
 
-        db.execute("UPDATE public.nested_conflict SET level_3 = 'c_modified' WHERE id = 1")
+        db.execute(
+            "UPDATE public.nested_conflict SET level_3 = 'c_modified' WHERE id = 1"
+        )
         result = db.execute("SELECT * FROM public.nested_conflict WHERE id = 1")
-        assert result[0][3] == 'c_modified', "Level-3 update should succeed"
+        assert result[0][3] == "c_modified", "Level-3 update should succeed"
 
     def test_duplicate_snapshot_creation(self, db, pggit_installed):
         """Test duplicate data handling."""
@@ -263,18 +271,19 @@ class TestEdgeCasesAndBoundaries:
 
         # Try to insert duplicate - should fail due to constraint
         try:
-            db.execute("INSERT INTO public.duplicate_snap (id, value) VALUES (1, 'data2')")
+            db.execute(
+                "INSERT INTO public.duplicate_snap (id, value) VALUES (1, 'data2')"
+            )
             # If we get here, PK constraint didn't work
-            db.conn.rollback()
             assert False, "Duplicate insert should have failed"
         except Exception:
             # Expected - PK constraint violation
-            db.conn.rollback()
+            # Don't call rollback - let the fixture handle transaction cleanup
             pass
 
         # Verify original data still exists
         result = db.execute("SELECT value FROM public.duplicate_snap WHERE id = 1")
-        assert result[0][0] == 'data', "Original data should be preserved"
+        assert result[0][0] == "data", "Original data should be preserved"
 
     def test_conflicting_temporal_intervals(self, db, pggit_installed):
         """Test handling time-based data updates."""
@@ -292,16 +301,22 @@ class TestEdgeCasesAndBoundaries:
         )
         # Verify initial insert
         result = db.execute("SELECT data FROM public.temporal_conflict WHERE id = 1")
-        assert result[0][0] == 'initial', "Initial insert should succeed"
+        assert result[0][0] == "initial", "Initial insert should succeed"
 
         # Update data
-        db.execute("UPDATE public.temporal_conflict SET data = 'updated', updated_at = NOW() WHERE id = 1")
+        db.execute(
+            "UPDATE public.temporal_conflict SET data = 'updated', updated_at = NOW() WHERE id = 1"
+        )
         result = db.execute("SELECT data FROM public.temporal_conflict WHERE id = 1")
-        assert result[0][0] == 'updated', "Update should succeed"
+        assert result[0][0] == "updated", "Update should succeed"
 
         # Verify timestamps are different
-        result = db.execute("SELECT created_at, updated_at FROM public.temporal_conflict WHERE id = 1")
-        assert result[0][0] is not None and result[0][1] is not None, "Timestamps should be set"
+        result = db.execute(
+            "SELECT created_at, updated_at FROM public.temporal_conflict WHERE id = 1"
+        )
+        assert result[0][0] is not None and result[0][1] is not None, (
+            "Timestamps should be set"
+        )
 
     def test_missing_temporal_changelog_entries(self, db, pggit_installed):
         """Test handling audit trail for data changes."""
@@ -313,13 +328,15 @@ class TestEdgeCasesAndBoundaries:
             )
         """)
 
-        db.execute("INSERT INTO public.missing_changelog VALUES (1, 'test', 'INSERT: initial')")
+        db.execute(
+            "INSERT INTO public.missing_changelog VALUES (1, 'test', 'INSERT: initial')"
+        )
 
         # Verify audit trail is recorded
         result = db.execute(
             "SELECT change_log FROM public.missing_changelog WHERE id = 1"
         )
-        assert result[0][0] == 'INSERT: initial', "Changelog should be recorded"
+        assert result[0][0] == "INSERT: initial", "Changelog should be recorded"
 
         # Update with new log entry
         db.execute(
@@ -328,7 +345,9 @@ class TestEdgeCasesAndBoundaries:
         result = db.execute(
             "SELECT change_log FROM public.missing_changelog WHERE id = 1"
         )
-        assert result[0][0] == 'UPDATE: modified', "Updated changelog should be recorded"
+        assert result[0][0] == "UPDATE: modified", (
+            "Updated changelog should be recorded"
+        )
 
     def test_pattern_learning_with_single_observation(self, db, pggit_installed):
         """Test learning from minimal data."""
@@ -341,13 +360,11 @@ class TestEdgeCasesAndBoundaries:
         """)
 
         # Record single access pattern
-        db.execute(
-            "INSERT INTO public.pattern_test (id, operation) VALUES (1, 'READ')"
-        )
+        db.execute("INSERT INTO public.pattern_test (id, operation) VALUES (1, 'READ')")
 
         # Verify pattern recorded
         result = db.execute("SELECT operation FROM public.pattern_test WHERE id = 1")
-        assert result[0][0] == 'READ', "Pattern should be recorded"
+        assert result[0][0] == "READ", "Pattern should be recorded"
 
     def test_prediction_accuracy_with_no_history(self, db, pggit_installed):
         """Test predictions when no historical data exists."""

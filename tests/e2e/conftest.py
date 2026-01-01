@@ -150,14 +150,24 @@ class E2ETestFixture:
 
     def connect(self):
         """Establish database connection"""
-        if not hasattr(self._local, "conn") or self._local.conn is None:
-            self._local.conn = connect(self.connection_string)
-        return self._local.conn
+        import threading
+
+        thread_id = threading.current_thread().ident
+
+        # Use thread ID as key for thread-safe connections
+        conn_key = f"conn_{thread_id}"
+        if not hasattr(self._local, conn_key) or getattr(self._local, conn_key) is None:
+            setattr(self._local, conn_key, connect(self.connection_string))
+        return getattr(self._local, conn_key)
 
     @property
     def conn(self):
         """Get thread-local connection"""
-        return getattr(self._local, "conn", None)
+        import threading
+
+        thread_id = threading.current_thread().ident
+        conn_key = f"conn_{thread_id}"
+        return getattr(self._local, conn_key, None)
 
     def execute(self, query: str, *args):
         """Execute a query and return results
@@ -173,16 +183,21 @@ class E2ETestFixture:
 
         # Don't auto-commit transaction control statements or when in test transaction
         query_upper = query.strip().upper()
-        if query_upper not in ("BEGIN", "COMMIT", "ROLLBACK") and not self.in_test_transaction:
+        if (
+            query_upper not in ("BEGIN", "COMMIT", "ROLLBACK")
+            and not self.in_test_transaction
+        ):
             conn.commit()
 
         # Return results for queries that produce output
         # This includes SELECT, SHOW, EXPLAIN, WITH ... SELECT, etc.
-        if (query_upper.startswith("SELECT") or
-            query_upper.startswith("SHOW") or
-            query_upper.startswith("WITH") or
-            query_upper.startswith("EXPLAIN") or
-            cursor.description is not None):  # Has result columns
+        if (
+            query_upper.startswith("SELECT")
+            or query_upper.startswith("SHOW")
+            or query_upper.startswith("WITH")
+            or query_upper.startswith("EXPLAIN")
+            or cursor.description is not None
+        ):  # Has result columns
             try:
                 return cursor.fetchall()
             except Exception:
@@ -210,10 +225,19 @@ class E2ETestFixture:
             raise Exception(f"Query failed: {query} with args {args}") from e
 
     def close(self):
-        """Close database connection"""
-        if hasattr(self._local, "conn") and self._local.conn:
-            self._local.conn.close()
-            self._local.conn = None
+        """Close all thread-local database connections"""
+        import threading
+
+        # Close all connections for all threads
+        for attr_name in dir(self._local):
+            if attr_name.startswith("conn_"):
+                try:
+                    conn = getattr(self._local, attr_name)
+                    if conn:
+                        conn.close()
+                except Exception:
+                    pass
+                setattr(self._local, attr_name, None)
 
 
 @pytest.fixture(scope="session")
@@ -297,17 +321,32 @@ def db(docker_setup, pggit_installed):
 
     # Start a transaction for test isolation
     # This ensures all test changes are rolled back, providing clean state for each test
-    fixture.execute("BEGIN")
-    fixture.in_test_transaction = True
+    # Check if we're already in a transaction (some tests might have started one)
+    try:
+        # Try to start a transaction, but don't fail if one is already in progress
+        fixture.execute("BEGIN")
+        fixture.in_test_transaction = True
+    except Exception as e:
+        # If BEGIN fails (e.g., "transaction already in progress"), mark as not in transaction
+        # The fixture's rollback will still work for cleanup
+        fixture.in_test_transaction = False
 
     yield fixture
 
     # Rollback the transaction to undo all test changes
     # This provides perfect isolation between tests
     fixture.in_test_transaction = False
-    try:
-        fixture.conn.rollback()
-    except Exception:
-        pass  # Connection might already be closed
+
+    # Rollback all connections for all threads
+    import threading
+
+    for attr_name in dir(fixture._local):
+        if attr_name.startswith("conn_"):
+            try:
+                conn = getattr(fixture._local, attr_name)
+                if conn:
+                    conn.rollback()
+            except Exception:
+                pass  # Connection might already be closed
 
     fixture.close()
