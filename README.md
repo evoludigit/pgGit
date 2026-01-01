@@ -2,11 +2,56 @@
 
 **Git-like version control for PostgreSQL schemas. Track, branch, and manage database changes like code.**
 
+[![GitHub stars](https://img.shields.io/github/stars/evoludigit/pgGit?style=social)](https://github.com/evoludigit/pgGit/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/evoludigit/pgGit?style=social)](https://github.com/evoludigit/pgGit/network/members)
+
 [![Build](https://github.com/evoludigit/pgGit/actions/workflows/build.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/build.yml)
-[![Tests](https://github.com/evoludigit/pgGit/actions/workflows/test-with-fixes.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/test-with-fixes.yml)
+[![Tests](https://github.com/evoludigit/pgGit/actions/workflows/tests.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/tests.yml)
 [![Version: 0.1.2](https://img.shields.io/badge/version-0.1.2-green.svg)](CHANGELOG.md)
 [![PostgreSQL 15-17](https://img.shields.io/badge/PostgreSQL-15--17-blue.svg)](https://www.postgresql.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+---
+
+## 🍓 Part of the FraiseQL Ecosystem
+
+**pgGit** provides version control for the entire FraiseQL database stack:
+
+### **Server Stack (PostgreSQL + Python/Rust)**
+
+| Tool | Purpose | Status | Performance Gain |
+|------|---------|--------|------------------|
+| **[pg_tviews](https://github.com/fraiseql/pg_tviews)** | Incremental materialized views | Beta | **100-500× faster** |
+| **[jsonb_delta](https://github.com/evoludigit/jsonb_delta)** | JSONB surgical updates | Stable | **2-7× faster** |
+| **[pgGit](https://pggit.dev)** | Database version control | **Stable** ⭐ | Git for databases |
+| **[confiture](https://github.com/fraiseql/confiture)** | PostgreSQL migrations | Stable | **300-600× faster** |
+| **[fraiseql](https://fraiseql.dev)** | GraphQL framework | Stable | **7-10× faster** |
+| **[fraiseql-data](https://github.com/fraiseql/fraiseql-seed)** | Seed data generation | Phase 6 | Auto-dependency resolution |
+
+### **Client Libraries (TypeScript/JavaScript)**
+
+| Library | Purpose | Framework Support |
+|---------|---------|-------------------|
+| **[graphql-cascade](https://github.com/graphql-cascade/graphql-cascade)** | Automatic cache invalidation | Apollo, React Query, Relay, URQL |
+
+**How pgGit fits:**
+- Track **confiture** migration history automatically
+- Version control **fraiseql** schema (v_*, fn_*, tv_*)
+- Branch databases for safe **pg_tviews** experimentation
+- Time-travel for debugging schema changes
+
+**Version control everything:**
+```sql
+-- Initialize pgGit
+CREATE EXTENSION pggit;
+SELECT pggit.init();
+
+-- Apply confiture migrations (auto-tracked)
+confiture migrate up
+
+-- View complete history
+SELECT * FROM pggit.log();
+```
 
 ---
 
