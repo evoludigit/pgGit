@@ -21,12 +21,12 @@ import docker
 class DockerPostgresSetup:
     """Manages PostgreSQL Docker container for E2E testing."""
 
-    def __init__(self, image: str = "postgres:16-alpine", port: int = 5433):
+    def __init__(self, image: str = "postgres:17-alpine", port: int = 5433):
         """
         Initialize Docker PostgreSQL container manager.
 
         Args:
-            image: Docker image to use (default: postgres:16-alpine)
+            image: Docker image to use (default: postgres:17-alpine)
             port: Local port to bind to (default: 5433)
         """
         self.client = docker.from_env()

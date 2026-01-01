@@ -35,11 +35,8 @@ def get_pg_version(db):
     return version
 
 
-# Skip all tests in this module if not PG17+
-pytestmark = pytest.mark.skipif(
-    True,  # Will be evaluated at collection time
-    reason="Compression features require PostgreSQL 17+"
-)
+# Note: Module-level skip removed - now that Docker uses postgres:17-alpine,
+# individual test fixtures will skip if version < 17 at runtime
 
 
 def pytest_configure(config):
