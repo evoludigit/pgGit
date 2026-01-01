@@ -12,11 +12,24 @@ DECLARE
     v_branch_id INTEGER;
     v_commit_hash TEXT;
 BEGIN
+    -- Validate branch name
+    IF p_branch_name IS NULL THEN
+        RAISE EXCEPTION 'Branch name cannot be NULL';
+    END IF;
+
+    IF p_branch_name = '' THEN
+        RAISE EXCEPTION 'Branch name cannot be empty';
+    END IF;
+
+    IF LENGTH(p_branch_name) > 255 THEN
+        RAISE EXCEPTION 'Branch name too long (max 255 characters, got %)', LENGTH(p_branch_name);
+    END IF;
+
     -- Get parent branch ID
     SELECT id INTO v_parent_id
     FROM pggit.branches
     WHERE name = p_parent_branch AND status = 'ACTIVE';
-    
+
     IF v_parent_id IS NULL THEN
         RAISE EXCEPTION 'Parent branch % not found', p_parent_branch;
     END IF;

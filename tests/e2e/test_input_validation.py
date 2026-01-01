@@ -40,24 +40,14 @@ class TestBranchInputValidation:
 
     def test_create_branch_empty_branch_name(self, db, pggit_installed):
         """Test create_branch with empty string branch name."""
-        # Empty string might be allowed by database but should ideally be validated
-        try:
-            branch_id = db.execute_returning(
-                "SELECT pggit.create_branch(%s)",
-                ""
-            )
-            # If allowed, verify branch was created
-            result = db.execute(
-                "SELECT name FROM pggit.branches WHERE id = %s",
-                branch_id[0]
-            )
-            assert result[0][0] == "", "Empty branch name was stored"
-            # Cleanup
-            db.execute("DELETE FROM pggit.branches WHERE id = %s", branch_id[0])
-            print("⚠ Empty branch name allowed (consider adding validation)")
-        except Exception as exc:
-            # Expected - empty names should ideally be rejected
-            print("✓ Empty branch name rejected")
+        # Now properly validates and rejects empty names
+        with pytest.raises(Exception) as exc:
+            db.execute("SELECT pggit.create_branch(%s)", "")
+
+        error_msg = str(exc.value).lower()
+        assert 'empty' in error_msg or 'cannot be' in error_msg, \
+            "Error should mention empty branch name"
+        print("✓ Empty branch name rejected")
 
     def test_create_branch_sql_injection_attempt(self, db, pggit_installed):
         """Test create_branch with SQL injection attempts."""
@@ -98,32 +88,29 @@ class TestBranchInputValidation:
 
     def test_create_branch_long_name(self, db, pggit_installed):
         """Test create_branch with very long branch name."""
-        # Test various long names
-        long_names = [
-            "a" * 100,   # 100 chars
-            "a" * 255,   # 255 chars (common TEXT limit hint)
-            "a" * 1000,  # 1000 chars
-        ]
+        # Test various long names - now enforces 255 char limit
+        # Test acceptable length (255 chars)
+        acceptable_name = "a" * 255
+        try:
+            branch_id = db.execute_returning(
+                "SELECT pggit.create_branch(%s)",
+                acceptable_name
+            )
+            # Cleanup
+            db.execute("DELETE FROM pggit.branches WHERE id = %s", branch_id[0])
+            print(f"✓ 255-char branch name accepted")
+        except Exception as exc:
+            print(f"⚠ 255-char name rejected: {exc}")
 
-        for long_name in long_names:
-            try:
-                branch_id = db.execute_returning(
-                    "SELECT pggit.create_branch(%s)",
-                    long_name
-                )
-                # Accepted - verify it was stored correctly
-                result = db.execute(
-                    "SELECT name FROM pggit.branches WHERE id = %s",
-                    branch_id[0]
-                )
-                assert result[0][0] == long_name, \
-                    f"Long name ({len(long_name)} chars) should be stored correctly"
-                # Cleanup
-                db.execute("DELETE FROM pggit.branches WHERE id = %s", branch_id[0])
-                print(f"✓ Long branch name ({len(long_name)} chars) handled")
-            except Exception as exc:
-                # May be rejected due to length constraints
-                print(f"⚠ Branch name length {len(long_name)} rejected: {exc}")
+        # Test too long (256+ chars) - should be rejected
+        too_long_name = "a" * 256
+        with pytest.raises(Exception) as exc:
+            db.execute("SELECT pggit.create_branch(%s)", too_long_name)
+
+        error_msg = str(exc.value).lower()
+        assert 'too long' in error_msg or '255' in error_msg, \
+            "Error should mention length limit"
+        print("✓ Branch name >255 chars rejected")
 
     def test_create_branch_special_characters(self, db, pggit_installed):
         """Test create_branch with special characters and Unicode."""
@@ -201,27 +188,27 @@ class TestCommitInputValidation:
 
     def test_create_commit_null_message(self, db, pggit_installed):
         """Test create_commit with NULL message."""
-        try:
-            commit_id = db.execute_returning(
-                "SELECT pggit.create_commit(%s, NULL::TEXT, %s)",
-                "test-branch", "SELECT 1"
-            )
-            # NULL message might be allowed - verify behavior
-            print("⚠ NULL commit message allowed")
-        except Exception:
-            print("✓ NULL commit message rejected")
+        # Now properly validates and rejects NULL messages
+        with pytest.raises(Exception) as exc:
+            db.execute("SELECT pggit.create_commit(%s, NULL::TEXT, %s)",
+                      "test-branch", "SELECT 1")
+
+        error_msg = str(exc.value).lower()
+        assert 'null' in error_msg or 'empty' in error_msg, \
+            "Error should mention NULL/empty message"
+        print("✓ NULL commit message rejected")
 
     def test_create_commit_empty_message(self, db, pggit_installed):
         """Test create_commit with empty message."""
-        try:
-            commit_id = db.execute_returning(
-                "SELECT pggit.create_commit(%s, %s, %s)",
-                "test-branch", "", "SELECT 1"
-            )
-            # Empty message might be allowed
-            print("⚠ Empty commit message allowed (consider validation)")
-        except Exception:
-            print("✓ Empty commit message rejected")
+        # Now properly validates and rejects empty messages
+        with pytest.raises(Exception) as exc:
+            db.execute("SELECT pggit.create_commit(%s, %s, %s)",
+                      "test-branch", "", "SELECT 1")
+
+        error_msg = str(exc.value).lower()
+        assert 'empty' in error_msg or 'cannot be' in error_msg, \
+            "Error should mention empty message"
+        print("✓ Empty commit message rejected")
 
     def test_create_commit_null_sql_content(self, db, pggit_installed):
         """Test create_commit with NULL SQL content."""

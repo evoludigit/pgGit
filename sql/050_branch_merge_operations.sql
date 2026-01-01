@@ -78,7 +78,7 @@ BEGIN
   INSERT INTO pggit.commits (
     hash, branch_id, message, author, authored_at
   ) VALUES (
-    encode(sha256((v_merge_id || CURRENT_TIMESTAMP)::TEXT::bytea), 'hex'),
+    encode(sha256((v_merge_id::TEXT || CURRENT_TIMESTAMP::TEXT)::bytea), 'hex'),
     p_target_branch_id,
     COALESCE(p_message, 'Merge branch ''' || v_source_branch_name || ''' into ''' || v_target_branch_name || ''''),
     CURRENT_USER,
