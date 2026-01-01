@@ -448,6 +448,18 @@ CREATE OR REPLACE FUNCTION pggit.update_verification_result(
 )
 RETURNS BOOLEAN AS $$
 BEGIN
+    -- ✅ ROW-LEVEL LOCKING: Acquire exclusive lock on verification record
+    -- Prevent concurrent updates to the same verification
+    PERFORM 1
+    FROM pggit.backup_verifications v
+    WHERE v.verification_id = p_verification_id
+    FOR UPDATE NOWAIT;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Verification % not found or locked by another transaction', p_verification_id
+            USING ERRCODE = '55P03';  -- lock_not_available
+    END IF;
+
     UPDATE pggit.backup_verifications v
     SET status = p_status,
         details = v.details || p_details || jsonb_build_object('completed_at', CURRENT_TIMESTAMP)
@@ -523,6 +535,13 @@ BEGIN
     v_full_retention := (v_full_days || ' days')::INTERVAL;
     v_incr_retention := (v_incr_days || ' days')::INTERVAL;
 
+    -- ✅ ADVISORY LOCK: Prevent concurrent retention policy execution
+    -- Use transaction-scoped advisory lock to prevent race conditions
+    IF NOT pg_try_advisory_xact_lock(hashtext('apply_retention_policy')) THEN
+        RAISE NOTICE 'Retention policy already running, skipping to prevent conflicts';
+        RETURN;  -- Exit early, let other transaction finish
+    END IF;
+
     -- Mark expired full backups
     RETURN QUERY
     WITH expired AS (
@@ -572,6 +591,20 @@ BEGIN
         p_dry_run := TRUE;  -- Safe default for destructive operations
     END IF;
 
+    -- ✅ ADVISORY LOCK: Prevent concurrent cleanup operations
+    -- Use transaction-scoped advisory lock to prevent race conditions during deletion
+    IF NOT pg_try_advisory_xact_lock(hashtext('cleanup_expired_backups')) THEN
+        RAISE NOTICE 'Cleanup already running, skipping to prevent conflicts';
+        RETURN;  -- Exit early, let other transaction finish
+    END IF;
+
+    -- ✅ TRANSACTION REQUIREMENT: Destructive operations must be in explicit transaction
+    IF NOT p_dry_run AND pg_current_xact_id_if_assigned() IS NULL THEN
+        RAISE EXCEPTION 'cleanup_expired_backups must be called within a transaction when not in dry-run mode'
+            USING ERRCODE = '25P01',  -- no_active_sql_transaction
+                  HINT = 'Wrap call in BEGIN...COMMIT block to ensure atomicity';
+    END IF;
+
     IF p_dry_run THEN
         -- Just list what would be deleted
         RETURN QUERY
@@ -584,6 +617,26 @@ BEGIN
         WHERE b.status = 'expired'
           AND b.expires_at < CURRENT_TIMESTAMP;
     ELSE
+        -- ✅ DEPENDENCY CHECK: Prevent deletion of full backups with active incremental dependents
+        -- Check for incremental backups depending on full backups we're about to delete
+        PERFORM 1
+        FROM pggit.backups full_backup
+        WHERE full_backup.status = 'expired'
+          AND full_backup.backup_type = 'full'
+          AND EXISTS (
+              SELECT 1
+              FROM pggit.backups incr_backup
+              WHERE incr_backup.backup_type IN ('incremental', 'differential')
+                AND incr_backup.status != 'expired'
+                AND incr_backup.metadata->>'base_backup_id' = full_backup.backup_id::TEXT
+          );
+
+        IF FOUND THEN
+            RAISE EXCEPTION 'Cannot delete full backups with active incremental dependents'
+                USING ERRCODE = '23503',  -- foreign_key_violation
+                      HINT = 'Expire dependent incrementals first, or implement force deletion flag';
+        END IF;
+
         -- Actually delete (just update status, don't remove from DB)
         RETURN QUERY
         WITH deleted AS (

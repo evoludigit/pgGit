@@ -262,6 +262,20 @@ BEGIN
         RAISE WARNING 'Unusually long retention (% days), are you sure?', p_retention_days;
     END IF;
 
+    -- ✅ ADVISORY LOCK: Prevent concurrent old job cleanup
+    -- Use transaction-scoped advisory lock to prevent race conditions during deletion
+    IF NOT pg_try_advisory_xact_lock(hashtext('cleanup_old_jobs')) THEN
+        RAISE NOTICE 'Old job cleanup already running, skipping to prevent conflicts';
+        RETURN;  -- Exit early, let other transaction finish
+    END IF;
+
+    -- ✅ TRANSACTION REQUIREMENT: Destructive operations must be in explicit transaction
+    IF NOT p_dry_run AND pg_current_xact_id_if_assigned() IS NULL THEN
+        RAISE EXCEPTION 'cleanup_old_jobs must be called within a transaction when not in dry-run mode'
+            USING ERRCODE = '25P01',  -- no_active_sql_transaction
+                  HINT = 'Wrap call in BEGIN...COMMIT block to ensure atomicity';
+    END IF;
+
     IF p_dry_run THEN
         -- Show what would be deleted
         RETURN QUERY
@@ -332,6 +346,20 @@ BEGIN
 
     IF p_timeout_minutes > 10080 THEN  -- 1 week max
         RAISE WARNING 'Unusually long timeout (% minutes), are you sure?', p_timeout_minutes;
+    END IF;
+
+    -- ✅ ADVISORY LOCK: Prevent concurrent stuck job cancellation
+    -- Use transaction-scoped advisory lock to prevent double-cancellation
+    IF NOT pg_try_advisory_xact_lock(hashtext('cancel_stuck_jobs')) THEN
+        RAISE NOTICE 'Stuck job cancellation already running, skipping to prevent conflicts';
+        RETURN;  -- Exit early, let other transaction finish
+    END IF;
+
+    -- ✅ TRANSACTION REQUIREMENT: Destructive operations must be in explicit transaction
+    IF NOT p_dry_run AND pg_current_xact_id_if_assigned() IS NULL THEN
+        RAISE EXCEPTION 'cancel_stuck_jobs must be called within a transaction when not in dry-run mode'
+            USING ERRCODE = '25P01',  -- no_active_sql_transaction
+                  HINT = 'Wrap call in BEGIN...COMMIT block to ensure atomicity';
     END IF;
 
     IF p_dry_run THEN
@@ -585,6 +613,18 @@ CREATE OR REPLACE FUNCTION pggit.reset_job(
 )
 RETURNS BOOLEAN AS $$
 BEGIN
+    -- ✅ ROW-LEVEL LOCKING: Acquire exclusive lock on job record
+    -- Prevent concurrent operations on the same job
+    PERFORM 1
+    FROM pggit.backup_jobs j
+    WHERE j.job_id = p_job_id
+    FOR UPDATE NOWAIT;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Job % not found or locked by another transaction', p_job_id
+            USING ERRCODE = '55P03';  -- lock_not_available
+    END IF;
+
     UPDATE pggit.backup_jobs j
     SET status = 'queued',
         attempts = 0,
