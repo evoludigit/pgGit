@@ -438,24 +438,24 @@ RETURNS TABLE (
 BEGIN
     -- Reindex temporal changelog indexes
     BEGIN
-        REINDEX INDEX pggit.idx_temporal_table;
+        REINDEX INDEX pggit.idx_temporal_changelog_table;
     EXCEPTION WHEN UNDEFINED_OBJECT THEN
         NULL;
     END;
 
     BEGIN
-        REINDEX INDEX pggit.idx_temporal_time;
+        REINDEX INDEX pggit.idx_temporal_changelog_snapshot;
     EXCEPTION WHEN UNDEFINED_OBJECT THEN
         NULL;
     END;
 
     RETURN QUERY SELECT
-        'idx_temporal_table'::TEXT,
+        'idx_temporal_changelog_table'::TEXT,
         'temporal_changelog'::TEXT,
         true
     UNION ALL
     SELECT
-        'idx_temporal_time'::TEXT,
+        'idx_temporal_changelog_snapshot'::TEXT,
         'temporal_changelog'::TEXT,
         true;
 END;
@@ -468,7 +468,7 @@ CREATE OR REPLACE FUNCTION pggit.export_temporal_data(
     export_format TEXT,
     data_size BIGINT,
     record_count INT,
-    exported_at TIMESTAMP
+    exported_at TIMESTAMP WITH TIME ZONE
 ) AS $$
 DECLARE
     v_record_count INT;

@@ -13,8 +13,8 @@ Tests cover all 9 time travel functions:
 5. restore_table_to_point_in_time - PITR functionality (new signature)
 6. temporal_diff - Compare states between timestamps
 7. record_temporal_change - Manual change tracking
-8. export_temporal_data - Export snapshot data
-9. rebuild_temporal_indexes - Maintenance function
+8. export_temporal_data - Export snapshot data with proper timestamp handling
+9. rebuild_temporal_indexes - Index maintenance with correct index names
 """
 
 import pytest
@@ -286,23 +286,16 @@ class TestTemporalDataExport:
         """)
         snapshot_id = result[0]  # execute_returning returns tuple (value,) for single column
 
-        # Note: export_temporal_data() has a type mismatch bug:
-        # - Returns: exported_at TIMESTAMP
-        # - But uses: CURRENT_TIMESTAMP (which is TIMESTAMPTZ)
-        # This causes "structure of query does not match function result type" error
-        # We test that the function exists and would work if the bug was fixed
-        try:
-            export_result = db.execute("""
-                SELECT export_format, record_count FROM pggit.export_temporal_data(%s::UUID)
-            """, snapshot_id)
-            export_format, record_count = export_result[0]
-            assert export_format == 'JSONL', f"Expected JSONL format, got {export_format}"
-            print(f"✓ Exported {record_count} records in {export_format} format")
-        except Exception as e:
-            # Expected error due to TIMESTAMP vs TIMESTAMPTZ mismatch
-            assert "does not match function result type" in str(e) or "does not match expected type timestamp" in str(e), \
-                f"Expected type mismatch error, got: {e}"
-            print("✓ export_temporal_data exists but has known type mismatch bug (TIMESTAMP vs TIMESTAMPTZ)")
+        # Export data
+        export_result = db.execute("""
+            SELECT export_format, record_count, exported_at FROM pggit.export_temporal_data(%s::UUID)
+        """, snapshot_id)
+
+        assert export_result is not None, "Export should return result"
+        export_format, record_count, exported_at = export_result[0]
+        assert export_format == 'JSONL', f"Expected JSONL format, got {export_format}"
+        assert exported_at is not None, "Exported_at timestamp should be set"
+        print(f"✓ Exported {record_count} records in {export_format} format at {exported_at}")
 
 
 class TestTemporalIndexManagement:
@@ -310,24 +303,17 @@ class TestTemporalIndexManagement:
 
     def test_rebuild_temporal_indexes(self, db, pggit_installed):
         """Test rebuilding temporal indexes."""
-        # This function tries to REINDEX idx_temporal_table and idx_temporal_time
-        # which are hardcoded in the function but don't exist in the actual schema
-        # The function has exception handling but it still fails in the SQL execution
-        # This is a known issue in the implementation (using wrong index names)
+        result = db.execute("""
+            SELECT index_name, rebuilt FROM pggit.rebuild_temporal_indexes()
+        """)
 
-        # For now, we test that the function exists and returns the expected structure
-        # even if the actual reindex fails
-        try:
-            result = db.execute("""
-                SELECT index_name, rebuilt FROM pggit.rebuild_temporal_indexes()
-            """)
-            assert result is not None, "Rebuild should return result"
-            print(f"✓ Rebuilt {len(result)} temporal indexes")
-        except Exception as e:
-            # Expected to fail due to hardcoded wrong index names
-            assert "idx_temporal_table" in str(e) or "idx_temporal_time" in str(e), \
-                f"Expected index name error, got: {e}"
-            print("✓ rebuild_temporal_indexes correctly attempts to reindex (known issue with hardcoded names)")
+        assert result is not None, "Rebuild should return result"
+        assert len(result) >= 2, "Should return status for at least 2 indexes"
+
+        for index_name, rebuilt in result:
+            assert rebuilt is True, f"Index {index_name} should be marked as rebuilt"
+
+        print(f"✓ Rebuilt {len(result)} temporal indexes")
 
 
 class TestTemporalEdgeCases:
