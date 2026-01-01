@@ -133,6 +133,23 @@ RETURNS TABLE (
     status TEXT
 ) AS $$
 BEGIN
+    -- ✅ INPUT VALIDATION: NULL and range checks
+    IF p_since_minutes IS NULL THEN
+        RAISE EXCEPTION 'Parameter p_since_minutes cannot be NULL'
+            USING ERRCODE = '22004',  -- null_value_not_allowed
+                  HINT = 'Provide a positive integer for minutes';
+    END IF;
+
+    IF p_since_minutes < 1 THEN
+        RAISE EXCEPTION 'Since minutes must be positive, got: %', p_since_minutes
+            USING ERRCODE = '22003',  -- numeric_value_out_of_range
+                  HINT = 'Use a value between 1 and 1440 (1 day)';
+    END IF;
+
+    IF p_since_minutes > 1440 THEN  -- 1 day max
+        RAISE WARNING 'Unusually long lookback (% minutes), are you sure?', p_since_minutes;
+    END IF;
+
     RETURN QUERY
     SELECT
         j.metadata->>'worker_id' AS worker_id,
@@ -169,6 +186,28 @@ RETURNS TABLE (
     success_rate NUMERIC
 ) AS $$
 BEGIN
+    -- ✅ INPUT VALIDATION: NULL and range checks for worker stats
+    IF p_worker_id IS NULL THEN
+        RAISE EXCEPTION 'Parameter p_worker_id cannot be NULL'
+            USING ERRCODE = '22004',  -- null_value_not_allowed
+                  HINT = 'Provide a worker ID string';
+    END IF;
+
+    IF p_since_hours IS NULL THEN
+        RAISE EXCEPTION 'Parameter p_since_hours cannot be NULL'
+            USING ERRCODE = '22004',  -- null_value_not_allowed
+                  HINT = 'Provide a positive integer for hours';
+    END IF;
+
+    IF p_since_hours < 1 THEN
+        RAISE EXCEPTION 'Since hours must be positive, got: %', p_since_hours
+            USING ERRCODE = '22003',  -- numeric_value_out_of_range
+                  HINT = 'Use a value between 1 and 720 (30 days)';
+    END IF;
+
+    IF p_since_hours > 720 THEN  -- 30 days max
+        RAISE WARNING 'Unusually long lookback (% hours), are you sure?', p_since_hours;
+    END IF;
     RETURN QUERY
     SELECT
         COUNT(*)::BIGINT,
@@ -202,6 +241,27 @@ RETURNS TABLE (
 DECLARE
     v_deleted_count BIGINT;
 BEGIN
+    -- ✅ INPUT VALIDATION: NULL checks and range validation for cleanup
+    IF p_retention_days IS NULL THEN
+        RAISE EXCEPTION 'Parameter p_retention_days cannot be NULL'
+            USING ERRCODE = '22004',  -- null_value_not_allowed
+                  HINT = 'Provide a positive integer for retention days';
+    END IF;
+
+    IF p_dry_run IS NULL THEN
+        p_dry_run := TRUE;  -- Safe default for destructive operations
+    END IF;
+
+    IF p_retention_days < 1 THEN
+        RAISE EXCEPTION 'Retention days must be positive, got: %', p_retention_days
+            USING ERRCODE = '22003',  -- numeric_value_out_of_range
+                  HINT = 'Use a value between 1 and 3650';
+    END IF;
+
+    IF p_retention_days > 3650 THEN  -- 10 years max
+        RAISE WARNING 'Unusually long retention (% days), are you sure?', p_retention_days;
+    END IF;
+
     IF p_dry_run THEN
         -- Show what would be deleted
         RETURN QUERY
@@ -253,6 +313,27 @@ RETURNS TABLE (
     stuck_minutes BIGINT
 ) AS $$
 BEGIN
+    -- ✅ INPUT VALIDATION: NULL checks and range validation for stuck job cancellation
+    IF p_timeout_minutes IS NULL THEN
+        RAISE EXCEPTION 'Parameter p_timeout_minutes cannot be NULL'
+            USING ERRCODE = '22004',  -- null_value_not_allowed
+                  HINT = 'Provide a positive integer for timeout minutes';
+    END IF;
+
+    IF p_dry_run IS NULL THEN
+        p_dry_run := TRUE;  -- Safe default for destructive operations
+    END IF;
+
+    IF p_timeout_minutes < 1 THEN
+        RAISE EXCEPTION 'Timeout minutes must be positive, got: %', p_timeout_minutes
+            USING ERRCODE = '22003',  -- numeric_value_out_of_range
+                  HINT = 'Use a value between 1 and 10080 (1 week)';
+    END IF;
+
+    IF p_timeout_minutes > 10080 THEN  -- 1 week max
+        RAISE WARNING 'Unusually long timeout (% minutes), are you sure?', p_timeout_minutes;
+    END IF;
+
     IF p_dry_run THEN
         -- Show what would be cancelled
         RETURN QUERY
@@ -309,6 +390,23 @@ RETURNS TABLE (
     unit TEXT
 ) AS $$
 BEGIN
+    -- ✅ INPUT VALIDATION: NULL and range checks for backup stats
+    IF p_since_days IS NULL THEN
+        RAISE EXCEPTION 'Parameter p_since_days cannot be NULL'
+            USING ERRCODE = '22004',  -- null_value_not_allowed
+                  HINT = 'Provide a positive integer for days';
+    END IF;
+
+    IF p_since_days < 1 THEN
+        RAISE EXCEPTION 'Since days must be positive, got: %', p_since_days
+            USING ERRCODE = '22003',  -- numeric_value_out_of_range
+                  HINT = 'Use a value between 1 and 365';
+    END IF;
+
+    IF p_since_days > 365 THEN  -- 1 year max
+        RAISE WARNING 'Unusually long lookback (% days), are you sure?', p_since_days;
+    END IF;
+
     -- Total backups created
     RETURN QUERY
     SELECT
@@ -387,6 +485,23 @@ RETURNS TABLE (
     avg_duration_seconds NUMERIC
 ) AS $$
 BEGIN
+    -- ✅ INPUT VALIDATION: NULL and range checks for tool usage stats
+    IF p_since_days IS NULL THEN
+        RAISE EXCEPTION 'Parameter p_since_days cannot be NULL'
+            USING ERRCODE = '22004',  -- null_value_not_allowed
+                  HINT = 'Provide a positive integer for days';
+    END IF;
+
+    IF p_since_days < 1 THEN
+        RAISE EXCEPTION 'Since days must be positive, got: %', p_since_days
+            USING ERRCODE = '22003',  -- numeric_value_out_of_range
+                  HINT = 'Use a value between 1 and 365';
+    END IF;
+
+    IF p_since_days > 365 THEN  -- 1 year max
+        RAISE WARNING 'Unusually long lookback (% days), are you sure?', p_since_days;
+    END IF;
+
     RETURN QUERY
     SELECT
         b.backup_tool,
