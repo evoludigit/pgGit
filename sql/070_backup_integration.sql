@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS pggit.backup_verifications (
     verification_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     backup_id UUID REFERENCES pggit.backups(backup_id) ON DELETE CASCADE,
     verification_type TEXT NOT NULL CHECK (verification_type IN ('checksum', 'restore_test', 'integrity_check')),
-    status TEXT NOT NULL CHECK (status IN ('passed', 'failed', 'warning')),
+    status TEXT NOT NULL CHECK (status IN ('pending', 'in_progress', 'completed', 'failed', 'queued')),
     details JSONB DEFAULT '{}',
     verified_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     verified_by TEXT DEFAULT CURRENT_USER
