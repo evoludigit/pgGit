@@ -15,9 +15,18 @@ DECLARE
     v_branch_id INTEGER;
     v_commit_hash TEXT;
 BEGIN
+    -- Validate inputs
+    IF p_branch_name IS NULL OR p_branch_name = '' THEN
+        RAISE EXCEPTION 'Branch name cannot be NULL or empty';
+    END IF;
+
+    IF p_message IS NULL OR p_message = '' THEN
+        RAISE EXCEPTION 'Commit message cannot be NULL or empty';
+    END IF;
+
     -- Generate new commit ID and hash
     v_commit_id := gen_random_uuid();
-    v_commit_hash := encode(sha256((p_message || p_sql_content || CURRENT_TIMESTAMP::TEXT)::bytea), 'hex');
+    v_commit_hash := encode(sha256((p_message || COALESCE(p_sql_content, '') || CURRENT_TIMESTAMP::TEXT)::bytea), 'hex');
 
     -- Get branch ID
     SELECT id INTO v_branch_id
