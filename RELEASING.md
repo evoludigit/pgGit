@@ -344,7 +344,7 @@ git push origin --delete v0.2.0
 
 ## Release Types Reference
 
-### Hotfix Release (v0.1.1 → v0.1.2)
+### Hotfix Release (v0.1.1 → v0.1.3)
 - **Duration**: 30 minutes
 - **Process**: Direct to main, quick tag
 - **Use**: Critical bug fixes, security patches
