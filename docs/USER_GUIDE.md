@@ -1,12 +1,39 @@
 # pgGit User Guide
 
-**Database Version Control for PostgreSQL**
+**Database Version Control for PostgreSQL Development**
 
 ---
 
 ## Welcome to pgGit
 
-pgGit is a PostgreSQL extension that brings version control to your database schema. Unlike traditional Git which versions files, pgGit versions database objects like tables, views, and functions.
+pgGit is a PostgreSQL extension that brings version control to your **development** database schema. Unlike traditional Git which versions files, pgGit versions database objects like tables, views, and functions.
+
+> **Recommended Usage**: pgGit is primarily designed for development and staging databases. For most production environments, use migration tools. However, if you have compliance requirements (ISO 27001, SOC 2, DORA, GDPR, NIS2, HIPAA, PCI-DSS, SOX), pgGit can provide automatic DDL audit trails in production. See [Production Considerations](guides/PRODUCTION_CONSIDERATIONS.md).
+
+---
+
+## Appropriate Usage
+
+pgGit is a development coordination tool. Install it on:
+
+- **Local development databases** - Branch and experiment freely
+- **CI/CD test databases** - Validate schema changes automatically
+- **Staging/QA databases** - Test merge workflows before production
+
+**Consider carefully for:**
+
+- **Production (standard)** - Migration tools are typically sufficient
+- **High-throughput DDL systems** - Event triggers add small overhead
+
+**Consider pgGit in production for:**
+
+- **Compliance requirements** - Automatic DDL audit trails (ISO 27001, SOC 2, DORA, GDPR, NIS2, HIPAA, PCI-DSS, SOX)
+- **Security monitoring** - Detect unauthorized schema changes
+- **Forensic analysis** - Detailed history for incident response
+
+For standard production deployment, generate migrations from pgGit and apply them using your migration tool (Confiture, Flyway, Alembic, etc.).
+
+See [Development Workflow Guide](guides/DEVELOPMENT_WORKFLOW.md) for detailed patterns.
 
 ---
 

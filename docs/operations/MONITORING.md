@@ -1,10 +1,12 @@
 # Monitoring Guide
 
-This guide covers pgGit's monitoring capabilities for production deployments.
+This guide covers pgGit's monitoring capabilities for deployments.
+
+> **Note**: pgGit is primarily designed for development and staging. For production deployments, see [Production Considerations](../guides/PRODUCTION_CONSIDERATIONS.md) to determine if pgGit is appropriate for your compliance requirements.
 
 ## Overview
 
-pgGit includes comprehensive monitoring functionality to ensure production reliability and performance.
+pgGit includes comprehensive monitoring functionality to ensure reliability and performance.
 
 ## Health Checks
 

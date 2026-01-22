@@ -1,20 +1,27 @@
 # pgGit Documentation 🐘🌿
 
-> **Native Git for PostgreSQL** - Branch your database like you branch your code
+> **Git Workflows for PostgreSQL Development** - Version control your database schema in development
 
-Welcome to the complete guide for pgGit, the revolutionary PostgreSQL extension that brings Git-style branching to your database workflows.
+Welcome to the complete guide for pgGit, the PostgreSQL extension that brings Git-style workflows to your database development.
+
+> **Note**: pgGit is primarily designed for development and staging environments. For production use cases, see [Production Considerations](guides/PRODUCTION_CONSIDERATIONS.md) to determine if pgGit is appropriate for your compliance requirements.
 
 ## 🚀 Quick Start (Choose Your Path)
 
 ### New to pgGit? Start Here
 - **[📚 Getting Started](Getting_Started.md)** - Complete setup guide with real examples
 - **[🧒 Explained Like I'm 10](getting-started/PgGit_Explained_Like_Im_10.md)** - Technical concepts for curious minds
+- **[🔄 Development Workflow](guides/DEVELOPMENT_WORKFLOW.md)** - Core development patterns
 
-### Ready to Deploy?
+### Ready to Integrate?
 - **[⚡ Quick Setup](getting-started/README.md)** - Installation in 5 minutes
-- **[🔄 Migration Guide](Onboarding_Guide.md)** - Adopt pgGit with existing databases
-- **[🤖 AI-Powered Migration](AI_Migration.md)** - 3-minute automatic migration from any tool
+- **[🔗 Migration Integration](guides/MIGRATION_INTEGRATION.md)** - Confiture, Flyway, Alembic integration
+- **[🤖 AI Agent Workflows](guides/AI_AGENT_WORKFLOWS.md)** - Multi-agent coordination
 - **[🔧 Troubleshooting](getting-started/Troubleshooting.md)** - Solutions to common issues
+
+### Production Deployment?
+- **[📋 Production Considerations](guides/PRODUCTION_CONSIDERATIONS.md)** - When pgGit makes sense in production
+- **[🔐 Security Guide](guides/Security.md)** - Security hardening checklist
 
 ## 🧪 Test Suite: The Source of Truth
 
@@ -51,6 +58,12 @@ make test-core
 - **[🔄 Schema Reconciliation](Schema_Reconciliation.md)** - Complex merge handling
 - **[⚡ Performance Analysis](Performance_Analysis.md)** - Benchmarked optimization strategies
 
+### Development & Integration Guides
+- **[🔄 Development Workflow](guides/DEVELOPMENT_WORKFLOW.md)** - Core development patterns
+- **[🔗 Migration Integration](guides/MIGRATION_INTEGRATION.md)** - Confiture, Flyway, Alembic
+- **[🤖 AI Agent Workflows](guides/AI_AGENT_WORKFLOWS.md)** - Multi-agent coordination
+- **[📋 Production Considerations](guides/PRODUCTION_CONSIDERATIONS.md)** - When to use in production
+
 ### Operational Guides
 - **[🔐 Security Guide](guides/Security.md)** - RBAC, GDPR compliance (enterprise tested)
 - **[📊 Operations Guide](guides/Operations.md)** - Production deployment patterns
@@ -65,18 +78,23 @@ docs/
 ├── README.md                    # This navigation file
 ├── Getting_Started.md           # Complete tutorial with examples
 ├── API_Reference.md             # Function documentation
-├── getting-started/            # Beginner-friendly guides
-│   ├── README.md              # Quick setup
+├── getting-started/             # Beginner-friendly guides
+│   ├── README.md                # Quick setup
 │   ├── PgGit_Explained_Like_Im_10.md
 │   └── Troubleshooting.md
-├── guides/                     # Operational guides
+├── guides/                      # Task-oriented guides
+│   ├── README.md                # Guides overview
+│   ├── DEVELOPMENT_WORKFLOW.md  # ⭐ Core development patterns
+│   ├── PRODUCTION_CONSIDERATIONS.md # ⭐ When to use in production
+│   ├── MIGRATION_INTEGRATION.md # ⭐ Confiture, Flyway, Alembic
+│   ├── AI_AGENT_WORKFLOWS.md    # ⭐ Multi-agent coordination
 │   ├── Security.md
 │   ├── Performance.md
 │   └── Operations.md
-├── contributing/              # For contributors
+├── contributing/                # For contributors
 │   ├── README.md
 │   └── Claude.md
-└── reference/                 # Technical specs
+└── reference/                   # Technical specs
     └── README.md
 ```
 
