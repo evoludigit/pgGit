@@ -1,6 +1,8 @@
 # pgGit Observability Guide
 
-**Structured logging and distributed tracing for production deployments**
+**Structured logging and distributed tracing for pgGit deployments**
+
+> **Note**: pgGit is primarily designed for development and staging. For production deployments, see [Production Considerations](PRODUCTION_CONSIDERATIONS.md) to determine if pgGit is appropriate for your compliance requirements.
 
 ## Overview
 

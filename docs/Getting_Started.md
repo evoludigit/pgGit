@@ -2,15 +2,16 @@
 
 Your complete guide to database branching with PostgreSQL 17
 
+> **Recommended Usage**: pgGit is primarily designed for **development and staging databases**. For most production environments, use migration tools. However, if you have compliance requirements (ISO 27001, SOC 2, DORA, GDPR, NIS2, HIPAA, PCI-DSS, SOX), pgGit can provide automatic DDL audit trails in production. See [Production Considerations](guides/PRODUCTION_CONSIDERATIONS.md).
+
 ## Welcome to the Future of Database Development
 
-
 You know that feeling when you push code changes to a feature branch, test
-safely, then merge with confidence? **What if your database could work the
+safely, then merge with confidence? **What if your development database could work the
 same way?**
 
 That's exactly what pggit does. Let's get you set up and branching databases
-like a pro.
+like a pro on your **local development environment**.
 
 ---
 

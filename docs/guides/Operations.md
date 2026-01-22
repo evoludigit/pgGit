@@ -1,8 +1,10 @@
 # Operations Guide
 
-This guide covers production deployment, monitoring, and maintenance of pggit.
+This guide covers deployment, monitoring, and maintenance of pggit.
 
-## 🚀 Production Deployment
+> **Note**: pgGit is primarily designed for development and staging databases. For production environments, consider pgGit only if you have compliance requirements (GDPR, NIS2, HIPAA, SOX, etc.) that demand automatic DDL audit trails. See [Production Considerations](PRODUCTION_CONSIDERATIONS.md).
+
+## 🚀 Deployment
 
 ### 1. Installation Steps
 ```bash

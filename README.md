@@ -1,6 +1,8 @@
-# pgGit: Git for PostgreSQL Databases
+# pgGit: Git Workflows for PostgreSQL Development
 
-**Git-like version control for PostgreSQL schemas. Track, branch, and manage database changes like code.**
+**Branch, merge, and coordinate PostgreSQL schema changes during development. Enable parallel work across teams and AI agents, then deploy safely to production.**
+
+> **Recommended Usage**: pgGit is primarily designed for **development and staging databases**. For most production environments, deploy changes via migration tools (Confiture, Flyway, etc.). However, if your compliance requirements demand automatic DDL audit trails (HIPAA, SOX, PCI-DSS), pgGit can provide value in production. See [Production Considerations](docs/guides/PRODUCTION_CONSIDERATIONS.md)
 
 [![GitHub stars](https://img.shields.io/github/stars/evoludigit/pgGit?style=social)](https://github.com/evoludigit/pgGit/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/evoludigit/pgGit?style=social)](https://github.com/evoludigit/pgGit/network/members)
@@ -10,6 +12,58 @@
 [![Version: 0.1.2](https://img.shields.io/badge/version-0.1.2-green.svg)](CHANGELOG.md)
 [![PostgreSQL 15-17](https://img.shields.io/badge/PostgreSQL-15--17-blue.svg)](https://www.postgresql.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Development Tool](https://img.shields.io/badge/Use%20In-Development-green.svg)](docs/guides/DEVELOPMENT_WORKFLOW.md)
+[![Production: Consider for Compliance](https://img.shields.io/badge/Production-Consider%20for%20Compliance-orange.svg)](docs/guides/PRODUCTION_CONSIDERATIONS.md)
+
+---
+
+## When to Use pgGit
+
+### Use pgGit For
+
+- **Local development databases** - Branch and experiment freely
+- **Staging/QA databases** - Test merge workflows before production
+- **Team coordination** - Multiple developers working on schema changes
+- **AI agent workflows** - Parallel agents developing features on isolated branches
+- **Schema experimentation** - Try approaches, revert easily
+- **Code review** - Review schema changes like code (diffs, history)
+
+### Consider Carefully For Production
+
+- **Most production databases** - Migration tools are simpler and sufficient
+- **High-availability setups** - Event triggers add overhead
+- **High-throughput DDL** - Rare, but triggers add latency
+
+### Exception: Compliance Requirements
+
+If your organization requires **automatic DDL audit trails** for compliance, pgGit in production provides:
+- Automatic capture of all schema changes (including ad-hoc)
+- Immutable audit trail with timestamps and attribution
+- Detection of unauthorized changes that bypass migration tools
+- Schema drift detection between expected and actual state
+
+**Supported compliance frameworks**:
+- **International**: CIS Controls, ISO 27001, NIST CSF, PCI-DSS (payments), SOC 2 Type II
+- **EU**: DORA (financial), eIDAS (digital identity), EU AI Act, GDPR (data protection), MiCA (crypto), NIS2 (cybersecurity)
+- **UK**: FCA regulations (financial), UK GDPR
+- **US**: FedRAMP (government), HIPAA (healthcare), HITRUST (healthcare), SOX (financial)
+- **Industry**: GxP (pharma/life sciences), NERC CIP (energy/utilities)
+- **Regional**: APPI (Japan), LGPD (Brazil), PDPA (Singapore/Thailand), PIPEDA (Canada)
+
+### The Recommended Workflow
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  LOCAL DEV DB   │     │   STAGING DB    │     │  PRODUCTION DB  │
+│  + pgGit        │ ──► │   + pgGit       │ ──► │  (NO pgGit)     │
+│                 │     │                 │     │                 │
+│ Branch, merge,  │     │ Validate merges │     │ Apply migrations│
+│ experiment      │     │ Test workflows  │     │ via Confiture/  │
+│                 │     │                 │     │ Flyway/etc.     │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+```
+
+See [Development Workflow Guide](docs/guides/DEVELOPMENT_WORKFLOW.md) for detailed patterns.
 
 ---
 
@@ -34,30 +88,83 @@
 |---------|---------|-------------------|
 | **[graphql-cascade](https://github.com/graphql-cascade/graphql-cascade)** | Automatic cache invalidation | Apollo, React Query, Relay, URQL |
 
-**How pgGit fits:**
-- Track **confiture** migration history automatically
-- Version control **fraiseql** schema (v_*, fn_*, tv_*)
-- Branch databases for safe **pg_tviews** experimentation
-- Time-travel for debugging schema changes
+**How pgGit fits the FraiseQL ecosystem:**
 
-**Version control everything:**
-```sql
--- Initialize pgGit
-CREATE EXTENSION pggit;
-SELECT pggit.init();
+| Stage | Tool | Purpose |
+|-------|------|---------|
+| **Development** | pgGit | Branch, merge, experiment with schemas |
+| **Migration Generation** | Confiture | Generate migrations from pgGit branches |
+| **Production Deployment** | Confiture | Safe, validated migration execution |
+| **Schema Framework** | FraiseQL | GraphQL schema definitions |
 
--- Apply confiture migrations (auto-tracked)
-confiture migrate up
+**Workflow Example:**
+```bash
+# Development (local DB + pgGit)
+pggit checkout -b feature/new-api
+# Make schema changes...
+pggit merge feature/new-api main
 
--- View complete history
-SELECT * FROM pggit.log();
+# Generate migrations (Confiture reads pgGit state)
+confiture generate from-branch feature/new-api
+
+# Deploy to production (Confiture only, no pgGit)
+confiture migrate up --env production
 ```
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start: Development Workflow
 
-### Installation (2 minutes)
+### Step 1: Set up local development database
+
+```bash
+# Create a copy of your schema for development
+createdb myapp_dev
+pg_dump myapp_staging --schema-only | psql myapp_dev
+
+# Install pgGit (development only!)
+psql myapp_dev -c "CREATE EXTENSION pggit CASCADE;"
+psql myapp_dev -c "SELECT pggit.init();"
+```
+
+### Step 2: Create a feature branch
+
+```sql
+-- Start working on a new feature
+SELECT pggit.create_branch('feature/user-profiles');
+SELECT pggit.checkout('feature/user-profiles');
+
+-- Make schema changes
+ALTER TABLE users ADD COLUMN avatar_url TEXT;
+ALTER TABLE users ADD COLUMN bio TEXT;
+
+-- See your changes
+SELECT * FROM pggit.status();
+SELECT * FROM pggit.diff('main', 'feature/user-profiles');
+```
+
+### Step 3: Merge when ready
+
+```sql
+-- Merge your changes to main
+SELECT pggit.checkout('main');
+SELECT pggit.merge('feature/user-profiles', 'main');
+
+-- View merged history
+SELECT * FROM pggit.log();
+```
+
+### Step 4: Generate migrations for production
+
+```bash
+# Use your migration tool to generate production-ready migrations
+confiture generate from-branch feature/user-profiles
+# or manually create migration files from the diff
+```
+
+> **Note**: Production databases don't have pgGit installed. They receive changes via migration files, not pgGit commands.
+
+### Installation Options
 
 #### Option A: Package Installation (Recommended)
 
@@ -67,43 +174,20 @@ sudo apt install ./pggit_0.1.2-postgresql.deb
 
 # RHEL/Rocky Linux
 sudo rpm -i pggit-0.1.2.rpm
-
-# Create extension
-psql -d your_database -c "CREATE EXTENSION pggit CASCADE;"
 ```
 
 #### Option B: Manual Installation
 
 ```bash
-# For PostgreSQL 15, 16, or 17
 git clone https://github.com/evoludigit/pgGit.git
 cd pgGit
 sudo make install
-
-# Create extension
-psql -d your_database -c "CREATE EXTENSION pggit CASCADE;"
-```
-
-### First Use (30 seconds)
-
-```sql
--- Create a table
-CREATE TABLE users (id SERIAL PRIMARY KEY, name TEXT);
-
--- Check version (automatic tracking!)
-SELECT * FROM pggit.get_version('users');
--- Returns: object_name='users', version=1, version_string='0.1.2'
-
--- Make a change
-ALTER TABLE users ADD COLUMN email TEXT;
-
--- See the history
-SELECT * FROM pggit.get_history('users');
 ```
 
 ### Next Steps
 
-- **[Getting Started Guide](docs/Getting_Started.md)** - Complete walkthrough
+- **[Development Workflow Guide](docs/guides/DEVELOPMENT_WORKFLOW.md)** - Complete development patterns
+- **[Getting Started Guide](docs/Getting_Started.md)** - Detailed walkthrough
 - **[User Guide](docs/USER_GUIDE.md)** - Full feature documentation
 - **[API Reference](docs/API_Reference.md)** - All functions
 
@@ -111,11 +195,33 @@ SELECT * FROM pggit.get_history('users');
 
 ## 💡 Why pgGit?
 
-You know that moment when you're staring at a production database after a deployment, wondering "What changed? Who changed it? And please tell me there's a way back?" We've all been there.
+### The Problem: Parallel Schema Development is Hard
 
-**pgGit solves this by bringing Git-like version control to PostgreSQL databases.**
+When multiple developers (or AI agents) work on schema changes simultaneously:
 
-Unlike traditional migration tools that just track changes, pgGit provides **actual Git workflows inside PostgreSQL**: branching, merging, time-travel, and dependency tracking—all automated through event triggers.
+- **Version collisions**: Two people create `migration_004.sql`
+- **Undetected conflicts**: Both alter the same table differently
+- **No experimentation**: Can't easily try an approach and revert
+- **Manual coordination**: "Hey, are you changing the users table?"
+
+### The Solution: Git Workflows for Schema Development
+
+pgGit brings familiar Git concepts to your **development database**:
+
+- **Branching**: Isolated schema experiments per feature
+- **Merging**: Combine changes with conflict detection
+- **History**: See what changed, when, and by whom
+- **Diffing**: Compare branches before merging
+- **Reverting**: Undo experiments instantly
+
+### How It Fits Your Workflow
+
+1. **Develop** on local DB with pgGit (branch per feature)
+2. **Merge** changes on staging DB with pgGit (detect conflicts)
+3. **Generate** migration files from merged schema
+4. **Deploy** to production using migration tool (no pgGit)
+
+pgGit enhances your development process without touching production.
 
 ---
 
@@ -174,7 +280,7 @@ Unlike traditional migration tools that just track changes, pgGit provides **act
 - **[Operations Runbook](docs/operations/RUNBOOK.md)** - Incident response (P1-P4), maintenance
 - **[SLO Guide](docs/operations/SLO.md)** - 99.9% uptime targets, monitoring
 - **[Monitoring Guide](docs/operations/MONITORING.md)** - Health checks, Prometheus integration
-- **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment and scaling
+- **[Installation Guide](docs/INSTALLATION.md)** - Development environment setup
 
 ### Security & Compliance
 

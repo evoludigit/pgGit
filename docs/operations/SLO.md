@@ -2,7 +2,9 @@
 
 ## Overview
 
-pgGit Service Level Objectives define the reliability and performance targets for production deployments.
+pgGit Service Level Objectives define the reliability and performance targets for deployments.
+
+> **Note**: These SLOs apply to environments where pgGit is deployed. For production, see [Production Considerations](../guides/PRODUCTION_CONSIDERATIONS.md) to determine if pgGit is appropriate for your compliance requirements.
 
 ## Availability
 

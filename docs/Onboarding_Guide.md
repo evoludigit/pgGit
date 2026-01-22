@@ -1,6 +1,8 @@
 # pggit Onboarding Guide
 
-How to adopt pggit with your existing production database
+How to adopt pggit with your existing database
+
+> **Note**: pgGit is primarily designed for development and staging databases. For production environments, consider pgGit only if you have compliance requirements (GDPR, NIS2, HIPAA, SOX, etc.) that demand automatic DDL audit trails. See [Production Considerations](guides/PRODUCTION_CONSIDERATIONS.md).
 
 ## 🚨 Breaking: AI-Powered Migration Now Available!
 
