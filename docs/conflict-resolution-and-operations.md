@@ -3,9 +3,9 @@
 > ⚠️ **PARTIALLY EXPERIMENTAL**
 >
 > Some features in this documentation (advanced merge strategies, conflict auto-resolution)
-> are planned for future releases and are **NOT available in pgGit v0.1.2**.
+> are planned for future releases and are **NOT available in pgGit v0.1.3**.
 >
-> **Implemented in v0.1.2**: Basic conflict detection, manual resolution
+> **Implemented in v0.1.3**: Basic conflict detection, manual resolution
 > **Planned for v0.3.0+**: Advanced strategies (recursive, ours, theirs), auto-resolution
 >
 > See each section for feature availability status.

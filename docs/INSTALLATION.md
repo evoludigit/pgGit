@@ -286,7 +286,7 @@ WHERE routine_schema = 'pggit_v0'
 
 -- 3. Check version
 SELECT pggit.version();
--- Expected: pgGit v0.1.2 (or later)
+-- Expected: pgGit v0.1.3 (or later)
 
 -- 4. Test branch operations
 SELECT pggit.get_current_branch();
@@ -353,4 +353,4 @@ DROP SCHEMA pggit_audit CASCADE;
 ---
 
 **Last Updated**: January 2026
-**Version**: pgGit v0.1.2
+**Version**: pgGit v0.1.3

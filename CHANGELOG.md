@@ -5,6 +5,37 @@ All notable changes to pgGit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-01-22
+
+### Summary
+Enterprise backup system, Time Travel fixes, expanded test coverage, and documentation repositioning for development workflows.
+
+### Added
+- **Automated Backup System**: Enterprise-grade backup with job queue, scheduling, and retention policies
+  - Race condition protection with advisory locks and transactions
+  - Idempotency for safe retries
+  - Structured error handling with error codes
+  - Comprehensive audit logging
+- **Time Travel API**: Enabled and tested temporal query capabilities
+- **Input Validation**: Comprehensive validation to prevent production crashes
+- **Test Coverage**: 67+ new E2E tests, PostgreSQL 17 test environment
+- **Documentation**:
+  - Repositioned as "Git Workflows for PostgreSQL Development"
+  - New guides: Development Workflow, Production Considerations, Migration Integration, AI Agent Workflows
+  - 24 compliance frameworks documented (GDPR, HIPAA, SOX, ISO 27001, etc.)
+  - Aligned with Confiture's actual coordination API
+
+### Fixed
+- Time Travel function implementation bugs
+- Type casting bug in input validation
+- Test isolation issues for concurrent scenarios
+
+### Changed
+- Documentation focus: Development-first with compliance production support
+- Confiture integration docs now match actual `confiture coordinate` CLI and Python API
+
+---
+
 ## [0.1.2] - 2025-12-31
 
 ### Summary

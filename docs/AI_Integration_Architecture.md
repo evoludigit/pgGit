@@ -3,7 +3,7 @@
 > ⚠️ **EXPERIMENTAL FEATURE**
 >
 > This documentation describes features planned for future releases.
-> These features are **NOT available in pgGit v0.1.2**.
+> These features are **NOT available in pgGit v0.1.3**.
 >
 > **Expected availability**: v0.3.0 or later (Q2 2026)
 >

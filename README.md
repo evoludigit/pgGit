@@ -9,7 +9,7 @@
 
 [![Build](https://github.com/evoludigit/pgGit/actions/workflows/build.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/build.yml)
 [![Tests](https://github.com/evoludigit/pgGit/actions/workflows/tests.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/tests.yml)
-[![Version: 0.1.2](https://img.shields.io/badge/version-0.1.2-green.svg)](CHANGELOG.md)
+[![Version: 0.1.3](https://img.shields.io/badge/version-0.1.3-green.svg)](CHANGELOG.md)
 [![PostgreSQL 15-17](https://img.shields.io/badge/PostgreSQL-15--17-blue.svg)](https://www.postgresql.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Development Tool](https://img.shields.io/badge/Use%20In-Development-green.svg)](docs/guides/DEVELOPMENT_WORKFLOW.md)
@@ -170,10 +170,10 @@ confiture generate from-branch feature/user-profiles
 
 ```bash
 # Debian/Ubuntu
-sudo apt install ./pggit_0.1.2-postgresql.deb
+sudo apt install ./pggit_0.1.3-postgresql.deb
 
 # RHEL/Rocky Linux
-sudo rpm -i pggit-0.1.2.rpm
+sudo rpm -i pggit-0.1.3.rpm
 ```
 
 #### Option B: Manual Installation
@@ -485,7 +485,7 @@ pgGit is 100% free and open source software (MIT License):
 
 **No sponsorship, donations, or premium features.** Just great PostgreSQL tooling for everyone.
 
-**Solo Dev Philosophy**: Rather than perfecting in secret, I'm sharing the journey. This is v0.1.2 - production-ready and evolving. Your feedback shapes what this becomes.
+**Solo Dev Philosophy**: Rather than perfecting in secret, I'm sharing the journey. This is v0.1.3 - production-ready and evolving. Your feedback shapes what this becomes.
 
 ---
 

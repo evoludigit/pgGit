@@ -513,14 +513,14 @@ Improving pgGit:
 
 | Item | Value |
 |------|-------|
-| **Current Version** | pgGit v0.1.2 |
-| **Documentation Updated** | December 31, 2025 |
+| **Current Version** | pgGit v0.1.3 |
+| **Documentation Updated** | January 22, 2026 |
 | **Status** | Production Ready ✅ |
 | **Test Coverage** | 191 tests, 100% pass rate ✅ |
 
 ### Feature Status Legend
 
-- ✅ **Implemented** - Available in v0.1.2, production-ready
+- ✅ **Implemented** - Available in v0.1.3, production-ready
 - 🚧 **Planned** - In design/development, coming in v0.3.0+
 - 🧪 **Experimental** - Available but may change significantly
 - ⚠️ **Partially Experimental** - Some features implemented, others planned
@@ -566,6 +566,6 @@ Improving pgGit:
 
 ---
 
-**Last Updated**: December 21, 2025
+**Last Updated**: January 22, 2026
 **Maintained By**: pgGit Documentation Team
 **Issues or Questions**: [GitHub Issues](https://github.com/evoludigit/pgGit/issues)
