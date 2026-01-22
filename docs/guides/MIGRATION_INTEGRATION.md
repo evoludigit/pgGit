@@ -60,32 +60,48 @@ SELECT * FROM pggit.status();
 SELECT * FROM pggit.diff('main', 'feature/user-profiles');
 ```
 
-#### 2. Generate Migration
+#### 2. Generate Migration with Python API
 
-```bash
-# Confiture reads pgGit state and generates migration
-confiture generate from-branch feature/user-profiles \
-  --name "add_user_profile_fields" \
-  --output db/migrations/
+Confiture's `MigrationGenerator` creates production-ready migrations from pgGit branches:
 
-# Generated file: db/migrations/20260122_add_user_profile_fields.sql
+```python
+from confiture.integrations.pggit import PgGitClient, MigrationGenerator
+from pathlib import Path
+
+# Connect to development database with pgGit
+client = PgGitClient(connection)
+
+# Generate migration from branch
+generator = MigrationGenerator(client)
+migration = generator.generate_from_branch(
+    branch_name="feature/user-profiles",
+    name="add_user_profile_fields"
+)
+
+# Write to migrations directory
+migration_path = migration.write_to_file(Path("db/migrations/"))
+print(f"Generated: {migration_path}")
 ```
 
-**Generated migration:**
-```sql
--- Migration: add_user_profile_fields
--- Generated from pgGit branch: feature/user-profiles
--- Date: 2026-01-22
+**Generated migration file** (`db/migrations/20260122143022_001_add_user_profile_fields.py`):
+```python
+"""add_user_profile_fields
 
--- UP
+Generated from pgGit branch: feature/user-profiles
+Source commits: ['abc123', 'def456']
+"""
+
+UP_SQL = """
 ALTER TABLE users ADD COLUMN avatar_url TEXT;
 ALTER TABLE users ADD COLUMN bio TEXT;
 CREATE INDEX idx_users_avatar ON users(avatar_url) WHERE avatar_url IS NOT NULL;
+"""
 
--- DOWN
+DOWN_SQL = """
 DROP INDEX IF EXISTS idx_users_avatar;
 ALTER TABLE users DROP COLUMN IF EXISTS bio;
 ALTER TABLE users DROP COLUMN IF EXISTS avatar_url;
+"""
 ```
 
 #### 3. Merge in pgGit
@@ -105,31 +121,58 @@ SELECT pggit.delete_branch('feature/user-profiles');
 # Test on staging first
 confiture migrate up --env staging
 
-# Deploy to production
+# Deploy to production (no pgGit installed here)
 confiture migrate up --env production
 ```
 
-### Advanced Confiture Features
+### Confiture pgGit Python API
 
-#### Conflict Detection
+Confiture provides a complete Python client for pgGit operations:
 
-```bash
-# Check if migration conflicts with production state
-confiture validate --env production --migration 20260122_add_user_profile_fields.sql
+```python
+from confiture.integrations.pggit import PgGitClient
+
+client = PgGitClient(connection)
+
+# Branch operations
+client.create_branch("feature/payments", from_branch="main", copy_data=False)
+client.checkout("feature/payments")
+client.list_branches(status="ACTIVE")
+client.delete_branch("feature/old")
+
+# Commits
+client.commit("Add stripe integration")
+client.log(branch="main", limit=50)
+
+# Diffs
+diff = client.diff("main", "feature/payments")
+for entry in diff:
+    print(f"{entry.change_type}: {entry.object_name}")
+
+# Merging
+result = client.merge("feature/payments", target_branch="main")
+if result.has_conflicts:
+    for conflict in result.conflicts:
+        client.resolve_conflict(conflict.object_name, resolution="ours")
 ```
 
-#### Dry Run
+### pgGit Detection
 
-```bash
-# Preview what will happen
-confiture migrate up --env production --dry-run
-```
+Check pgGit availability before using:
 
-#### Rollback
+```python
+from confiture.integrations.pggit import (
+    is_pggit_available,
+    get_pggit_version,
+    require_pggit
+)
 
-```bash
-# Rollback last migration
-confiture migrate down --env production --steps 1
+if is_pggit_available(connection):
+    version = get_pggit_version(connection)  # e.g., (0, 1, 2)
+    print(f"pgGit {'.'.join(map(str, version))} available")
+
+# Enforce minimum version
+require_pggit(connection, min_version=(0, 1, 0))  # Raises if not met
 ```
 
 ---
