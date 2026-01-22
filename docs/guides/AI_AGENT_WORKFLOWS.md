@@ -38,7 +38,9 @@ pgGit provides **branch-based isolation** for AI agents, just like Git does for 
 
 ## Setup for AI Agents
 
-### 1. Create Agent-Specific Branches
+### Option 1: Manual Branch Management
+
+For simple scenarios, agents can use pgGit branches directly:
 
 ```sql
 -- Each agent gets its own branch
@@ -47,46 +49,90 @@ SELECT pggit.create_branch('agent/local-llm-search');
 SELECT pggit.create_branch('agent/automation-metrics');
 ```
 
-### 2. Register Agent Intent (Optional)
+### Option 2: Confiture Coordination (Recommended)
 
-Track what each agent is working on:
+[Confiture](https://github.com/fraiseql/confiture) provides a complete multi-agent coordination system with automatic conflict detection.
 
-```sql
--- Create intent tracking table
-CREATE TABLE IF NOT EXISTS pggit_agent_intents (
-    id SERIAL PRIMARY KEY,
-    agent_id TEXT NOT NULL,
-    branch_name TEXT NOT NULL,
-    intent TEXT NOT NULL,
-    tables_affected TEXT[],
-    started_at TIMESTAMP DEFAULT NOW(),
-    completed_at TIMESTAMP,
-    status TEXT DEFAULT 'in_progress'
-);
+#### CLI-Based Coordination
 
--- Agent registers intent before starting
-INSERT INTO pggit_agent_intents (agent_id, branch_name, intent, tables_affected)
-VALUES ('claude-session-123', 'agent/claude-auth-feature',
-        'Add OAuth2 support to users table',
-        ARRAY['users', 'oauth_tokens']);
+```bash
+# Register agent intent (auto-creates pgGit branch)
+confiture coordinate register \
+    --agent-id claude-payments \
+    --feature-name stripe_integration \
+    --schema-changes "ALTER TABLE users ADD COLUMN stripe_id TEXT" \
+    --tables-affected users \
+    --risk-level medium
+
+# Pre-flight conflict check (before registering)
+confiture coordinate check \
+    --agent-id claude-auth \
+    --feature-name oauth2 \
+    --schema-changes "ALTER TABLE users ADD COLUMN oauth_provider TEXT" \
+    --tables-affected users
+
+# List all active intents
+confiture coordinate list-intents --status-filter in_progress
+
+# View conflicts for an intent
+confiture coordinate conflicts --format json
+
+# Resolve a conflict
+confiture coordinate resolve \
+    --conflict-id 42 \
+    --notes "Coordinated with team: applying sequentially"
 ```
 
-### 3. Check for Conflicts Before Starting
+#### Python API Coordination
 
-```sql
--- Before an agent starts, check if other agents are modifying same tables
-SELECT * FROM pggit_agent_intents
-WHERE status = 'in_progress'
-  AND tables_affected && ARRAY['users'];  -- Overlapping tables
+```python
+from confiture.integrations.pggit.coordination import IntentRegistry, RiskLevel
 
--- If conflict detected, coordinate or wait
+registry = IntentRegistry(connection)
+
+# Register intent (automatically detects conflicts)
+intent = registry.register(
+    agent_id="claude-payments",
+    feature_name="stripe_integration",
+    schema_changes=["ALTER TABLE users ADD COLUMN stripe_id TEXT"],
+    tables_affected=["users"],
+    risk_level=RiskLevel.MEDIUM
+)
+
+# Check for conflicts immediately
+conflicts = registry.get_conflicts(intent.id)
+for conflict in conflicts:
+    print(f"{conflict.severity}: {conflict.affected_objects}")
+    print(f"  Suggestion: {conflict.resolution_suggestions}")
+
+# Update status as agent works
+registry.mark_in_progress(intent.id)
+# ... agent does work ...
+registry.mark_completed(intent.id)
+
+# After human review and merge
+registry.mark_merged(intent.id)
 ```
+
+### Conflict Detection
+
+Confiture detects conflicts at **registration time**, not merge time:
+
+| Conflict Type | Severity | Example |
+|---------------|----------|---------|
+| **TABLE** | WARNING | Both agents modify `users` table |
+| **COLUMN** | ERROR | Both modify `users.email` column |
+| **FUNCTION** | ERROR | Both redefine `process_payment()` |
+| **INDEX** | WARNING | Both create index on same columns |
+| **CONSTRAINT** | WARNING | Both add foreign keys to same table |
+
+This "conflict-first" design means agents know about conflicts **before** they start coding.
 
 ---
 
 ## Agent Workflow Patterns
 
-### Pattern 1: Independent Features
+### Pattern 1: Independent Features (No Coordination Needed)
 
 Agents work on completely separate features with no overlap.
 
@@ -107,32 +153,70 @@ SELECT pggit.merge('agent/claude-auth', 'main');
 SELECT pggit.merge('agent/local-llm-search', 'main');
 ```
 
-### Pattern 2: Coordinated Modification
+### Pattern 2: Coordinated Modification with Confiture
 
-Multiple agents need to modify the same table.
+Multiple agents need to modify the same table. Confiture detects conflicts automatically.
 
-```sql
--- Agent A wants to add: users.oauth_provider
--- Agent B wants to add: users.search_preferences
+```bash
+# Agent A registers intent
+confiture coordinate register \
+    --agent-id claude-auth \
+    --feature-name oauth_support \
+    --schema-changes "ALTER TABLE users ADD COLUMN oauth_provider TEXT" \
+    --tables-affected users
 
--- Step 1: Both register intent
-INSERT INTO pggit_agent_intents (agent_id, branch_name, intent, tables_affected)
-VALUES
-  ('claude', 'agent/claude-auth', 'Add oauth_provider', ARRAY['users']),
-  ('local-llm', 'agent/llm-search', 'Add search_preferences', ARRAY['users']);
+# Agent B registers intent - Confiture immediately warns about conflict
+confiture coordinate register \
+    --agent-id local-llm-search \
+    --feature-name search_prefs \
+    --schema-changes "ALTER TABLE users ADD COLUMN search_preferences JSONB" \
+    --tables-affected users
 
--- Step 2: Detect overlap
-SELECT a.agent_id, a.intent, b.agent_id, b.intent
-FROM pggit_agent_intents a
-JOIN pggit_agent_intents b ON a.tables_affected && b.tables_affected
-WHERE a.agent_id != b.agent_id
-  AND a.status = 'in_progress'
-  AND b.status = 'in_progress';
+# Output:
+# ⚠️ WARNING: TABLE conflict detected
+#   Affected: users
+#   Conflicting intent: claude-auth (oauth_support)
+#   Suggestion: Coordinate with claude-auth agent, consider sequential application
 
--- Step 3: Coordinate - let both proceed, merge sequentially
-SELECT pggit.checkout('main');
-SELECT pggit.merge('agent/claude-auth', 'main');  -- First
-SELECT pggit.merge('agent/llm-search', 'main');   -- Second, pgGit detects if conflict
+# Agents coordinate (discuss, adjust scope, etc.)
+
+# After coordination, resolve the conflict
+confiture coordinate resolve \
+    --conflict-id 1 \
+    --notes "Agreed to apply sequentially: auth first, then search"
+
+# Both agents proceed, merge in agreed order
+```
+
+**Python equivalent:**
+
+```python
+from confiture.integrations.pggit.coordination import IntentRegistry, RiskLevel
+
+registry = IntentRegistry(connection)
+
+# Agent A registers
+intent_a = registry.register(
+    agent_id="claude-auth",
+    feature_name="oauth_support",
+    schema_changes=["ALTER TABLE users ADD COLUMN oauth_provider TEXT"],
+    tables_affected=["users"],
+    risk_level=RiskLevel.MEDIUM
+)
+
+# Agent B registers - conflicts detected automatically
+intent_b = registry.register(
+    agent_id="local-llm-search",
+    feature_name="search_prefs",
+    schema_changes=["ALTER TABLE users ADD COLUMN search_preferences JSONB"],
+    tables_affected=["users"],
+    risk_level=RiskLevel.LOW
+)
+
+# Both agents see conflict immediately
+for conflict in registry.get_conflicts(intent_b.id):
+    print(f"Conflict: {conflict.conflict_type} on {conflict.affected_objects}")
+    # Output: Conflict: TABLE on ['users']
 ```
 
 ### Pattern 3: Review Before Merge
@@ -158,48 +242,124 @@ SELECT pggit.checkout('main');
 SELECT pggit.merge('agent/claude-auth', 'main');
 ```
 
-### Pattern 4: Automated Pipeline
+### Pattern 4: Automated Pipeline with Confiture
 
-CI/CD system coordinates agent changes automatically.
+CI/CD system coordinates agent changes using Confiture's intent system.
+
+```python
+#!/usr/bin/env python3
+# ci_agent_merge.py
+"""Automated agent merge pipeline using Confiture coordination."""
+
+from confiture.integrations.pggit import PgGitClient, MigrationGenerator
+from confiture.integrations.pggit.coordination import IntentRegistry, IntentStatus
+import psycopg
+
+def merge_completed_intents():
+    conn = psycopg.connect("postgresql://localhost/myapp_dev")
+    client = PgGitClient(conn)
+    registry = IntentRegistry(conn)
+
+    # Get all completed intents (agents finished their work)
+    completed = registry.list_intents(status_filter=IntentStatus.COMPLETED)
+
+    for intent in completed:
+        print(f"Processing: {intent.feature_name} by {intent.agent_id}")
+
+        # Check for unresolved conflicts
+        conflicts = [c for c in registry.get_conflicts(intent.id) if not c.reviewed]
+        if conflicts:
+            print(f"  ⚠️ Unresolved conflicts, skipping")
+            continue
+
+        # Merge to main
+        client.checkout("main")
+        result = client.merge(intent.branch_name, target_branch="main")
+
+        if result.has_conflicts:
+            print(f"  ❌ Merge conflicts detected")
+            intent.status = IntentStatus.CONFLICTED
+        else:
+            print(f"  ✅ Merged successfully")
+            registry.mark_merged(intent.id)
+            client.delete_branch(intent.branch_name)
+
+    # Generate combined migration from all merged changes
+    generator = MigrationGenerator(client)
+    migration = generator.generate_from_commits(
+        commits=client.log("main", limit=10),
+        name=f"agent_changes_{datetime.now():%Y%m%d}"
+    )
+    migration.write_to_file(Path("db/migrations/"))
+
+if __name__ == "__main__":
+    merge_completed_intents()
+```
+
+**Or as a shell script using Confiture CLI:**
 
 ```bash
 #!/bin/bash
 # ci-agent-merge.sh
 
-# Get all completed agent branches
-BRANCHES=$(psql -t -c "
-  SELECT branch_name FROM pggit_agent_intents
-  WHERE status = 'completed'
-  ORDER BY completed_at;
-")
+# List completed intents
+INTENTS=$(confiture coordinate list-intents --status-filter completed --format json | jq -r '.[].id')
 
-# Merge each in order
-for branch in $BRANCHES; do
-  echo "Merging $branch..."
+for intent_id in $INTENTS; do
+    echo "Processing intent $intent_id..."
 
-  # Check for conflicts first
-  CONFLICTS=$(psql -t -c "SELECT pggit.detect_conflicts('main', '$branch');")
+    # Check for unresolved conflicts
+    CONFLICTS=$(confiture coordinate conflicts --intent-id $intent_id --format json | jq 'length')
+    if [ "$CONFLICTS" -gt 0 ]; then
+        echo "  Skipping: unresolved conflicts"
+        continue
+    fi
 
-  if [ -z "$CONFLICTS" ]; then
-    psql -c "SELECT pggit.merge('$branch', 'main');"
-    psql -c "UPDATE pggit_agent_intents SET status = 'merged' WHERE branch_name = '$branch';"
-  else
-    echo "Conflicts detected in $branch, skipping"
-    psql -c "UPDATE pggit_agent_intents SET status = 'conflict' WHERE branch_name = '$branch';"
-  fi
+    # Get branch name and merge
+    BRANCH=$(confiture coordinate status --intent-id $intent_id --format json | jq -r '.branch_name')
+    psql -c "SELECT pggit.checkout('main'); SELECT pggit.merge('$BRANCH', 'main');"
+
+    # Mark as merged
+    confiture coordinate mark-merged --intent-id $intent_id
 done
-
-# Generate combined migration
-confiture generate from-range main~10..main --name "agent_changes_$(date +%Y%m%d)"
 ```
 
 ---
 
 ## Multi-Agent Coordination Strategies
 
-### Strategy 1: Lock-Based
+### Strategy 1: Intent-Based with Confiture (Recommended)
 
-Agents acquire locks on tables before modifying.
+Confiture's coordination system uses an intent-first approach with automatic conflict detection.
+
+```python
+from confiture.integrations.pggit.coordination import IntentRegistry, RiskLevel
+
+registry = IntentRegistry(connection)
+
+# Agent declares intent BEFORE starting work
+# Confiture immediately detects conflicts with other agents
+intent = registry.register(
+    agent_id="claude-auth",
+    feature_name="oauth2_support",
+    schema_changes=["ALTER TABLE users ADD COLUMN oauth_provider TEXT"],
+    tables_affected=["users"],
+    risk_level=RiskLevel.MEDIUM
+)
+
+# Check conflicts immediately
+conflicts = registry.get_conflicts(intent.id)
+if conflicts:
+    # Coordinate before proceeding
+    for c in conflicts:
+        print(f"Conflict with {c.affected_objects}: {c.resolution_suggestions}")
+```
+
+**Key advantage**: Conflicts detected at registration time, not merge time.
+
+### Strategy 2: Lock-Based (Manual)
+
+For simple setups without Confiture, agents can use explicit locks.
 
 ```sql
 -- Agent acquires lock
@@ -215,26 +375,9 @@ RETURNING *;
 DELETE FROM pggit_table_locks WHERE agent_id = 'claude-123';
 ```
 
-### Strategy 2: Intent-Based (Optimistic)
-
-Agents declare intent, proceed optimistically, resolve conflicts at merge.
-
-```sql
--- All agents declare intent upfront
--- No blocking, just awareness
-
--- At merge time, pgGit detects actual conflicts
-SELECT pggit.merge('agent/a', 'main');
--- Returns: 'CONFLICTS_DETECTED' or 'MERGE_SUCCESS'
-
--- If conflicts, human or coordinator resolves
-SELECT pggit.resolve_conflict(conflict_id, 'custom',
-  'Combined solution SQL here');
-```
-
 ### Strategy 3: Partition-Based
 
-Assign table ownership to specific agents.
+Assign table ownership to specific agent types. Best when agents have clear domain boundaries.
 
 ```sql
 -- Define partitions
@@ -260,67 +403,100 @@ INSERT INTO pggit_agent_partitions VALUES
 
 A realistic scenario with Claude (powerful, expensive) and a local LLM (fast, cheap).
 
-### Setup
-
-```sql
--- Claude handles complex architectural changes
-SELECT pggit.create_branch('agent/claude-architecture');
-
--- Local LLM handles repetitive tasks
-SELECT pggit.create_branch('agent/local-llm-indexes');
-SELECT pggit.create_branch('agent/local-llm-constraints');
-```
-
-### Workflow
+### Workflow with Confiture Coordination
 
 ```python
 # coordinator.py
+"""Multi-agent coordination using Confiture's intent system."""
+
 import psycopg
 from anthropic import Anthropic
+from pathlib import Path
+
+from confiture.integrations.pggit import PgGitClient, MigrationGenerator
+from confiture.integrations.pggit.coordination import IntentRegistry, RiskLevel
 
 def coordinate_agents():
     conn = psycopg.connect("postgresql://localhost/myapp_dev")
-
-    # 1. Claude designs the architecture
+    client = PgGitClient(conn)
+    registry = IntentRegistry(conn)
     claude = Anthropic()
-    architecture_plan = claude.messages.create(
-        model="claude-sonnet-4-20250514",
-        messages=[{"role": "user", "content": "Design user authentication schema..."}]
+
+    # 1. Claude registers intent for complex architecture work
+    claude_intent = registry.register(
+        agent_id="claude-architecture",
+        feature_name="auth_system",
+        schema_changes=[
+            "CREATE TABLE users (id UUID PRIMARY KEY, email TEXT UNIQUE)",
+            "CREATE TABLE sessions (id UUID PRIMARY KEY, user_id UUID REFERENCES users)",
+            "CREATE TABLE oauth_tokens (id UUID PRIMARY KEY, user_id UUID REFERENCES users)"
+        ],
+        tables_affected=["users", "sessions", "oauth_tokens"],
+        risk_level=RiskLevel.HIGH
     )
 
-    # 2. Apply Claude's changes to its branch
-    with conn.cursor() as cur:
-        cur.execute("SELECT pggit.checkout('agent/claude-architecture')")
-        cur.execute(architecture_plan.content)  # DDL from Claude
-        cur.execute("""
-            INSERT INTO pggit_agent_intents (agent_id, branch_name, intent, tables_affected)
-            VALUES ('claude', 'agent/claude-architecture', 'Auth schema design',
-                    ARRAY['users', 'sessions', 'oauth_tokens'])
-        """)
-    conn.commit()
+    # 2. Local LLM registers intent for index optimization
+    #    Confiture automatically detects overlap on 'users' table
+    local_intent = registry.register(
+        agent_id="local-llm-indexes",
+        feature_name="performance_indexes",
+        schema_changes=[
+            "CREATE INDEX idx_users_email ON users(email)",
+            "CREATE INDEX idx_sessions_user ON sessions(user_id)"
+        ],
+        tables_affected=["users", "sessions"],
+        risk_level=RiskLevel.LOW
+    )
 
-    # 3. Local LLM adds indexes (parallel, non-conflicting)
-    local_tasks = [
-        ("agent/local-llm-indexes", "CREATE INDEX idx_users_email ON users(email)"),
-        ("agent/local-llm-indexes", "CREATE INDEX idx_sessions_user ON sessions(user_id)"),
-    ]
+    # 3. Check conflicts - Confiture detected overlap
+    conflicts = registry.get_conflicts(local_intent.id)
+    if conflicts:
+        print("Conflicts detected - coordinating...")
+        for c in conflicts:
+            # Resolve: indexes depend on tables existing first
+            registry.resolve_conflict(
+                c.id,
+                resolution_notes="Apply architecture first, then indexes"
+            )
 
-    for branch, sql in local_tasks:
-        with conn.cursor() as cur:
-            cur.execute(f"SELECT pggit.checkout('{branch}')")
-            cur.execute(sql)
-    conn.commit()
+    # 4. Claude designs and implements architecture
+    registry.mark_in_progress(claude_intent.id)
+    client.checkout(claude_intent.branch_name)
 
-    # 4. Merge in order: architecture first, then indexes
-    with conn.cursor() as cur:
-        cur.execute("SELECT pggit.checkout('main')")
-        cur.execute("SELECT pggit.merge('agent/claude-architecture', 'main')")
-        cur.execute("SELECT pggit.merge('agent/local-llm-indexes', 'main')")
-    conn.commit()
+    architecture_ddl = claude.messages.create(
+        model="claude-sonnet-4-20250514",
+        messages=[{"role": "user", "content": "Design user authentication schema..."}]
+    ).content[0].text
 
-    # 5. Generate migration
-    subprocess.run(["confiture", "generate", "from-branch", "main",
-                    "--name", "auth_feature"])
+    conn.execute(architecture_ddl)
+    client.commit("Implement auth schema")
+    registry.mark_completed(claude_intent.id)
+
+    # 5. Local LLM adds indexes (after architecture is ready)
+    registry.mark_in_progress(local_intent.id)
+    client.checkout(local_intent.branch_name)
+    conn.execute("CREATE INDEX idx_users_email ON users(email)")
+    conn.execute("CREATE INDEX idx_sessions_user ON sessions(user_id)")
+    client.commit("Add performance indexes")
+    registry.mark_completed(local_intent.id)
+
+    # 6. Merge in dependency order
+    client.checkout("main")
+    client.merge(claude_intent.branch_name, target_branch="main")
+    registry.mark_merged(claude_intent.id)
+
+    client.merge(local_intent.branch_name, target_branch="main")
+    registry.mark_merged(local_intent.id)
+
+    # 7. Generate production migration
+    generator = MigrationGenerator(client)
+    migration = generator.generate_from_branch("main", name="auth_feature")
+    migration.write_to_file(Path("db/migrations/"))
+
+    print(f"✅ Generated migration: {migration.version}_{migration.name}")
+
+if __name__ == "__main__":
+    coordinate_agents()
 ```
 
 ---
@@ -456,18 +632,24 @@ ORDER BY conflicts DESC;
 
 ## Summary
 
-| Strategy | Best For | Coordination Overhead |
-|----------|----------|----------------------|
-| Independent features | Non-overlapping work | Low |
-| Intent-based | Occasional overlap | Medium |
-| Lock-based | Frequent overlap | High |
-| Partition-based | Predictable ownership | Low (after setup) |
+| Strategy | Best For | Coordination Overhead | Tooling |
+|----------|----------|----------------------|---------|
+| Confiture Intent-Based | Any multi-agent work | Low (automatic) | `confiture coordinate` CLI |
+| Independent features | Non-overlapping work | None | pgGit only |
+| Lock-based | Simple setups | High (manual) | Custom tables |
+| Partition-based | Predictable ownership | Low (after setup) | Custom tables |
 
-pgGit enables safe multi-agent development by providing:
-- **Isolation**: Each agent works in its own branch
-- **Visibility**: See what each agent is doing
-- **Conflict detection**: Know when agents conflict
-- **Resolution**: Tools to merge conflicting changes
+**Recommended**: Use Confiture's coordination system for any multi-agent workflow. It provides:
+- **Conflict-first detection**: Know about conflicts before coding starts
+- **Automatic branch allocation**: Intents auto-create pgGit branches
+- **Full audit trail**: All intent status changes tracked
+- **CLI and Python API**: Use whichever fits your workflow
+
+pgGit + Confiture enables safe multi-agent development by providing:
+- **Isolation**: Each agent works in its own pgGit branch
+- **Visibility**: `confiture coordinate list-intents` shows all agent activity
+- **Early conflict detection**: Conflicts detected at registration, not merge
+- **Resolution workflow**: Review, discuss, resolve, then proceed
 
 ---
 
@@ -476,3 +658,4 @@ pgGit enables safe multi-agent development by providing:
 - [Development Workflow Guide](DEVELOPMENT_WORKFLOW.md) - Core pgGit workflows
 - [Migration Integration](MIGRATION_INTEGRATION.md) - Generating migrations from agent work
 - [Production Considerations](PRODUCTION_CONSIDERATIONS.md) - Deploying agent-generated changes
+- [Confiture Multi-Agent Guide](https://github.com/fraiseql/confiture/blob/main/docs/guides/multi-agent-coordination.md) - Full Confiture coordination docs
