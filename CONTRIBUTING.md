@@ -23,7 +23,7 @@ There are many ways to contribute to pgGit:
 
 Before you begin, make sure you have:
 
-- **PostgreSQL 15, 16, or 17** installed
+- **PostgreSQL 15, 16, 17, or 18** installed
 - **C compiler** (gcc or clang)
 - **PostgreSQL development headers** (`postgresql-server-dev-*` package)
 - **Git** for version control
