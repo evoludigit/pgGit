@@ -28,7 +28,7 @@ This guide covers installing pgGit on **development and staging databases**. pgG
 - At least 100MB free space for pgGit schemas
 
 **Tested Versions**:
-- PostgreSQL 12, 13, 14, 15, 16, 17
+- PostgreSQL 12, 13, 14, 15, 16, 17, 18
 - Docker PostgreSQL images
 - Local PostgreSQL installations
 
