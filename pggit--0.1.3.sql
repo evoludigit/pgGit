@@ -1,4 +1,4 @@
--- pggit--0.1.2.sql
+-- pggit--0.1.3.sql
 --
 -- pgGit: Git-like version control for PostgreSQL schemas
 --
@@ -3207,11 +3207,24 @@ DECLARE
     v_branch_id INTEGER;
     v_commit_hash TEXT;
 BEGIN
+    -- Validate branch name
+    IF p_branch_name IS NULL THEN
+        RAISE EXCEPTION 'Branch name cannot be NULL';
+    END IF;
+
+    IF p_branch_name = '' THEN
+        RAISE EXCEPTION 'Branch name cannot be empty';
+    END IF;
+
+    IF LENGTH(p_branch_name) > 255 THEN
+        RAISE EXCEPTION 'Branch name too long (max 255 characters, got %)', LENGTH(p_branch_name);
+    END IF;
+
     -- Get parent branch ID
     SELECT id INTO v_parent_id
     FROM pggit.branches
     WHERE name = p_parent_branch AND status = 'ACTIVE';
-    
+
     IF v_parent_id IS NULL THEN
         RAISE EXCEPTION 'Parent branch % not found', p_parent_branch;
     END IF;
@@ -4932,9 +4945,18 @@ DECLARE
     v_branch_id INTEGER;
     v_commit_hash TEXT;
 BEGIN
+    -- Validate inputs
+    IF p_branch_name IS NULL OR p_branch_name = '' THEN
+        RAISE EXCEPTION 'Branch name cannot be NULL or empty';
+    END IF;
+
+    IF p_message IS NULL OR p_message = '' THEN
+        RAISE EXCEPTION 'Commit message cannot be NULL or empty';
+    END IF;
+
     -- Generate new commit ID and hash
     v_commit_id := gen_random_uuid();
-    v_commit_hash := encode(sha256((p_message || p_sql_content || CURRENT_TIMESTAMP::TEXT)::bytea), 'hex');
+    v_commit_hash := encode(sha256((p_message || COALESCE(p_sql_content, '') || CURRENT_TIMESTAMP::TEXT)::bytea), 'hex');
 
     -- Get branch ID
     SELECT id INTO v_branch_id
@@ -5054,7 +5076,7 @@ BEGIN
   INSERT INTO pggit.commits (
     hash, branch_id, message, author, authored_at
   ) VALUES (
-    encode(sha256((v_merge_id || CURRENT_TIMESTAMP)::TEXT::bytea), 'hex'),
+    encode(sha256((v_merge_id::TEXT || CURRENT_TIMESTAMP::TEXT)::bytea), 'hex'),
     p_target_branch_id,
     COALESCE(p_message, 'Merge branch ''' || v_source_branch_name || ''' into ''' || v_target_branch_name || ''''),
     CURRENT_USER,
@@ -6449,6 +6471,192 @@ CREATE TABLE IF NOT EXISTS pggit.data_conflicts (
 -- Copy-on-Write Implementation
 -- =====================================================
 
+-- Setup view-based routing for a table (enables transparent branch switching)
+-- This replaces the original table with a view that routes to the correct branch
+CREATE OR REPLACE FUNCTION pggit.setup_table_routing(
+    p_schema TEXT,
+    p_table TEXT
+) RETURNS VOID AS $$
+DECLARE
+    v_base_table TEXT;
+    v_pk_columns TEXT;
+    v_all_columns TEXT;
+    v_update_sets TEXT;
+BEGIN
+    v_base_table := '_pggit_main_' || p_table;
+
+    -- Check if routing is already set up (view exists)
+    IF EXISTS (
+        SELECT 1 FROM information_schema.views
+        WHERE table_schema = p_schema AND table_name = p_table
+    ) THEN
+        RETURN; -- Already set up
+    END IF;
+
+    -- Create base schema if needed (for storing original tables)
+    EXECUTE 'CREATE SCHEMA IF NOT EXISTS pggit_base';
+
+    -- Get primary key columns for the table
+    SELECT string_agg(a.attname, ', ' ORDER BY array_position(i.indkey, a.attnum))
+    INTO v_pk_columns
+    FROM pg_index i
+    JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+    WHERE i.indrelid = format('%I.%I', p_schema, p_table)::regclass
+    AND i.indisprimary;
+
+    -- Get all columns (excluding system columns)
+    SELECT string_agg(column_name, ', ' ORDER BY ordinal_position)
+    INTO v_all_columns
+    FROM information_schema.columns
+    WHERE table_schema = p_schema AND table_name = p_table
+    AND column_name NOT LIKE '_pggit_%';
+
+    -- Build UPDATE SET clause
+    SELECT string_agg(column_name || ' = NEW.' || column_name, ', ')
+    INTO v_update_sets
+    FROM information_schema.columns
+    WHERE table_schema = p_schema AND table_name = p_table
+    AND column_name NOT LIKE '_pggit_%';
+
+    -- Step 1: Move original table to base schema (avoids OID caching issues)
+    EXECUTE format('ALTER TABLE %I.%I SET SCHEMA pggit_base', p_schema, p_table);
+    EXECUTE format('ALTER TABLE pggit_base.%I RENAME TO %I', p_table, v_base_table);
+
+    -- Step 2: Create router function for SELECT
+    EXECUTE format($fn$
+        CREATE OR REPLACE FUNCTION pggit.route_%I_select()
+        RETURNS SETOF pggit_base.%I AS $inner$
+        DECLARE
+            v_branch TEXT;
+            v_schema TEXT;
+        BEGIN
+            v_branch := current_setting('pggit.current_branch', true);
+            IF v_branch IS NULL OR v_branch = '' OR v_branch = 'main' THEN
+                RETURN QUERY SELECT * FROM pggit_base.%I;
+            ELSE
+                v_schema := 'pggit_branch_' || replace(v_branch, '/', '_');
+                RETURN QUERY EXECUTE format('SELECT * FROM %%I.%I', v_schema);
+            END IF;
+        END;
+        $inner$ LANGUAGE plpgsql STABLE
+    $fn$, p_table, v_base_table, v_base_table, p_table);
+
+    -- Step 3: Create the view
+    EXECUTE format(
+        'CREATE VIEW %I.%I AS SELECT * FROM pggit.route_%I_select()',
+        p_schema, p_table, p_table
+    );
+
+    -- Step 4: Create INSTEAD OF INSERT trigger function
+    EXECUTE format($fn$
+        CREATE OR REPLACE FUNCTION pggit.route_%I_insert()
+        RETURNS TRIGGER AS $inner$
+        DECLARE
+            v_branch TEXT;
+            v_schema TEXT;
+        BEGIN
+            v_branch := current_setting('pggit.current_branch', true);
+            IF v_branch IS NULL OR v_branch = '' OR v_branch = 'main' THEN
+                INSERT INTO pggit_base.%I VALUES (NEW.*);
+            ELSE
+                v_schema := 'pggit_branch_' || replace(v_branch, '/', '_');
+                EXECUTE format('INSERT INTO %%I.%I VALUES ($1.*)', v_schema) USING NEW;
+            END IF;
+            RETURN NEW;
+        END;
+        $inner$ LANGUAGE plpgsql
+    $fn$, p_table, v_base_table, p_table);
+
+    EXECUTE format(
+        'CREATE TRIGGER %I_insert INSTEAD OF INSERT ON %I.%I FOR EACH ROW EXECUTE FUNCTION pggit.route_%I_insert()',
+        p_table, p_schema, p_table, p_table
+    );
+
+    -- Step 5: Create INSTEAD OF UPDATE trigger function
+    EXECUTE format($fn$
+        CREATE OR REPLACE FUNCTION pggit.route_%I_update()
+        RETURNS TRIGGER AS $inner$
+        DECLARE
+            v_branch TEXT;
+            v_schema TEXT;
+        BEGIN
+            v_branch := current_setting('pggit.current_branch', true);
+            IF v_branch IS NULL OR v_branch = '' OR v_branch = 'main' THEN
+                UPDATE pggit_base.%I SET (%s) = (SELECT %s FROM (SELECT NEW.*) AS t) WHERE %s;
+            ELSE
+                v_schema := 'pggit_branch_' || replace(v_branch, '/', '_');
+                EXECUTE format('UPDATE %%I.%I SET (%s) = (SELECT %s FROM (SELECT $1.*) AS t) WHERE %s', v_schema)
+                USING NEW, OLD;
+            END IF;
+            RETURN NEW;
+        END;
+        $inner$ LANGUAGE plpgsql
+    $fn$, p_table, v_base_table, v_all_columns, v_all_columns,
+         COALESCE('(' || v_pk_columns || ') = (OLD.' || replace(v_pk_columns, ', ', ', OLD.') || ')', 'ctid = OLD.ctid'),
+         p_table, v_all_columns, v_all_columns,
+         COALESCE('(' || v_pk_columns || ') = ($2.' || replace(v_pk_columns, ', ', ', $2.') || ')', 'ctid = $2.ctid'));
+
+    EXECUTE format(
+        'CREATE TRIGGER %I_update INSTEAD OF UPDATE ON %I.%I FOR EACH ROW EXECUTE FUNCTION pggit.route_%I_update()',
+        p_table, p_schema, p_table, p_table
+    );
+
+    -- Step 6: Create INSTEAD OF DELETE trigger function
+    EXECUTE format($fn$
+        CREATE OR REPLACE FUNCTION pggit.route_%I_delete()
+        RETURNS TRIGGER AS $inner$
+        DECLARE
+            v_branch TEXT;
+            v_schema TEXT;
+        BEGIN
+            v_branch := current_setting('pggit.current_branch', true);
+            IF v_branch IS NULL OR v_branch = '' OR v_branch = 'main' THEN
+                DELETE FROM pggit_base.%I WHERE %s;
+            ELSE
+                v_schema := 'pggit_branch_' || replace(v_branch, '/', '_');
+                EXECUTE format('DELETE FROM %%I.%I WHERE %s', v_schema)
+                USING OLD;
+            END IF;
+            RETURN OLD;
+        END;
+        $inner$ LANGUAGE plpgsql
+    $fn$, p_table, v_base_table,
+         COALESCE('(' || v_pk_columns || ') = (OLD.' || replace(v_pk_columns, ', ', ', OLD.') || ')', 'ctid = OLD.ctid'),
+         p_table,
+         COALESCE('(' || v_pk_columns || ') = ($1.' || replace(v_pk_columns, ', ', ', $1.') || ')', 'ctid = $1.ctid'));
+
+    EXECUTE format(
+        'CREATE TRIGGER %I_delete INSTEAD OF DELETE ON %I.%I FOR EACH ROW EXECUTE FUNCTION pggit.route_%I_delete()',
+        p_table, p_schema, p_table, p_table
+    );
+
+    RAISE NOTICE 'Set up view routing for %.%', p_schema, p_table;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Get the base table info for a routed table
+-- Returns table name and schema as a composite
+CREATE OR REPLACE FUNCTION pggit.get_base_table_info(
+    p_schema TEXT,
+    p_table TEXT,
+    OUT base_schema TEXT,
+    OUT base_table TEXT
+) AS $$
+BEGIN
+    -- Check if this is a routed view
+    IF EXISTS (
+        SELECT 1 FROM information_schema.views
+        WHERE table_schema = p_schema AND table_name = p_table
+    ) THEN
+        base_schema := 'pggit_base';
+        base_table := '_pggit_main_' || p_table;
+    ELSE
+        base_schema := p_schema;
+        base_table := p_table;
+    END IF;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
 -- Create data branch with COW (array version for internal use)
 CREATE OR REPLACE FUNCTION pggit.create_data_branch(
     p_branch_name TEXT,
@@ -6460,6 +6668,7 @@ DECLARE
     v_branch_schema TEXT;
     v_table TEXT;
     v_source_schema TEXT := 'public';
+    v_base_info RECORD;
     v_branch_count INT := 0;
 BEGIN
     -- Create branch schema
@@ -6473,15 +6682,17 @@ BEGIN
 
     -- Branch each table
     FOREACH v_table IN ARRAY p_tables LOOP
-        -- Always create an actual data copy for proper isolation
-        -- (COW would be optimized version, but we need true isolation for tests)
+        -- Set up view routing if not already done
+        PERFORM pggit.setup_table_routing(v_source_schema, v_table);
+
+        -- Get the actual base table info (after routing setup)
+        SELECT * INTO v_base_info FROM pggit.get_base_table_info(v_source_schema, v_table);
+
+        -- Create branch copy from the base table
         EXECUTE format('CREATE TABLE %I.%I AS TABLE %I.%I',
             v_branch_schema, v_table,
-            v_source_schema, v_table
+            v_base_info.base_schema, v_base_info.base_table
         );
-
-        -- Note: We're creating a full copy for isolation, not true COW via inheritance
-        -- True COW via inheritance would save space but complicates data isolation
 
         -- Track branched table
         INSERT INTO pggit.branched_tables (
@@ -6508,11 +6719,6 @@ CREATE OR REPLACE FUNCTION pggit.create_data_branch(
     p_source_branch TEXT,
     p_branch_name TEXT
 ) RETURNS INT AS $$
-DECLARE
-    v_branch_schema TEXT;
-    v_table_name TEXT;
-    v_source_schema TEXT := 'public';
-    v_error_msg TEXT;
 BEGIN
     -- Validate inputs
     IF p_table_name IS NULL OR p_table_name = '' THEN
@@ -6523,66 +6729,13 @@ BEGIN
         RAISE EXCEPTION 'Branch name cannot be empty';
     END IF;
 
-    -- Create branch schema
-    v_branch_schema := 'pggit_branch_' || replace(p_branch_name, '/', '_');
-    EXECUTE format('CREATE SCHEMA IF NOT EXISTS %I', v_branch_schema);
-
-    -- Track branch in storage stats
-    INSERT INTO pggit.branch_storage_stats (branch_name)
-    VALUES (p_branch_name)
-    ON CONFLICT (branch_name) DO NOTHING;
-
-    -- Use inheritance for COW-like behavior
-    -- This creates an empty branch table that inherits from main
-    v_table_name := p_table_name;
-
-    BEGIN
-        -- Create inherited table (empty, inherits structure from main)
-        EXECUTE format(
-            'CREATE TABLE %I.%I (LIKE %I.%I INCLUDING ALL) INHERITS (%I.%I)',
-            v_branch_schema, v_table_name,
-            v_source_schema, v_table_name,
-            v_source_schema, v_table_name
-        );
-    EXCEPTION WHEN OTHERS THEN
-        GET STACKED DIAGNOSTICS v_error_msg = MESSAGE_TEXT;
-        -- If inheritance fails (e.g., due to type incompatibility),
-        -- fall back to full copy
-        IF v_error_msg LIKE '%type%' OR v_error_msg LIKE '%incompatible%' THEN
-            -- Try full copy as fallback
-            EXECUTE format('CREATE TABLE %I.%I AS TABLE %I.%I WITH NO DATA',
-                v_branch_schema, v_table_name,
-                v_source_schema, v_table_name
-            );
-        ELSE
-            RAISE;
-        END IF;
-    END;
-
-    -- Add branch-specific system columns
-    BEGIN
-        EXECUTE format(
-            'ALTER TABLE %I.%I ADD COLUMN _pggit_branch_ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
-            v_branch_schema, v_table_name
-        );
-    EXCEPTION WHEN OTHERS THEN
-        -- Column might already exist
-        NULL;
-    END;
-
-    -- Track branched table
-    INSERT INTO pggit.branched_tables (
-        branch_name, source_schema, source_table,
-        branch_schema, branch_table, uses_cow
-    ) VALUES (
-        p_branch_name, v_source_schema, v_table_name,
-        v_branch_schema, v_table_name, true
-    ) ON CONFLICT DO NOTHING;
-
-    -- Update storage stats
-    PERFORM pggit.update_branch_storage_stats(p_branch_name);
-
-    RETURN 1;
+    -- Delegate to array version with view-based routing
+    RETURN pggit.create_data_branch(
+        p_branch_name,
+        p_source_branch,
+        ARRAY[p_table_name]::TEXT[],
+        true
+    );
 END;
 $$ LANGUAGE plpgsql;
 
@@ -6617,23 +6770,14 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Switch active branch context
+-- Uses session variable that view routing functions check at runtime
 CREATE OR REPLACE FUNCTION pggit.switch_branch(
     p_branch_name TEXT
 ) RETURNS VOID AS $$
 BEGIN
-    -- Set session variable for current branch (local to transaction)
-    PERFORM set_config('pggit.current_branch', p_branch_name, false);
-
-    -- Update search path to include branch schema
-    -- Use false (transaction-level) so it persists in current session
-    IF p_branch_name = 'main' THEN
-        PERFORM set_config('search_path', 'public, pggit', false);
-    ELSE
-        PERFORM set_config('search_path',
-            'pggit_branch_' || replace(p_branch_name, '/', '_') || ', public, pggit',
-            false
-        );
-    END IF;
+    -- Set session variable for current branch
+    -- View router functions check this at query execution time (not plan time)
+    PERFORM set_config('pggit.current_branch', COALESCE(p_branch_name, 'main'), false);
 END;
 $$ LANGUAGE plpgsql;
 
@@ -6679,12 +6823,13 @@ DECLARE
     v_dependencies TEXT[] := ARRAY[]::TEXT[];
 BEGIN
     -- Find tables referenced by foreign keys
+    -- Note: COLLATE "C" matches information_schema's collation
     WITH RECURSIVE deps AS (
         -- Start with the given table
-        SELECT p_table_name AS table_name
-        
+        SELECT p_table_name COLLATE "C" AS table_name
+
         UNION
-        
+
         -- Find all tables that reference current tables
         SELECT DISTINCT
             tc.table_name
@@ -6696,7 +6841,7 @@ BEGIN
         JOIN information_schema.table_constraints tc2
             ON tc2.constraint_name = rc.unique_constraint_name
             AND tc2.table_name = d.table_name
-        WHERE tc.table_schema = p_schema_name
+        WHERE tc.table_schema = p_schema_name COLLATE "C"
     )
     SELECT array_agg(DISTINCT table_name) INTO v_dependencies FROM deps;
     
@@ -6758,41 +6903,61 @@ DECLARE
     v_conflicts INT := 0;
     v_key_columns TEXT;
     v_sql TEXT;
+    v_base_table TEXT;
 BEGIN
-    -- Get primary key columns
-    SELECT string_agg(a.attname, ', ' ORDER BY array_position(i.indkey, a.attnum))
-    INTO v_key_columns
-    FROM pg_index i
-    JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
-    WHERE i.indrelid = p_table_name::regclass
-    AND i.indisprimary;
+    -- Get primary key columns from the base table (the original table, not branch copies or view)
+    -- Branch copies made with CREATE TABLE AS don't preserve PK constraints
+    v_base_table := 'pggit_base._pggit_main_' || p_table_name;
+    BEGIN
+        SELECT string_agg(a.attname, ', ' ORDER BY array_position(i.indkey, a.attnum))
+        INTO v_key_columns
+        FROM pg_index i
+        JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+        WHERE i.indrelid = v_base_table::regclass
+        AND i.indisprimary;
+    EXCEPTION WHEN undefined_table THEN
+        -- If base table doesn't exist, try the original table name
+        SELECT string_agg(a.attname, ', ' ORDER BY array_position(i.indkey, a.attnum))
+        INTO v_key_columns
+        FROM pg_index i
+        JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+        WHERE i.indrelid = p_table_name::regclass
+        AND i.indisprimary;
+    END;
+
+    -- If no primary key found, skip conflict detection
+    IF v_key_columns IS NULL THEN
+        RAISE NOTICE 'No primary key found for %, skipping conflict detection', p_table_name;
+        RETURN 0;
+    END IF;
     
     -- Build conflict detection query
+    -- Note: Use %I for schema names to properly quote identifiers with special chars (like hyphens)
     v_sql := format($SQL$
         INSERT INTO pggit.data_conflicts (
             merge_id, table_name, primary_key_value,
             source_branch, target_branch,
             source_data, target_data, conflict_type
         )
-        SELECT 
+        SELECT
             %L, %L, s.%I::TEXT,
             %L, %L,
             row_to_json(s.*), row_to_json(t.*),
-            CASE 
+            CASE
                 WHEN s.* IS NULL THEN 'delete-update'
                 WHEN t.* IS NULL THEN 'update-delete'
                 ELSE 'update-update'
             END
-        FROM pggit_branch_%s.%I s
-        FULL OUTER JOIN pggit_branch_%s.%I t
+        FROM %I.%I s
+        FULL OUTER JOIN %I.%I t
             ON s.%I = t.%I
         WHERE s.* IS DISTINCT FROM t.*
         AND (s.* IS NOT NULL OR t.* IS NOT NULL)
     $SQL$,
         p_merge_id, p_table_name, v_key_columns,
         p_source_branch, p_target_branch,
-        replace(p_source_branch, '/', '_'), p_table_name,
-        replace(p_target_branch, '/', '_'), p_table_name,
+        'pggit_branch_' || replace(p_source_branch, '/', '_'), p_table_name,
+        'pggit_branch_' || replace(p_target_branch, '/', '_'), p_table_name,
         v_key_columns, v_key_columns
     );
     
@@ -6890,7 +7055,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION pggit.create_temporal_branch(
     p_branch_name TEXT,
     p_source_branch TEXT,
-    p_point_in_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    p_point_in_time TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 ) RETURNS UUID AS $$
 DECLARE
     v_snapshot_id UUID := gen_random_uuid();
@@ -7749,24 +7914,24 @@ RETURNS TABLE (
 BEGIN
     -- Reindex temporal changelog indexes
     BEGIN
-        REINDEX INDEX pggit.idx_temporal_table;
+        REINDEX INDEX pggit.idx_temporal_changelog_table;
     EXCEPTION WHEN UNDEFINED_OBJECT THEN
         NULL;
     END;
 
     BEGIN
-        REINDEX INDEX pggit.idx_temporal_time;
+        REINDEX INDEX pggit.idx_temporal_changelog_snapshot;
     EXCEPTION WHEN UNDEFINED_OBJECT THEN
         NULL;
     END;
 
     RETURN QUERY SELECT
-        'idx_temporal_table'::TEXT,
+        'idx_temporal_changelog_table'::TEXT,
         'temporal_changelog'::TEXT,
         true
     UNION ALL
     SELECT
-        'idx_temporal_time'::TEXT,
+        'idx_temporal_changelog_snapshot'::TEXT,
         'temporal_changelog'::TEXT,
         true;
 END;
@@ -7779,7 +7944,7 @@ CREATE OR REPLACE FUNCTION pggit.export_temporal_data(
     export_format TEXT,
     data_size BIGINT,
     record_count INT,
-    exported_at TIMESTAMP
+    exported_at TIMESTAMP WITH TIME ZONE
 ) AS $$
 DECLARE
     v_record_count INT;
@@ -7929,6 +8094,2850 @@ $$ LANGUAGE plpgsql;
 ALTER TABLE pggit.temporal_changelog
 ALTER COLUMN change_timestamp TYPE TIMESTAMP WITH TIME ZONE USING change_timestamp AT TIME ZONE 'UTC';
 
+
+-- ========================================
+-- File: 070_backup_integration.sql
+-- ========================================
+
+-- =====================================================
+-- pgGit Backup Integration - Phase 1: Metadata Tracking
+-- =====================================================
+--
+-- This module provides Git-like tracking of database backups.
+-- Phase 1 focuses on metadata tracking only - users manually
+-- create backups using external tools, then register them here.
+--
+-- Features:
+-- - Link backups to specific commits
+-- - Track backup metadata (size, location, tool, status)
+-- - Query backups by commit or branch
+-- - Backup coverage analysis
+-- - Backup dependency tracking (for incremental backups)
+-- - Backup verification records
+--
+-- Phase 2 (future): Automated backup execution
+-- Phase 3 (future): Recovery workflows
+-- =====================================================
+
+-- =====================================================
+-- Schema: Backup Metadata Tables
+-- =====================================================
+
+-- Main backups table
+-- NOTE: Backups are database-wide snapshots linked to commits, not branches
+CREATE TABLE IF NOT EXISTS pggit.backups (
+    backup_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    backup_name TEXT NOT NULL,
+    backup_type TEXT NOT NULL CHECK (backup_type IN ('full', 'incremental', 'differential', 'snapshot')),
+    backup_tool TEXT NOT NULL CHECK (backup_tool IN ('pgbackrest', 'barman', 'pg_dump', 'pg_basebackup', 'custom')),
+
+    -- Git integration: Link to commit (primary) and optional snapshot
+    commit_hash TEXT REFERENCES pggit.commits(hash),
+    snapshot_id UUID REFERENCES pggit.temporal_snapshots(snapshot_id),
+
+    -- Backup details
+    backup_size BIGINT,  -- bytes
+    compressed_size BIGINT,  -- bytes
+    location TEXT NOT NULL,  -- URI: s3://bucket/path, file:///path, barman://server/backup
+
+    -- Metadata
+    metadata JSONB DEFAULT '{}',  -- Tool-specific metadata
+    compression TEXT,  -- 'gzip', 'lz4', 'zstd', 'none'
+    encryption BOOLEAN DEFAULT false,
+
+    -- Status tracking
+    status TEXT NOT NULL DEFAULT 'in_progress' CHECK (status IN ('in_progress', 'completed', 'failed', 'expired', 'deleted')),
+    error_message TEXT,
+
+    -- Timestamps
+    started_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ,  -- For backup retention policies
+
+    -- Audit
+    created_by TEXT DEFAULT CURRENT_USER,
+
+    -- Constraints
+    CONSTRAINT valid_completion CHECK (
+        (status = 'completed' AND completed_at IS NOT NULL) OR
+        (status != 'completed')
+    ),
+    CONSTRAINT valid_commit CHECK (
+        commit_hash IS NOT NULL OR status = 'in_progress'
+    )
+);
+
+COMMENT ON TABLE pggit.backups IS 'Tracks database backups linked to Git commits';
+COMMENT ON COLUMN pggit.backups.commit_hash IS 'The commit hash representing the database state captured in this backup';
+COMMENT ON COLUMN pggit.backups.snapshot_id IS 'Optional temporal snapshot for point-in-time queries';
+
+-- Backup dependencies (for incremental/differential backups)
+CREATE TABLE IF NOT EXISTS pggit.backup_dependencies (
+    backup_id UUID REFERENCES pggit.backups(backup_id) ON DELETE CASCADE,
+    depends_on_backup_id UUID REFERENCES pggit.backups(backup_id) ON DELETE RESTRICT,
+    dependency_type TEXT NOT NULL CHECK (dependency_type IN ('base', 'incremental_chain', 'differential_base')),
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (backup_id, depends_on_backup_id)
+);
+
+COMMENT ON TABLE pggit.backup_dependencies IS 'Tracks dependencies between incremental and full backups';
+
+-- Backup verification records
+CREATE TABLE IF NOT EXISTS pggit.backup_verifications (
+    verification_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    backup_id UUID REFERENCES pggit.backups(backup_id) ON DELETE CASCADE,
+    verification_type TEXT NOT NULL CHECK (verification_type IN ('checksum', 'restore_test', 'integrity_check')),
+    status TEXT NOT NULL CHECK (status IN ('pending', 'in_progress', 'completed', 'failed', 'queued')),
+    details JSONB DEFAULT '{}',
+    verified_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    verified_by TEXT DEFAULT CURRENT_USER
+);
+
+COMMENT ON TABLE pggit.backup_verifications IS 'Records of backup verification attempts';
+
+-- Backup tags (for organization)
+CREATE TABLE IF NOT EXISTS pggit.backup_tags (
+    backup_id UUID REFERENCES pggit.backups(backup_id) ON DELETE CASCADE,
+    tag_name TEXT NOT NULL,
+    tag_value TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (backup_id, tag_name)
+);
+
+COMMENT ON TABLE pggit.backup_tags IS 'Custom tags for organizing backups';
+
+-- =====================================================
+-- Indexes
+-- =====================================================
+
+CREATE INDEX IF NOT EXISTS idx_backups_commit ON pggit.backups(commit_hash, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_backups_status ON pggit.backups(status, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_backups_tool ON pggit.backups(backup_tool, backup_type);
+CREATE INDEX IF NOT EXISTS idx_backups_location ON pggit.backups(location);
+CREATE INDEX IF NOT EXISTS idx_backups_expires ON pggit.backups(expires_at) WHERE expires_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_backup_tags_name ON pggit.backup_tags(tag_name, tag_value);
+
+-- =====================================================
+-- Core Functions: Backup Registration
+-- =====================================================
+
+-- Register a backup that was created externally
+-- Phase 1: Users run backup tools manually, then register the backup metadata
+CREATE OR REPLACE FUNCTION pggit.register_backup(
+    p_backup_name TEXT,
+    p_backup_type TEXT,
+    p_backup_tool TEXT,
+    p_location TEXT,
+    p_commit_hash TEXT DEFAULT NULL,  -- Explicit commit hash, or detect from current branch
+    p_branch_name TEXT DEFAULT NULL,  -- Used to detect commit if p_commit_hash is NULL
+    p_create_snapshot BOOLEAN DEFAULT FALSE,  -- Optional: create temporal snapshot
+    p_metadata JSONB DEFAULT '{}'
+) RETURNS UUID AS $$
+DECLARE
+    v_backup_id UUID := gen_random_uuid();
+    v_commit_hash TEXT;
+    v_snapshot_id UUID := NULL;
+    v_branch_id INTEGER;
+BEGIN
+    -- Determine commit hash
+    IF p_commit_hash IS NOT NULL THEN
+        -- Explicit commit provided
+        v_commit_hash := p_commit_hash;
+
+        -- Validate commit exists
+        IF NOT EXISTS (SELECT 1 FROM pggit.commits WHERE hash = v_commit_hash) THEN
+            RAISE EXCEPTION 'Commit % not found', v_commit_hash;
+        END IF;
+    ELSIF p_branch_name IS NOT NULL THEN
+        -- Get HEAD commit from branch
+        SELECT head_commit_hash INTO v_commit_hash
+        FROM pggit.branches
+        WHERE name = p_branch_name;
+
+        IF v_commit_hash IS NULL THEN
+            RAISE EXCEPTION 'Branch % not found or has no commits', p_branch_name;
+        END IF;
+    ELSE
+        -- Use current branch's HEAD (try current_setting first)
+        BEGIN
+            SELECT head_commit_hash INTO v_commit_hash
+            FROM pggit.branches
+            WHERE name = current_setting('pggit.current_branch', TRUE);
+        EXCEPTION
+            WHEN OTHERS THEN
+                v_commit_hash := NULL;
+        END;
+
+        IF v_commit_hash IS NULL THEN
+            -- Fallback to main branch
+            SELECT head_commit_hash INTO v_commit_hash
+            FROM pggit.branches
+            WHERE name = 'main';
+
+            IF v_commit_hash IS NULL THEN
+                RAISE EXCEPTION 'Cannot determine commit hash: no branch specified and main branch not found';
+            END IF;
+        END IF;
+    END IF;
+
+    -- Create temporal snapshot if requested (optional, has performance cost)
+    IF p_create_snapshot THEN
+        -- Get branch_id for snapshot creation
+        SELECT id INTO v_branch_id
+        FROM pggit.branches
+        WHERE head_commit_hash = v_commit_hash
+        LIMIT 1;
+
+        IF v_branch_id IS NOT NULL THEN
+            SELECT snapshot_id INTO v_snapshot_id
+            FROM pggit.create_temporal_snapshot(
+                p_backup_name || '_snapshot',
+                v_branch_id,
+                'Snapshot created for backup ' || p_backup_name
+            );
+        END IF;
+    END IF;
+
+    -- Register backup metadata
+    INSERT INTO pggit.backups (
+        backup_id,
+        backup_name,
+        backup_type,
+        backup_tool,
+        commit_hash,
+        snapshot_id,
+        location,
+        metadata
+    ) VALUES (
+        v_backup_id,
+        p_backup_name,
+        p_backup_type,
+        p_backup_tool,
+        v_commit_hash,
+        v_snapshot_id,
+        p_location,
+        p_metadata
+    );
+
+    RAISE NOTICE 'Registered backup % for commit %', p_backup_name, v_commit_hash;
+
+    RETURN v_backup_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.register_backup IS 'Register a manually-created backup with pgGit metadata tracking';
+
+-- Mark backup as completed
+CREATE OR REPLACE FUNCTION pggit.complete_backup(
+    p_backup_id UUID,
+    p_backup_size BIGINT DEFAULT NULL,
+    p_compressed_size BIGINT DEFAULT NULL,
+    p_compression TEXT DEFAULT NULL
+) RETURNS BOOLEAN AS $$
+BEGIN
+    UPDATE pggit.backups
+    SET status = 'completed',
+        completed_at = CURRENT_TIMESTAMP,
+        backup_size = COALESCE(p_backup_size, backup_size),
+        compressed_size = COALESCE(p_compressed_size, compressed_size),
+        compression = COALESCE(p_compression, compression)
+    WHERE backup_id = p_backup_id
+      AND status = 'in_progress';
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Backup % not found or not in progress', p_backup_id;
+    END IF;
+
+    RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.complete_backup IS 'Mark a backup as successfully completed';
+
+-- Mark backup as failed
+CREATE OR REPLACE FUNCTION pggit.fail_backup(
+    p_backup_id UUID,
+    p_error_message TEXT
+) RETURNS BOOLEAN AS $$
+BEGIN
+    UPDATE pggit.backups
+    SET status = 'failed',
+        error_message = p_error_message,
+        completed_at = CURRENT_TIMESTAMP
+    WHERE backup_id = p_backup_id
+      AND status = 'in_progress';
+
+    RETURN FOUND;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.fail_backup IS 'Mark a backup as failed with an error message';
+
+-- =====================================================
+-- Core Functions: Backup Queries
+-- =====================================================
+
+-- List backups, optionally filtered by branch or commit
+CREATE OR REPLACE FUNCTION pggit.list_backups(
+    p_branch_name TEXT DEFAULT NULL,
+    p_commit_hash TEXT DEFAULT NULL,
+    p_status TEXT DEFAULT NULL,
+    p_limit INTEGER DEFAULT 50
+) RETURNS TABLE (
+    backup_id UUID,
+    backup_name TEXT,
+    backup_type TEXT,
+    backup_tool TEXT,
+    commit_hash TEXT,
+    status TEXT,
+    backup_size BIGINT,
+    location TEXT,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ
+) AS $$
+DECLARE
+    v_commit_hash TEXT;
+BEGIN
+    -- If branch name provided, get its HEAD commit
+    IF p_branch_name IS NOT NULL THEN
+        SELECT head_commit_hash INTO v_commit_hash
+        FROM pggit.branches
+        WHERE name = p_branch_name;
+    ELSE
+        v_commit_hash := p_commit_hash;
+    END IF;
+
+    RETURN QUERY
+    SELECT
+        b.backup_id,
+        b.backup_name,
+        b.backup_type,
+        b.backup_tool,
+        b.commit_hash,
+        b.status,
+        b.backup_size,
+        b.location,
+        b.started_at,
+        b.completed_at
+    FROM pggit.backups b
+    WHERE (v_commit_hash IS NULL OR b.commit_hash = v_commit_hash)
+      AND (p_status IS NULL OR b.status = p_status)
+    ORDER BY b.started_at DESC
+    LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.list_backups IS 'List backups filtered by branch, commit, or status';
+
+-- Get backup details with related commits/branches
+CREATE OR REPLACE FUNCTION pggit.get_backup_info(
+    p_backup_id UUID
+) RETURNS TABLE (
+    backup_id UUID,
+    backup_name TEXT,
+    backup_type TEXT,
+    backup_tool TEXT,
+    commit_hash TEXT,
+    commit_message TEXT,
+    branches_at_commit TEXT[],
+    status TEXT,
+    backup_size BIGINT,
+    compressed_size BIGINT,
+    compression TEXT,
+    location TEXT,
+    metadata JSONB,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        b.backup_id,
+        b.backup_name,
+        b.backup_type,
+        b.backup_tool,
+        b.commit_hash,
+        c.message AS commit_message,
+        ARRAY(
+            SELECT br.name
+            FROM pggit.branches br
+            WHERE br.head_commit_hash = b.commit_hash
+        ) AS branches_at_commit,
+        b.status,
+        b.backup_size,
+        b.compressed_size,
+        b.compression,
+        b.location,
+        b.metadata,
+        b.started_at,
+        b.completed_at,
+        b.expires_at
+    FROM pggit.backups b
+    LEFT JOIN pggit.commits c ON b.commit_hash = c.hash
+    WHERE b.backup_id = p_backup_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.get_backup_info IS 'Get detailed information about a specific backup';
+
+-- =====================================================
+-- Views: Backup Coverage Analysis
+-- =====================================================
+
+-- Helper view: Which branches point to commits that have backups
+CREATE OR REPLACE VIEW pggit.branch_backup_coverage AS
+SELECT
+    b.id AS branch_id,
+    b.name AS branch_name,
+    b.head_commit_hash,
+    COUNT(bk.backup_id) AS backups_at_head,
+    MAX(bk.completed_at) AS last_backup_at,
+    COUNT(bk.backup_id) FILTER (WHERE bk.backup_type = 'full') AS full_backups_at_head,
+    SUM(bk.backup_size) FILTER (WHERE bk.status = 'completed') AS total_backup_size
+FROM pggit.branches b
+LEFT JOIN pggit.backups bk ON b.head_commit_hash = bk.commit_hash
+    AND bk.status = 'completed'
+GROUP BY b.id, b.name, b.head_commit_hash
+ORDER BY last_backup_at DESC NULLS LAST;
+
+COMMENT ON VIEW pggit.branch_backup_coverage IS 'Shows backup coverage for each branch HEAD';
+
+-- View showing backup coverage per commit
+CREATE OR REPLACE VIEW pggit.commit_backup_coverage AS
+SELECT
+    c.hash AS commit_hash,
+    c.message AS commit_message,
+    c.committed_at,
+    ARRAY_AGG(DISTINCT b.name) FILTER (WHERE b.name IS NOT NULL) AS branches,
+    COUNT(bk.backup_id) AS total_backups,
+    COUNT(bk.backup_id) FILTER (WHERE bk.status = 'completed') AS completed_backups,
+    COUNT(bk.backup_id) FILTER (WHERE bk.backup_type = 'full') AS full_backups,
+    MAX(bk.completed_at) FILTER (WHERE bk.status = 'completed') AS last_backup_at,
+    SUM(bk.backup_size) FILTER (WHERE bk.status = 'completed') AS total_backup_size,
+    -- Risk indicators
+    CASE
+        WHEN COUNT(bk.backup_id) FILTER (WHERE bk.status = 'completed') = 0 THEN 'no_backup'
+        WHEN COUNT(bk.backup_id) FILTER (WHERE bk.backup_type = 'full' AND bk.status = 'completed') = 0 THEN 'no_full_backup'
+        ELSE 'ok'
+    END AS backup_status
+FROM pggit.commits c
+LEFT JOIN pggit.branches b ON b.head_commit_hash = c.hash
+LEFT JOIN pggit.backups bk ON c.hash = bk.commit_hash
+GROUP BY c.hash, c.message, c.committed_at
+ORDER BY c.committed_at DESC;
+
+COMMENT ON VIEW pggit.commit_backup_coverage IS 'Shows backup coverage analysis per commit with risk indicators';
+
+-- =====================================================
+-- Grants
+-- =====================================================
+
+-- Grant access to backup tables (assuming public schema access)
+-- Note: In production, adjust these grants based on security requirements
+
+GRANT SELECT, INSERT, UPDATE ON pggit.backups TO PUBLIC;
+GRANT SELECT, INSERT, UPDATE ON pggit.backup_dependencies TO PUBLIC;
+GRANT SELECT, INSERT ON pggit.backup_verifications TO PUBLIC;
+GRANT SELECT, INSERT, DELETE ON pggit.backup_tags TO PUBLIC;
+
+GRANT SELECT ON pggit.branch_backup_coverage TO PUBLIC;
+GRANT SELECT ON pggit.commit_backup_coverage TO PUBLIC;
+
+GRANT EXECUTE ON FUNCTION pggit.register_backup TO PUBLIC;
+GRANT EXECUTE ON FUNCTION pggit.complete_backup TO PUBLIC;
+GRANT EXECUTE ON FUNCTION pggit.fail_backup TO PUBLIC;
+GRANT EXECUTE ON FUNCTION pggit.list_backups TO PUBLIC;
+GRANT EXECUTE ON FUNCTION pggit.get_backup_info TO PUBLIC;
+
+
+-- ========================================
+-- File: 071_backup_automation.sql
+-- ========================================
+
+-- =====================================================
+-- pgGit Backup Integration - Phase 2: Automation
+-- =====================================================
+--
+-- This module provides automated backup execution via a reliable
+-- job queue system. External backup listener service polls the
+-- job queue and executes backups using the appropriate tools.
+--
+-- Features:
+-- - Persistent job queue (survives restarts)
+-- - Retry logic with exponential backoff
+-- - Job status tracking
+-- - Support for pgBackRest, Barman, and pg_dump
+-- - Command generation for each backup tool
+-- - Metadata parsing and update callbacks
+--
+-- Architecture:
+-- 1. User calls backup function (e.g., backup_pgbackrest())
+-- 2. Function creates backup record and job queue entry
+-- 3. External listener polls queue and executes jobs
+-- 4. Listener updates job status and backup metadata
+--
+-- =====================================================
+
+-- =====================================================
+-- Job Queue Schema
+-- =====================================================
+
+-- Backup job queue for reliable execution
+CREATE TABLE IF NOT EXISTS pggit.backup_jobs (
+    job_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    backup_id UUID REFERENCES pggit.backups(backup_id) ON DELETE CASCADE,
+
+    -- Job details
+    job_type TEXT NOT NULL CHECK (job_type IN ('backup', 'verify', 'cleanup')),
+    command TEXT NOT NULL,
+    tool TEXT NOT NULL,
+
+    -- Status tracking
+    status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'running', 'completed', 'failed', 'cancelled', 'paused')),
+
+    -- Retry logic
+    attempts INTEGER DEFAULT 0,
+    max_attempts INTEGER DEFAULT 3,
+    next_retry_at TIMESTAMPTZ,
+    last_error TEXT,
+
+    -- Timing
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+
+    -- Metadata
+    metadata JSONB DEFAULT '{}',
+
+    -- Constraints
+    CONSTRAINT valid_retry CHECK (
+        (status = 'failed' AND next_retry_at IS NOT NULL AND attempts < max_attempts) OR
+        (status != 'failed' OR attempts >= max_attempts)
+    )
+);
+
+COMMENT ON TABLE pggit.backup_jobs IS 'Persistent job queue for backup execution with retry logic';
+
+-- Indexes for job processing
+CREATE INDEX IF NOT EXISTS idx_backup_jobs_status ON pggit.backup_jobs(status, next_retry_at) WHERE status IN ('queued', 'failed');
+CREATE INDEX IF NOT EXISTS idx_backup_jobs_backup ON pggit.backup_jobs(backup_id);
+CREATE INDEX IF NOT EXISTS idx_backup_jobs_created ON pggit.backup_jobs(created_at DESC);
+
+-- =====================================================
+-- Job Queue Functions
+-- =====================================================
+
+-- Enqueue a backup job
+CREATE OR REPLACE FUNCTION pggit.enqueue_backup_job(
+    p_backup_id UUID,
+    p_command TEXT,
+    p_tool TEXT,
+    p_max_attempts INTEGER DEFAULT 3,
+    p_metadata JSONB DEFAULT '{}'
+) RETURNS UUID AS $$
+DECLARE
+    v_job_id UUID := gen_random_uuid();
+BEGIN
+    INSERT INTO pggit.backup_jobs (
+        job_id,
+        backup_id,
+        job_type,
+        command,
+        tool,
+        max_attempts,
+        metadata,
+        next_retry_at
+    ) VALUES (
+        v_job_id,
+        p_backup_id,
+        'backup',
+        p_command,
+        p_tool,
+        p_max_attempts,
+        p_metadata,
+        CURRENT_TIMESTAMP  -- Available immediately
+    );
+
+    RAISE NOTICE 'Enqueued backup job % for backup %', v_job_id, p_backup_id;
+
+    RETURN v_job_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.enqueue_backup_job IS 'Enqueue a backup job for execution by the backup listener';
+
+-- Get next job to process (called by listener)
+CREATE OR REPLACE FUNCTION pggit.get_next_backup_job(
+    p_worker_id TEXT DEFAULT 'default-worker'
+) RETURNS TABLE (
+    job_id UUID,
+    backup_id UUID,
+    command TEXT,
+    tool TEXT,
+    attempts INTEGER,
+    metadata JSONB
+) AS $$
+DECLARE
+    v_job_id UUID;
+BEGIN
+    -- Find next available job and lock it
+    SELECT j.job_id INTO v_job_id
+    FROM pggit.backup_jobs j
+    WHERE j.status IN ('queued', 'failed')
+      AND (j.next_retry_at IS NULL OR j.next_retry_at <= CURRENT_TIMESTAMP)
+      AND j.attempts < j.max_attempts
+    ORDER BY
+        CASE WHEN j.status = 'queued' THEN 0 ELSE 1 END,  -- Queued jobs first
+        j.created_at ASC
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED;
+
+    IF v_job_id IS NULL THEN
+        -- No jobs available
+        RETURN;
+    END IF;
+
+    -- Mark as running
+    UPDATE pggit.backup_jobs j
+    SET status = 'running',
+        started_at = CURRENT_TIMESTAMP,
+        attempts = j.attempts + 1,
+        metadata = j.metadata || jsonb_build_object('worker_id', p_worker_id)
+    WHERE j.job_id = v_job_id;
+
+    -- Return job details
+    RETURN QUERY
+    SELECT
+        j.job_id,
+        j.backup_id,
+        j.command,
+        j.tool,
+        j.attempts,
+        j.metadata
+    FROM pggit.backup_jobs j
+    WHERE j.job_id = v_job_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.get_next_backup_job IS 'Get next job to process (used by backup listener service)';
+
+-- Mark job as completed
+CREATE OR REPLACE FUNCTION pggit.complete_backup_job(
+    p_job_id UUID,
+    p_output TEXT DEFAULT NULL
+) RETURNS BOOLEAN AS $$
+BEGIN
+    UPDATE pggit.backup_jobs
+    SET status = 'completed',
+        completed_at = CURRENT_TIMESTAMP,
+        metadata = metadata || jsonb_build_object(
+            'output', p_output,
+            'completed_by', current_setting('application_name', true)
+        )
+    WHERE job_id = p_job_id
+      AND status = 'running';
+
+    RETURN FOUND;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.complete_backup_job IS 'Mark a backup job as completed';
+
+-- Mark job as failed with retry logic
+CREATE OR REPLACE FUNCTION pggit.fail_backup_job(
+    p_job_id UUID,
+    p_error TEXT,
+    p_retry_delay_seconds INTEGER DEFAULT 300  -- 5 minutes
+) RETURNS BOOLEAN AS $$
+DECLARE
+    v_attempts INTEGER;
+    v_max_attempts INTEGER;
+BEGIN
+    -- Get current attempt count
+    SELECT attempts, max_attempts INTO v_attempts, v_max_attempts
+    FROM pggit.backup_jobs
+    WHERE job_id = p_job_id;
+
+    IF v_attempts < v_max_attempts THEN
+        -- Schedule retry with exponential backoff
+        UPDATE pggit.backup_jobs
+        SET status = 'failed',
+            last_error = p_error,
+            next_retry_at = CURRENT_TIMESTAMP + (p_retry_delay_seconds * POWER(2, attempts - 1) || ' seconds')::INTERVAL,
+            metadata = metadata || jsonb_build_object(
+                'last_failure_at', CURRENT_TIMESTAMP,
+                'failure_reason', p_error
+            )
+        WHERE job_id = p_job_id
+          AND status = 'running';
+    ELSE
+        -- Max retries exceeded, permanently failed
+        UPDATE pggit.backup_jobs
+        SET status = 'failed',
+            completed_at = CURRENT_TIMESTAMP,
+            last_error = p_error,
+            metadata = metadata || jsonb_build_object(
+                'permanently_failed', true,
+                'final_error', p_error
+            )
+        WHERE job_id = p_job_id
+          AND status = 'running';
+
+        -- Also mark the backup as failed
+        UPDATE pggit.backups
+        SET status = 'failed',
+            error_message = 'Job failed after ' || v_max_attempts || ' attempts: ' || p_error
+        WHERE backup_id = (SELECT backup_id FROM pggit.backup_jobs WHERE job_id = p_job_id);
+    END IF;
+
+    RETURN FOUND;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.fail_backup_job IS 'Mark a job as failed with automatic retry scheduling';
+
+-- =====================================================
+-- pgBackRest Integration
+-- =====================================================
+
+-- Trigger pgBackRest backup
+CREATE OR REPLACE FUNCTION pggit.backup_pgbackrest(
+    p_backup_type TEXT DEFAULT 'full',  -- 'full', 'incr', 'diff'
+    p_branch_name TEXT DEFAULT 'main',
+    p_stanza TEXT DEFAULT 'main',
+    p_options JSONB DEFAULT '{}'
+) RETURNS UUID AS $$
+DECLARE
+    v_backup_id UUID;
+    v_job_id UUID;
+    v_backup_name TEXT;
+    v_command TEXT;
+    v_commit_hash TEXT;
+BEGIN
+    -- Generate backup name
+    v_backup_name := format('pgbackrest-%s-%s', p_backup_type,
+                           to_char(CURRENT_TIMESTAMP, 'YYYYMMDD-HH24MISS'));
+
+    -- Get commit hash from branch
+    SELECT head_commit_hash INTO v_commit_hash
+    FROM pggit.branches
+    WHERE name = p_branch_name;
+
+    IF v_commit_hash IS NULL THEN
+        RAISE EXCEPTION 'Branch % not found or has no commits', p_branch_name;
+    END IF;
+
+    -- Register backup (will be in 'in_progress' state)
+    v_backup_id := pggit.register_backup(
+        v_backup_name,
+        CASE p_backup_type
+            WHEN 'full' THEN 'full'
+            WHEN 'incr' THEN 'incremental'
+            WHEN 'diff' THEN 'differential'
+        END,
+        'pgbackrest',
+        format('pgbackrest://%s/%s', p_stanza, v_backup_name),
+        v_commit_hash,
+        NULL,
+        FALSE,  -- No temporal snapshot for automated backups
+        p_options || jsonb_build_object('stanza', p_stanza)
+    );
+
+    -- Build pgBackRest command
+    v_command := format('pgbackrest --stanza=%s --type=%s backup',
+                       p_stanza,
+                       p_backup_type);
+
+    -- Add any additional options
+    IF p_options ? 'repo' THEN
+        v_command := v_command || ' --repo=' || (p_options->>'repo');
+    END IF;
+
+    -- Enqueue job
+    v_job_id := pggit.enqueue_backup_job(
+        v_backup_id,
+        v_command,
+        'pgbackrest',
+        3,  -- max attempts
+        jsonb_build_object(
+            'backup_type', p_backup_type,
+            'stanza', p_stanza,
+            'branch', p_branch_name
+        )
+    );
+
+    RAISE NOTICE 'Created pgBackRest backup job % for backup %', v_job_id, v_backup_id;
+    RAISE NOTICE 'Command: %', v_command;
+
+    RETURN v_backup_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.backup_pgbackrest IS 'Schedule an automated pgBackRest backup';
+
+-- Parse pgBackRest info output and update metadata
+CREATE OR REPLACE FUNCTION pggit.update_pgbackrest_metadata(
+    p_backup_id UUID,
+    p_info_json JSONB
+) RETURNS BOOLEAN AS $$
+BEGIN
+    UPDATE pggit.backups
+    SET metadata = metadata || jsonb_build_object(
+        'pgbackrest_info', p_info_json,
+        'database_size', (p_info_json->'database'->>'size')::BIGINT,
+        'backup_reference', p_info_json->>'reference',
+        'checksum', p_info_json->>'checksum'
+    ),
+    backup_size = COALESCE((p_info_json->'database'->>'size')::BIGINT, backup_size),
+    compressed_size = COALESCE((p_info_json->'repo'->>'size')::BIGINT, compressed_size)
+    WHERE backup_id = p_backup_id;
+
+    RETURN FOUND;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.update_pgbackrest_metadata IS 'Update backup metadata from pgBackRest info output';
+
+-- =====================================================
+-- Barman Integration
+-- =====================================================
+
+-- Trigger Barman backup
+CREATE OR REPLACE FUNCTION pggit.backup_barman(
+    p_server_name TEXT,
+    p_branch_name TEXT DEFAULT 'main',
+    p_options JSONB DEFAULT '{}'
+) RETURNS UUID AS $$
+DECLARE
+    v_backup_id UUID;
+    v_job_id UUID;
+    v_backup_name TEXT;
+    v_command TEXT;
+    v_commit_hash TEXT;
+BEGIN
+    v_backup_name := format('barman-%s-%s', p_server_name,
+                           to_char(CURRENT_TIMESTAMP, 'YYYYMMDD-HH24MISS'));
+
+    -- Get commit hash
+    SELECT head_commit_hash INTO v_commit_hash
+    FROM pggit.branches
+    WHERE name = p_branch_name;
+
+    IF v_commit_hash IS NULL THEN
+        RAISE EXCEPTION 'Branch % not found or has no commits', p_branch_name;
+    END IF;
+
+    -- Register backup
+    v_backup_id := pggit.register_backup(
+        v_backup_name,
+        'full',
+        'barman',
+        format('barman://%s/latest', p_server_name),
+        v_commit_hash,
+        NULL,
+        FALSE,
+        p_options || jsonb_build_object('server', p_server_name)
+    );
+
+    -- Build Barman command
+    v_command := format('barman backup %s', p_server_name);
+
+    -- Add options
+    IF p_options ? 'wait' AND (p_options->>'wait')::boolean THEN
+        v_command := v_command || ' --wait';
+    END IF;
+
+    -- Enqueue job
+    v_job_id := pggit.enqueue_backup_job(
+        v_backup_id,
+        v_command,
+        'barman',
+        3,
+        jsonb_build_object(
+            'server', p_server_name,
+            'branch', p_branch_name
+        )
+    );
+
+    RAISE NOTICE 'Created Barman backup job % for backup %', v_job_id, v_backup_id;
+
+    RETURN v_backup_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.backup_barman IS 'Schedule an automated Barman backup';
+
+-- =====================================================
+-- pg_dump Integration
+-- =====================================================
+
+-- Trigger pg_dump backup
+CREATE OR REPLACE FUNCTION pggit.backup_pg_dump(
+    p_branch_name TEXT DEFAULT 'main',
+    p_schema TEXT DEFAULT NULL,
+    p_format TEXT DEFAULT 'custom',  -- 'custom', 'tar', 'plain'
+    p_output_path TEXT DEFAULT '/backups',
+    p_options JSONB DEFAULT '{}'
+) RETURNS UUID AS $$
+DECLARE
+    v_backup_id UUID;
+    v_job_id UUID;
+    v_backup_name TEXT;
+    v_command TEXT;
+    v_commit_hash TEXT;
+    v_filename TEXT;
+    v_location TEXT;
+BEGIN
+    v_backup_name := format('pg_dump-%s-%s',
+                           COALESCE(p_schema, 'all'),
+                           to_char(CURRENT_TIMESTAMP, 'YYYYMMDD-HH24MISS'));
+
+    v_filename := format('%s.dump', v_backup_name);
+    v_location := format('file://%s/%s', p_output_path, v_filename);
+
+    -- Get commit hash
+    SELECT head_commit_hash INTO v_commit_hash
+    FROM pggit.branches
+    WHERE name = p_branch_name;
+
+    IF v_commit_hash IS NULL THEN
+        RAISE EXCEPTION 'Branch % not found or has no commits', p_branch_name;
+    END IF;
+
+    -- Register backup
+    v_backup_id := pggit.register_backup(
+        v_backup_name,
+        'snapshot',
+        'pg_dump',
+        v_location,
+        v_commit_hash,
+        NULL,
+        FALSE,
+        p_options || jsonb_build_object(
+            'format', p_format,
+            'schema', p_schema
+        )
+    );
+
+    -- Build pg_dump command
+    v_command := format('pg_dump --format=%s --file=%s/%s',
+                       CASE p_format
+                           WHEN 'custom' THEN 'c'
+                           WHEN 'tar' THEN 't'
+                           WHEN 'plain' THEN 'p'
+                       END,
+                       p_output_path,
+                       v_filename);
+
+    -- Add schema filter if specified
+    IF p_schema IS NOT NULL THEN
+        v_command := v_command || format(' --schema=%s', p_schema);
+    END IF;
+
+    -- Add compression for custom format
+    IF p_format = 'custom' AND p_options ? 'compression_level' THEN
+        v_command := v_command || format(' --compress=%s', p_options->>'compression_level');
+    END IF;
+
+    -- Add database name (from connection)
+    v_command := v_command || ' $PGDATABASE';
+
+    -- Enqueue job
+    v_job_id := pggit.enqueue_backup_job(
+        v_backup_id,
+        v_command,
+        'pg_dump',
+        3,
+        jsonb_build_object(
+            'format', p_format,
+            'schema', p_schema,
+            'output_path', p_output_path,
+            'branch', p_branch_name
+        )
+    );
+
+    RAISE NOTICE 'Created pg_dump backup job % for backup %', v_job_id, v_backup_id;
+
+    RETURN v_backup_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.backup_pg_dump IS 'Schedule an automated pg_dump backup';
+
+-- =====================================================
+-- Job Monitoring Views
+-- =====================================================
+
+-- View of current job queue status
+CREATE OR REPLACE VIEW pggit.backup_job_queue AS
+SELECT
+    j.job_id,
+    j.backup_id,
+    b.backup_name,
+    j.tool,
+    j.status,
+    j.attempts,
+    j.max_attempts,
+    j.next_retry_at,
+    j.last_error,
+    j.created_at,
+    j.started_at,
+    j.completed_at,
+    EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - j.created_at)) AS age_seconds,
+    CASE
+        WHEN j.status = 'queued' THEN 'ready'
+        WHEN j.status = 'running' THEN 'in_progress'
+        WHEN j.status = 'failed' AND j.attempts < j.max_attempts THEN 'will_retry'
+        WHEN j.status = 'failed' AND j.attempts >= j.max_attempts THEN 'permanently_failed'
+        WHEN j.status = 'completed' THEN 'done'
+        ELSE j.status
+    END AS job_state
+FROM pggit.backup_jobs j
+LEFT JOIN pggit.backups b ON j.backup_id = b.backup_id
+ORDER BY
+    CASE j.status
+        WHEN 'running' THEN 0
+        WHEN 'queued' THEN 1
+        WHEN 'failed' THEN 2
+        WHEN 'completed' THEN 3
+        ELSE 4
+    END,
+    j.created_at DESC;
+
+COMMENT ON VIEW pggit.backup_job_queue IS 'Current status of all backup jobs in the queue';
+
+-- =====================================================
+-- Grants
+-- =====================================================
+
+GRANT SELECT, INSERT, UPDATE ON pggit.backup_jobs TO PUBLIC;
+GRANT SELECT ON pggit.backup_job_queue TO PUBLIC;
+
+GRANT EXECUTE ON FUNCTION pggit.enqueue_backup_job TO PUBLIC;
+GRANT EXECUTE ON FUNCTION pggit.get_next_backup_job TO PUBLIC;
+GRANT EXECUTE ON FUNCTION pggit.complete_backup_job TO PUBLIC;
+GRANT EXECUTE ON FUNCTION pggit.fail_backup_job TO PUBLIC;
+
+GRANT EXECUTE ON FUNCTION pggit.backup_pgbackrest TO PUBLIC;
+GRANT EXECUTE ON FUNCTION pggit.backup_barman TO PUBLIC;
+GRANT EXECUTE ON FUNCTION pggit.backup_pg_dump TO PUBLIC;
+GRANT EXECUTE ON FUNCTION pggit.update_pgbackrest_metadata TO PUBLIC;
+
+
+-- ========================================
+-- File: 072_backup_management.sql
+-- ========================================
+
+-- =====================================================
+-- pgGit Backup Management & Monitoring
+-- Phase 2 Stabilization
+-- =====================================================
+--
+-- This module provides health monitoring, worker management,
+-- and operational utilities for the backup automation system.
+--
+
+-- =====================================================
+-- Health Monitoring
+-- =====================================================
+
+-- Get backup system health status
+CREATE OR REPLACE FUNCTION pggit.get_backup_health()
+RETURNS TABLE (
+    metric TEXT,
+    value BIGINT,
+    status TEXT,
+    threshold BIGINT,
+    description TEXT
+) AS $$
+BEGIN
+    -- Jobs in queue waiting to be processed
+    RETURN QUERY
+    SELECT
+        'queued_jobs'::TEXT,
+        COUNT(*)::BIGINT,
+        CASE
+            WHEN COUNT(*) > 100 THEN 'critical'
+            WHEN COUNT(*) > 50 THEN 'warning'
+            ELSE 'ok'
+        END::TEXT,
+        50::BIGINT,
+        'Number of jobs waiting in queue'::TEXT
+    FROM pggit.backup_jobs j
+    WHERE j.status = 'queued';
+
+    -- Jobs currently running
+    RETURN QUERY
+    SELECT
+        'running_jobs'::TEXT,
+        COUNT(*)::BIGINT,
+        CASE
+            WHEN COUNT(*) > 20 THEN 'warning'
+            ELSE 'ok'
+        END::TEXT,
+        20::BIGINT,
+        'Number of jobs currently executing'::TEXT
+    FROM pggit.backup_jobs j
+    WHERE j.status = 'running';
+
+    -- Failed jobs requiring attention
+    RETURN QUERY
+    SELECT
+        'failed_jobs'::TEXT,
+        COUNT(*)::BIGINT,
+        CASE
+            WHEN COUNT(*) > 10 THEN 'critical'
+            WHEN COUNT(*) > 5 THEN 'warning'
+            ELSE 'ok'
+        END::TEXT,
+        5::BIGINT,
+        'Jobs failed after max retries'::TEXT
+    FROM pggit.backup_jobs j
+    WHERE j.status = 'failed'
+      AND j.attempts >= j.max_attempts;
+
+    -- Oldest queued job (minutes)
+    RETURN QUERY
+    SELECT
+        'oldest_queued_minutes'::TEXT,
+        COALESCE(
+            EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - MIN(j.created_at)))::BIGINT / 60,
+            0
+        ),
+        CASE
+            WHEN EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - MIN(j.created_at))) / 60 > 60 THEN 'critical'
+            WHEN EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - MIN(j.created_at))) / 60 > 30 THEN 'warning'
+            ELSE 'ok'
+        END::TEXT,
+        30::BIGINT,
+        'Age of oldest queued job in minutes'::TEXT
+    FROM pggit.backup_jobs j
+    WHERE j.status = 'queued';
+
+    -- Active workers (last 5 minutes)
+    RETURN QUERY
+    SELECT
+        'active_workers'::TEXT,
+        COUNT(DISTINCT j.metadata->>'worker_id')::BIGINT,
+        CASE
+            WHEN COUNT(DISTINCT j.metadata->>'worker_id') = 0 THEN 'critical'
+            WHEN COUNT(DISTINCT j.metadata->>'worker_id') < 2 THEN 'warning'
+            ELSE 'ok'
+        END::TEXT,
+        2::BIGINT,
+        'Number of workers active in last 5 minutes'::TEXT
+    FROM pggit.backup_jobs j
+    WHERE j.started_at > CURRENT_TIMESTAMP - INTERVAL '5 minutes';
+
+    -- Backups completed today
+    RETURN QUERY
+    SELECT
+        'backups_completed_today'::TEXT,
+        COUNT(*)::BIGINT,
+        'info'::TEXT,
+        0::BIGINT,
+        'Backups completed in last 24 hours'::TEXT
+    FROM pggit.backups b
+    WHERE b.status = 'completed'
+      AND b.completed_at > CURRENT_TIMESTAMP - INTERVAL '24 hours';
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.get_backup_health IS
+'Get health metrics for backup system with status thresholds';
+
+-- =====================================================
+-- Worker Management
+-- =====================================================
+
+-- List active workers
+CREATE OR REPLACE FUNCTION pggit.list_active_workers(
+    p_since_minutes INTEGER DEFAULT 10
+)
+RETURNS TABLE (
+    worker_id TEXT,
+    jobs_processed BIGINT,
+    jobs_successful BIGINT,
+    jobs_failed BIGINT,
+    last_activity TIMESTAMPTZ,
+    status TEXT
+) AS $$
+BEGIN
+    -- ✅ INPUT VALIDATION: NULL and range checks
+    IF p_since_minutes IS NULL THEN
+        RAISE EXCEPTION 'Parameter p_since_minutes cannot be NULL'
+            USING ERRCODE = '22004',  -- null_value_not_allowed
+                  HINT = 'Provide a positive integer for minutes';
+    END IF;
+
+    IF p_since_minutes < 1 THEN
+        RAISE EXCEPTION 'Since minutes must be positive, got: %', p_since_minutes
+            USING ERRCODE = '22003',  -- numeric_value_out_of_range
+                  HINT = 'Use a value between 1 and 1440 (1 day)';
+    END IF;
+
+    IF p_since_minutes > 1440 THEN  -- 1 day max
+        RAISE WARNING 'Unusually long lookback (% minutes), are you sure?', p_since_minutes;
+    END IF;
+
+    RETURN QUERY
+    SELECT
+        j.metadata->>'worker_id' AS worker_id,
+        COUNT(*)::BIGINT AS jobs_processed,
+        COUNT(*) FILTER (WHERE j.status = 'completed')::BIGINT AS jobs_successful,
+        COUNT(*) FILTER (WHERE j.status = 'failed')::BIGINT AS jobs_failed,
+        MAX(j.started_at) AS last_activity,
+        CASE
+            WHEN MAX(j.started_at) > CURRENT_TIMESTAMP - INTERVAL '2 minutes' THEN 'active'
+            WHEN MAX(j.started_at) > CURRENT_TIMESTAMP - INTERVAL '10 minutes' THEN 'idle'
+            ELSE 'inactive'
+        END::TEXT AS status
+    FROM pggit.backup_jobs j
+    WHERE j.metadata ? 'worker_id'
+      AND j.started_at > CURRENT_TIMESTAMP - (p_since_minutes || ' minutes')::INTERVAL
+    GROUP BY j.metadata->>'worker_id'
+    ORDER BY last_activity DESC;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.list_active_workers IS
+'List all workers and their activity in the specified time window';
+
+-- Get worker statistics
+CREATE OR REPLACE FUNCTION pggit.get_worker_stats(
+    p_worker_id TEXT,
+    p_since_hours INTEGER DEFAULT 24
+)
+RETURNS TABLE (
+    total_jobs BIGINT,
+    completed BIGINT,
+    failed BIGINT,
+    avg_duration_seconds NUMERIC,
+    success_rate NUMERIC
+) AS $$
+BEGIN
+    -- ✅ INPUT VALIDATION: NULL and range checks for worker stats
+    IF p_worker_id IS NULL THEN
+        RAISE EXCEPTION 'Parameter p_worker_id cannot be NULL'
+            USING ERRCODE = '22004',  -- null_value_not_allowed
+                  HINT = 'Provide a worker ID string';
+    END IF;
+
+    IF p_since_hours IS NULL THEN
+        RAISE EXCEPTION 'Parameter p_since_hours cannot be NULL'
+            USING ERRCODE = '22004',  -- null_value_not_allowed
+                  HINT = 'Provide a positive integer for hours';
+    END IF;
+
+    IF p_since_hours < 1 THEN
+        RAISE EXCEPTION 'Since hours must be positive, got: %', p_since_hours
+            USING ERRCODE = '22003',  -- numeric_value_out_of_range
+                  HINT = 'Use a value between 1 and 720 (30 days)';
+    END IF;
+
+    IF p_since_hours > 720 THEN  -- 30 days max
+        RAISE WARNING 'Unusually long lookback (% hours), are you sure?', p_since_hours;
+    END IF;
+    RETURN QUERY
+    SELECT
+        COUNT(*)::BIGINT,
+        COUNT(*) FILTER (WHERE j.status = 'completed')::BIGINT,
+        COUNT(*) FILTER (WHERE j.status = 'failed')::BIGINT,
+        AVG(EXTRACT(EPOCH FROM (COALESCE(j.completed_at, CURRENT_TIMESTAMP) - j.started_at)))::NUMERIC,
+        (COUNT(*) FILTER (WHERE j.status = 'completed')::NUMERIC / NULLIF(COUNT(*), 0) * 100)::NUMERIC
+    FROM pggit.backup_jobs j
+    WHERE j.metadata->>'worker_id' = p_worker_id
+      AND j.started_at > CURRENT_TIMESTAMP - (p_since_hours || ' hours')::INTERVAL;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.get_worker_stats IS
+'Get detailed statistics for a specific worker';
+
+-- =====================================================
+-- Job Cleanup
+-- =====================================================
+
+-- Clean up old completed jobs
+CREATE OR REPLACE FUNCTION pggit.cleanup_old_jobs(
+    p_retention_days INTEGER DEFAULT 7,
+    p_dry_run BOOLEAN DEFAULT TRUE
+)
+RETURNS TABLE (
+    action TEXT,
+    job_count BIGINT,
+    details JSONB
+) AS $$
+DECLARE
+    v_deleted_count BIGINT;
+BEGIN
+    -- ✅ INPUT VALIDATION: NULL checks and range validation for cleanup
+    IF p_retention_days IS NULL THEN
+        RAISE EXCEPTION 'Parameter p_retention_days cannot be NULL'
+            USING ERRCODE = '22004',  -- null_value_not_allowed
+                  HINT = 'Provide a positive integer for retention days';
+    END IF;
+
+    IF p_dry_run IS NULL THEN
+        p_dry_run := TRUE;  -- Safe default for destructive operations
+    END IF;
+
+    IF p_retention_days < 1 THEN
+        RAISE EXCEPTION 'Retention days must be positive, got: %', p_retention_days
+            USING ERRCODE = '22003',  -- numeric_value_out_of_range
+                  HINT = 'Use a value between 1 and 3650';
+    END IF;
+
+    IF p_retention_days > 3650 THEN  -- 10 years max
+        RAISE WARNING 'Unusually long retention (% days), are you sure?', p_retention_days;
+    END IF;
+
+    -- ✅ ADVISORY LOCK: Prevent concurrent old job cleanup
+    -- Use transaction-scoped advisory lock to prevent race conditions during deletion
+    IF NOT pg_try_advisory_xact_lock(hashtext('cleanup_old_jobs')) THEN
+        RAISE NOTICE 'Old job cleanup already running, skipping to prevent conflicts';
+        RETURN;  -- Exit early, let other transaction finish
+    END IF;
+
+    -- ✅ TRANSACTION REQUIREMENT: Destructive operations must be in explicit transaction
+    IF NOT p_dry_run AND pg_current_xact_id_if_assigned() IS NULL THEN
+        RAISE EXCEPTION 'cleanup_old_jobs must be called within a transaction when not in dry-run mode'
+            USING ERRCODE = '25P01',  -- no_active_sql_transaction
+                  HINT = 'Wrap call in BEGIN...COMMIT block to ensure atomicity';
+    END IF;
+
+    IF p_dry_run THEN
+        -- Show what would be deleted
+        RETURN QUERY
+        SELECT
+            'would_delete'::TEXT,
+            COUNT(*)::BIGINT,
+            jsonb_build_object(
+                'retention_days', p_retention_days,
+                'cutoff_date', CURRENT_TIMESTAMP - (p_retention_days || ' days')::INTERVAL
+            )
+        FROM pggit.backup_jobs j
+        WHERE j.status IN ('completed', 'cancelled')
+          AND j.completed_at < CURRENT_TIMESTAMP - (p_retention_days || ' days')::INTERVAL;
+    ELSE
+        -- Actually delete
+        WITH deleted AS (
+            DELETE FROM pggit.backup_jobs j
+            WHERE j.status IN ('completed', 'cancelled')
+              AND j.completed_at < CURRENT_TIMESTAMP - (p_retention_days || ' days')::INTERVAL
+            RETURNING j.job_id
+        )
+        SELECT COUNT(*)::BIGINT INTO v_deleted_count FROM deleted;
+
+        RETURN QUERY
+        SELECT
+            'deleted'::TEXT,
+            v_deleted_count,
+            jsonb_build_object(
+                'retention_days', p_retention_days,
+                'deleted_count', v_deleted_count
+            );
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.cleanup_old_jobs IS
+'Delete old completed and cancelled jobs to prevent table bloat';
+
+-- Cancel stuck jobs
+CREATE OR REPLACE FUNCTION pggit.cancel_stuck_jobs(
+    p_timeout_minutes INTEGER DEFAULT 60,
+    p_dry_run BOOLEAN DEFAULT TRUE
+)
+RETURNS TABLE (
+    action TEXT,
+    job_id UUID,
+    backup_name TEXT,
+    running_since TIMESTAMPTZ,
+    stuck_minutes BIGINT
+) AS $$
+BEGIN
+    -- ✅ INPUT VALIDATION: NULL checks and range validation for stuck job cancellation
+    IF p_timeout_minutes IS NULL THEN
+        RAISE EXCEPTION 'Parameter p_timeout_minutes cannot be NULL'
+            USING ERRCODE = '22004',  -- null_value_not_allowed
+                  HINT = 'Provide a positive integer for timeout minutes';
+    END IF;
+
+    IF p_dry_run IS NULL THEN
+        p_dry_run := TRUE;  -- Safe default for destructive operations
+    END IF;
+
+    IF p_timeout_minutes < 1 THEN
+        RAISE EXCEPTION 'Timeout minutes must be positive, got: %', p_timeout_minutes
+            USING ERRCODE = '22003',  -- numeric_value_out_of_range
+                  HINT = 'Use a value between 1 and 10080 (1 week)';
+    END IF;
+
+    IF p_timeout_minutes > 10080 THEN  -- 1 week max
+        RAISE WARNING 'Unusually long timeout (% minutes), are you sure?', p_timeout_minutes;
+    END IF;
+
+    -- ✅ ADVISORY LOCK: Prevent concurrent stuck job cancellation
+    -- Use transaction-scoped advisory lock to prevent double-cancellation
+    IF NOT pg_try_advisory_xact_lock(hashtext('cancel_stuck_jobs')) THEN
+        RAISE NOTICE 'Stuck job cancellation already running, skipping to prevent conflicts';
+        RETURN;  -- Exit early, let other transaction finish
+    END IF;
+
+    -- ✅ TRANSACTION REQUIREMENT: Destructive operations must be in explicit transaction
+    IF NOT p_dry_run AND pg_current_xact_id_if_assigned() IS NULL THEN
+        RAISE EXCEPTION 'cancel_stuck_jobs must be called within a transaction when not in dry-run mode'
+            USING ERRCODE = '25P01',  -- no_active_sql_transaction
+                  HINT = 'Wrap call in BEGIN...COMMIT block to ensure atomicity';
+    END IF;
+
+    IF p_dry_run THEN
+        -- Show what would be cancelled
+        RETURN QUERY
+        SELECT
+            'would_cancel'::TEXT,
+            j.job_id,
+            b.backup_name,
+            j.started_at,
+            EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - j.started_at))::BIGINT / 60
+        FROM pggit.backup_jobs j
+        JOIN pggit.backups b ON j.backup_id = b.backup_id
+        WHERE j.status = 'running'
+          AND j.started_at < CURRENT_TIMESTAMP - (p_timeout_minutes || ' minutes')::INTERVAL
+        ORDER BY j.started_at ASC;
+    ELSE
+        -- Actually cancel
+        RETURN QUERY
+        WITH cancelled AS (
+            UPDATE pggit.backup_jobs j
+            SET status = 'cancelled',
+                completed_at = CURRENT_TIMESTAMP,
+                last_error = format('Cancelled after %s minutes timeout', p_timeout_minutes)
+            WHERE j.status = 'running'
+              AND j.started_at < CURRENT_TIMESTAMP - (p_timeout_minutes || ' minutes')::INTERVAL
+            RETURNING j.job_id, j.backup_id, j.started_at
+        )
+        SELECT
+            'cancelled'::TEXT,
+            c.job_id,
+            b.backup_name,
+            c.started_at,
+            EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - c.started_at))::BIGINT / 60
+        FROM cancelled c
+        JOIN pggit.backups b ON c.backup_id = b.backup_id
+        ORDER BY c.started_at ASC;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.cancel_stuck_jobs IS
+'Cancel jobs that have been running longer than the timeout threshold';
+
+-- =====================================================
+-- Metrics and Analytics
+-- =====================================================
+
+-- Get backup statistics
+CREATE OR REPLACE FUNCTION pggit.get_backup_stats(
+    p_since_days INTEGER DEFAULT 30
+)
+RETURNS TABLE (
+    metric TEXT,
+    value NUMERIC,
+    unit TEXT
+) AS $$
+BEGIN
+    -- ✅ INPUT VALIDATION: NULL and range checks for backup stats
+    IF p_since_days IS NULL THEN
+        RAISE EXCEPTION 'Parameter p_since_days cannot be NULL'
+            USING ERRCODE = '22004',  -- null_value_not_allowed
+                  HINT = 'Provide a positive integer for days';
+    END IF;
+
+    IF p_since_days < 1 THEN
+        RAISE EXCEPTION 'Since days must be positive, got: %', p_since_days
+            USING ERRCODE = '22003',  -- numeric_value_out_of_range
+                  HINT = 'Use a value between 1 and 365';
+    END IF;
+
+    IF p_since_days > 365 THEN  -- 1 year max
+        RAISE WARNING 'Unusually long lookback (% days), are you sure?', p_since_days;
+    END IF;
+
+    -- Total backups created
+    RETURN QUERY
+    SELECT
+        'total_backups'::TEXT,
+        COUNT(*)::NUMERIC,
+        'backups'::TEXT
+    FROM pggit.backups b
+    WHERE b.started_at > CURRENT_TIMESTAMP - (p_since_days || ' days')::INTERVAL;
+
+    -- Successful backups
+    RETURN QUERY
+    SELECT
+        'successful_backups'::TEXT,
+        COUNT(*)::NUMERIC,
+        'backups'::TEXT
+    FROM pggit.backups b
+    WHERE b.status = 'completed'
+      AND b.started_at > CURRENT_TIMESTAMP - (p_since_days || ' days')::INTERVAL;
+
+    -- Success rate
+    RETURN QUERY
+    SELECT
+        'success_rate'::TEXT,
+        (COUNT(*) FILTER (WHERE b.status = 'completed')::NUMERIC /
+         NULLIF(COUNT(*), 0) * 100)::NUMERIC,
+        'percent'::TEXT
+    FROM pggit.backups b
+    WHERE b.started_at > CURRENT_TIMESTAMP - (p_since_days || ' days')::INTERVAL;
+
+    -- Total backup size
+    RETURN QUERY
+    SELECT
+        'total_size'::TEXT,
+        COALESCE(SUM(b.backup_size), 0)::NUMERIC,
+        'bytes'::TEXT
+    FROM pggit.backups b
+    WHERE b.status = 'completed'
+      AND b.started_at > CURRENT_TIMESTAMP - (p_since_days || ' days')::INTERVAL;
+
+    -- Average backup duration
+    RETURN QUERY
+    SELECT
+        'avg_duration'::TEXT,
+        AVG(EXTRACT(EPOCH FROM (b.completed_at - b.started_at)))::NUMERIC,
+        'seconds'::TEXT
+    FROM pggit.backups b
+    WHERE b.status = 'completed'
+      AND b.started_at > CURRENT_TIMESTAMP - (p_since_days || ' days')::INTERVAL;
+
+    -- Average job retry rate
+    RETURN QUERY
+    SELECT
+        'avg_retry_rate'::TEXT,
+        AVG(j.attempts - 1)::NUMERIC,
+        'retries'::TEXT
+    FROM pggit.backup_jobs j
+    WHERE j.status = 'completed'
+      AND j.created_at > CURRENT_TIMESTAMP - (p_since_days || ' days')::INTERVAL;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.get_backup_stats IS
+'Get statistical summary of backup operations';
+
+-- Get tool usage breakdown
+CREATE OR REPLACE FUNCTION pggit.get_tool_usage_stats(
+    p_since_days INTEGER DEFAULT 30
+)
+RETURNS TABLE (
+    tool TEXT,
+    total_backups BIGINT,
+    successful BIGINT,
+    failed BIGINT,
+    success_rate NUMERIC,
+    total_size BIGINT,
+    avg_duration_seconds NUMERIC
+) AS $$
+BEGIN
+    -- ✅ INPUT VALIDATION: NULL and range checks for tool usage stats
+    IF p_since_days IS NULL THEN
+        RAISE EXCEPTION 'Parameter p_since_days cannot be NULL'
+            USING ERRCODE = '22004',  -- null_value_not_allowed
+                  HINT = 'Provide a positive integer for days';
+    END IF;
+
+    IF p_since_days < 1 THEN
+        RAISE EXCEPTION 'Since days must be positive, got: %', p_since_days
+            USING ERRCODE = '22003',  -- numeric_value_out_of_range
+                  HINT = 'Use a value between 1 and 365';
+    END IF;
+
+    IF p_since_days > 365 THEN  -- 1 year max
+        RAISE WARNING 'Unusually long lookback (% days), are you sure?', p_since_days;
+    END IF;
+
+    RETURN QUERY
+    SELECT
+        b.backup_tool,
+        COUNT(*)::BIGINT,
+        COUNT(*) FILTER (WHERE b.status = 'completed')::BIGINT,
+        COUNT(*) FILTER (WHERE b.status = 'failed')::BIGINT,
+        (COUNT(*) FILTER (WHERE b.status = 'completed')::NUMERIC /
+         NULLIF(COUNT(*), 0) * 100)::NUMERIC,
+        COALESCE(SUM(b.backup_size) FILTER (WHERE b.status = 'completed'), 0)::BIGINT,
+        AVG(EXTRACT(EPOCH FROM (b.completed_at - b.started_at)))::NUMERIC
+    FROM pggit.backups b
+    WHERE b.started_at > CURRENT_TIMESTAMP - (p_since_days || ' days')::INTERVAL
+    GROUP BY b.backup_tool
+    ORDER BY total_backups DESC;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.get_tool_usage_stats IS
+'Get usage statistics broken down by backup tool';
+
+-- =====================================================
+-- Monitoring Views
+-- =====================================================
+
+-- System health dashboard view
+CREATE OR REPLACE VIEW pggit.backup_system_health AS
+SELECT
+    metric,
+    value,
+    status,
+    threshold,
+    description,
+    CASE status
+        WHEN 'critical' THEN '🔴'
+        WHEN 'warning' THEN '🟡'
+        WHEN 'ok' THEN '🟢'
+        ELSE 'ℹ️'
+    END AS indicator
+FROM pggit.get_backup_health()
+ORDER BY
+    CASE status
+        WHEN 'critical' THEN 1
+        WHEN 'warning' THEN 2
+        WHEN 'ok' THEN 3
+        ELSE 4
+    END,
+    metric;
+
+COMMENT ON VIEW pggit.backup_system_health IS
+'Real-time health dashboard for backup system';
+
+-- Recent failures view
+CREATE OR REPLACE VIEW pggit.recent_backup_failures AS
+SELECT
+    b.backup_id,
+    b.backup_name,
+    b.backup_tool,
+    b.started_at,
+    b.error_message,
+    j.job_id,
+    j.attempts,
+    j.last_error AS job_error,
+    j.metadata->>'worker_id' AS failed_worker
+FROM pggit.backups b
+LEFT JOIN pggit.backup_jobs j ON b.backup_id = j.backup_id
+WHERE b.status = 'failed'
+  AND b.started_at > CURRENT_TIMESTAMP - INTERVAL '7 days'
+ORDER BY b.started_at DESC
+LIMIT 50;
+
+COMMENT ON VIEW pggit.recent_backup_failures IS
+'Recent backup failures for troubleshooting';
+
+-- =====================================================
+-- Utility Functions
+-- =====================================================
+
+-- Reset failed job for manual retry
+CREATE OR REPLACE FUNCTION pggit.reset_job(
+    p_job_id UUID
+)
+RETURNS BOOLEAN AS $$
+BEGIN
+    -- ✅ ROW-LEVEL LOCKING: Acquire exclusive lock on job record
+    -- Prevent concurrent operations on the same job
+    PERFORM 1
+    FROM pggit.backup_jobs j
+    WHERE j.job_id = p_job_id
+    FOR UPDATE NOWAIT;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Job % not found or locked by another transaction', p_job_id
+            USING ERRCODE = '55P03';  -- lock_not_available
+    END IF;
+
+    -- ✅ IDEMPOTENT: Check if job is already queued (don't reset if already in desired state)
+    IF EXISTS (SELECT 1 FROM pggit.backup_jobs WHERE job_id = p_job_id AND status = 'queued') THEN
+        RETURN TRUE;  -- Already in desired state
+    END IF;
+
+    UPDATE pggit.backup_jobs j
+    SET status = 'queued',
+        attempts = 0,
+        next_retry_at = NULL,
+        last_error = NULL,
+        started_at = NULL,
+        completed_at = NULL
+    WHERE j.job_id = p_job_id
+      AND j.status IN ('failed', 'cancelled');
+
+    RETURN FOUND;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.reset_job IS
+'Reset a failed or cancelled job for manual retry';
+
+-- Pause all new jobs (maintenance mode)
+CREATE OR REPLACE FUNCTION pggit.set_maintenance_mode(
+    p_enabled BOOLEAN,
+    p_reason TEXT DEFAULT 'Manual maintenance'
+)
+RETURNS JSONB AS $$
+DECLARE
+    v_affected_count INTEGER;
+BEGIN
+    IF p_enabled THEN
+        -- Mark queued jobs as paused
+        WITH paused AS (
+            UPDATE pggit.backup_jobs j
+            SET status = 'paused',
+                metadata = j.metadata || jsonb_build_object(
+                    'paused_at', CURRENT_TIMESTAMP,
+                    'pause_reason', p_reason,
+                    'original_status', j.status
+                )
+            WHERE j.status IN ('queued', 'failed')
+              AND (j.metadata->>'paused_at' IS NULL)
+            RETURNING j.job_id
+        )
+        SELECT COUNT(*)::INTEGER INTO v_affected_count FROM paused;
+
+        RETURN jsonb_build_object(
+            'maintenance_mode', true,
+            'paused_jobs', v_affected_count,
+            'reason', p_reason,
+            'timestamp', CURRENT_TIMESTAMP
+        );
+    ELSE
+        -- Unpause jobs
+        WITH unpaused AS (
+            UPDATE pggit.backup_jobs j
+            SET status = COALESCE(j.metadata->>'original_status', 'queued'),
+                metadata = j.metadata - 'paused_at' - 'pause_reason' - 'original_status'
+            WHERE j.status = 'paused'
+            RETURNING j.job_id
+        )
+        SELECT COUNT(*)::INTEGER INTO v_affected_count FROM unpaused;
+
+        RETURN jsonb_build_object(
+            'maintenance_mode', false,
+            'resumed_jobs', v_affected_count,
+            'timestamp', CURRENT_TIMESTAMP
+        );
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.set_maintenance_mode IS
+'Enable or disable maintenance mode (pauses new job processing)';
+
+
+-- ========================================
+-- File: 073_backup_recovery.sql
+-- ========================================
+
+-- =====================================================
+-- pgGit Backup Recovery Workflows
+-- Phase 3: Recovery Planning & Execution
+-- =====================================================
+--
+-- This module provides recovery planning, backup verification,
+-- and retention policy management for disaster recovery and
+-- point-in-time cloning scenarios.
+--
+
+-- =====================================================
+-- Helper Functions
+-- =====================================================
+
+-- Helper function for JSONB retention policy validation
+CREATE OR REPLACE FUNCTION pggit.validate_retention_policy(
+    p_policy JSONB
+)
+RETURNS TABLE (
+    full_days INTEGER,
+    incremental_days INTEGER
+) AS $$
+DECLARE
+    v_full_days INTEGER;
+    v_incr_days INTEGER;
+BEGIN
+    -- Handle NULL policy with safe defaults
+    IF p_policy IS NULL THEN
+        p_policy := '{"full_days": 30, "incremental_days": 7}'::JSONB;
+    END IF;
+
+    -- Validate required keys exist
+    IF NOT (p_policy ? 'full_days') THEN
+        RAISE EXCEPTION 'Policy missing required key: full_days'
+            USING ERRCODE = '22023',  -- invalid_parameter_value
+                  HINT = 'Provide JSON like: {"full_days": 30, "incremental_days": 7}';
+    END IF;
+
+    IF NOT (p_policy ? 'incremental_days') THEN
+        RAISE EXCEPTION 'Policy missing required key: incremental_days'
+            USING ERRCODE = '22023';
+    END IF;
+
+    -- Extract and validate values with type safety
+    BEGIN
+        v_full_days := (p_policy->>'full_days')::INTEGER;
+        v_incr_days := (p_policy->>'incremental_days')::INTEGER;
+    EXCEPTION WHEN OTHERS THEN
+        RAISE EXCEPTION 'Invalid policy format: %', SQLERRM
+            USING ERRCODE = '22023',
+                  HINT = 'Ensure days are valid integers';
+    END;
+
+    -- Range validation
+    IF v_full_days < 1 OR v_full_days > 3650 THEN
+        RAISE EXCEPTION 'full_days out of range: % (must be 1-3650)', v_full_days
+            USING ERRCODE = '22003';
+    END IF;
+
+    IF v_incr_days < 1 OR v_incr_days > 365 THEN
+        RAISE EXCEPTION 'incremental_days out of range: % (must be 1-365)', v_incr_days
+            USING ERRCODE = '22003';
+    END IF;
+
+    RETURN QUERY SELECT v_full_days, v_incr_days;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.validate_retention_policy IS
+'Reusable helper for validating retention policy JSONB structures';
+
+-- =====================================================
+-- Recovery Planning
+-- =====================================================
+
+-- Find best backup for a given commit
+CREATE OR REPLACE FUNCTION pggit.find_backup_for_commit(
+    p_commit_hash TEXT
+)
+RETURNS TABLE (
+    backup_id UUID,
+    backup_name TEXT,
+    backup_type TEXT,
+    backup_tool TEXT,
+    location TEXT,
+    time_distance_seconds BIGINT,
+    exact_match BOOLEAN
+) AS $$
+BEGIN
+    -- ✅ INPUT VALIDATION: NULL and empty string checks for commit hash
+    IF p_commit_hash IS NULL THEN
+        RAISE EXCEPTION 'Parameter p_commit_hash cannot be NULL'
+            USING ERRCODE = '22004',  -- null_value_not_allowed
+                  HINT = 'Provide a commit hash string';
+    END IF;
+
+    IF p_commit_hash = '' THEN
+        RAISE EXCEPTION 'Parameter p_commit_hash cannot be empty'
+            USING ERRCODE = '22023',  -- invalid_parameter_value
+                  HINT = 'Provide a non-empty commit hash';
+    END IF;
+
+    -- Find backups for this exact commit, or closest in time
+    RETURN QUERY
+    WITH commit_info AS (
+        SELECT hash, committed_at
+        FROM pggit.commits
+        WHERE hash = p_commit_hash
+    )
+    SELECT
+        b.backup_id,
+        b.backup_name,
+        b.backup_type,
+        b.backup_tool,
+        b.location,
+        ABS(EXTRACT(EPOCH FROM (b.completed_at - ci.committed_at)))::BIGINT AS time_distance,
+        (b.commit_hash = p_commit_hash) AS exact_match
+    FROM pggit.backups b, commit_info ci
+    WHERE b.status = 'completed'
+      AND (
+          b.commit_hash = p_commit_hash  -- Exact match
+          OR b.completed_at <= ci.committed_at + INTERVAL '1 hour'  -- Close in time
+      )
+    ORDER BY exact_match DESC, time_distance ASC
+    LIMIT 5;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.find_backup_for_commit IS
+'Find the best backup for restoring to a specific commit';
+
+-- Generate comprehensive recovery plan
+CREATE OR REPLACE FUNCTION pggit.generate_recovery_plan(
+    p_target_commit TEXT,
+    p_recovery_mode TEXT DEFAULT 'disaster',  -- 'disaster' or 'clone'
+    p_preferred_tool TEXT DEFAULT NULL,
+    p_clone_target TEXT DEFAULT NULL  -- For clone mode: target database/cluster
+)
+RETURNS TABLE (
+    step_number INTEGER,
+    step_type TEXT,
+    description TEXT,
+    command TEXT,
+    details JSONB
+) AS $$
+DECLARE
+    v_backup RECORD;
+    v_step INTEGER := 0;
+BEGIN
+    -- ✅ INPUT VALIDATION: NULL, empty string, and enum checks for recovery plan
+    IF p_target_commit IS NULL THEN
+        RAISE EXCEPTION 'Parameter p_target_commit cannot be NULL'
+            USING ERRCODE = '22004',  -- null_value_not_allowed
+                  HINT = 'Provide a target commit hash string';
+    END IF;
+
+    IF p_target_commit = '' THEN
+        RAISE EXCEPTION 'Parameter p_target_commit cannot be empty'
+            USING ERRCODE = '22023',  -- invalid_parameter_value
+                  HINT = 'Provide a non-empty commit hash';
+    END IF;
+
+    IF p_recovery_mode IS NULL THEN
+        p_recovery_mode := 'disaster';  -- Safe default for recovery operations
+    END IF;
+
+    IF p_recovery_mode NOT IN ('disaster', 'clone') THEN
+        RAISE EXCEPTION 'Invalid recovery mode: %. Use "disaster" or "clone"', p_recovery_mode
+            USING ERRCODE = '22023',  -- invalid_parameter_value
+                  HINT = 'Valid modes are: disaster, clone';
+    END IF;
+
+    -- Validate recovery mode
+    IF p_recovery_mode NOT IN ('disaster', 'clone') THEN
+        RAISE EXCEPTION 'Invalid recovery mode: %. Use "disaster" or "clone"', p_recovery_mode;
+    END IF;
+
+    -- Find best backup
+    SELECT * INTO v_backup
+    FROM pggit.find_backup_for_commit(p_target_commit)
+    WHERE (p_preferred_tool IS NULL OR backup_tool = p_preferred_tool)
+    LIMIT 1;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'No suitable backup found for commit %', p_target_commit;
+    END IF;
+
+    IF p_recovery_mode = 'disaster' THEN
+        -- DISASTER RECOVERY MODE (requires downtime)
+
+        v_step := v_step + 1;
+        RETURN QUERY SELECT
+            v_step,
+            'prepare'::TEXT,
+            '🛑 Stop PostgreSQL service'::TEXT,
+            'sudo systemctl stop postgresql'::TEXT,
+            jsonb_build_object(
+                'downtime', true,
+                'mode', 'disaster',
+                'backup_id', v_backup.backup_id
+            );
+
+        v_step := v_step + 1;
+        RETURN QUERY SELECT
+            v_step,
+            'backup_current'::TEXT,
+            '💾 Backup current data directory (safety)'::TEXT,
+            'sudo mv /var/lib/postgresql/data /var/lib/postgresql/data.backup.'
+                || to_char(CURRENT_TIMESTAMP, 'YYYYMMDD_HH24MISS'),
+            jsonb_build_object('reversible', true);
+
+        v_step := v_step + 1;
+        RETURN QUERY SELECT
+            v_step,
+            'restore'::TEXT,
+            format('📦 Restore from %s backup %s', v_backup.backup_tool, v_backup.backup_name),
+            CASE v_backup.backup_tool
+                WHEN 'pgbackrest' THEN 'pgbackrest --stanza=main --delta restore'
+                WHEN 'barman' THEN format('barman recover main %s /var/lib/postgresql/data', v_backup.backup_name)
+                WHEN 'pg_dump' THEN format('createdb recovered && pg_restore -d recovered %s', v_backup.location)
+                ELSE 'Manual restore required - consult backup tool documentation'
+            END,
+            jsonb_build_object(
+                'backup_id', v_backup.backup_id,
+                'location', v_backup.location,
+                'tool', v_backup.backup_tool
+            );
+
+        v_step := v_step + 1;
+        RETURN QUERY SELECT
+            v_step,
+            'start'::TEXT,
+            '▶️  Start PostgreSQL service'::TEXT,
+            'sudo systemctl start postgresql'::TEXT,
+            jsonb_build_object('wait_for_startup', true);
+
+        v_step := v_step + 1;
+        RETURN QUERY SELECT
+            v_step,
+            'verify'::TEXT,
+            '✅ Verify database integrity'::TEXT,
+            'psql -c "SELECT COUNT(*) FROM pggit.commits"'::TEXT,
+            jsonb_build_object('requires_running_db', true);
+
+        v_step := v_step + 1;
+        RETURN QUERY SELECT
+            v_step,
+            'info'::TEXT,
+            format('ℹ️  Recovery complete to commit %s', p_target_commit),
+            format('Database restored from backup %s', v_backup.backup_name),
+            jsonb_build_object(
+                'final_step', true,
+                'target_commit', p_target_commit,
+                'backup_used', v_backup.backup_name
+            );
+
+    ELSIF p_recovery_mode = 'clone' THEN
+        -- LIVE CLONE MODE (zero downtime, parallel restore)
+
+        IF p_clone_target IS NULL THEN
+            RAISE EXCEPTION 'Clone mode requires p_clone_target parameter (e.g., new cluster path or database name)';
+        END IF;
+
+        v_step := v_step + 1;
+        RETURN QUERY SELECT
+            v_step,
+            'prepare'::TEXT,
+            '📁 Prepare clone target directory'::TEXT,
+            format('sudo mkdir -p %s && sudo chown postgres:postgres %s', p_clone_target, p_clone_target),
+            jsonb_build_object(
+                'downtime', false,
+                'mode', 'clone',
+                'target', p_clone_target
+            );
+
+        v_step := v_step + 1;
+        RETURN QUERY SELECT
+            v_step,
+            'restore'::TEXT,
+            format('📦 Restore backup to clone target: %s', p_clone_target),
+            CASE v_backup.backup_tool
+                WHEN 'pgbackrest' THEN format('pgbackrest --stanza=main --delta --pg1-path=%s restore', p_clone_target)
+                WHEN 'barman' THEN format('barman recover main %s %s', v_backup.backup_name, p_clone_target)
+                WHEN 'pg_dump' THEN format('createdb %s && pg_restore -d %s %s', p_clone_target, p_clone_target, v_backup.location)
+                ELSE 'Manual restore to clone target required'
+            END,
+            jsonb_build_object(
+                'backup_id', v_backup.backup_id,
+                'target', p_clone_target
+            );
+
+        v_step := v_step + 1;
+        RETURN QUERY SELECT
+            v_step,
+            'configure'::TEXT,
+            '⚙️  Configure clone cluster (different port, etc.)'::TEXT,
+            format('Edit %s/postgresql.conf: set port = 5433', p_clone_target),
+            jsonb_build_object('manual_step', true);
+
+        v_step := v_step + 1;
+        RETURN QUERY SELECT
+            v_step,
+            'start_clone'::TEXT,
+            '▶️  Start clone cluster'::TEXT,
+            format('pg_ctl -D %s start', p_clone_target),
+            jsonb_build_object('wait_for_startup', true);
+
+        v_step := v_step + 1;
+        RETURN QUERY SELECT
+            v_step,
+            'verify'::TEXT,
+            '✅ Verify clone integrity'::TEXT,
+            'psql -p 5433 -c "SELECT COUNT(*) FROM pggit.commits"',
+            jsonb_build_object('clone_operation', true);
+
+        v_step := v_step + 1;
+        RETURN QUERY SELECT
+            v_step,
+            'info'::TEXT,
+            'ℹ️  Clone ready for testing/switchover'::TEXT,
+            format('Clone running on port 5433. Test, then optionally switch production traffic.'),
+            jsonb_build_object(
+                'final_step', true,
+                'clone_location', p_clone_target,
+                'target_commit', p_target_commit
+            );
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.generate_recovery_plan IS
+'Generate step-by-step recovery plan for disaster recovery or live clone';
+
+-- Execute recovery (dry-run by default)
+CREATE OR REPLACE FUNCTION pggit.restore_from_commit(
+    p_target_commit TEXT,
+    p_dry_run BOOLEAN DEFAULT TRUE,
+    p_recovery_mode TEXT DEFAULT 'disaster'
+)
+RETURNS TABLE (
+    step_number INTEGER,
+    status TEXT,
+    output TEXT
+) AS $$
+BEGIN
+    IF p_dry_run THEN
+        -- Just show the plan
+        RETURN QUERY
+        SELECT
+            s.step_number,
+            'planned'::TEXT AS status,
+            s.description AS output
+        FROM pggit.generate_recovery_plan(p_target_commit, p_recovery_mode) s;
+    ELSE
+        -- Actual execution requires external orchestration
+        RAISE NOTICE 'Actual recovery execution requires external orchestration service';
+        RAISE NOTICE 'Run: pggit-recovery-orchestrator restore-to-commit %', p_target_commit;
+
+        RETURN QUERY
+        SELECT 1, 'info'::TEXT, 'Recovery plan generated - manual execution required'::TEXT;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.restore_from_commit IS
+'Execute recovery to specific commit (dry-run shows plan only)';
+
+-- =====================================================
+-- Backup Verification
+-- =====================================================
+
+-- Verify backup integrity
+CREATE OR REPLACE FUNCTION pggit.verify_backup(
+    p_backup_id UUID,
+    p_verification_type TEXT DEFAULT 'checksum'
+)
+RETURNS UUID AS $$
+DECLARE
+    v_verification_id UUID := gen_random_uuid();
+    v_backup RECORD;
+BEGIN
+    -- ✅ INPUT VALIDATION: NULL check and existence validation for backup
+    IF p_backup_id IS NULL THEN
+        RAISE EXCEPTION 'Backup ID cannot be NULL'
+            USING ERRCODE = '22004';
+    END IF;
+
+    -- Verify backup exists
+    SELECT * INTO v_backup
+    FROM pggit.backups
+    WHERE backup_id = p_backup_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Backup not found: %', p_backup_id
+            USING ERRCODE = '02000',  -- no_data_found
+                  HINT = 'Check backup_id is correct';
+    END IF;
+
+    -- ✅ IDEMPOTENT: Check for existing verification of same type
+    SELECT verification_id INTO v_verification_id
+    FROM pggit.backup_verifications
+    WHERE backup_id = p_backup_id
+      AND verification_type = p_verification_type
+      AND status IN ('in_progress', 'completed')
+      AND verified_at > CURRENT_TIMESTAMP - INTERVAL '1 hour'  -- Recent verifications only
+    ORDER BY verified_at DESC
+    LIMIT 1;
+
+    -- If found, return existing verification ID (idempotent)
+    IF FOUND THEN
+        RETURN v_verification_id;
+    END IF;
+
+    -- Generate new ID for new verification
+    v_verification_id := gen_random_uuid();
+
+    -- Record verification attempt
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Backup % not found', p_backup_id;
+    END IF;
+
+    -- Record verification attempt
+    INSERT INTO pggit.backup_verifications (
+        verification_id,
+        backup_id,
+        verification_type,
+        status,
+        details
+    ) VALUES (
+        v_verification_id,
+        p_backup_id,
+        p_verification_type,
+        'in_progress',
+        jsonb_build_object(
+            'started_at', CURRENT_TIMESTAMP,
+            'tool', v_backup.backup_tool,
+            'location', v_backup.location
+        )
+    );
+
+    -- Trigger verification via notification
+    PERFORM pg_notify('pggit_verify_backup',
+                     jsonb_build_object(
+                         'verification_id', v_verification_id,
+                         'backup_id', p_backup_id,
+                         'type', p_verification_type,
+                         'tool', v_backup.backup_tool,
+                         'location', v_backup.location
+                     )::text);
+
+    RAISE NOTICE 'Verification job created: %. Listener will process verification.', v_verification_id;
+
+    RETURN v_verification_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.verify_backup IS
+'Trigger backup integrity verification (async via listener)';
+
+-- Update verification result
+CREATE OR REPLACE FUNCTION pggit.update_verification_result(
+    p_verification_id UUID,
+    p_status TEXT,
+    p_details JSONB DEFAULT '{}'
+)
+RETURNS BOOLEAN AS $$
+BEGIN
+    -- ✅ ROW-LEVEL LOCKING: Acquire exclusive lock on verification record
+    -- Prevent concurrent updates to the same verification
+    PERFORM 1
+    FROM pggit.backup_verifications v
+    WHERE v.verification_id = p_verification_id
+    FOR UPDATE NOWAIT;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Verification % not found or locked by another transaction', p_verification_id
+            USING ERRCODE = '55P03';  -- lock_not_available
+    END IF;
+
+    UPDATE pggit.backup_verifications v
+    SET status = p_status,
+        details = v.details || p_details || jsonb_build_object('completed_at', CURRENT_TIMESTAMP)
+    WHERE v.verification_id = p_verification_id;
+
+    RETURN FOUND;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.update_verification_result IS
+'Update verification status and details';
+
+-- List backup verifications
+CREATE OR REPLACE FUNCTION pggit.list_backup_verifications(
+    p_backup_id UUID DEFAULT NULL,
+    p_limit INTEGER DEFAULT 20
+)
+RETURNS TABLE (
+    verification_id UUID,
+    backup_id UUID,
+    backup_name TEXT,
+    verification_type TEXT,
+    status TEXT,
+    created_at TIMESTAMPTZ,
+    details JSONB
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        v.verification_id,
+        v.backup_id,
+        b.backup_name,
+        v.verification_type,
+        v.status,
+        v.verified_at AS created_at,
+        v.details
+    FROM pggit.backup_verifications v
+    JOIN pggit.backups b ON v.backup_id = b.backup_id
+    WHERE p_backup_id IS NULL OR v.backup_id = p_backup_id
+    ORDER BY v.verified_at DESC
+    LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.list_backup_verifications IS
+'List backup verifications with optional filtering';
+
+-- =====================================================
+-- Retention Policy Management
+-- =====================================================
+
+-- Apply retention policy
+CREATE OR REPLACE FUNCTION pggit.apply_retention_policy(
+    p_policy JSONB DEFAULT '{"full_days": 30, "incremental_days": 7}'
+)
+RETURNS TABLE (
+    action TEXT,
+    backup_id UUID,
+    backup_name TEXT,
+    reason TEXT
+) AS $$
+DECLARE
+    v_full_retention INTERVAL;
+    v_incr_retention INTERVAL;
+    v_full_days INTEGER;
+    v_incr_days INTEGER;
+BEGIN
+    -- ✅ INPUT VALIDATION: JSONB policy validation using helper function
+    SELECT full_days, incremental_days
+    INTO v_full_days, v_incr_days
+    FROM pggit.validate_retention_policy(p_policy);
+
+    v_full_retention := (v_full_days || ' days')::INTERVAL;
+    v_incr_retention := (v_incr_days || ' days')::INTERVAL;
+
+    -- ✅ ADVISORY LOCK: Prevent concurrent retention policy execution
+    -- Use transaction-scoped advisory lock to prevent race conditions
+    IF NOT pg_try_advisory_xact_lock(hashtext('apply_retention_policy')) THEN
+        RAISE NOTICE 'Retention policy already running, skipping to prevent conflicts';
+        RETURN;  -- Exit early, let other transaction finish
+    END IF;
+
+    -- ✅ IDEMPOTENT: Mark expired full backups (only once per backup)
+    RETURN QUERY
+    WITH expired AS (
+        UPDATE pggit.backups b
+        SET expires_at = COALESCE(b.expires_at, CURRENT_TIMESTAMP),  -- Only set if NULL
+            status = CASE WHEN b.expires_at IS NULL THEN 'expired' ELSE b.status END  -- Only change status once
+        WHERE b.backup_type = 'full'
+          AND b.status = 'completed'
+          AND b.completed_at < (CURRENT_TIMESTAMP - v_full_retention)
+          AND b.expires_at IS NULL  -- Only process backups not yet marked
+        RETURNING b.backup_id, b.backup_name, 'full_retention_exceeded' AS reason
+    )
+    SELECT 'expire'::TEXT, e.backup_id, e.backup_name, e.reason FROM expired e;
+
+    -- ✅ IDEMPOTENT: Mark expired incremental backups (only once per backup)
+    RETURN QUERY
+    WITH expired AS (
+        UPDATE pggit.backups b
+        SET expires_at = COALESCE(b.expires_at, CURRENT_TIMESTAMP),  -- Only set if NULL
+            status = CASE WHEN b.expires_at IS NULL THEN 'expired' ELSE b.status END  -- Only change status once
+        WHERE b.backup_type IN ('incremental', 'differential')
+          AND b.status = 'completed'
+          AND b.completed_at < (CURRENT_TIMESTAMP - v_incr_retention)
+          AND b.expires_at IS NULL  -- Only process backups not yet marked
+        RETURNING b.backup_id, b.backup_name, 'incremental_retention_exceeded' AS reason
+    )
+    SELECT 'expire'::TEXT, e.backup_id, e.backup_name, e.reason FROM expired e;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.apply_retention_policy IS
+'Mark backups as expired based on retention policy';
+
+-- Delete expired backups
+CREATE OR REPLACE FUNCTION pggit.cleanup_expired_backups(
+    p_dry_run BOOLEAN DEFAULT TRUE
+)
+RETURNS TABLE (
+    action TEXT,
+    backup_id UUID,
+    backup_name TEXT,
+    location TEXT
+) AS $$
+DECLARE
+    v_audit_id BIGINT;
+    v_start_time TIMESTAMPTZ := clock_timestamp();
+    v_rows_affected INTEGER := 0;
+BEGIN
+    -- ✅ INPUT VALIDATION: Safe default for dry-run operations
+    IF p_dry_run IS NULL THEN
+        p_dry_run := TRUE;  -- Safe default for destructive operations
+    END IF;
+
+    -- ✅ AUDIT LOGGING: Start operation audit
+    v_audit_id := pggit.audit_operation(
+        'cleanup_expired_backups',
+        CASE WHEN p_dry_run THEN 'read' ELSE 'delete' END,
+        jsonb_build_object('dry_run', p_dry_run)
+    );
+
+    BEGIN
+        -- ✅ ADVISORY LOCK: Prevent concurrent cleanup operations
+        -- Use transaction-scoped advisory lock to prevent race conditions during deletion
+        IF NOT pg_try_advisory_xact_lock(hashtext('cleanup_expired_backups')) THEN
+            -- Complete audit with notice (not an error)
+            PERFORM pggit.complete_audit(v_audit_id, true, 'PGGIT_CONCURRENT',
+                                       'Cleanup already running, skipped to prevent conflicts', 0);
+            RETURN;  -- Exit early, let other transaction finish
+        END IF;
+
+        -- ✅ TRANSACTION REQUIREMENT: Destructive operations must be in explicit transaction
+        IF NOT p_dry_run AND pg_current_xact_id_if_assigned() IS NULL THEN
+            RAISE EXCEPTION 'cleanup_expired_backups must be called within a transaction when not in dry-run mode'
+                USING ERRCODE = '25P01',  -- no_active_sql_transaction
+                      HINT = 'Wrap call in BEGIN...COMMIT block to ensure atomicity';
+        END IF;
+
+    IF p_dry_run THEN
+        -- Just list what would be deleted
+        RETURN QUERY
+        SELECT
+            'would_delete'::TEXT,
+            b.backup_id,
+            b.backup_name,
+            b.location
+        FROM pggit.backups b
+        WHERE b.status = 'expired'
+          AND b.expires_at < CURRENT_TIMESTAMP;
+    ELSE
+        -- ✅ DEPENDENCY CHECK: Prevent deletion of full backups with active incremental dependents
+        -- Check for incremental backups depending on full backups we're about to delete
+        PERFORM 1
+        FROM pggit.backups full_backup
+        WHERE full_backup.status = 'expired'
+          AND full_backup.backup_type = 'full'
+          AND EXISTS (
+              SELECT 1
+              FROM pggit.backups incr_backup
+              WHERE incr_backup.backup_type IN ('incremental', 'differential')
+                AND incr_backup.status != 'expired'
+                AND incr_backup.metadata->>'base_backup_id' = full_backup.backup_id::TEXT
+          );
+
+        IF FOUND THEN
+            RAISE EXCEPTION 'Cannot delete full backups with active incremental dependents'
+                USING ERRCODE = '23503',  -- foreign_key_violation
+                      HINT = 'Expire dependent incrementals first, or implement force deletion flag';
+        END IF;
+
+        -- Actually delete (just update status, don't remove from DB)
+        RETURN QUERY
+        WITH deleted AS (
+            UPDATE pggit.backups b
+            SET status = 'deleted'
+            WHERE b.status = 'expired'
+              AND b.expires_at < CURRENT_TIMESTAMP
+            RETURNING b.backup_id, b.backup_name, b.location
+        )
+        SELECT 'deleted'::TEXT, backup_id, backup_name, location FROM deleted;
+
+        -- Get rows affected for audit
+        GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
+    END IF;
+
+    -- ✅ AUDIT LOGGING: Complete operation audit successfully
+    PERFORM pggit.complete_audit(v_audit_id, true, NULL, NULL, v_rows_affected);
+
+    EXCEPTION WHEN OTHERS THEN
+        -- ✅ AUDIT LOGGING: Complete operation audit with failure
+        PERFORM pggit.complete_audit(v_audit_id, false, SQLSTATE, SQLERRM, NULL);
+
+        -- Re-raise the exception
+        RAISE;
+    END;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.cleanup_expired_backups IS
+'Delete expired backups (dry-run shows what would be deleted)';
+
+-- Get retention policy recommendations
+CREATE OR REPLACE FUNCTION pggit.get_retention_recommendations()
+RETURNS TABLE (
+    recommendation TEXT,
+    current_count BIGINT,
+    recommended_action TEXT,
+    details JSONB
+) AS $$
+BEGIN
+    -- Check for old backups
+    RETURN QUERY
+    SELECT
+        'old_full_backups'::TEXT,
+        COUNT(*)::BIGINT,
+        CASE
+            WHEN COUNT(*) > 10 THEN 'Consider reducing retention or cleaning up'
+            ELSE 'OK'
+        END::TEXT,
+        jsonb_build_object(
+            'oldest_backup', MIN(b.started_at),
+            'recommended_retention_days', 30
+        )
+    FROM pggit.backups b
+    WHERE b.backup_type = 'full'
+      AND b.status = 'completed'
+      AND b.started_at < CURRENT_TIMESTAMP - INTERVAL '30 days';
+
+    -- Check for orphaned incremental backups
+    RETURN QUERY
+    SELECT
+        'orphaned_incrementals'::TEXT,
+        COUNT(*)::BIGINT,
+        CASE
+            WHEN COUNT(*) > 0 THEN 'Clean up incrementals without full backup base'
+            ELSE 'OK'
+        END::TEXT,
+        jsonb_build_object(
+            'count', COUNT(*),
+            'action', 'Review backup dependencies'
+        )
+    FROM pggit.backups b
+    WHERE b.backup_type IN ('incremental', 'differential')
+      AND b.status = 'completed'
+      AND NOT EXISTS (
+          SELECT 1 FROM pggit.backup_dependencies d
+          WHERE d.backup_id = b.backup_id
+      );
+
+    -- Check for large backups
+    RETURN QUERY
+    SELECT
+        'large_backups'::TEXT,
+        COUNT(*)::BIGINT,
+        CASE
+            WHEN SUM(b.backup_size) > 1099511627776 THEN 'Monitor storage usage - over 1TB'  -- 1TB
+            ELSE 'OK'
+        END::TEXT,
+        jsonb_build_object(
+            'total_size_gb', ROUND((SUM(b.backup_size) / 1073741824)::NUMERIC, 2),
+            'largest_backup_gb', ROUND((MAX(b.backup_size) / 1073741824)::NUMERIC, 2)
+        )
+    FROM pggit.backups b
+    WHERE b.status = 'completed';
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.get_retention_recommendations IS
+'Get recommendations for backup retention policy optimization';
+
+-- =====================================================
+-- Recovery Testing
+-- =====================================================
+
+-- Test backup restore (validation)
+CREATE OR REPLACE FUNCTION pggit.test_backup_restore(
+    p_backup_id UUID,
+    p_test_type TEXT DEFAULT 'validate'  -- 'validate', 'sample_restore', 'full_test'
+)
+RETURNS JSONB AS $$
+DECLARE
+    v_backup RECORD;
+    v_result JSONB;
+BEGIN
+    -- ✅ INPUT VALIDATION: NULL check and existence validation for backup
+    IF p_backup_id IS NULL THEN
+        RAISE EXCEPTION 'Backup ID cannot be NULL'
+            USING ERRCODE = '22004';
+    END IF;
+
+    -- Verify backup exists
+    SELECT * INTO v_backup
+    FROM pggit.backups b
+    WHERE b.backup_id = p_backup_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Backup not found: %', p_backup_id
+            USING ERRCODE = '02000',  -- no_data_found
+                  HINT = 'Check backup_id is correct';
+    END IF;
+    -- END VALIDATION BLOCK
+
+    -- Create test record
+    SELECT * INTO v_backup
+    FROM pggit.backups b
+    WHERE b.backup_id = p_backup_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Backup % not found', p_backup_id;
+    END IF;
+
+    -- Create test record
+    INSERT INTO pggit.backup_verifications (
+        verification_id,
+        backup_id,
+        verification_type,
+        status,
+        details
+    ) VALUES (
+        gen_random_uuid(),
+        p_backup_id,
+        'restore_test',
+        'queued',
+        jsonb_build_object(
+            'test_type', p_test_type,
+            'queued_at', CURRENT_TIMESTAMP
+        )
+    );
+
+    v_result := jsonb_build_object(
+        'backup_id', p_backup_id,
+        'test_type', p_test_type,
+        'status', 'queued',
+        'message', 'Restore test queued - will be processed by listener'
+    );
+
+    RAISE NOTICE 'Restore test queued for backup %', v_backup.backup_name;
+
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION pggit.test_backup_restore IS
+'Queue a backup restore test for validation';
+
+
+-- ========================================
+-- File: 074_error_codes.sql
+-- ========================================
+
+-- pgGit Structured Error Codes
+-- Phase 3: Reliability - Structured Error Codes
+-- =====================================================
+
+-- Create schema for error codes
+CREATE SCHEMA IF NOT EXISTS pggit_errors;
+
+-- Structured error codes table
+CREATE TABLE pggit_errors.error_codes (
+    error_code TEXT PRIMARY KEY,
+    sqlstate TEXT NOT NULL,  -- PostgreSQL SQLSTATE
+    severity TEXT NOT NULL CHECK (severity IN ('ERROR', 'WARNING', 'NOTICE')),
+    description TEXT NOT NULL,
+    recovery_hint TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add helpful indexes
+CREATE INDEX idx_error_codes_sqlstate ON pggit_errors.error_codes(sqlstate);
+CREATE INDEX idx_error_codes_severity ON pggit_errors.error_codes(severity);
+
+-- Insert standardized error codes for pgGit operations
+INSERT INTO pggit_errors.error_codes (error_code, sqlstate, severity, description, recovery_hint) VALUES
+    ('PGGIT_NULL_PARAM', '22004', 'ERROR', 'Required parameter is NULL', 'Provide a non-NULL value for the required parameter'),
+    ('PGGIT_RANGE_ERROR', '22003', 'ERROR', 'Parameter value is out of valid range', 'Check parameter bounds in the function documentation'),
+    ('PGGIT_INVALID_FORMAT', '22023', 'ERROR', 'Parameter has invalid format or structure', 'Verify parameter format matches expected schema'),
+    ('PGGIT_NOT_FOUND', '02000', 'ERROR', 'Requested resource not found', 'Verify the ID exists and is correct'),
+    ('PGGIT_ALREADY_EXISTS', '23505', 'ERROR', 'Resource already exists', 'Use UPDATE instead of INSERT, or check for duplicates'),
+    ('PGGIT_LOCKED', '55P03', 'ERROR', 'Resource is locked by another transaction', 'Retry the operation after a brief delay'),
+    ('PGGIT_DEPENDENCY', '23503', 'ERROR', 'Operation blocked by resource dependency', 'Remove or update dependent resources first'),
+    ('PGGIT_CONCURRENT', '40001', 'WARNING', 'Operation already in progress', 'Wait for current operation to complete'),
+    ('PGGIT_TRANSACTION_REQUIRED', '25P01', 'ERROR', 'Destructive operation requires explicit transaction', 'Wrap the call in BEGIN...COMMIT block'),
+    ('PGGIT_IDEMPOTENT_SKIP', '00000', 'NOTICE', 'Operation skipped due to idempotency check', 'Operation was already completed, no action needed'),
+    ('PGGIT_RETRY_EXHAUSTED', '57014', 'ERROR', 'Operation failed after maximum retry attempts', 'Check system health and retry manually if appropriate'),
+    ('PGGIT_AUDIT_FAILURE', 'XX000', 'WARNING', 'Audit logging failed but operation succeeded', 'Check audit table permissions and space');
+
+-- Add trigger for updated_at
+CREATE OR REPLACE FUNCTION pggit_errors.update_error_codes_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_error_codes_updated_at
+    BEFORE UPDATE ON pggit_errors.error_codes
+    FOR EACH ROW
+    EXECUTE FUNCTION pggit_errors.update_error_codes_updated_at();
+
+-- Helper function to raise structured errors
+CREATE OR REPLACE FUNCTION pggit_errors.raise_error(
+    p_error_code TEXT,
+    p_detail TEXT DEFAULT NULL,
+    p_hint TEXT DEFAULT NULL
+)
+RETURNS VOID AS $$
+DECLARE
+    v_error_record RECORD;
+    v_message TEXT;
+BEGIN
+    -- Get error definition
+    SELECT * INTO v_error_record
+    FROM pggit_errors.error_codes
+    WHERE error_code = p_error_code;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Unknown error code: %', p_error_code;
+    END IF;
+
+    -- Build message
+    v_message := v_error_record.description;
+    IF p_detail IS NOT NULL THEN
+        v_message := v_message || ': ' || p_detail;
+    END IF;
+
+    -- Raise with structured information
+    RAISE EXCEPTION '%', v_message
+        USING ERRCODE = v_error_record.sqlstate,
+              HINT = COALESCE(p_hint, v_error_record.recovery_hint);
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON TABLE pggit_errors.error_codes IS
+'Standardized error codes for pgGit operations with consistent SQLSTATE mapping';
+
+COMMENT ON FUNCTION pggit_errors.raise_error IS
+'Helper function to raise structured errors using standardized error codes';
+
+-- ========================================
+-- File: 075_audit_log.sql
+-- ========================================
+
+-- pgGit Operation Audit Logging
+-- Phase 3: Reliability - Operation Audit Logging
+-- =====================================================
+
+-- Create audit table for operation tracking
+CREATE TABLE pggit.operation_audit (
+    audit_id BIGSERIAL PRIMARY KEY,
+    operation_name TEXT NOT NULL,
+    operation_type TEXT NOT NULL CHECK (operation_type IN ('read', 'write', 'delete')),
+    user_name TEXT NOT NULL DEFAULT CURRENT_USER,
+    session_id TEXT NOT NULL DEFAULT pg_backend_pid()::TEXT,
+
+    -- Context
+    parameters JSONB,
+    affected_resources JSONB,
+
+    -- Timing
+    started_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMPTZ,
+    duration_ms BIGINT,
+
+    -- Result
+    success BOOLEAN,
+    error_code TEXT,
+    error_message TEXT,
+    rows_affected INTEGER,
+
+    -- Metadata
+    client_addr INET DEFAULT inet_client_addr(),
+    application_name TEXT DEFAULT current_setting('application_name', true)
+);
+
+-- Add indexes for efficient querying
+CREATE INDEX idx_operation_audit_operation ON pggit.operation_audit(operation_name);
+CREATE INDEX idx_operation_audit_started ON pggit.operation_audit(started_at DESC);
+CREATE INDEX idx_operation_audit_user ON pggit.operation_audit(user_name);
+CREATE INDEX idx_operation_audit_success ON pggit.operation_audit(success);
+CREATE INDEX idx_operation_audit_session ON pggit.operation_audit(session_id);
+
+-- Add trigger for auto-updating duration
+CREATE OR REPLACE FUNCTION pggit.update_audit_duration()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.completed_at IS NOT NULL AND OLD.completed_at IS NULL THEN
+        NEW.duration_ms := EXTRACT(EPOCH FROM (NEW.completed_at - NEW.started_at)) * 1000;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_operation_audit_duration
+    BEFORE UPDATE ON pggit.operation_audit
+    FOR EACH ROW
+    EXECUTE FUNCTION pggit.update_audit_duration();
+
+-- Helper function for audit logging
+CREATE OR REPLACE FUNCTION pggit.audit_operation(
+    p_operation_name TEXT,
+    p_operation_type TEXT,
+    p_parameters JSONB DEFAULT NULL,
+    p_affected_resources JSONB DEFAULT NULL
+)
+RETURNS BIGINT AS $$
+DECLARE
+    v_audit_id BIGINT;
+BEGIN
+    INSERT INTO pggit.operation_audit (
+        operation_name,
+        operation_type,
+        parameters,
+        affected_resources
+    ) VALUES (
+        p_operation_name,
+        p_operation_type,
+        p_parameters,
+        p_affected_resources
+    ) RETURNING audit_id INTO v_audit_id;
+
+    RETURN v_audit_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Helper function to complete audit logging
+CREATE OR REPLACE FUNCTION pggit.complete_audit(
+    p_audit_id BIGINT,
+    p_success BOOLEAN,
+    p_error_code TEXT DEFAULT NULL,
+    p_error_message TEXT DEFAULT NULL,
+    p_rows_affected INTEGER DEFAULT NULL
+)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE pggit.operation_audit
+    SET completed_at = clock_timestamp(),
+        success = p_success,
+        error_code = p_error_code,
+        error_message = p_error_message,
+        rows_affected = p_rows_affected
+    WHERE audit_id = p_audit_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Helper function for audited operations with error handling
+CREATE OR REPLACE FUNCTION pggit.audited_operation(
+    p_operation_name TEXT,
+    p_operation_type TEXT,
+    p_parameters JSONB DEFAULT NULL,
+    p_operation_sql TEXT
+)
+RETURNS JSONB AS $$
+DECLARE
+    v_audit_id BIGINT;
+    v_result JSONB;
+    v_rows_affected INTEGER := 0;
+BEGIN
+    -- Start audit
+    v_audit_id := pggit.audit_operation(p_operation_name, p_operation_type, p_parameters);
+
+    BEGIN
+        -- Execute operation
+        EXECUTE p_operation_sql INTO v_result;
+
+        -- Get affected rows if applicable
+        GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
+
+        -- Complete audit successfully
+        PERFORM pggit.complete_audit(v_audit_id, true, NULL, NULL, v_rows_affected);
+
+        RETURN jsonb_build_object(
+            'success', true,
+            'audit_id', v_audit_id,
+            'result', v_result,
+            'rows_affected', v_rows_affected
+        );
+
+    EXCEPTION WHEN OTHERS THEN
+        -- Complete audit with failure
+        PERFORM pggit.complete_audit(v_audit_id, false, SQLSTATE, SQLERRM, NULL);
+
+        -- Re-raise the exception
+        RAISE;
+    END;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON TABLE pggit.operation_audit IS
+'Comprehensive audit log for all pgGit operations with timing, success/failure tracking';
+
+COMMENT ON FUNCTION pggit.audit_operation IS
+'Start audit logging for an operation and return audit ID';
+
+COMMENT ON FUNCTION pggit.complete_audit IS
+'Complete audit logging with success/failure information';
+
+COMMENT ON FUNCTION pggit.audited_operation IS
+'Execute an operation with full audit logging and error handling';
 
 -- ========================================
 -- File: 061_advanced_ml_optimization.sql

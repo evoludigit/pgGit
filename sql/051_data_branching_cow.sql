@@ -55,6 +55,192 @@ CREATE TABLE IF NOT EXISTS pggit.data_conflicts (
 -- Copy-on-Write Implementation
 -- =====================================================
 
+-- Setup view-based routing for a table (enables transparent branch switching)
+-- This replaces the original table with a view that routes to the correct branch
+CREATE OR REPLACE FUNCTION pggit.setup_table_routing(
+    p_schema TEXT,
+    p_table TEXT
+) RETURNS VOID AS $$
+DECLARE
+    v_base_table TEXT;
+    v_pk_columns TEXT;
+    v_all_columns TEXT;
+    v_update_sets TEXT;
+BEGIN
+    v_base_table := '_pggit_main_' || p_table;
+
+    -- Check if routing is already set up (view exists)
+    IF EXISTS (
+        SELECT 1 FROM information_schema.views
+        WHERE table_schema = p_schema AND table_name = p_table
+    ) THEN
+        RETURN; -- Already set up
+    END IF;
+
+    -- Create base schema if needed (for storing original tables)
+    EXECUTE 'CREATE SCHEMA IF NOT EXISTS pggit_base';
+
+    -- Get primary key columns for the table
+    SELECT string_agg(a.attname, ', ' ORDER BY array_position(i.indkey, a.attnum))
+    INTO v_pk_columns
+    FROM pg_index i
+    JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+    WHERE i.indrelid = format('%I.%I', p_schema, p_table)::regclass
+    AND i.indisprimary;
+
+    -- Get all columns (excluding system columns)
+    SELECT string_agg(column_name, ', ' ORDER BY ordinal_position)
+    INTO v_all_columns
+    FROM information_schema.columns
+    WHERE table_schema = p_schema AND table_name = p_table
+    AND column_name NOT LIKE '_pggit_%';
+
+    -- Build UPDATE SET clause
+    SELECT string_agg(column_name || ' = NEW.' || column_name, ', ')
+    INTO v_update_sets
+    FROM information_schema.columns
+    WHERE table_schema = p_schema AND table_name = p_table
+    AND column_name NOT LIKE '_pggit_%';
+
+    -- Step 1: Move original table to base schema (avoids OID caching issues)
+    EXECUTE format('ALTER TABLE %I.%I SET SCHEMA pggit_base', p_schema, p_table);
+    EXECUTE format('ALTER TABLE pggit_base.%I RENAME TO %I', p_table, v_base_table);
+
+    -- Step 2: Create router function for SELECT
+    EXECUTE format($fn$
+        CREATE OR REPLACE FUNCTION pggit.route_%I_select()
+        RETURNS SETOF pggit_base.%I AS $inner$
+        DECLARE
+            v_branch TEXT;
+            v_schema TEXT;
+        BEGIN
+            v_branch := current_setting('pggit.current_branch', true);
+            IF v_branch IS NULL OR v_branch = '' OR v_branch = 'main' THEN
+                RETURN QUERY SELECT * FROM pggit_base.%I;
+            ELSE
+                v_schema := 'pggit_branch_' || replace(v_branch, '/', '_');
+                RETURN QUERY EXECUTE format('SELECT * FROM %%I.%I', v_schema);
+            END IF;
+        END;
+        $inner$ LANGUAGE plpgsql STABLE
+    $fn$, p_table, v_base_table, v_base_table, p_table);
+
+    -- Step 3: Create the view
+    EXECUTE format(
+        'CREATE VIEW %I.%I AS SELECT * FROM pggit.route_%I_select()',
+        p_schema, p_table, p_table
+    );
+
+    -- Step 4: Create INSTEAD OF INSERT trigger function
+    EXECUTE format($fn$
+        CREATE OR REPLACE FUNCTION pggit.route_%I_insert()
+        RETURNS TRIGGER AS $inner$
+        DECLARE
+            v_branch TEXT;
+            v_schema TEXT;
+        BEGIN
+            v_branch := current_setting('pggit.current_branch', true);
+            IF v_branch IS NULL OR v_branch = '' OR v_branch = 'main' THEN
+                INSERT INTO pggit_base.%I VALUES (NEW.*);
+            ELSE
+                v_schema := 'pggit_branch_' || replace(v_branch, '/', '_');
+                EXECUTE format('INSERT INTO %%I.%I VALUES ($1.*)', v_schema) USING NEW;
+            END IF;
+            RETURN NEW;
+        END;
+        $inner$ LANGUAGE plpgsql
+    $fn$, p_table, v_base_table, p_table);
+
+    EXECUTE format(
+        'CREATE TRIGGER %I_insert INSTEAD OF INSERT ON %I.%I FOR EACH ROW EXECUTE FUNCTION pggit.route_%I_insert()',
+        p_table, p_schema, p_table, p_table
+    );
+
+    -- Step 5: Create INSTEAD OF UPDATE trigger function
+    EXECUTE format($fn$
+        CREATE OR REPLACE FUNCTION pggit.route_%I_update()
+        RETURNS TRIGGER AS $inner$
+        DECLARE
+            v_branch TEXT;
+            v_schema TEXT;
+        BEGIN
+            v_branch := current_setting('pggit.current_branch', true);
+            IF v_branch IS NULL OR v_branch = '' OR v_branch = 'main' THEN
+                UPDATE pggit_base.%I SET (%s) = (SELECT %s FROM (SELECT NEW.*) AS t) WHERE %s;
+            ELSE
+                v_schema := 'pggit_branch_' || replace(v_branch, '/', '_');
+                EXECUTE format('UPDATE %%I.%I SET (%s) = (SELECT %s FROM (SELECT $1.*) AS t) WHERE %s', v_schema)
+                USING NEW, OLD;
+            END IF;
+            RETURN NEW;
+        END;
+        $inner$ LANGUAGE plpgsql
+    $fn$, p_table, v_base_table, v_all_columns, v_all_columns,
+         COALESCE('(' || v_pk_columns || ') = (OLD.' || replace(v_pk_columns, ', ', ', OLD.') || ')', 'ctid = OLD.ctid'),
+         p_table, v_all_columns, v_all_columns,
+         COALESCE('(' || v_pk_columns || ') = ($2.' || replace(v_pk_columns, ', ', ', $2.') || ')', 'ctid = $2.ctid'));
+
+    EXECUTE format(
+        'CREATE TRIGGER %I_update INSTEAD OF UPDATE ON %I.%I FOR EACH ROW EXECUTE FUNCTION pggit.route_%I_update()',
+        p_table, p_schema, p_table, p_table
+    );
+
+    -- Step 6: Create INSTEAD OF DELETE trigger function
+    EXECUTE format($fn$
+        CREATE OR REPLACE FUNCTION pggit.route_%I_delete()
+        RETURNS TRIGGER AS $inner$
+        DECLARE
+            v_branch TEXT;
+            v_schema TEXT;
+        BEGIN
+            v_branch := current_setting('pggit.current_branch', true);
+            IF v_branch IS NULL OR v_branch = '' OR v_branch = 'main' THEN
+                DELETE FROM pggit_base.%I WHERE %s;
+            ELSE
+                v_schema := 'pggit_branch_' || replace(v_branch, '/', '_');
+                EXECUTE format('DELETE FROM %%I.%I WHERE %s', v_schema)
+                USING OLD;
+            END IF;
+            RETURN OLD;
+        END;
+        $inner$ LANGUAGE plpgsql
+    $fn$, p_table, v_base_table,
+         COALESCE('(' || v_pk_columns || ') = (OLD.' || replace(v_pk_columns, ', ', ', OLD.') || ')', 'ctid = OLD.ctid'),
+         p_table,
+         COALESCE('(' || v_pk_columns || ') = ($1.' || replace(v_pk_columns, ', ', ', $1.') || ')', 'ctid = $1.ctid'));
+
+    EXECUTE format(
+        'CREATE TRIGGER %I_delete INSTEAD OF DELETE ON %I.%I FOR EACH ROW EXECUTE FUNCTION pggit.route_%I_delete()',
+        p_table, p_schema, p_table, p_table
+    );
+
+    RAISE NOTICE 'Set up view routing for %.%', p_schema, p_table;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Get the base table info for a routed table
+-- Returns table name and schema as a composite
+CREATE OR REPLACE FUNCTION pggit.get_base_table_info(
+    p_schema TEXT,
+    p_table TEXT,
+    OUT base_schema TEXT,
+    OUT base_table TEXT
+) AS $$
+BEGIN
+    -- Check if this is a routed view
+    IF EXISTS (
+        SELECT 1 FROM information_schema.views
+        WHERE table_schema = p_schema AND table_name = p_table
+    ) THEN
+        base_schema := 'pggit_base';
+        base_table := '_pggit_main_' || p_table;
+    ELSE
+        base_schema := p_schema;
+        base_table := p_table;
+    END IF;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
 -- Create data branch with COW (array version for internal use)
 CREATE OR REPLACE FUNCTION pggit.create_data_branch(
     p_branch_name TEXT,
@@ -66,6 +252,7 @@ DECLARE
     v_branch_schema TEXT;
     v_table TEXT;
     v_source_schema TEXT := 'public';
+    v_base_info RECORD;
     v_branch_count INT := 0;
 BEGIN
     -- Create branch schema
@@ -79,15 +266,17 @@ BEGIN
 
     -- Branch each table
     FOREACH v_table IN ARRAY p_tables LOOP
-        -- Always create an actual data copy for proper isolation
-        -- (COW would be optimized version, but we need true isolation for tests)
+        -- Set up view routing if not already done
+        PERFORM pggit.setup_table_routing(v_source_schema, v_table);
+
+        -- Get the actual base table info (after routing setup)
+        SELECT * INTO v_base_info FROM pggit.get_base_table_info(v_source_schema, v_table);
+
+        -- Create branch copy from the base table
         EXECUTE format('CREATE TABLE %I.%I AS TABLE %I.%I',
             v_branch_schema, v_table,
-            v_source_schema, v_table
+            v_base_info.base_schema, v_base_info.base_table
         );
-
-        -- Note: We're creating a full copy for isolation, not true COW via inheritance
-        -- True COW via inheritance would save space but complicates data isolation
 
         -- Track branched table
         INSERT INTO pggit.branched_tables (
@@ -114,11 +303,6 @@ CREATE OR REPLACE FUNCTION pggit.create_data_branch(
     p_source_branch TEXT,
     p_branch_name TEXT
 ) RETURNS INT AS $$
-DECLARE
-    v_branch_schema TEXT;
-    v_table_name TEXT;
-    v_source_schema TEXT := 'public';
-    v_error_msg TEXT;
 BEGIN
     -- Validate inputs
     IF p_table_name IS NULL OR p_table_name = '' THEN
@@ -129,66 +313,13 @@ BEGIN
         RAISE EXCEPTION 'Branch name cannot be empty';
     END IF;
 
-    -- Create branch schema
-    v_branch_schema := 'pggit_branch_' || replace(p_branch_name, '/', '_');
-    EXECUTE format('CREATE SCHEMA IF NOT EXISTS %I', v_branch_schema);
-
-    -- Track branch in storage stats
-    INSERT INTO pggit.branch_storage_stats (branch_name)
-    VALUES (p_branch_name)
-    ON CONFLICT (branch_name) DO NOTHING;
-
-    -- Use inheritance for COW-like behavior
-    -- This creates an empty branch table that inherits from main
-    v_table_name := p_table_name;
-
-    BEGIN
-        -- Create inherited table (empty, inherits structure from main)
-        EXECUTE format(
-            'CREATE TABLE %I.%I (LIKE %I.%I INCLUDING ALL) INHERITS (%I.%I)',
-            v_branch_schema, v_table_name,
-            v_source_schema, v_table_name,
-            v_source_schema, v_table_name
-        );
-    EXCEPTION WHEN OTHERS THEN
-        GET STACKED DIAGNOSTICS v_error_msg = MESSAGE_TEXT;
-        -- If inheritance fails (e.g., due to type incompatibility),
-        -- fall back to full copy
-        IF v_error_msg LIKE '%type%' OR v_error_msg LIKE '%incompatible%' THEN
-            -- Try full copy as fallback
-            EXECUTE format('CREATE TABLE %I.%I AS TABLE %I.%I WITH NO DATA',
-                v_branch_schema, v_table_name,
-                v_source_schema, v_table_name
-            );
-        ELSE
-            RAISE;
-        END IF;
-    END;
-
-    -- Add branch-specific system columns
-    BEGIN
-        EXECUTE format(
-            'ALTER TABLE %I.%I ADD COLUMN _pggit_branch_ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
-            v_branch_schema, v_table_name
-        );
-    EXCEPTION WHEN OTHERS THEN
-        -- Column might already exist
-        NULL;
-    END;
-
-    -- Track branched table
-    INSERT INTO pggit.branched_tables (
-        branch_name, source_schema, source_table,
-        branch_schema, branch_table, uses_cow
-    ) VALUES (
-        p_branch_name, v_source_schema, v_table_name,
-        v_branch_schema, v_table_name, true
-    ) ON CONFLICT DO NOTHING;
-
-    -- Update storage stats
-    PERFORM pggit.update_branch_storage_stats(p_branch_name);
-
-    RETURN 1;
+    -- Delegate to array version with view-based routing
+    RETURN pggit.create_data_branch(
+        p_branch_name,
+        p_source_branch,
+        ARRAY[p_table_name]::TEXT[],
+        true
+    );
 END;
 $$ LANGUAGE plpgsql;
 
@@ -223,23 +354,14 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Switch active branch context
+-- Uses session variable that view routing functions check at runtime
 CREATE OR REPLACE FUNCTION pggit.switch_branch(
     p_branch_name TEXT
 ) RETURNS VOID AS $$
 BEGIN
-    -- Set session variable for current branch (local to transaction)
-    PERFORM set_config('pggit.current_branch', p_branch_name, false);
-
-    -- Update search path to include branch schema
-    -- Use false (transaction-level) so it persists in current session
-    IF p_branch_name = 'main' THEN
-        PERFORM set_config('search_path', 'public, pggit', false);
-    ELSE
-        PERFORM set_config('search_path',
-            'pggit_branch_' || replace(p_branch_name, '/', '_') || ', public, pggit',
-            false
-        );
-    END IF;
+    -- Set session variable for current branch
+    -- View router functions check this at query execution time (not plan time)
+    PERFORM set_config('pggit.current_branch', COALESCE(p_branch_name, 'main'), false);
 END;
 $$ LANGUAGE plpgsql;
 
@@ -285,12 +407,13 @@ DECLARE
     v_dependencies TEXT[] := ARRAY[]::TEXT[];
 BEGIN
     -- Find tables referenced by foreign keys
+    -- Note: COLLATE "C" matches information_schema's collation
     WITH RECURSIVE deps AS (
         -- Start with the given table
-        SELECT p_table_name AS table_name
-        
+        SELECT p_table_name COLLATE "C" AS table_name
+
         UNION
-        
+
         -- Find all tables that reference current tables
         SELECT DISTINCT
             tc.table_name
@@ -302,7 +425,7 @@ BEGIN
         JOIN information_schema.table_constraints tc2
             ON tc2.constraint_name = rc.unique_constraint_name
             AND tc2.table_name = d.table_name
-        WHERE tc.table_schema = p_schema_name
+        WHERE tc.table_schema = p_schema_name COLLATE "C"
     )
     SELECT array_agg(DISTINCT table_name) INTO v_dependencies FROM deps;
     
@@ -364,41 +487,61 @@ DECLARE
     v_conflicts INT := 0;
     v_key_columns TEXT;
     v_sql TEXT;
+    v_base_table TEXT;
 BEGIN
-    -- Get primary key columns
-    SELECT string_agg(a.attname, ', ' ORDER BY array_position(i.indkey, a.attnum))
-    INTO v_key_columns
-    FROM pg_index i
-    JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
-    WHERE i.indrelid = p_table_name::regclass
-    AND i.indisprimary;
+    -- Get primary key columns from the base table (the original table, not branch copies or view)
+    -- Branch copies made with CREATE TABLE AS don't preserve PK constraints
+    v_base_table := 'pggit_base._pggit_main_' || p_table_name;
+    BEGIN
+        SELECT string_agg(a.attname, ', ' ORDER BY array_position(i.indkey, a.attnum))
+        INTO v_key_columns
+        FROM pg_index i
+        JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+        WHERE i.indrelid = v_base_table::regclass
+        AND i.indisprimary;
+    EXCEPTION WHEN undefined_table THEN
+        -- If base table doesn't exist, try the original table name
+        SELECT string_agg(a.attname, ', ' ORDER BY array_position(i.indkey, a.attnum))
+        INTO v_key_columns
+        FROM pg_index i
+        JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+        WHERE i.indrelid = p_table_name::regclass
+        AND i.indisprimary;
+    END;
+
+    -- If no primary key found, skip conflict detection
+    IF v_key_columns IS NULL THEN
+        RAISE NOTICE 'No primary key found for %, skipping conflict detection', p_table_name;
+        RETURN 0;
+    END IF;
     
     -- Build conflict detection query
+    -- Note: Use %I for schema names to properly quote identifiers with special chars (like hyphens)
     v_sql := format($SQL$
         INSERT INTO pggit.data_conflicts (
             merge_id, table_name, primary_key_value,
             source_branch, target_branch,
             source_data, target_data, conflict_type
         )
-        SELECT 
+        SELECT
             %L, %L, s.%I::TEXT,
             %L, %L,
             row_to_json(s.*), row_to_json(t.*),
-            CASE 
+            CASE
                 WHEN s.* IS NULL THEN 'delete-update'
                 WHEN t.* IS NULL THEN 'update-delete'
                 ELSE 'update-update'
             END
-        FROM pggit_branch_%s.%I s
-        FULL OUTER JOIN pggit_branch_%s.%I t
+        FROM %I.%I s
+        FULL OUTER JOIN %I.%I t
             ON s.%I = t.%I
         WHERE s.* IS DISTINCT FROM t.*
         AND (s.* IS NOT NULL OR t.* IS NOT NULL)
     $SQL$,
         p_merge_id, p_table_name, v_key_columns,
         p_source_branch, p_target_branch,
-        replace(p_source_branch, '/', '_'), p_table_name,
-        replace(p_target_branch, '/', '_'), p_table_name,
+        'pggit_branch_' || replace(p_source_branch, '/', '_'), p_table_name,
+        'pggit_branch_' || replace(p_target_branch, '/', '_'), p_table_name,
         v_key_columns, v_key_columns
     );
     
@@ -496,7 +639,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION pggit.create_temporal_branch(
     p_branch_name TEXT,
     p_source_branch TEXT,
-    p_point_in_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    p_point_in_time TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 ) RETURNS UUID AS $$
 DECLARE
     v_snapshot_id UUID := gen_random_uuid();
