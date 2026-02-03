@@ -1,7 +1,7 @@
 # pgGit Makefile - Minimal Version
 
 EXTENSION = pggit
-DATA = pggit--1.0.0.sql
+DATA = pggit--0.1.3.sql
 REGRESS = 
 
 PG_CONFIG = pg_config
