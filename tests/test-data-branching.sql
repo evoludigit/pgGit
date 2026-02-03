@@ -59,7 +59,8 @@ BEGIN
     SELECT COUNT(*) INTO v_main_count FROM test_products WHERE price = 9.99;
     
     PERFORM pggit.switch_branch('feature/price-update');
-    SELECT COUNT(*) INTO v_branch_count FROM test_products WHERE price = 10.989;
+    -- Note: DECIMAL(10,2) rounds 9.99 * 1.1 = 10.989 to 10.99
+    SELECT COUNT(*) INTO v_branch_count FROM test_products WHERE price = 10.99;
     
     IF v_main_count = 1 AND v_branch_count = 1 THEN
         RAISE NOTICE 'PASS: Data properly isolated between branches';
@@ -101,7 +102,7 @@ BEGIN
     );
     
     -- Measure storage after branching
-    SELECT SUM(size) INTO v_storage_after
+    SELECT SUM(total_size) INTO v_storage_after
     FROM pggit.branch_storage_stats
     WHERE branch_name IN ('main', 'feature/cow-test');
     
