@@ -242,7 +242,7 @@ pgGit enhances your development process without touching production.
 
 - ✅ **62 Tests** - 100% pass rate (51 passed + 11 xfails)
 - ✅ **Quality Score** - 9.8/10 comprehensive quality assessment (Phase 1-3 complete)
-- ✅ **PostgreSQL Support** - Versions 15, 16, and 17
+- ✅ **PostgreSQL Support** - Versions 15, 16, 17, and 18
 - ✅ **Known Limitations** - 11 test environment xfails documented with workarounds
 - ✅ **Comprehensive Docs** - API reference, operations runbook, security guides
 - ✅ **CI/CD Ready** - Exit code 0, professional test infrastructure
