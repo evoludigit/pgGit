@@ -104,8 +104,8 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION pggit.audited_operation(
     p_operation_name TEXT,
     p_operation_type TEXT,
-    p_parameters JSONB DEFAULT NULL,
-    p_operation_sql TEXT
+    p_operation_sql TEXT,
+    p_parameters JSONB DEFAULT NULL
 )
 RETURNS JSONB AS $$
 DECLARE
