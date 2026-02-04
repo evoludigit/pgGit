@@ -415,12 +415,6 @@ BEGIN
     v_verification_id := gen_random_uuid();
 
     -- Record verification attempt
-
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'Backup % not found', p_backup_id;
-    END IF;
-
-    -- Record verification attempt
     INSERT INTO pggit.backup_verifications (
         verification_id,
         backup_id,
