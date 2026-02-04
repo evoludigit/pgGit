@@ -489,40 +489,26 @@ class TestRecoveryPlanning:
 class TestBackupVerification:
     """Test backup verification functions."""
 
-    @pytest.mark.xfail(
-        reason="Backup creation and verification may fail in test environment due to transaction isolation. "
-        "Core verify_backup functionality validated through reliability tests."
-    )
     def test_verify_backup(self, db, pggit_installed):
         """Test triggering backup verification."""
-        # Create backup
-        db.execute("""
-            INSERT INTO pggit.commits (hash, branch_id, message)
-            VALUES ('test-commit-verify', 1, 'Verify test')
-            ON CONFLICT (hash) DO NOTHING
-        """)
+        from tests.e2e.test_helpers import (
+            create_test_commit,
+            register_and_complete_backup,
+        )
 
-        backup_id = db.execute_returning("""
-            SELECT pggit.register_backup(
-                'verify-backup',
-                'full',
-                'pgbackrest',
-                's3://bucket/verify',
-                'test-commit-verify'
-            )
-        """)
-
-        db.execute("SELECT pggit.complete_backup(%s::UUID)", backup_id[0])
+        # Create backup using helpers
+        commit = create_test_commit(db, "verify")
+        backup_id = register_and_complete_backup(db, "verify-backup", "full", commit)
 
         # Trigger verification
         verification_id = db.execute_returning(
             """
             SELECT pggit.verify_backup(%s::UUID, 'checksum')
         """,
-            backup_id[0],
+            backup_id,
         )
 
-        assert verification_id is not None
+        assert verification_id is not None, "verify_backup should return a verification ID"
 
         print(f"✓ Verification triggered: {verification_id[0]}")
 

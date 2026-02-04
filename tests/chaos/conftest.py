@@ -18,7 +18,10 @@ from collections.abc import AsyncGenerator, Generator
 import psycopg
 import pytest
 import pytest_asyncio
+from psycopg_pool import ConnectionPool
 from psycopg.rows import dict_row
+
+from tests.fixtures.pooled_database import PooledDatabaseFixture
 
 
 # Pytest configuration
@@ -84,6 +87,20 @@ def db_connection_string(db_config: dict[str, str | None]) -> str:
     return " ".join(parts)
 
 
+@pytest.fixture(scope="session")
+def chaos_pool(db_connection_string: str) -> ConnectionPool:
+    """Session-scoped connection pool for chaos tests."""
+    pool = ConnectionPool(
+        conninfo=db_connection_string,
+        min_size=5,
+        max_size=20,
+        timeout=30,
+        open=True,
+    )
+    yield pool
+    pool.close()
+
+
 @pytest.fixture(scope="function", autouse=True)
 def cleanup_test_tables(db_connection_string: str) -> None:
     """Clean up test tables before each test function runs."""
@@ -117,84 +134,91 @@ def cleanup_test_tables(db_connection_string: str) -> None:
 
 
 @pytest.fixture
-def sync_conn(db_connection_string: str) -> Generator[psycopg.Connection, None, None]:
+def sync_conn(chaos_pool: ConnectionPool) -> Generator[psycopg.Connection, None, None]:
     """Synchronous database connection for a single test."""
-    # First check schema without dict_row to avoid KeyError
-    with psycopg.connect(db_connection_string) as check_conn:
-        cursor = check_conn.execute(
+    conn = chaos_pool.getconn()
+    conn.row_factory = dict_row
+    conn.autocommit = True
+
+    # First check schema
+    try:
+        cursor = conn.execute(
             "SELECT EXISTS (SELECT 1 FROM information_schema.schemata "
             "WHERE schema_name = 'pggit')",
         )
         if not cursor.fetchone()[0]:
+            chaos_pool.putconn(conn)
             raise RuntimeError(
                 "pggit schema not found. Please install: cd sql && "
                 "psql -d pggit_chaos_test -f install.sql",
             )
+    except Exception as e:
+        chaos_pool.putconn(conn)
+        raise
 
-    # Now create the actual connection with dict_row
-    # Note: autocommit=True is set to prevent transaction state issues between hypothesis examples,
-    # but tests can override this with explicit BEGIN/COMMIT if needed
-    with psycopg.connect(
-        db_connection_string,
-        row_factory=dict_row,
-    ) as conn:
-        # Set autocommit to avoid issues with hypothesis examples
-        conn.autocommit = True
+    # Aggressive cleanup before yielding connection to prevent table collisions
+    try:
+        cursor = conn.execute("""
+            SELECT tablename FROM pg_tables
+            WHERE schemaname = 'public'
+            AND (tablename LIKE 'test_%' OR tablename LIKE '%_test%' OR
+                 tablename LIKE 'a_%' OR tablename LIKE 'x%' OR
+                 tablename ~ '^[a-z_]+_[0-9]+$' OR
+                 length(tablename) <= 20)
+            AND tablename NOT LIKE 'pg_%'
+            AND tablename NOT LIKE 'pggit%'
+            AND tablename NOT IN ('spatial_ref_sys')
+        """)
+        test_tables = cursor.fetchall()
 
-        # Aggressive cleanup before yielding connection to prevent table collisions
-        # This runs before each test, including between hypothesis examples
-        try:
-            # Clean up test tables that might be left over from previous runs
-            cursor = conn.execute("""
-                SELECT tablename FROM pg_tables
-                WHERE schemaname = 'public'
-                AND (tablename LIKE 'test_%' OR tablename LIKE '%_test%' OR
-                     tablename LIKE 'a_%' OR tablename LIKE 'x%' OR
-                     tablename ~ '^[a-z_]+_[0-9]+$' OR
-                     length(tablename) <= 20)
-                AND tablename NOT LIKE 'pg_%'
-                AND tablename NOT LIKE 'pggit%'
-                AND tablename NOT IN ('spatial_ref_sys')
-            """)
-            test_tables = cursor.fetchall()
+        for row in test_tables:
+            table_name = row["tablename"]
+            try:
+                conn.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE")
+            except psycopg.Error:
+                pass  # Ignore errors during cleanup
+    except psycopg.Error:
+        pass  # Ignore errors if cleanup query fails
 
-            for row in test_tables:
-                table_name = row["tablename"]
-                try:
-                    conn.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE")
-                except psycopg.Error:
-                    pass  # Ignore errors during cleanup
-        except psycopg.Error:
-            pass  # Ignore errors if cleanup query fails
-
+    try:
         yield conn
+    finally:
+        chaos_pool.putconn(conn)
 
 
 @pytest.fixture
 def sync_conn_with_transactions(
-    db_connection_string: str,
+    chaos_pool: ConnectionPool,
 ) -> Generator[psycopg.Connection, None, None]:
     """Synchronous database connection that allows explicit transaction control."""
-    # First check schema without dict_row to avoid KeyError
-    with psycopg.connect(db_connection_string) as check_conn:
-        cursor = check_conn.execute(
+    conn = chaos_pool.getconn()
+    conn.row_factory = dict_row
+    conn.autocommit = False
+
+    # Check schema exists
+    try:
+        cursor = conn.execute(
             "SELECT EXISTS (SELECT 1 FROM information_schema.schemata "
             "WHERE schema_name = 'pggit')",
         )
         if not cursor.fetchone()[0]:
+            chaos_pool.putconn(conn)
             raise RuntimeError(
                 "pggit schema not found. Please install: cd sql && "
                 "psql -d pggit_chaos_test -f install.sql",
             )
+    except Exception as e:
+        chaos_pool.putconn(conn)
+        raise
 
-    # Create connection without autocommit for explicit transaction control
-    with psycopg.connect(
-        db_connection_string,
-        row_factory=dict_row,
-    ) as conn:
-        # Explicitly disable autocommit for transaction control
-        conn.autocommit = False
+    try:
         yield conn
+    finally:
+        try:
+            conn.rollback()
+        except Exception:
+            pass  # Connection might be in bad state
+        chaos_pool.putconn(conn)
 
 
 @pytest.fixture
@@ -227,7 +251,7 @@ async def async_conn(
 
 @pytest.fixture
 def conn_pool(
-    db_connection_string: str,
+    chaos_pool: ConnectionPool,
     request,
 ) -> Generator[list[psycopg.Connection], None, None]:
     """Pool of synchronous database connections for concurrent testing."""
@@ -235,16 +259,19 @@ def conn_pool(
 
     connections = []
     for _ in range(pool_size):
-        conn = psycopg.connect(db_connection_string, row_factory=dict_row)
-        # No need to create extension, just verify schema exists
+        conn = chaos_pool.getconn()
+        conn.row_factory = dict_row
         connections.append(conn)
 
     yield connections
 
     # Cleanup
     for conn in connections:
-        conn.rollback()
-        conn.close()
+        try:
+            conn.rollback()
+        except Exception:
+            pass  # Connection might be closed
+        chaos_pool.putconn(conn)
 
 
 @pytest_asyncio.fixture

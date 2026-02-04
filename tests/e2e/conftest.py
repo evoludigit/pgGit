@@ -10,6 +10,9 @@ import time
 import docker
 import pytest
 from psycopg import connect
+from psycopg_pool import ConnectionPool
+
+from tests.fixtures.pooled_database import PooledDatabaseFixture
 
 
 class DockerPostgresSetup:
@@ -282,11 +285,26 @@ def pggit_installed(docker_setup):
     # Cleanup is handled by container removal
 
 
+@pytest.fixture(scope="session")
+def e2e_pool(docker_setup, pggit_installed) -> ConnectionPool:
+    """Session-scoped connection pool for E2E tests."""
+    pool = ConnectionPool(
+        conninfo=docker_setup.connection_string,
+        min_size=2,
+        max_size=10,
+        timeout=30,
+        open=True,
+    )
+    print(f"\n✅ Connection pool initialized: min_size=2, max_size=10")
+    yield pool
+    pool.close()
+    print("\n✅ Connection pool closed")
+
+
 @pytest.fixture
-def db(docker_setup, pggit_installed):
+def db(e2e_pool) -> PooledDatabaseFixture:
     """Fixture providing test database connection with transaction isolation"""
-    fixture = E2ETestFixture(docker_setup.connection_string)
-    fixture.connect()
+    fixture = PooledDatabaseFixture(e2e_pool, transaction_isolation=True)
 
     # Ensure commits table exists (required for tests)
     try:
@@ -306,47 +324,24 @@ def db(docker_setup, pggit_installed):
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-    except Exception as e:
-        # Table might already exist, continue
-        fixture.conn.rollback()
+    except Exception:
+        pass  # Table might already exist
 
     # Create main branch if it doesn't exist (required for tests)
     try:
         fixture.execute(
             "INSERT INTO pggit.branches (name, status) VALUES ('main', 'ACTIVE')"
         )
-    except Exception as e:
-        # Branch might already exist, rollback and continue
-        fixture.conn.rollback()
+    except Exception:
+        pass  # Branch might already exist
 
     # Start a transaction for test isolation
-    # This ensures all test changes are rolled back, providing clean state for each test
-    # Check if we're already in a transaction (some tests might have started one)
     try:
-        # Try to start a transaction, but don't fail if one is already in progress
-        fixture.execute("BEGIN")
-        fixture.in_test_transaction = True
-    except Exception as e:
-        # If BEGIN fails (e.g., "transaction already in progress"), mark as not in transaction
-        # The fixture's rollback will still work for cleanup
+        fixture.begin_transaction()
+    except Exception:
         fixture.in_test_transaction = False
 
     yield fixture
 
     # Rollback the transaction to undo all test changes
-    # This provides perfect isolation between tests
-    fixture.in_test_transaction = False
-
-    # Rollback all connections for all threads
-    import threading
-
-    for attr_name in dir(fixture._local):
-        if attr_name.startswith("conn_"):
-            try:
-                conn = getattr(fixture._local, attr_name)
-                if conn:
-                    conn.rollback()
-            except Exception:
-                pass  # Connection might already be closed
-
-    fixture.close()
+    fixture.rollback_transaction()

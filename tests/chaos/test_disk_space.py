@@ -13,17 +13,20 @@ import pytest
 @pytest.mark.resource
 @pytest.mark.destructive
 @pytest.mark.skip(
-    reason="Requires ability to control/limit disk space in test environment",
+    reason="Requires ability to control/limit disk space in test environment. "
+    "See tests/manual/diskspace.md for manual testing procedure.",
 )
 class TestDiskSpace:
     """
     Test disk space exhaustion handling.
 
     WARNING: These tests simulate disk full conditions and require:
-    - Isolated test partition
+    - Isolated test partition (Docker volume recommended)
     - Ability to monitor disk usage
     - Ability to fill/clear disk space during test
     - Safe cleanup mechanisms
+
+    Manual testing procedures: See tests/manual/diskspace.md
 
     Only run in isolated test environments!
     """

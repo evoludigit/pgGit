@@ -59,12 +59,12 @@ chaos = [
     "pytest-xdist>=3.5.0",
     "pytest-html>=4.1.0",
     "pytest-cov>=4.1.0",
-    "psycopg>=3.1.0",
+    "psycopg[pool]>=3.1.0",
     "psutil>=5.9.0",
 ]
 e2e = [
     "pytest>=8.0.0",
-    "psycopg>=3.1.0",
+    "psycopg[pool]>=3.1.0",
     "docker>=7.0.0",
 ]
 dev = [
