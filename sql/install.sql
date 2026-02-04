@@ -29,6 +29,9 @@
 \i 054_batch_operations_monitoring.sql
 \i 055_schema_diffing_foundation.sql
 \i 056_advanced_workflows.sql
+\i 057_advanced_reporting.sql
+\i 058_analytics_insights.sql
+\i 059_performance_optimization.sql
 \i pggit_conflict_resolution_minimal.sql
 \i pggit_diff_functionality.sql
 \i 060_time_travel.sql
