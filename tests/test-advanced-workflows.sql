@@ -230,13 +230,20 @@ END $$;
 DO $$
 DECLARE
     v_count integer;
+    v_view_exists boolean;
 BEGIN
-    SELECT COUNT(*) INTO v_count FROM pggit.v_schema_workflow_summary;
+    -- Check view exists
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.views
+        WHERE table_schema = 'pggit' AND table_name = 'v_schema_workflow_summary'
+    ) INTO v_view_exists;
 
-    IF v_count >= 0 THEN
+    IF v_view_exists THEN
+        -- Query the view (should not throw error)
+        SELECT COUNT(*) INTO v_count FROM pggit.v_schema_workflow_summary;
         RAISE NOTICE '✓ Test 7.1 PASS: Workflow summary view works (% records)', v_count;
     ELSE
-        RAISE EXCEPTION 'Test 7.1 FAIL: Could not query view';
+        RAISE EXCEPTION 'Test 7.1 FAIL: View v_schema_workflow_summary does not exist';
     END IF;
 END $$;
 
@@ -248,13 +255,20 @@ END $$;
 DO $$
 DECLARE
     v_count integer;
+    v_view_exists boolean;
 BEGIN
-    SELECT COUNT(*) INTO v_count FROM pggit.v_ci_ready_changes;
+    -- Check view exists
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.views
+        WHERE table_schema = 'pggit' AND table_name = 'v_ci_ready_changes'
+    ) INTO v_view_exists;
 
-    IF v_count >= 0 THEN
+    IF v_view_exists THEN
+        -- Query the view (should not throw error)
+        SELECT COUNT(*) INTO v_count FROM pggit.v_ci_ready_changes;
         RAISE NOTICE '✓ Test 8.1 PASS: CI ready changes view works (% records)', v_count;
     ELSE
-        RAISE EXCEPTION 'Test 8.1 FAIL: Could not query view';
+        RAISE EXCEPTION 'Test 8.1 FAIL: View v_ci_ready_changes does not exist';
     END IF;
 END $$;
 
@@ -266,13 +280,20 @@ END $$;
 DO $$
 DECLARE
     v_count integer;
+    v_view_exists boolean;
 BEGIN
-    SELECT COUNT(*) INTO v_count FROM pggit.v_migration_readiness_summary;
+    -- Check view exists
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.views
+        WHERE table_schema = 'pggit' AND table_name = 'v_migration_readiness_summary'
+    ) INTO v_view_exists;
 
-    IF v_count >= 0 THEN
+    IF v_view_exists THEN
+        -- Query the view (should not throw error)
+        SELECT COUNT(*) INTO v_count FROM pggit.v_migration_readiness_summary;
         RAISE NOTICE '✓ Test 9.1 PASS: Migration readiness summary view works (% records)', v_count;
     ELSE
-        RAISE EXCEPTION 'Test 9.1 FAIL: Could not query view';
+        RAISE EXCEPTION 'Test 9.1 FAIL: View v_migration_readiness_summary does not exist';
     END IF;
 END $$;
 
