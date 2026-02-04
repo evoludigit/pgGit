@@ -27,6 +27,7 @@
 \i 052_merge_operations.sql
 \i 053_advanced_merge_operations.sql
 \i 054_batch_operations_monitoring.sql
+\i 055_schema_diffing_foundation.sql
 \i pggit_conflict_resolution_minimal.sql
 \i pggit_diff_functionality.sql
 \i 060_time_travel.sql
