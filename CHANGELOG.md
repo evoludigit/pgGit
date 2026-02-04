@@ -70,14 +70,24 @@ Test Infrastructure & Bug Fixes: Complete connection pooling infrastructure, E2E
   - Clean fixture initialization and cleanup
 
 ### Test Coverage
-✅ 11/12 tests passing (92% - 1 manual procedure)
-  - 10 target tests from original xfail list
+✅ 11/11 E2E tests passing (100%)
+  - 10 target tests from original xfail list - all passing
   - 1 additional test (test_verify_backup) fixed by SQL correction
-  - 1 test properly skipped with manual procedure reference (test_deadlock_detection_and_recovery)
 
-✅ 10 unit tests for connection pool infrastructure
+✅ 10 unit tests for connection pool infrastructure - all passing
+✅ 6 automated deadlock scenario tests in chaos suite - all passing
 ✅ Zero xfail markers on main test suite
 ✅ All schema constraints properly satisfied
+
+### Test Organization
+- **E2E Tests** (`tests/e2e/`): Sequential validation of core functionality
+- **Chaos Tests** (`tests/chaos/test_deadlock_scenarios.py`): 6 automated deadlock scenarios
+  - Circular lock deadlock
+  - Deadlock with pggit operations
+  - Multiple table deadlock
+  - Deadlock timeout behavior
+  - Deadlock recovery & data integrity
+  - Deadlock under load
 
 ### Breaking Changes
 None - this is purely infrastructure improvement and test stabilization.
@@ -87,10 +97,10 @@ For applications using pgGit tests:
 1. Update test fixtures to use `PooledDatabaseFixture` (replaces `E2ETestFixture`)
 2. Configure min/max connection pool sizes based on your environment
 3. Use test helpers instead of raw SQL for consistent test data creation
+4. Run chaos tests for deadlock scenario validation: `pytest tests/chaos/test_deadlock_scenarios.py`
 
 ### Known Limitations (Addressed in Future Versions)
-- Deadlock testing requires manual setup (documented in tests/manual/deadlock.md)
-- True concurrent testing limited by psycopg thread-local storage (workaround: sequential validation)
+- True concurrent testing limited by psycopg thread-local storage (workaround: sequential validation in E2E, full concurrency in chaos suite)
 
 ## [0.2.0] - 2026-04-15
 
