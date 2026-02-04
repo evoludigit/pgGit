@@ -403,7 +403,7 @@ source = { editable = "." }
 chaos = [
     { name = "hypothesis" },
     { name = "psutil" },
-    { name = "psycopg" },
+    { name = "psycopg", extra = ["pool"] },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -420,7 +420,7 @@ dev = [
 ]
 e2e = [
     { name = "docker" },
-    { name = "psycopg" },
+    { name = "psycopg", extra = ["pool"] },
     { name = "pytest" },
 ]
 
@@ -435,9 +435,9 @@ requires-dist = [
     { name = "docker", marker = "extra == 'e2e'", specifier = ">=7.0.0" },
     { name = "hypothesis", marker = "extra == 'chaos'", specifier = ">=6.100.0" },
     { name = "psutil", marker = "extra == 'chaos'", specifier = ">=5.9.0" },
-    { name = "psycopg", marker = "extra == 'chaos'", specifier = ">=3.1.0" },
     { name = "psycopg", marker = "extra == 'dev'", specifier = ">=3.1.0" },
-    { name = "psycopg", marker = "extra == 'e2e'", specifier = ">=3.1.0" },
+    { name = "psycopg", extras = ["pool"], marker = "extra == 'chaos'", specifier = ">=3.1.0" },
+    { name = "psycopg", extras = ["pool"], marker = "extra == 'e2e'", specifier = ">=3.1.0" },
     { name = "pytest", marker = "extra == 'chaos'", specifier = ">=8.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
     { name = "pytest", marker = "extra == 'e2e'", specifier = ">=8.0.0" },
@@ -500,6 +500,23 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e0/1a/7d9ef4fdc13ef7f15b934c393edc97a35c281bb7d3c3329fbfcbe915a7c2/psycopg-3.3.2.tar.gz", hash = "sha256:707a67975ee214d200511177a6a80e56e654754c9afca06a7194ea6bbfde9ca7", size = 165630, upload-time = "2025-12-06T17:34:53.899Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8c/51/2779ccdf9305981a06b21a6b27e8547c948d85c41c76ff434192784a4c93/psycopg-3.3.2-py3-none-any.whl", hash = "sha256:3e94bc5f4690247d734599af56e51bae8e0db8e4311ea413f801fef82b14a99b", size = 212774, upload-time = "2025-12-06T17:31:41.414Z" },
+]
+
+[package.optional-dependencies]
+pool = [
+    { name = "psycopg-pool" },
+]
+
+[[package]]
+name = "psycopg-pool"
+version = "3.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/56/9a/9470d013d0d50af0da9c4251614aeb3c1823635cab3edc211e3839db0bcf/psycopg_pool-3.3.0.tar.gz", hash = "sha256:fa115eb2860bd88fce1717d75611f41490dec6135efb619611142b24da3f6db5", size = 31606, upload-time = "2025-12-01T11:34:33.11Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e7/c3/26b8a0908a9db249de3b4169692e1c7c19048a9bc41a4d3209cee7dbb758/psycopg_pool-3.3.0-py3-none-any.whl", hash = "sha256:2e44329155c410b5e8666372db44276a8b1ebd8c90f1c3026ebba40d4bc81063", size = 39995, upload-time = "2025-12-01T11:34:29.761Z" },
 ]
 
 [[package]]

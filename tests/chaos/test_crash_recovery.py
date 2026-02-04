@@ -230,7 +230,8 @@ class TestCrashRecovery:
             pass
 
     @pytest.mark.skip(
-        reason="Requires PostgreSQL restart privileges - not available in test environment",
+        reason="Requires PostgreSQL restart privileges - not available in CI environment. "
+        "See tests/manual/crash.md for manual testing procedure.",
     )
     def test_database_crash_recovery(self, sync_conn: psycopg.Connection):
         """
@@ -239,12 +240,11 @@ class TestCrashRecovery:
         Expected: Uncommitted data is lost, committed data persists, database
         is in consistent state after recovery.
 
-        NOTE: This test requires ability to restart PostgreSQL, which is not
-        available in the test environment. It's included as a placeholder for
-        manual testing in production environments.
+        NOTE: This test requires ability to restart PostgreSQL. See tests/manual/crash.md
+        for instructions on manual testing in isolated environments.
         """
-        # This test would require:
+        # See tests/manual/crash.md for:
         # 1. Start transaction with data changes
-        # 2. Use pg_ctl to crash PostgreSQL
+        # 2. Use pg_ctl or Docker to crash PostgreSQL
         # 3. Wait for recovery
         # 4. Reconnect and verify state

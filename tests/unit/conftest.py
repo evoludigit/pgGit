@@ -78,3 +78,9 @@ def sample_dict():
         "key3": {"nested": "value"},
         "key4": [1, 2, 3],
     }
+
+
+@pytest.fixture(scope="session")
+def db_connection_string() -> str:
+    """Connection string for integration tests that access the database."""
+    return "host=localhost port=5432 dbname=pggit_chaos_test user=postgres"
