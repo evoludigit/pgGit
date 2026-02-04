@@ -104,7 +104,7 @@ class PooledDatabaseFixture:
             except Exception as e:
                 if not self.in_test_transaction:
                     conn.rollback()
-                raise Exception(f"Query failed: {query} with args {args}") from e
+                raise Exception(f"Query failed: {query} with args {args}\nOriginal error: {str(e)}") from e
 
     def begin_transaction(self):
         """Start a test transaction for isolation.

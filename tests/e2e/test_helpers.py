@@ -125,28 +125,22 @@ def create_expired_backup(
     Returns:
         Backup ID
     """
-    backup_id = db.execute_returning(
-        """
-        INSERT INTO pggit.backups (
-            backup_name, backup_type, backup_tool, location,
-            status, completed_at
-        ) VALUES (
-            %s, %s, 'pgbackrest', %s, 'completed',
-            CURRENT_TIMESTAMP - INTERVAL '%s days'
-        ) RETURNING backup_id
-        """,
-        name,
-        backup_type,
-        f"s3://bucket/{name}",
-        days_ago,
-    )[0]
+    # Create a test commit first (required by valid_commit constraint)
+    commit_hash = create_test_commit(db, f"expired-{name}")
 
+    # Register the backup via API (ensures all constraints are met)
+    backup_id = register_and_complete_backup(
+        db, name, backup_type, commit_hash, f"s3://bucket/{name}"
+    )
+
+    # Mark as expired
     db.execute(
         """
         UPDATE pggit.backups
-        SET status = 'expired', expires_at = CURRENT_TIMESTAMP - INTERVAL '1 day'
+        SET status = 'expired', expires_at = CURRENT_TIMESTAMP - INTERVAL '%s days'
         WHERE backup_id = %s::UUID
         """,
+        days_ago,
         backup_id,
     )
 
@@ -186,11 +180,14 @@ def get_function_source(db: PooledDatabaseFixture, function_name: str) -> Option
     Returns:
         Function source code or None if not found
     """
+    # Get the function definition by oid
     result = db.execute(
         """
-        SELECT pg_get_functiondef(
-            'pggit.' || %s || '()'::regprocedure
-        )
+        SELECT pg_get_functiondef(p.oid)
+        FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'pggit' AND p.proname = %s
+        LIMIT 1
         """,
         function_name,
     )

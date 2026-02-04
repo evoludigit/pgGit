@@ -115,14 +115,20 @@ class TestConcurrency:
 
     def test_concurrent_job_operations(self, db, pggit_installed):
         """Job operations should be properly idempotent."""
-        # Create a test job
+        from tests.e2e.test_helpers import create_test_commit, register_and_complete_backup
+
+        # Create a test backup first (required by backup_jobs foreign key)
+        commit = create_test_commit(db, "job-ops")
+        backup_id = register_and_complete_backup(db, "job-ops-backup", "full", commit)
+
+        # Create a test job with valid status (not 'failed' to avoid retry constraint)
         job_id = db.execute_returning("""
             INSERT INTO pggit.backup_jobs (
                 backup_id, job_type, command, tool, status
             ) VALUES (
-                gen_random_uuid(), 'backup', 'test command', 'pgbackrest', 'failed'
+                %s::UUID, 'backup', 'test command', 'pgbackrest', 'queued'
             ) RETURNING job_id
-        """)[0]
+        """, backup_id)[0]
 
         # Test sequential reset attempts (idempotency)
         results = []
@@ -211,16 +217,20 @@ class TestConcurrency:
 
     def test_row_level_locking_prevents_conflicts(self, db, pggit_installed):
         """Row-level locking should prevent conflicting updates."""
-        from tests.e2e.test_helpers import get_function_source
+        from tests.e2e.test_helpers import get_function_source, create_test_commit, register_and_complete_backup
 
-        # Create a test job
+        # Create a test backup first (required by backup_jobs foreign key)
+        commit = create_test_commit(db, "locking-test")
+        backup_id = register_and_complete_backup(db, "locking-backup", "full", commit)
+
+        # Create a test job with valid status (not 'failed' to avoid retry constraint)
         job_id = db.execute_returning("""
             INSERT INTO pggit.backup_jobs (
                 backup_id, job_type, command, tool, status
             ) VALUES (
-                gen_random_uuid(), 'backup', 'test', 'pgbackrest', 'failed'
+                %s::UUID, 'backup', 'test', 'pgbackrest', 'queued'
             ) RETURNING job_id
-        """)[0]
+        """, backup_id)[0]
 
         # Verify the reset_job function contains row-level locking (FOR UPDATE)
         reset_job_source = get_function_source(db, "reset_job")
@@ -338,16 +348,27 @@ class TestConcurrency:
 
     def test_lock_escalation_handling(self, db, pggit_installed):
         """System should handle bulk operations with proper locking."""
-        # Create multiple jobs (10 jobs total)
+        from tests.e2e.test_helpers import create_test_commit, register_and_complete_backup
+
+        # Create test backups (required by backup_jobs foreign key)
+        backup_ids = []
+        for i in range(10):
+            commit = create_test_commit(db, f"escalation-{i}")
+            backup_id = register_and_complete_backup(
+                db, f"escalation-backup-{i}", "full", commit
+            )
+            backup_ids.append(backup_id)
+
+        # Create multiple jobs (10 jobs total) with valid status
         job_ids = []
         for i in range(10):
             job_id = db.execute_returning("""
                 INSERT INTO pggit.backup_jobs (
                     backup_id, job_type, command, tool, status
                 ) VALUES (
-                    gen_random_uuid(), 'backup', %s, 'pgbackrest', 'failed'
+                    %s::UUID, 'backup', %s, 'pgbackrest', 'queued'
                 ) RETURNING job_id
-            """, f"test-{i}")[0]
+            """, backup_ids[i], f"test-{i}")[0]
             job_ids.append(job_id)
 
         # Reset all jobs sequentially (avoiding lock conflicts)
