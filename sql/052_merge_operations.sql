@@ -408,15 +408,48 @@ CREATE OR REPLACE FUNCTION pggit.get_merge_status(
     p_merge_id uuid
 )
 RETURNS jsonb AS $$
+DECLARE
+    v_merge record;
+    v_conflicts jsonb := '[]'::jsonb;
+    v_conflict_record record;
 BEGIN
-    -- TODO: Implement status query
-    -- 1. Get merge_history record
-    -- 2. Get associated conflicts
-    -- 3. Build status response
+    -- Get merge_history record
+    SELECT * INTO v_merge
+    FROM pggit.merge_history
+    WHERE id = p_merge_id;
 
+    IF v_merge IS NULL THEN
+        RAISE EXCEPTION 'Merge % not found', p_merge_id;
+    END IF;
+
+    -- Get associated conflicts
+    FOR v_conflict_record IN
+        SELECT id, conflict_object, conflict_type, resolution_strategy
+        FROM pggit.merge_conflicts
+        WHERE merge_id = p_merge_id::text
+    LOOP
+        v_conflicts := v_conflicts || jsonb_build_object(
+            'conflict_id', v_conflict_record.id,
+            'object', v_conflict_record.conflict_object,
+            'type', v_conflict_record.conflict_type,
+            'resolution', v_conflict_record.resolution_strategy
+        );
+    END LOOP;
+
+    -- Build status response
     RETURN jsonb_build_object(
         'merge_id', p_merge_id,
-        'status', 'in_progress'
+        'source_branch', v_merge.source_branch,
+        'target_branch', v_merge.target_branch,
+        'status', v_merge.status,
+        'initiated_by', v_merge.initiated_by,
+        'initiated_at', v_merge.initiated_at,
+        'completed_at', v_merge.completed_at,
+        'conflict_count', v_merge.conflict_count,
+        'resolved_conflicts', v_merge.resolved_conflicts,
+        'unresolved_conflicts', v_merge.unresolved_conflicts,
+        'merge_strategy', v_merge.merge_strategy,
+        'conflicts', v_conflicts
     );
 END;
 $$ LANGUAGE plpgsql;
@@ -431,13 +464,30 @@ CREATE OR REPLACE FUNCTION pggit.abort_merge(
     p_reason text DEFAULT 'User aborted'
 )
 RETURNS void AS $$
+DECLARE
+    v_merge record;
 BEGIN
-    -- TODO: Implement merge abort logic
-    -- 1. Update merge_history status to 'aborted'
-    -- 2. Clean up any partial changes
-    -- 3. Record reason
+    -- Get merge record
+    SELECT * INTO v_merge
+    FROM pggit.merge_history
+    WHERE id = p_merge_id;
 
-    RAISE NOTICE 'abort_merge: Aborting merge %s - %s', p_merge_id, p_reason;
+    IF v_merge IS NULL THEN
+        RAISE EXCEPTION 'Merge % not found', p_merge_id;
+    END IF;
+
+    -- Update merge_history status to 'aborted'
+    UPDATE pggit.merge_history
+    SET
+        status = 'aborted',
+        error_message = p_reason,
+        completed_at = now()
+    WHERE id = p_merge_id;
+
+    -- Clean up any partial changes (conflicts are left as-is for audit)
+    -- The conflicts remain in the database for reference
+
+    RAISE NOTICE 'abort_merge: Merge %s aborted - %s', p_merge_id, p_reason;
 END;
 $$ LANGUAGE plpgsql;
 
