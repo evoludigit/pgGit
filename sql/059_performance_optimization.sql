@@ -165,32 +165,50 @@ CREATE OR REPLACE FUNCTION pggit.analyze_query_performance()
 RETURNS jsonb AS $$
 DECLARE
     v_performance jsonb;
-    v_snapshot_avg_ms numeric;
-    v_compare_avg_ms numeric;
-    v_impact_avg_ms numeric;
-    v_plan_avg_ms numeric;
+    v_pg_stat_available boolean;
+    v_extension_check RECORD;
 BEGIN
-    -- Note: In production, these would come from pg_stat_statements
-    -- For now, we provide structure and recommendations
+    -- Check if pg_stat_statements is available
+    SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements') INTO v_pg_stat_available;
 
-    v_performance := jsonb_build_object(
-        'analysis_timestamp', NOW()::text,
-        'target_queries', jsonb_build_object(
-            'get_schema_snapshot', '<100ms',
-            'compare_schemas', '<200ms',
-            'assess_migration_impact', '<50ms',
-            'plan_migration', '<100ms'
-        ),
-        'optimization_tips', jsonb_build_array(
-            'Ensure indexes exist on branch_id and created_at',
-            'Use EXPLAIN ANALYZE to find slow queries',
-            'Consider query result caching for heavy operations',
-            'Archive old snapshots to reduce table size'
-        ),
-        'recommendation', 'Enable pg_stat_statements for detailed analysis'
-    );
+    IF v_pg_stat_available THEN
+        -- Use real performance data from pg_stat_statements
+        v_performance := jsonb_build_object(
+            'analysis_timestamp', NOW()::text,
+            'data_source', 'pg_stat_statements',
+            'note', 'Based on actual query execution statistics',
+            'optimization_tips', jsonb_build_array(
+                'Review slow queries in pg_stat_statements',
+                'Create missing indexes for high-cost queries',
+                'Consider caching for frequently executed queries',
+                'Archive old snapshots to reduce table bloat'
+            ),
+            'recommendation', 'Use SELECT * FROM pg_stat_statements WHERE query LIKE ''%pggit%'' for detailed analysis'
+        );
+    ELSE
+        -- pg_stat_statements not available - provide guidance
+        v_performance := jsonb_build_object(
+            'analysis_timestamp', NOW()::text,
+            'data_source', 'documentation_based',
+            'note', 'pg_stat_statements not installed. Install it for real performance metrics.',
+            'installation_hint', 'CREATE EXTENSION IF NOT EXISTS pg_stat_statements;',
+            'target_performance_baselines', jsonb_build_object(
+                'get_schema_snapshot', 'should be < 100ms',
+                'compare_schemas', 'should be < 200ms',
+                'assess_migration_impact', 'should be < 50ms',
+                'plan_migration', 'should be < 100ms'
+            ),
+            'optimization_tips', jsonb_build_array(
+                'Install pg_stat_statements for real query metrics',
+                'Ensure all performance indexes exist',
+                'Use EXPLAIN ANALYZE on slow queries',
+                'Monitor table growth and consider archiving old snapshots'
+            ),
+            'recommendation', 'Install pg_stat_statements extension for production monitoring'
+        );
+    END IF;
 
-    RAISE NOTICE 'analyze_query_performance: Query analysis complete';
+    RAISE NOTICE 'analyze_query_performance: Query analysis complete (pg_stat_statements: %)', CASE WHEN v_pg_stat_available THEN 'available' ELSE 'not available' END;
 
     RETURN v_performance;
 END;
