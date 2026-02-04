@@ -85,17 +85,76 @@ RETURNS jsonb AS $$
 DECLARE
     v_conflicts jsonb := '{"conflict_count": 0, "conflicts": []}'::jsonb;
     v_conflict_count integer := 0;
-    v_source_schema text;
-    v_target_schema text;
+    v_conflict_array jsonb[] := '{}';
+    v_object record;
+    v_source_hash text;
+    v_target_hash text;
+    v_conflict_type text;
 BEGIN
-    -- TODO: Implement conflict detection logic
-    -- 1. Validate branches exist
-    -- 2. Get schema names for branches
-    -- 3. Compare tables, columns, indexes, constraints
-    -- 4. Build conflict list
-    -- 5. Return structured results
+    -- Validate branches exist
+    IF NOT EXISTS (SELECT 1 FROM pggit.branches WHERE name = p_source_branch) THEN
+        RAISE EXCEPTION 'Source branch % not found', p_source_branch;
+    END IF;
 
-    RAISE NOTICE 'detect_conflicts: Comparing %s and %s', p_source_branch, p_target_branch;
+    IF NOT EXISTS (SELECT 1 FROM pggit.branches WHERE name = p_target_branch) THEN
+        RAISE EXCEPTION 'Target branch % not found', p_target_branch;
+    END IF;
+
+    -- Compare objects between branches using full outer join
+    FOR v_object IN
+        SELECT
+            COALESCE(s.object_type, t.object_type) as object_type,
+            COALESCE(s.schema_name, t.schema_name) as schema_name,
+            COALESCE(s.object_name, t.object_name) as object_name,
+            s.content_hash as source_hash,
+            t.content_hash as target_hash,
+            (s.id IS NOT NULL) as in_source,
+            (t.id IS NOT NULL) as in_target
+        FROM pggit.objects s
+        FULL OUTER JOIN pggit.objects t
+            ON s.object_type = t.object_type
+            AND s.schema_name = t.schema_name
+            AND s.object_name = t.object_name
+            AND t.branch_name = p_target_branch
+        WHERE s.branch_name = p_source_branch
+          OR t.branch_name = p_target_branch
+    LOOP
+        v_conflict_type := NULL;
+        v_source_hash := v_object.source_hash;
+        v_target_hash := v_object.target_hash;
+
+        -- Detect conflict types
+        IF v_object.in_source AND NOT v_object.in_target THEN
+            v_conflict_type := 'table_added';
+        ELSIF NOT v_object.in_source AND v_object.in_target THEN
+            v_conflict_type := 'table_removed';
+        ELSIF v_object.in_source AND v_object.in_target AND v_source_hash IS DISTINCT FROM v_target_hash THEN
+            v_conflict_type := 'table_modified';
+        END IF;
+
+        -- Add to conflict list if conflict detected
+        IF v_conflict_type IS NOT NULL THEN
+            v_conflict_count := v_conflict_count + 1;
+            v_conflict_array := array_append(
+                v_conflict_array,
+                jsonb_build_object(
+                    'table', v_object.schema_name || '.' || v_object.object_name,
+                    'type', v_conflict_type,
+                    'source_hash', v_source_hash,
+                    'target_hash', v_target_hash
+                )
+            );
+        END IF;
+    END LOOP;
+
+    -- Build result
+    v_conflicts := jsonb_build_object(
+        'conflict_count', v_conflict_count,
+        'conflicts', v_conflict_array
+    );
+
+    RAISE NOTICE 'detect_conflicts: Found % conflicts between %s and %s',
+        v_conflict_count, p_source_branch, p_target_branch;
 
     RETURN v_conflicts;
 END;

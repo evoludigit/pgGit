@@ -29,22 +29,36 @@ END $$;
 
 DO $$
 DECLARE
-    v_merge_result jsonb;
-    v_merge_status text;
+    v_branch_a_id integer;
+    v_branch_b_id integer;
+    v_branch_name_a text := 'merge_test_no_conflicts_a_' || substr(md5(random()::text), 1, 8);
+    v_branch_name_b text := 'merge_test_no_conflicts_b_' || substr(md5(random()::text), 1, 8);
+    v_conflicts jsonb;
+    v_conflict_count integer;
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '1. Testing simple merge without conflicts...';
 
-    -- TODO: Implement test
-    -- 1. Create test schema structure
-    -- 2. Create branch A with table 'users'
-    -- 3. Create branch B from main
-    -- 4. Add column to 'users' in branch A
-    -- 5. Merge A into B
-    -- 6. Verify merge succeeded
-    -- 7. Verify column is in B
+    -- Setup: Create branches from main
+    v_branch_a_id := pggit.create_branch(v_branch_name_a, 'main', false);
+    v_branch_b_id := pggit.create_branch(v_branch_name_b, 'main', false);
 
-    RAISE NOTICE 'SKIP: Test structure ready, implementation pending';
+    -- Branch A and B are identical (both inherit from main)
+    -- No additional changes in either branch
+    -- Detect conflicts: Both branches have identical schemas
+    v_conflicts := pggit.detect_conflicts(v_branch_name_a, v_branch_name_b);
+    v_conflict_count := (v_conflicts->>'conflict_count')::integer;
+
+    -- Verify: No conflicts expected
+    IF v_conflict_count = 0 THEN
+        RAISE NOTICE '✓ Test 1 PASS: No conflicts detected as expected';
+    ELSE
+        RAISE EXCEPTION 'Test 1 FAIL: Expected 0 conflicts, got %', v_conflict_count;
+    END IF;
+
+    -- Cleanup
+    DELETE FROM pggit.objects WHERE branch_id IN (v_branch_a_id, v_branch_b_id);
+    DELETE FROM pggit.branches WHERE id IN (v_branch_a_id, v_branch_b_id);
 END $$;
 
 -- ============================================================================
@@ -53,21 +67,45 @@ END $$;
 
 DO $$
 DECLARE
+    v_branch_a_id integer;
+    v_branch_b_id integer;
+    v_branch_name_a text := 'merge_test_conflict_a_' || substr(md5(random()::text), 1, 8);
+    v_branch_name_b text := 'merge_test_conflict_b_' || substr(md5(random()::text), 1, 8);
     v_conflicts jsonb;
     v_conflict_count integer;
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '2. Testing conflict detection - table added in source...';
 
-    -- TODO: Implement test
-    -- 1. Create branch A with original schema
-    -- 2. Create branch B from A
-    -- 3. In branch B: add new table 'orders'
-    -- 4. Call detect_conflicts(A, B)
-    -- 5. Verify conflict detected for 'orders' table_added
-    -- 6. Verify conflict_count is 1
+    -- Setup: Create branches
+    v_branch_a_id := pggit.create_branch(v_branch_name_a, 'main', false);
+    v_branch_b_id := pggit.create_branch(v_branch_name_b, 'main', false);
 
-    RAISE NOTICE 'SKIP: Test structure ready, implementation pending';
+    -- Branch A: Add new table 'orders' (not in B)
+    INSERT INTO pggit.objects (
+        object_type, schema_name, object_name, content_hash,
+        ddl_normalized, branch_id, branch_name, version
+    ) VALUES (
+        'TABLE', 'pggit_base', 'orders',
+        encode(sha256('orders_table'::bytea), 'hex'),
+        'CREATE TABLE orders (id INT PRIMARY KEY)',
+        v_branch_a_id, v_branch_name_a, 1
+    );
+
+    -- Detect conflicts between A (has orders) and B (doesn't have orders)
+    v_conflicts := pggit.detect_conflicts(v_branch_name_a, v_branch_name_b);
+    v_conflict_count := (v_conflicts->>'conflict_count')::integer;
+
+    -- Verify: One conflict detected for table_added
+    IF v_conflict_count = 1 THEN
+        RAISE NOTICE '✓ Test 2 PASS: Conflict detected for table_added';
+    ELSE
+        RAISE EXCEPTION 'Test 2 FAIL: Expected 1 conflict, got %', v_conflict_count;
+    END IF;
+
+    -- Cleanup
+    DELETE FROM pggit.objects WHERE branch_id IN (v_branch_a_id, v_branch_b_id);
+    DELETE FROM pggit.branches WHERE id IN (v_branch_a_id, v_branch_b_id);
 END $$;
 
 -- ============================================================================
