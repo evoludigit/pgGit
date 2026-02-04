@@ -1,6 +1,30 @@
-# pgGit: Git Workflows for PostgreSQL Development
+# pgGit: Git for Database Schemas
 
-**Branch, merge, and coordinate PostgreSQL schema changes during development. Enable parallel work across teams and AI agents, then deploy safely to production.**
+**Git-like version control for PostgreSQL schemas.** Branch, merge, diff, and revert database schemas like you do with code.
+
+## The Moon Shot Vision
+
+pgGit aims to become the standard for database version control across 6 phases:
+
+- **Phase 1 (v0.1-v1.0)**: Schema VCS - Branch, merge, diff operations ← **You are here (Feb-July 2026)**
+- **Phase 2**: Temporal Queries - Time-travel across schema history
+- **Phase 3**: Compliance Auditing - Immutable audit trails for regulated industries
+- **Phase 4**: Storage Optimization - Copy-on-write, compression, deduplication
+- **Phase 5**: Managed Hosting - Cloud-native pgGit service
+- **Phase 6**: Expansion Products - Integrations, APIs, ecosystem tooling
+
+**[See ROADMAP.md](ROADMAP.md) for the complete 18-month plan.**
+
+---
+
+### Phase 1 Focus: Schema VCS Only
+
+We're committed to **laser-focused Phase 1 development**. All PRs must answer: _"Is this schema version control?"_
+
+- **YES**: Merged into Phase 1
+- **NO**: Deferred to appropriate future phase
+
+This discipline enables rapid iteration, market validation, and sustainable growth.
 
 > **Recommended Usage**: pgGit is primarily designed for **development and staging databases**. For most production environments, deploy changes via migration tools (Confiture, Flyway, etc.). However, if your compliance requirements demand automatic DDL audit trails (HIPAA, SOX, PCI-DSS), pgGit can provide value in production. See [Production Considerations](docs/guides/PRODUCTION_CONSIDERATIONS.md)
 
@@ -14,6 +38,27 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Development Tool](https://img.shields.io/badge/Use%20In-Development-green.svg)](docs/guides/DEVELOPMENT_WORKFLOW.md)
 [![Production: Consider for Compliance](https://img.shields.io/badge/Production-Consider%20for%20Compliance-orange.svg)](docs/guides/PRODUCTION_CONSIDERATIONS.md)
+
+---
+
+## 🗺️ Product Roadmap: 6 Phases to Enterprise Completeness
+
+| Phase | Timeframe | Focus | Status | Features |
+|-------|-----------|-------|--------|----------|
+| **Phase 1** | Feb-July 2026 | Schema VCS | 🚀 **In Progress** | Create/switch/merge branches, diff schemas, basic conflict detection |
+| **Phase 2** | Aug-Oct 2026 | Temporal Queries | Planned | Time-travel across history, point-in-time recovery |
+| **Phase 3** | Nov 2026-Jan 2027 | Compliance | Planned | Immutable audit trails, regulatory integrations (HIPAA, SOX, GDPR) |
+| **Phase 4** | Feb-Apr 2027 | Optimization | Planned | Copy-on-write, compression, storage deduplication |
+| **Phase 5** | May-Jul 2027 | Managed Service | Planned | Cloud hosting, multi-tenant support, API |
+| **Phase 6** | Aug+ 2027 | Ecosystem | Planned | Integrations, plugins, competing products |
+
+**Phase 1 Success Metrics** (End of July 2026):
+- ✅ 100+ production users
+- ✅ 1500+ GitHub stars
+- ✅ Schema VCS working reliably
+- ✅ Strong market validation
+
+Only after Phase 1 success do we proceed to Phase 2 based on user demand and validation.
 
 ---
 
@@ -225,18 +270,17 @@ pgGit enhances your development process without touching production.
 
 ---
 
-## ✨ Key Features
+## ✨ Phase 1 Features (Schema VCS)
 
-### Core Capabilities
+### Core Capabilities ✅ Production Ready
 
-- ✅ **Automatic DDL Tracking** - Event triggers capture all schema changes
-- ✅ **Semantic Versioning** - MAJOR.MINOR.PATCH for every object
-- ✅ **Git-Style Branching** - Create isolated schema branches
-- ✅ **Three-Way Merging** - Intelligent conflict detection and resolution
-- ✅ **Time Travel** - Checkout any point in your database history
-- ✅ **Dependency Tracking** - Automatic foreign key and view dependencies
-- ✅ **Complete Audit Trail** - Who, what, when, and why for every change
-- ✅ **Enterprise Backup Safety** - Idempotent operations, transaction safety, concurrency protection
+- ✅ **Schema Branching** - Create isolated schema branches for experimentation
+- ✅ **Schema Merging** - Merge branches with automatic conflict detection
+- ✅ **Schema Diffing** - Compare branches and generate migration diffs
+- ✅ **View-Based Routing** - Dynamic runtime routing to correct branch schemas
+- ✅ **Change Tracking** - Event triggers capture all DDL changes
+- ✅ **Branch History** - Complete commit history per branch
+- ✅ **PostgreSQL 15-17** - Full support across versions
 
 ### Production Ready
 
@@ -247,15 +291,17 @@ pgGit enhances your development process without touching production.
 - ✅ **Comprehensive Docs** - API reference, operations runbook, security guides
 - ✅ **CI/CD Ready** - Exit code 0, professional test infrastructure
 
-### Advanced Features
+### Advanced Features (Future Phases)
 
-- 🌿 **Data Branching** - Copy-on-write data isolation with PostgreSQL inheritance
-- 🗜️ **PostgreSQL 17 Compression** - LZ4/ZSTD for efficient storage
-- 🤖 **AI-Powered Analysis** - PostgreSQL-native migration risk assessment
-- 🏢 **CQRS Support** - Command Query Responsibility Segregation patterns
-- 🔐 **Security Hardening** - 30+ security checklist items, FIPS 140-2, SOC2 prep
-- 📊 **Performance Monitoring** - Prometheus integration, health checks
-- 🚀 **Zero-Downtime Deployment** - Shadow tables, blue-green, progressive rollout
+These are planned Phase 2+ features scheduled beyond the current Phase 1 focus. They're documented here for planning purposes but not yet active:
+
+- 🌿 **Data Branching** *(Phase 2+)* - Copy-on-write data isolation with PostgreSQL inheritance
+- 🗜️ **PostgreSQL 17 Compression** *(Phase 4)* - LZ4/ZSTD for efficient storage
+- 🤖 **AI-Powered Analysis** *(Phase 3+)* - PostgreSQL-native migration risk assessment
+- 🏢 **CQRS Support** *(Phase 2+)* - Command Query Responsibility Segregation patterns
+- 🔐 **Security Hardening** *(Phase 3+)* - 30+ security checklist items, FIPS 140-2, SOC2 prep
+- 📊 **Performance Monitoring** *(Phase 2+)* - Prometheus integration, health checks
+- 🚀 **Zero-Downtime Deployment** *(Phase 3+)* - Shadow tables, blue-green, progressive rollout
 
 ---
 
