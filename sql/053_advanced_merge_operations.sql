@@ -231,9 +231,9 @@ BEGIN
             AND b.object_name = s.object_name
         FULL OUTER JOIN (
             SELECT * FROM pggit.objects WHERE branch_id = v_target_id
-        ) t ON b.object_type = t.object_type
-            AND b.schema_name = t.schema_name
-            AND b.object_name = t.object_name
+        ) t ON COALESCE(b.object_type, s.object_type) = t.object_type
+            AND COALESCE(b.schema_name, s.schema_name) = t.schema_name
+            AND COALESCE(b.object_name, s.object_name) = t.object_name
     LOOP
         v_true_conflict := false;
         v_base_hash := v_object.base_hash;
@@ -338,9 +338,9 @@ DECLARE
 BEGIN
     -- Find all resolvable conflicts
     FOR v_conflict IN
-        SELECT id, table_name, is_auto_resolvable, auto_resolution_suggestion
+        SELECT id, conflict_object, is_auto_resolvable, auto_resolution_suggestion
         FROM pggit.merge_conflicts
-        WHERE merge_id = p_merge_id
+        WHERE merge_id = p_merge_id::text
           AND is_auto_resolvable = true
           AND resolution_strategy IS NULL
     LOOP
@@ -358,7 +358,7 @@ BEGIN
                 v_result,
                 '{details}',
                 v_result->'details' || jsonb_build_object(
-                    'table', v_conflict.table_name,
+                    'object', v_conflict.conflict_object,
                     'resolution', v_conflict.auto_resolution_suggestion,
                     'status', 'success'
                 )
@@ -369,7 +369,7 @@ BEGIN
                 v_result,
                 '{details}',
                 v_result->'details' || jsonb_build_object(
-                    'table', v_conflict.table_name,
+                    'object', v_conflict.conflict_object,
                     'status', 'failed',
                     'error', SQLERRM
                 )
@@ -402,7 +402,7 @@ DECLARE
     v_three_way jsonb;
     v_auto_resolved jsonb;
     v_three_way_conflicts jsonb;
-    v_conflict record;
+    v_conflict jsonb;
 BEGIN
     -- If target is NULL, use current branch
     IF p_target_branch IS NULL THEN
@@ -423,10 +423,12 @@ BEGIN
             SELECT * FROM jsonb_array_elements(v_three_way->'auto_merges')
         LOOP
             INSERT INTO pggit.merge_conflicts (
-                merge_id, table_name, conflict_type,
-                is_auto_resolvable, auto_resolution_suggestion, resolution
+                merge_id, branch_a, branch_b, conflict_object, conflict_type,
+                is_auto_resolvable, auto_resolution_suggestion, resolution_strategy
             ) VALUES (
                 v_merge_id,
+                p_source_branch,
+                p_target_branch,
                 v_conflict->>'object_name',
                 v_conflict->>'type',
                 true,
@@ -442,11 +444,13 @@ BEGIN
             SELECT * FROM jsonb_array_elements(v_three_way->'conflicts')
         LOOP
             INSERT INTO pggit.merge_conflicts (
-                merge_id, table_name, conflict_type,
+                merge_id, branch_a, branch_b, conflict_object, conflict_type,
                 conflict_severity, is_auto_resolvable,
                 auto_resolution_suggestion
             ) VALUES (
                 v_merge_id,
+                p_source_branch,
+                p_target_branch,
                 v_conflict->>'object_name',
                 v_conflict->>'type',
                 pggit.classify_conflict_severity(

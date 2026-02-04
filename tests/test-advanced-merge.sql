@@ -119,12 +119,12 @@ BEGIN
     -- Create branch A: Add column email
     v_branch_a := pggit.create_branch('adv_test_3way_a', 'main', false);
     INSERT INTO pggit.objects (object_type, schema_name, object_name, content_hash, ddl_normalized, branch_id, branch_name, version)
-    VALUES ('COLUMN', 'public', 'users.email', 'hash1', 'ALTER TABLE users ADD COLUMN email TEXT', v_branch_a, 'adv_test_3way_a', 1);
+    VALUES ('COLUMN'::pggit.object_type, 'public', 'users.email', 'hash1', 'ALTER TABLE users ADD COLUMN email TEXT', v_branch_a, 'adv_test_3way_a', 1);
 
     -- Create branch B: Add column phone (different column)
     v_branch_b := pggit.create_branch('adv_test_3way_b', 'main', false);
     INSERT INTO pggit.objects (object_type, schema_name, object_name, content_hash, ddl_normalized, branch_id, branch_name, version)
-    VALUES ('COLUMN', 'public', 'users.phone', 'hash2', 'ALTER TABLE users ADD COLUMN phone TEXT', v_branch_b, 'adv_test_3way_b', 1);
+    VALUES ('COLUMN'::pggit.object_type, 'public', 'users.phone', 'hash2', 'ALTER TABLE users ADD COLUMN phone TEXT', v_branch_b, 'adv_test_3way_b', 1);
 
     -- Run three-way merge
     v_three_way := pggit.three_way_merge('adv_test_3way_a', 'adv_test_3way_b', 'main');
@@ -159,12 +159,12 @@ BEGIN
     -- Create branch A: Modify users table
     v_branch_a := pggit.create_branch('adv_test_conflict_a', 'main', false);
     INSERT INTO pggit.objects (object_type, schema_name, object_name, content_hash, ddl_normalized, branch_id, branch_name, version)
-    VALUES ('TABLE', 'public', 'users', 'hash_a_v1', 'CREATE TABLE users (id INT, email VARCHAR(100))', v_branch_a, 'adv_test_conflict_a', 1);
+    VALUES ('TABLE'::pggit.object_type, 'public', 'users', 'hash_a_v1', 'CREATE TABLE users (id INT, email VARCHAR(100))', v_branch_a, 'adv_test_conflict_a', 1);
 
     -- Create branch B: Different modification to same table
     v_branch_b := pggit.create_branch('adv_test_conflict_b', 'main', false);
     INSERT INTO pggit.objects (object_type, schema_name, object_name, content_hash, ddl_normalized, branch_id, branch_name, version)
-    VALUES ('TABLE', 'public', 'users', 'hash_b_v1', 'CREATE TABLE users (id INT, phone VARCHAR(20))', v_branch_b, 'adv_test_conflict_b', 1);
+    VALUES ('TABLE'::pggit.object_type, 'public', 'users', 'hash_b_v1', 'CREATE TABLE users (id INT, phone VARCHAR(20))', v_branch_b, 'adv_test_conflict_b', 1);
 
     -- Run three-way merge
     v_three_way := pggit.three_way_merge('adv_test_conflict_a', 'adv_test_conflict_b', 'main');
@@ -197,12 +197,12 @@ BEGIN
     -- Create branch A: users_old table
     v_branch_a := pggit.create_branch('adv_test_semantic_a', 'main', false);
     INSERT INTO pggit.objects (object_type, schema_name, object_name, content_hash, ddl_normalized, branch_id, branch_name, version)
-    VALUES ('TABLE', 'public', 'users_old', 'hash1', 'CREATE TABLE users_old (...)', v_branch_a, 'adv_test_semantic_a', 1);
+    VALUES ('TABLE'::pggit.object_type, 'public', 'users_old', 'hash1', 'CREATE TABLE users_old (...)', v_branch_a, 'adv_test_semantic_a', 1);
 
     -- Create branch B: users_new table (likely rename of users_old)
     v_branch_b := pggit.create_branch('adv_test_semantic_b', 'main', false);
     INSERT INTO pggit.objects (object_type, schema_name, object_name, content_hash, ddl_normalized, branch_id, branch_name, version)
-    VALUES ('TABLE', 'public', 'users_new', 'hash1', 'CREATE TABLE users_new (...)', v_branch_b, 'adv_test_semantic_b', 1);
+    VALUES ('TABLE'::pggit.object_type, 'public', 'users_new', 'hash1', 'CREATE TABLE users_new (...)', v_branch_b, 'adv_test_semantic_b', 1);
 
     -- Detect semantic conflicts
     v_semantic := pggit.detect_semantic_conflicts('adv_test_semantic_a', 'adv_test_semantic_b');
@@ -236,7 +236,7 @@ BEGIN
     -- Create branches with non-conflicting changes
     v_branch_a := pggit.create_branch('adv_test_heuristic_a', 'main', false);
     INSERT INTO pggit.objects (object_type, schema_name, object_name, content_hash, ddl_normalized, branch_id, branch_name, version)
-    VALUES ('INDEX', 'public', 'idx_users_email', 'hash1', 'CREATE INDEX idx_users_email ON users(email)', v_branch_a, 'adv_test_heuristic_a', 1);
+    VALUES ('INDEX'::pggit.object_type, 'public', 'idx_users_email', 'hash1', 'CREATE INDEX idx_users_email ON users(email)', v_branch_a, 'adv_test_heuristic_a', 1);
 
     v_branch_b := pggit.create_branch('adv_test_heuristic_b', 'main', false);
 
@@ -338,8 +338,8 @@ BEGIN
     v_branch_feature_a := pggit.create_branch('adv_test_feature_a', 'main', false);
     INSERT INTO pggit.objects (object_type, schema_name, object_name, content_hash, ddl_normalized, branch_id, branch_name, version)
     VALUES
-        ('TABLE', 'public', 'feature_table', 'hash1', 'CREATE TABLE feature_table (...)', v_branch_feature_a, 'adv_test_feature_a', 1),
-        ('INDEX', 'public', 'idx_feature', 'hash2', 'CREATE INDEX idx_feature ON feature_table(id)', v_branch_feature_a, 'adv_test_feature_a', 1);
+        ('TABLE'::pggit.object_type, 'public', 'feature_table', 'hash1', 'CREATE TABLE feature_table (...)', v_branch_feature_a, 'adv_test_feature_a', 1),
+        ('INDEX'::pggit.object_type, 'public', 'idx_feature', 'hash2', 'CREATE INDEX idx_feature ON feature_table(id)', v_branch_feature_a, 'adv_test_feature_a', 1);
 
     v_branch_feature_b := pggit.create_branch('adv_test_feature_b', 'main', false);
 
