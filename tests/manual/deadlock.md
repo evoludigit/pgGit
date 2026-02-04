@@ -1,17 +1,48 @@
 # Deadlock Detection and Recovery Testing
 
-## Objective
+## Overview
 
-Verify that pgGit properly handles deadlock scenarios and recovers gracefully.
+**Status**: Automated tests available in chaos suite
 
-## Prerequisites
+Deadlock detection and recovery testing is now integrated into the automated chaos test suite. See [`tests/chaos/test_deadlock_scenarios.py`](../../chaos/test_deadlock_scenarios.py) for comprehensive automated tests.
+
+## Automated Test Suite
+
+The chaos test suite provides dedicated deadlock testing:
+
+### Available Tests
+1. **`test_circular_lock_deadlock`** - Classic circular lock scenario
+   - Worker 1: Lock A → Lock B
+   - Worker 2: Lock B → Lock A
+   - Validates PostgreSQL deadlock detection
+
+2. **Additional deadlock scenarios** in `TestDeadlockScenarios` class
+
+### Run Automated Tests
+
+```bash
+# Run all deadlock tests
+pytest tests/chaos/test_deadlock_scenarios.py -v
+
+# Run specific test
+pytest tests/chaos/test_deadlock_scenarios.py::TestDeadlockScenarios::test_circular_lock_deadlock -v
+
+# Run with timeout (deadlock tests can hang)
+pytest tests/chaos/test_deadlock_scenarios.py -v --timeout=30
+```
+
+## Manual Testing (If Needed)
+
+For manual deadlock verification:
+
+### Prerequisites
 
 - PostgreSQL 13+ installed and running
 - pgGit extension installed
 - `psql` command-line tool available
 - Two terminal windows for concurrent operations
 
-## Setup
+### Setup
 
 1. Create a test database:
 ```bash
@@ -29,9 +60,7 @@ psql -d pggit_deadlock_test -f install.sql
 psql -d pggit_deadlock_test -c "SELECT COUNT(*) FROM pggit.branches;"
 ```
 
-## Test Procedure
-
-### Test 1: Basic Deadlock Scenario
+### Test Procedure: Circular Lock Deadlock
 
 **Terminal 1:**
 ```bash
@@ -40,14 +69,17 @@ psql -d pggit_deadlock_test
 
 **Terminal 1 - SQL:**
 ```sql
-BEGIN;
--- Create job 1
-INSERT INTO pggit.backup_jobs (backup_id, job_type, command, tool, status)
-VALUES (gen_random_uuid(), 'backup', 'cmd1', 'pgbackrest', 'pending')
-RETURNING job_id INTO job1_id;
+CREATE TABLE deadlock_table_a (id INT);
+CREATE TABLE deadlock_table_b (id INT);
+INSERT INTO deadlock_table_a VALUES (1);
+INSERT INTO deadlock_table_b VALUES (1);
 
--- Lock job 1 (hold this lock)
-SELECT pggit.reset_job(job1_id);
+BEGIN;
+LOCK TABLE deadlock_table_a IN EXCLUSIVE MODE;
+-- Sleep 1 second, giving terminal 2 time to lock table B
+SELECT pg_sleep(1);
+LOCK TABLE deadlock_table_b IN EXCLUSIVE MODE;
+COMMIT;
 ```
 
 **Terminal 2 - SQL (while Terminal 1 is waiting):**
@@ -57,46 +89,40 @@ psql -d pggit_deadlock_test
 
 ```sql
 BEGIN;
--- Create job 2
-INSERT INTO pggit.backup_jobs (backup_id, job_type, command, tool, status)
-VALUES (gen_random_uuid(), 'backup', 'cmd2', 'pgbackrest', 'pending')
-RETURNING job_id INTO job2_id;
-
--- Try to lock job 1 (will wait)
-SELECT pggit.reset_job(job1_id);
-
--- Commit this transaction
-COMMIT;
-```
-
-**Terminal 1 - SQL (after timeout or release):**
-```sql
--- Try to lock job 2 (would cause deadlock if not handled)
-SELECT pggit.reset_job(job2_id);
+LOCK TABLE deadlock_table_b IN EXCLUSIVE MODE;
+-- Sleep 0.5 second to let terminal 1 proceed
+SELECT pg_sleep(0.5);
+LOCK TABLE deadlock_table_a IN EXCLUSIVE MODE;
 COMMIT;
 ```
 
 ## Expected Behavior
 
-One of the following should occur:
+One transaction will fail with deadlock error:
+```
+ERROR: deadlock detected
+```
 
-1. **Automatic Deadlock Detection:** PostgreSQL detects the deadlock and rolls back one transaction, logging an error
-2. **Proper Error Handling:** The application catches the deadlock error and retries with backoff
-3. **Transaction Isolation:** Individual transactions complete without interference
+PostgreSQL will automatically:
+1. Detect the circular lock dependency
+2. Rollback one of the transactions
+3. Return a deadlock error to the client
 
 ## Success Criteria
 
-✅ No crashes or database corruption
-✅ At least one transaction completes successfully
-✅ Error messages are logged appropriately
-✅ The system recovers without manual intervention
+✅ One transaction completes successfully
+✅ One transaction fails with deadlock error
+✅ No database corruption
+✅ No hanging connections
+✅ System recovers automatically
 
-## Failure Scenarios
+## Failure Scenarios (Should NOT Occur)
 
 ❌ Database hangs indefinitely
-❌ Connections stuck in lock wait
+❌ Connections stuck in lock wait state
 ❌ Data corruption or inconsistency
-❌ Cascading failures affecting other operations
+❌ Multiple transactions stuck (cascading deadlock)
+❌ Orphaned locks
 
 ## Cleanup
 
@@ -104,9 +130,22 @@ One of the following should occur:
 psql -U postgres -c "DROP DATABASE pggit_deadlock_test;"
 ```
 
-## Notes
+## Why Deadlock Testing is in Chaos Suite
 
-- Deadlock is a normal part of concurrent database operations
-- PostgreSQL handles most deadlocks automatically
-- The key is that the application handles the error gracefully
-- This test is difficult to automate due to race conditions and timing requirements
+Deadlock tests require:
+- Precise timing and race condition setup
+- Multiple concurrent connections
+- Ability to control execution order
+- Tolerance for timing-dependent behavior
+
+These characteristics make deadlock testing better suited for the chaos suite rather than standard E2E tests. The chaos suite is specifically designed for:
+- Complex concurrent scenarios
+- Race condition reproduction
+- Failure mode validation
+- System resilience testing
+
+## References
+
+- [PostgreSQL Deadlock Documentation](https://www.postgresql.org/docs/current/explicit-locking.html)
+- [Chaos Test Suite](../../chaos/README.md)
+- [Test Status Report](../../chaos/TEST_STATUS.md)

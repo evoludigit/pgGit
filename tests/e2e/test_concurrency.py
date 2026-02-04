@@ -395,17 +395,10 @@ class TestConcurrency:
             f"✓ Bulk job operations validated through sequential operations: {success_count}/{len(job_ids)} jobs reset"
         )
 
-    @pytest.mark.skip(
-        reason="Deadlock testing requires complex concurrent setup and precise timing. "
-        "See tests/manual/deadlock.md for manual testing procedure. "
-        "Core transaction safety validated through sequential operation tests."
-    )
-    def test_deadlock_detection_and_recovery(self, db, pggit_installed):
-        """System should detect and recover from deadlock scenarios."""
-        # See tests/manual/deadlock.md for instructions on testing deadlock scenarios
-        # This requires manual setup with multiple concurrent connections
-        pass
 
+# NOTE: Deadlock detection and recovery tests are in tests/chaos/test_deadlock_scenarios.py
+# which properly handles concurrent setup and timing-sensitive scenarios.
+# E2E tests focus on sequential validation of core transaction safety.
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
