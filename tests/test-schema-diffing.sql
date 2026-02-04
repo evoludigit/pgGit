@@ -42,12 +42,12 @@ BEGIN
     v_snapshot := pggit.get_schema_snapshot('schema_test_main');
 
     -- Verify snapshot structure
-    v_object_count := (v_snapshot->'summary'->>'object_count')::integer;
+    v_object_count := COALESCE((v_snapshot->'summary'->>'object_count')::integer, -1);
 
-    IF v_object_count >= 0 THEN
+    IF v_object_count > 0 THEN
         RAISE NOTICE '✓ Test 1.1 PASS: Schema snapshot generated with % objects', v_object_count;
     ELSE
-        RAISE EXCEPTION 'Test 1.1 FAIL: Invalid snapshot structure';
+        RAISE EXCEPTION 'Test 1.1 FAIL: Expected positive object count, got %', v_object_count;
     END IF;
 
     -- Cleanup
@@ -213,12 +213,12 @@ BEGIN
     -- Generate migration plan
     v_plan := pggit.plan_migration('schema_test_src', 'schema_test_tgt');
 
-    v_step_count := (v_plan->>'step_count')::integer;
+    v_step_count := COALESCE((v_plan->>'step_count')::integer, -1);
 
-    IF v_step_count >= 0 THEN
+    IF v_step_count > 0 THEN
         RAISE NOTICE '✓ Test 6.1 PASS: Migration plan generated with % steps', v_step_count;
     ELSE
-        RAISE EXCEPTION 'Test 6.1 FAIL: Invalid plan structure';
+        RAISE EXCEPTION 'Test 6.1 FAIL: Expected migration steps, got %', v_step_count;
     END IF;
 
     -- Cleanup
@@ -244,12 +244,13 @@ BEGIN
     -- Detect dependencies
     v_deps := pggit.detect_schema_dependencies('schema_test_deps');
 
-    v_dep_count := (v_deps->>'dependency_count')::integer;
+    v_dep_count := COALESCE((v_deps->>'dependency_count')::integer, -1);
 
-    IF v_dep_count >= 0 THEN
+    -- Dependencies may be 0 or more, so check for >= 0 and verify structure exists
+    IF v_dep_count >= 0 AND v_deps ? 'dependency_count' THEN
         RAISE NOTICE '✓ Test 7.1 PASS: Schema dependency detection completed (% dependencies)', v_dep_count;
     ELSE
-        RAISE EXCEPTION 'Test 7.1 FAIL: Invalid dependency structure';
+        RAISE EXCEPTION 'Test 7.1 FAIL: Invalid dependency structure or missing dependency_count';
     END IF;
 
     -- Cleanup
@@ -307,12 +308,12 @@ BEGIN
     -- Track lineage
     v_lineage := pggit.track_schema_lineage('schema_test_lineage');
 
-    v_snapshot_count := jsonb_array_length(v_lineage->'snapshots');
+    v_snapshot_count := COALESCE(jsonb_array_length(v_lineage->'snapshots'), -1);
 
-    IF v_snapshot_count >= 0 THEN
+    IF v_snapshot_count > 0 THEN
         RAISE NOTICE '✓ Test 9.1 PASS: Schema lineage tracked with % snapshots', v_snapshot_count;
     ELSE
-        RAISE EXCEPTION 'Test 9.1 FAIL: Invalid lineage structure';
+        RAISE EXCEPTION 'Test 9.1 FAIL: Expected lineage snapshots, got %', v_snapshot_count;
     END IF;
 
     -- Cleanup
@@ -329,14 +330,20 @@ END $$;
 DO $$
 DECLARE
     v_count integer;
+    v_view_exists boolean;
 BEGIN
-    -- Query the view
-    SELECT COUNT(*) INTO v_count FROM pggit.v_schema_change_summary;
+    -- Check view exists
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.views
+        WHERE table_schema = 'pggit' AND table_name = 'v_schema_change_summary'
+    ) INTO v_view_exists;
 
-    IF v_count >= 0 THEN
+    IF v_view_exists THEN
+        -- Query the view (should not throw error)
+        SELECT COUNT(*) INTO v_count FROM pggit.v_schema_change_summary;
         RAISE NOTICE '✓ Test 10.1 PASS: Schema change summary view works (% records)', v_count;
     ELSE
-        RAISE EXCEPTION 'Test 10.1 FAIL: Could not query view';
+        RAISE EXCEPTION 'Test 10.1 FAIL: View v_schema_change_summary does not exist';
     END IF;
 END $$;
 
@@ -348,14 +355,20 @@ END $$;
 DO $$
 DECLARE
     v_count integer;
+    v_view_exists boolean;
 BEGIN
-    -- Query the view
-    SELECT COUNT(*) INTO v_count FROM pggit.v_schema_impact_analysis;
+    -- Check view exists
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.views
+        WHERE table_schema = 'pggit' AND table_name = 'v_schema_impact_analysis'
+    ) INTO v_view_exists;
 
-    IF v_count >= 0 THEN
+    IF v_view_exists THEN
+        -- Query the view (should not throw error)
+        SELECT COUNT(*) INTO v_count FROM pggit.v_schema_impact_analysis;
         RAISE NOTICE '✓ Test 11.1 PASS: Schema impact analysis view works (% records)', v_count;
     ELSE
-        RAISE EXCEPTION 'Test 11.1 FAIL: Could not query view';
+        RAISE EXCEPTION 'Test 11.1 FAIL: View v_schema_impact_analysis does not exist';
     END IF;
 END $$;
 
@@ -367,14 +380,20 @@ END $$;
 DO $$
 DECLARE
     v_count integer;
+    v_view_exists boolean;
 BEGIN
-    -- Query the view
-    SELECT COUNT(*) INTO v_count FROM pggit.v_schema_migration_readiness;
+    -- Check view exists
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.views
+        WHERE table_schema = 'pggit' AND table_name = 'v_schema_migration_readiness'
+    ) INTO v_view_exists;
 
-    IF v_count >= 0 THEN
+    IF v_view_exists THEN
+        -- Query the view (should not throw error)
+        SELECT COUNT(*) INTO v_count FROM pggit.v_schema_migration_readiness;
         RAISE NOTICE '✓ Test 12.1 PASS: Migration readiness view works (% records)', v_count;
     ELSE
-        RAISE EXCEPTION 'Test 12.1 FAIL: Could not query view';
+        RAISE EXCEPTION 'Test 12.1 FAIL: View v_schema_migration_readiness does not exist';
     END IF;
 END $$;
 
