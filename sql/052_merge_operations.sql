@@ -87,20 +87,25 @@ DECLARE
     v_conflict_count integer := 0;
     v_conflict_array jsonb[] := '{}';
     v_object record;
+    v_source_id integer;
+    v_target_id integer;
     v_source_hash text;
     v_target_hash text;
     v_conflict_type text;
 BEGIN
-    -- Validate branches exist
-    IF NOT EXISTS (SELECT 1 FROM pggit.branches WHERE name = p_source_branch) THEN
+    -- Get branch IDs
+    SELECT id INTO v_source_id FROM pggit.branches WHERE name = p_source_branch;
+    IF v_source_id IS NULL THEN
         RAISE EXCEPTION 'Source branch % not found', p_source_branch;
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pggit.branches WHERE name = p_target_branch) THEN
+    SELECT id INTO v_target_id FROM pggit.branches WHERE name = p_target_branch;
+    IF v_target_id IS NULL THEN
         RAISE EXCEPTION 'Target branch % not found', p_target_branch;
     END IF;
 
     -- Compare objects between branches using full outer join
+    -- Branch filters in ON clause ensure we only join matching objects across these two branches
     FOR v_object IN
         SELECT
             COALESCE(s.object_type, t.object_type) as object_type,
@@ -115,9 +120,10 @@ BEGIN
             ON s.object_type = t.object_type
             AND s.schema_name = t.schema_name
             AND s.object_name = t.object_name
-            AND t.branch_name = p_target_branch
-        WHERE s.branch_name = p_source_branch
-          OR t.branch_name = p_target_branch
+            AND s.branch_id = v_source_id
+            AND t.branch_id = v_target_id
+        WHERE (s.branch_id = v_source_id OR s.id IS NULL)
+          AND (t.branch_id = v_target_id OR t.id IS NULL)
     LOOP
         v_conflict_type := NULL;
         v_source_hash := v_object.source_hash;
