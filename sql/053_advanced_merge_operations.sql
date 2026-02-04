@@ -487,11 +487,11 @@ BEGIN
 
     -- Update merge status
     UPDATE pggit.merge_history
-    SET conflict_count = (SELECT COUNT(*) FROM pggit.merge_conflicts WHERE merge_id = v_merge_id),
-        resolved_conflicts = (SELECT COUNT(*) FROM pggit.merge_conflicts WHERE merge_id = v_merge_id AND resolution_strategy IS NOT NULL),
-        unresolved_conflicts = (SELECT COUNT(*) FROM pggit.merge_conflicts WHERE merge_id = v_merge_id AND resolution_strategy IS NULL),
+    SET conflict_count = (SELECT COUNT(*) FROM pggit.merge_conflicts WHERE merge_id = v_merge_id::text),
+        resolved_conflicts = (SELECT COUNT(*) FROM pggit.merge_conflicts WHERE merge_id = v_merge_id::text AND resolution_strategy IS NOT NULL),
+        unresolved_conflicts = (SELECT COUNT(*) FROM pggit.merge_conflicts WHERE merge_id = v_merge_id::text AND resolution_strategy IS NULL),
         status = CASE
-            WHEN (SELECT COUNT(*) FROM pggit.merge_conflicts WHERE merge_id = v_merge_id AND resolution_strategy IS NULL) = 0
+            WHEN (SELECT COUNT(*) FROM pggit.merge_conflicts WHERE merge_id = v_merge_id::text AND resolution_strategy IS NULL) = 0
             THEN 'completed'
             ELSE 'awaiting_resolution'
         END
