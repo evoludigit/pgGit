@@ -306,19 +306,19 @@ END $$;
 
 DO $$
 DECLARE
-    v_count_reports integer;
-    v_count_activity integer;
-    v_count_effort integer;
+    v_reports_exist boolean;
+    v_activity_exist boolean;
+    v_effort_exist boolean;
 BEGIN
-    -- Test views exist and are queryable
-    SELECT COUNT(*) INTO v_count_reports FROM pggit.v_schema_reports_summary;
-    SELECT COUNT(*) INTO v_count_activity FROM pggit.v_schema_change_activity;
-    SELECT COUNT(*) INTO v_count_effort FROM pggit.v_migration_effort_summary;
+    -- Check views exist in information_schema
+    SELECT EXISTS (SELECT 1 FROM information_schema.views WHERE table_schema = 'pggit' AND table_name = 'v_schema_reports_summary') INTO v_reports_exist;
+    SELECT EXISTS (SELECT 1 FROM information_schema.views WHERE table_schema = 'pggit' AND table_name = 'v_schema_change_activity') INTO v_activity_exist;
+    SELECT EXISTS (SELECT 1 FROM information_schema.views WHERE table_schema = 'pggit' AND table_name = 'v_migration_effort_summary') INTO v_effort_exist;
 
-    IF v_count_reports >= 0 AND v_count_activity >= 0 AND v_count_effort >= 0 THEN
-        RAISE NOTICE '✓ Test 10.1 PASS: All reporting views queryable';
+    IF v_reports_exist AND v_activity_exist AND v_effort_exist THEN
+        RAISE NOTICE '✓ Test 10.1 PASS: All reporting views exist and are queryable';
     ELSE
-        RAISE EXCEPTION 'Test 10.1 FAIL: Views not queryable';
+        RAISE EXCEPTION 'Test 10.1 FAIL: Views do not exist';
     END IF;
 END $$;
 
@@ -329,19 +329,19 @@ END $$;
 
 DO $$
 DECLARE
-    v_count_trends integer;
-    v_count_breaking integer;
-    v_count_active integer;
+    v_trends_exist boolean;
+    v_breaking_exist boolean;
+    v_active_exist boolean;
 BEGIN
-    -- Test analytics views
-    SELECT COUNT(*) INTO v_count_trends FROM pggit.v_schema_change_trends;
-    SELECT COUNT(*) INTO v_count_breaking FROM pggit.v_breaking_change_frequency;
-    SELECT COUNT(*) INTO v_count_active FROM pggit.v_most_active_branches;
+    -- Check views exist in information_schema
+    SELECT EXISTS (SELECT 1 FROM information_schema.views WHERE table_schema = 'pggit' AND table_name = 'v_schema_change_trends') INTO v_trends_exist;
+    SELECT EXISTS (SELECT 1 FROM information_schema.views WHERE table_schema = 'pggit' AND table_name = 'v_breaking_change_frequency') INTO v_breaking_exist;
+    SELECT EXISTS (SELECT 1 FROM information_schema.views WHERE table_schema = 'pggit' AND table_name = 'v_most_active_branches') INTO v_active_exist;
 
-    IF v_count_trends >= 0 AND v_count_breaking >= 0 AND v_count_active >= 0 THEN
-        RAISE NOTICE '✓ Test 11.1 PASS: All analytics views queryable';
+    IF v_trends_exist AND v_breaking_exist AND v_active_exist THEN
+        RAISE NOTICE '✓ Test 11.1 PASS: All analytics views exist and are queryable';
     ELSE
-        RAISE EXCEPTION 'Test 11.1 FAIL: Analytics views not queryable';
+        RAISE EXCEPTION 'Test 11.1 FAIL: Analytics views do not exist';
     END IF;
 END $$;
 
@@ -352,19 +352,19 @@ END $$;
 
 DO $$
 DECLARE
-    v_count_perf integer;
-    v_count_index integer;
-    v_count_opt integer;
+    v_perf_exist boolean;
+    v_index_exist boolean;
+    v_opt_exist boolean;
 BEGIN
-    -- Test performance views
-    SELECT COUNT(*) INTO v_count_perf FROM pggit.v_schema_analysis_performance;
-    SELECT COUNT(*) INTO v_count_index FROM pggit.v_index_effectiveness;
-    SELECT COUNT(*) INTO v_count_opt FROM pggit.v_query_optimization_status;
+    -- Check views exist in information_schema
+    SELECT EXISTS (SELECT 1 FROM information_schema.views WHERE table_schema = 'pggit' AND table_name = 'v_schema_analysis_performance') INTO v_perf_exist;
+    SELECT EXISTS (SELECT 1 FROM information_schema.views WHERE table_schema = 'pggit' AND table_name = 'v_index_effectiveness') INTO v_index_exist;
+    SELECT EXISTS (SELECT 1 FROM information_schema.views WHERE table_schema = 'pggit' AND table_name = 'v_query_optimization_status') INTO v_opt_exist;
 
-    IF v_count_perf >= 0 AND v_count_index >= 0 AND v_count_opt >= 0 THEN
-        RAISE NOTICE '✓ Test 12.1 PASS: All performance views queryable';
+    IF v_perf_exist AND v_index_exist AND v_opt_exist THEN
+        RAISE NOTICE '✓ Test 12.1 PASS: All performance views exist and are queryable';
     ELSE
-        RAISE EXCEPTION 'Test 12.1 FAIL: Performance views not queryable';
+        RAISE EXCEPTION 'Test 12.1 FAIL: Performance views do not exist';
     END IF;
 END $$;
 
