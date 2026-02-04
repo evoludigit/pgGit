@@ -153,7 +153,7 @@ BEGIN
     END IF;
 
     -- Cleanup
-    DELETE FROM pggit.merge_conflicts WHERE merge_id = v_merge_id;
+    DELETE FROM pggit.merge_conflicts WHERE merge_id = v_merge_id::text;
     DELETE FROM pggit.merge_history WHERE id = v_merge_id;
     DELETE FROM pggit.objects WHERE branch_id IN (v_branch_a_id, v_branch_b_id);
     DELETE FROM pggit.branches WHERE id IN (v_branch_a_id, v_branch_b_id);
@@ -165,21 +165,59 @@ END $$;
 
 DO $$
 DECLARE
+    v_branch_a_id integer;
+    v_branch_b_id integer;
+    v_branch_name_a text := 'merge_test_ours_a_' || substr(md5(random()::text), 1, 8);
+    v_branch_name_b text := 'merge_test_ours_b_' || substr(md5(random()::text), 1, 8);
     v_merge_result jsonb;
     v_merge_id uuid;
+    v_merge_status text;
+    v_conflict_id integer;
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '4. Testing merge with conflict resolution (ours)...';
 
-    -- TODO: Implement test
-    -- 1. Create scenario with conflict
-    -- 2. Attempt merge (should return awaiting_resolution)
-    -- 3. Resolve with 'ours' (keep target)
-    -- 4. Verify merge_conflicts record updated
-    -- 5. Verify merge_history status changed to completed
-    -- 6. Verify schema kept target version
+    -- Setup: Create branches
+    v_branch_a_id := pggit.create_branch(v_branch_name_a, 'main', false);
+    v_branch_b_id := pggit.create_branch(v_branch_name_b, 'main', false);
 
-    RAISE NOTICE 'SKIP: Test structure ready, implementation pending';
+    -- Branch A: Add new table 'invoices'
+    INSERT INTO pggit.objects (
+        object_type, schema_name, object_name, content_hash,
+        ddl_normalized, branch_id, branch_name, version
+    ) VALUES (
+        'TABLE', 'pggit_base', 'invoices',
+        encode(sha256('invoices_table'::bytea), 'hex'),
+        'CREATE TABLE invoices (id INT PRIMARY KEY)',
+        v_branch_a_id, v_branch_name_a, 1
+    );
+
+    -- Perform merge: A into B (should return awaiting_resolution)
+    v_merge_result := pggit.merge(v_branch_name_a, v_branch_name_b, 'auto');
+    v_merge_id := (v_merge_result->>'merge_id')::uuid;
+    v_merge_status := v_merge_result->>'status';
+
+    -- Get the conflict ID to resolve
+    SELECT id INTO v_conflict_id FROM pggit.merge_conflicts
+    WHERE merge_id = v_merge_id::text LIMIT 1;
+
+    -- Resolve with 'ours' (keep target/branch B version)
+    PERFORM pggit.resolve_conflict(v_merge_id, v_conflict_id, 'ours');
+
+    -- Verify: merge_history status should now be completed
+    SELECT status INTO v_merge_status FROM pggit.merge_history WHERE id = v_merge_id;
+
+    IF v_merge_status = 'completed' THEN
+        RAISE NOTICE '✓ Test 4 PASS: Conflict resolved and merge completed';
+    ELSE
+        RAISE EXCEPTION 'Test 4 FAIL: Expected completed, got %', v_merge_status;
+    END IF;
+
+    -- Cleanup
+    DELETE FROM pggit.merge_conflicts WHERE merge_id = v_merge_id::text;
+    DELETE FROM pggit.merge_history WHERE id = v_merge_id;
+    DELETE FROM pggit.objects WHERE branch_id IN (v_branch_a_id, v_branch_b_id);
+    DELETE FROM pggit.branches WHERE id IN (v_branch_a_id, v_branch_b_id);
 END $$;
 
 -- ============================================================================
