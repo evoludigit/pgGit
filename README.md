@@ -6,7 +6,8 @@
 
 pgGit aims to become the standard for database version control across 6 phases:
 
-- **Phase 1 (v0.1-v1.0)**: Schema VCS - Branch, merge, diff operations ← **You are here (Feb-July 2026)**
+- **Phase 1 (v0.1-v1.0)**: Schema VCS - Branch, merge operations ← **v0.2 Complete (Merge Ops) - March 2026**
+- **Phase 1 cont (v0.3)**: Schema Diffing - Detailed diffs and migration generation
 - **Phase 2**: Temporal Queries - Time-travel across schema history
 - **Phase 3**: Compliance Auditing - Immutable audit trails for regulated industries
 - **Phase 4**: Storage Optimization - Copy-on-write, compression, deduplication
@@ -33,7 +34,7 @@ This discipline enables rapid iteration, market validation, and sustainable grow
 
 [![Build](https://github.com/evoludigit/pgGit/actions/workflows/build.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/build.yml)
 [![Tests](https://github.com/evoludigit/pgGit/actions/workflows/tests.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/tests.yml)
-[![Version: 0.1.3](https://img.shields.io/badge/version-0.1.3-green.svg)](CHANGELOG.md)
+[![Version: 0.2.0](https://img.shields.io/badge/version-0.2.0-blue.svg)](CHANGELOG.md)
 [![PostgreSQL 15-17](https://img.shields.io/badge/PostgreSQL-15--17-blue.svg)](https://www.postgresql.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Development Tool](https://img.shields.io/badge/Use%20In-Development-green.svg)](docs/guides/DEVELOPMENT_WORKFLOW.md)
@@ -45,8 +46,8 @@ This discipline enables rapid iteration, market validation, and sustainable grow
 
 | Phase | Timeframe | Focus | Status | Features |
 |-------|-----------|-------|--------|----------|
-| **Phase 1** | Feb-July 2026 | Schema VCS | 🚀 **In Progress** | Create/switch/merge branches, diff schemas, basic conflict detection |
-| **Phase 2** | Aug-Oct 2026 | Temporal Queries | Planned | Time-travel across history, point-in-time recovery |
+| **Phase 1** | Feb-July 2026 | Schema VCS | ✅ **v0.2 Complete** | Create/switch/merge branches (v0.2), diff schemas (v0.3), conflict detection ✅ |
+| **Phase 2** | Aug-Oct 2026 | Schema Diffing | 🚀 **In Progress** | Detailed schema diffs, migration generation, patch creation |
 | **Phase 3** | Nov 2026-Jan 2027 | Compliance | Planned | Immutable audit trails, regulatory integrations (HIPAA, SOX, GDPR) |
 | **Phase 4** | Feb-Apr 2027 | Optimization | Planned | Copy-on-write, compression, storage deduplication |
 | **Phase 5** | May-Jul 2027 | Managed Service | Planned | Cloud hosting, multi-tenant support, API |
