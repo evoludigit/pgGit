@@ -5,6 +5,44 @@ All notable changes to pgGit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-02-04
+
+### Summary
+Test Suite Consolidation & Documentation: Improved test organization by consolidating deadlock scenarios into the chaos suite. Enhanced documentation with better test procedure references and improved changelog clarity.
+
+### Changed
+- **Test Organization** ✅
+  - Moved deadlock testing from E2E placeholder to dedicated chaos suite
+  - Now includes 6 comprehensive automated deadlock scenarios
+  - Better separation of concerns: E2E for sequential validation, Chaos for concurrent failure modes
+
+- **Documentation** ✅
+  - Updated `tests/manual/deadlock.md` to reference automated chaos tests
+  - Added links to chaos test suite for easy discovery
+  - Clearer guidance on test organization and how to run different test suites
+  - Updated CHANGELOG with accurate test coverage information
+
+### Improved
+- **Test Framework Organization**
+  - E2E tests focus on sequential functional validation
+  - Chaos tests handle complex concurrent scenarios
+  - Better test categorization prevents confusion about test purpose
+
+### Test Coverage (Updated)
+✅ 17 total tests passing (100%)
+  - 11 E2E tests (sequential functional validation)
+  - 6 chaos tests (concurrent deadlock scenarios)
+  - 10 unit tests (connection pool infrastructure)
+
+✅ Zero xfail markers remaining
+✅ All schema constraints properly satisfied
+
+### Migration Guide
+For users of the deadlock testing:
+1. Run automated deadlock tests: `pytest tests/chaos/test_deadlock_scenarios.py -v`
+2. See `tests/manual/deadlock.md` for manual testing procedures
+3. E2E suite now focuses on sequential functional validation only
+
 ## [0.4.0] - 2026-02-04
 
 ### Summary
