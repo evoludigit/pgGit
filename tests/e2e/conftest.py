@@ -32,30 +32,40 @@ class DockerPostgresSetup:
         except docker.errors.NotFound:
             pass
 
-        # Start new container
-        self.container = self.client.containers.run(
-            "postgres:17-alpine",
-            name="pggit-e2e-test",
-            environment={
-                "POSTGRES_USER": "postgres",
-                "POSTGRES_PASSWORD": "postgres",
-                "POSTGRES_DB": "pggit_test",
-            },
-            ports={"5432/tcp": 5433},
-            detach=True,
-            remove=False,
-        )
+        # Start new container (try multiple ports to find available one)
+        port_mapping = None
+        for port in [5434, 5435, 5436, 5437, 5438]:
+            try:
+                port_mapping = {"5432/tcp": port}
+                self.container = self.client.containers.run(
+                    "postgres:17-alpine",
+                    name="pggit-e2e-test",
+                    environment={
+                        "POSTGRES_USER": "postgres",
+                        "POSTGRES_PASSWORD": "postgres",
+                        "POSTGRES_DB": "pggit_test",
+                    },
+                    ports=port_mapping,
+                    detach=True,
+                    remove=False,
+                )
+                used_port = port
+                break
+            except Exception as e:
+                if port == 5438:
+                    raise Exception(f"All test ports (5434-5438) failed: {str(e)}")
+                continue
 
         # Wait for PostgreSQL to be ready
         max_retries = 30
         for attempt in range(max_retries):
             try:
                 conn = connect(
-                    "postgresql://postgres:postgres@localhost:5433/pggit_test"
+                    f"postgresql://postgres:postgres@localhost:{used_port}/pggit_test"
                 )
                 conn.close()
                 self.connection_string = (
-                    "postgresql://postgres:postgres@localhost:5433/pggit_test"
+                    f"postgresql://postgres:postgres@localhost:{used_port}/pggit_test"
                 )
                 return self.connection_string
             except Exception:

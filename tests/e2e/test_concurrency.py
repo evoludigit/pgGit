@@ -61,24 +61,34 @@ class TestConcurrency:
 
     def test_deletion_prevents_orphaned_incrementals(self, db, pggit_installed):
         """Deleting full backup with active incrementals should fail."""
-        from tests.e2e.test_helpers import (
-            create_test_commit,
-            register_and_complete_backup,
-        )
+        # Create commits first (required by pggit API)
+        db.execute("""
+            INSERT INTO pggit.commits (hash, branch_id, message)
+            SELECT 'commit-abc', 1, 'Full backup commit'
+            WHERE NOT EXISTS (SELECT 1 FROM pggit.commits WHERE hash = 'commit-abc')
+        """)
 
-        # Create commits for full and incremental backups
-        full_commit = create_test_commit(db, "full-orphan")
-        incr_commit = create_test_commit(db, "incr-orphan")
+        db.execute("""
+            INSERT INTO pggit.commits (hash, branch_id, message)
+            SELECT 'commit-def', 1, 'Incremental backup commit'
+            WHERE NOT EXISTS (SELECT 1 FROM pggit.commits WHERE hash = 'commit-def')
+        """)
 
-        # Create a full backup using the API
-        full_backup_id = register_and_complete_backup(
-            db, "test-full", "full", full_commit
-        )
+        # Create full and incremental backups with dependencies
+        full_backup_id = db.execute_returning("""
+            SELECT pggit.register_backup(
+                'test-full', 'full', 'pgbackrest',
+                's3://bucket/full', 'commit-abc'
+            )
+        """)[0]
 
-        # Create an incremental backup using the API
-        incr_backup_id = register_and_complete_backup(
-            db, "test-incr", "incremental", incr_commit
-        )
+        # Create an incremental backup
+        incr_backup_id = db.execute_returning("""
+            SELECT pggit.register_backup(
+                'test-incr', 'incremental', 'pgbackrest',
+                's3://bucket/incr', 'commit-def'
+            )
+        """)[0]
 
         # Update incremental to reference the full backup
         db.execute(
