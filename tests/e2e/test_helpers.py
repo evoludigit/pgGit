@@ -13,7 +13,7 @@ from tests.fixtures.pooled_database import PooledDatabaseFixture
 def create_test_commit(
     db: PooledDatabaseFixture,
     hash_suffix: str,
-    branch_id: int = 1,
+    branch_id: Optional[int] = None,
     message: Optional[str] = None,
 ) -> str:
     """Create a test commit with proper error handling.
@@ -21,22 +21,43 @@ def create_test_commit(
     Args:
         db: Database fixture
         hash_suffix: Unique suffix for commit hash
-        branch_id: Branch ID to associate with commit
+        branch_id: Branch ID to associate with commit (auto-find if None)
         message: Commit message (defaults to hash)
 
     Returns:
         Commit hash
     """
     commit_hash = f"test-commit-{hash_suffix}"
-    db.execute(
-        """
-        INSERT INTO pggit.commits (hash, branch_id, message)
-        VALUES (%s, %s, %s) ON CONFLICT (hash) DO NOTHING
-        """,
-        commit_hash,
-        branch_id,
-        message or f"Test {hash_suffix}",
-    )
+
+    # If no branch_id provided, find or create one
+    if branch_id is None:
+        # Try to find existing branch
+        result = db.execute("SELECT id FROM pggit.branches LIMIT 1")
+        if result and len(result) > 0:
+            branch_id = result[0][0]
+        else:
+            # Create default branch if none exists
+            try:
+                db.execute(
+                    "INSERT INTO pggit.branches (name, status) VALUES ('main', 'ACTIVE')"
+                )
+                result = db.execute("SELECT id FROM pggit.branches WHERE name = 'main'")
+                branch_id = result[0][0] if result else 1
+            except Exception:
+                branch_id = 1  # Fallback
+
+    try:
+        db.execute(
+            """
+            INSERT INTO pggit.commits (hash, branch_id, message)
+            VALUES (%s, %s, %s) ON CONFLICT (hash) DO NOTHING
+            """,
+            commit_hash,
+            branch_id,
+            message or f"Test {hash_suffix}",
+        )
+    except Exception as e:
+        raise Exception(f"Failed to insert commit {commit_hash}: {str(e)}")
     return commit_hash
 
 
