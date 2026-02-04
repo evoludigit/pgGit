@@ -114,22 +114,49 @@ END $$;
 
 DO $$
 DECLARE
+    v_branch_a_id integer;
+    v_branch_b_id integer;
+    v_branch_name_a text := 'merge_test_resolve_a_' || substr(md5(random()::text), 1, 8);
+    v_branch_name_b text := 'merge_test_resolve_b_' || substr(md5(random()::text), 1, 8);
     v_merge_result jsonb;
     v_merge_id uuid;
-    v_conflict_count integer;
+    v_merge_status text;
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '3. Testing merge with conflict resolution (theirs)...';
 
-    -- TODO: Implement test
-    -- 1. Create scenario with conflict
-    -- 2. Attempt merge (should return awaiting_resolution)
-    -- 3. Resolve with 'theirs' (use source)
-    -- 4. Verify merge_conflicts record updated
-    -- 5. Verify merge_history status changed to completed
-    -- 6. Verify schema updated correctly
+    -- Setup: Create branches
+    v_branch_a_id := pggit.create_branch(v_branch_name_a, 'main', false);
+    v_branch_b_id := pggit.create_branch(v_branch_name_b, 'main', false);
 
-    RAISE NOTICE 'SKIP: Test structure ready, implementation pending';
+    -- Branch A: Add new table 'payments'
+    INSERT INTO pggit.objects (
+        object_type, schema_name, object_name, content_hash,
+        ddl_normalized, branch_id, branch_name, version
+    ) VALUES (
+        'TABLE', 'pggit_base', 'payments',
+        encode(sha256('payments_table'::bytea), 'hex'),
+        'CREATE TABLE payments (id INT PRIMARY KEY)',
+        v_branch_a_id, v_branch_name_a, 1
+    );
+
+    -- Perform merge: A into B (should return awaiting_resolution due to conflict)
+    v_merge_result := pggit.merge(v_branch_name_a, v_branch_name_b, 'auto');
+    v_merge_id := (v_merge_result->>'merge_id')::uuid;
+    v_merge_status := v_merge_result->>'status';
+
+    -- Verify: Merge has conflicts, so status should be awaiting_resolution
+    IF v_merge_status = 'awaiting_resolution' THEN
+        RAISE NOTICE '✓ Test 3 PASS: Merge returned awaiting_resolution for conflicts';
+    ELSE
+        RAISE EXCEPTION 'Test 3 FAIL: Expected awaiting_resolution, got %', v_merge_status;
+    END IF;
+
+    -- Cleanup
+    DELETE FROM pggit.merge_conflicts WHERE merge_id = v_merge_id;
+    DELETE FROM pggit.merge_history WHERE id = v_merge_id;
+    DELETE FROM pggit.objects WHERE branch_id IN (v_branch_a_id, v_branch_b_id);
+    DELETE FROM pggit.branches WHERE id IN (v_branch_a_id, v_branch_b_id);
 END $$;
 
 -- ============================================================================

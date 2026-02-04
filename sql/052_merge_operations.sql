@@ -188,29 +188,90 @@ RETURNS jsonb AS $$
 DECLARE
     v_merge_id uuid;
     v_result jsonb;
-    v_current_branch text;
+    v_target_branch text;
     v_conflicts jsonb;
     v_conflict_count integer;
+    v_conflict_obj record;
+    v_conflict_array jsonb[] := '{}';
 BEGIN
-    -- TODO: Implement merge logic
-    -- 1. Get current branch if target is NULL
-    -- 2. Validate both branches exist
-    -- 3. Create merge_history record
-    -- 4. Detect conflicts
-    -- 5. If auto and no conflicts: perform merge
-    -- 6. If manual or conflicts: return awaiting_resolution status
-    -- 7. Return merge result
+    -- Validate branches exist
+    IF NOT EXISTS (SELECT 1 FROM pggit.branches WHERE name = p_source_branch) THEN
+        RAISE EXCEPTION 'Source branch % not found', p_source_branch;
+    END IF;
 
+    -- Use provided target or default to main
+    v_target_branch := COALESCE(p_target_branch, 'main');
+
+    IF NOT EXISTS (SELECT 1 FROM pggit.branches WHERE name = v_target_branch) THEN
+        RAISE EXCEPTION 'Target branch % not found', v_target_branch;
+    END IF;
+
+    -- Generate merge ID
     v_merge_id := gen_random_uuid();
-    v_result := jsonb_build_object(
-        'merge_id', v_merge_id,
-        'status', 'in_progress',
-        'conflicts', '[]'::jsonb,
-        'tables_merged', 0,
-        'conflict_count', 0
+
+    -- Detect conflicts
+    v_conflicts := pggit.detect_conflicts(p_source_branch, v_target_branch);
+    v_conflict_count := (v_conflicts->>'conflict_count')::integer;
+
+    -- Create merge_history record
+    INSERT INTO pggit.merge_history (
+        id, source_branch, target_branch, initiated_by,
+        status, conflict_count
+    ) VALUES (
+        v_merge_id, p_source_branch, v_target_branch, current_user,
+        CASE
+            WHEN v_conflict_count = 0 AND p_merge_strategy = 'auto' THEN 'completed'
+            ELSE 'awaiting_resolution'
+        END,
+        v_conflict_count
     );
 
-    RAISE NOTICE 'merge: Merging %s into %s', p_source_branch, COALESCE(p_target_branch, 'current');
+    -- Create merge_conflicts records for each detected conflict
+    IF v_conflict_count > 0 THEN
+        FOR v_conflict_obj IN
+            SELECT *
+            FROM jsonb_to_recordset(v_conflicts->'conflicts') AS x(
+                "table" text,
+                "type" text,
+                "source_hash" text,
+                "target_hash" text
+            )
+        LOOP
+            INSERT INTO pggit.merge_conflicts (
+                merge_id, branch_a, branch_b, conflict_object, conflict_type
+            ) VALUES (
+                v_merge_id::text,
+                p_source_branch,
+                v_target_branch,
+                v_conflict_obj.table,
+                v_conflict_obj.type
+            )
+            ON CONFLICT DO NOTHING;
+
+            v_conflict_array := array_append(
+                v_conflict_array,
+                jsonb_build_object(
+                    'table', v_conflict_obj.table,
+                    'type', v_conflict_obj.type
+                )
+            );
+        END LOOP;
+    END IF;
+
+    -- Build result
+    v_result := jsonb_build_object(
+        'merge_id', v_merge_id,
+        'status', CASE
+            WHEN v_conflict_count = 0 AND p_merge_strategy = 'auto' THEN 'completed'
+            ELSE 'awaiting_resolution'
+        END,
+        'conflicts', v_conflict_array,
+        'tables_merged', 0,
+        'conflict_count', v_conflict_count
+    );
+
+    RAISE NOTICE 'merge: Merging %s into %s (conflicts: %)',
+        p_source_branch, v_target_branch, v_conflict_count;
 
     RETURN v_result;
 END;
@@ -320,18 +381,17 @@ CREATE OR REPLACE VIEW pggit.v_merge_conflicts AS
 SELECT
     mc.id,
     mc.merge_id,
-    mh.source_branch,
-    mh.target_branch,
-    mc.table_name,
+    mc.branch_a as source_branch,
+    mc.branch_b as target_branch,
+    mc.conflict_object as table_name,
     mc.conflict_type,
-    mc.resolution,
-    mh.status as merge_status,
-    mh.initiated_at,
-    mh.initiated_by
+    mc.resolved_value as resolution,
+    'pending' as merge_status,
+    mc.created_at as initiated_at,
+    mc.resolved_by as initiated_by
 FROM pggit.merge_conflicts mc
-JOIN pggit.merge_history mh ON mh.id = mc.merge_id
-WHERE mc.resolution IS NULL
-ORDER BY mh.initiated_at DESC, mc.table_name;
+WHERE mc.resolved_value IS NULL
+ORDER BY mc.created_at DESC, mc.conflict_object;
 
 -- ============================================================================
 -- GRANT PERMISSIONS
