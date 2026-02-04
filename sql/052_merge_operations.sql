@@ -290,22 +290,62 @@ $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION pggit.resolve_conflict(
     p_merge_id uuid,
-    p_table_name text,
+    p_conflict_id integer,
     p_resolution text,
     p_custom_definition text DEFAULT NULL
 )
 RETURNS void AS $$
+DECLARE
+    v_merge_record record;
+    v_unresolved_count integer;
 BEGIN
-    -- TODO: Implement conflict resolution logic
-    -- 1. Validate merge exists and status
-    -- 2. Find conflict record
-    -- 3. Apply resolution based on choice
-    -- 4. Update conflict record
-    -- 5. Check if all conflicts resolved
-    -- 6. If all resolved: call _complete_merge_after_resolution()
+    -- Validate merge exists and is awaiting resolution
+    SELECT * INTO v_merge_record
+    FROM pggit.merge_history
+    WHERE id = p_merge_id;
 
-    RAISE NOTICE 'resolve_conflict: Merge % - Table % - Resolution %s',
-        p_merge_id, p_table_name, p_resolution;
+    IF v_merge_record IS NULL THEN
+        RAISE EXCEPTION 'Merge % not found', p_merge_id;
+    END IF;
+
+    IF v_merge_record.status != 'awaiting_resolution' THEN
+        RAISE EXCEPTION 'Merge % is not awaiting resolution (status: %)',
+            p_merge_id, v_merge_record.status;
+    END IF;
+
+    -- Validate resolution type
+    IF p_resolution NOT IN ('ours', 'theirs', 'custom') THEN
+        RAISE EXCEPTION 'Invalid resolution type: %. Use ours, theirs, or custom', p_resolution;
+    END IF;
+
+    -- Update conflict record with resolution
+    UPDATE pggit.merge_conflicts
+    SET
+        resolution_strategy = p_resolution,
+        resolved_value = CASE
+            WHEN p_resolution = 'ours' THEN COALESCE(branch_b_value, '"ours"'::jsonb)
+            WHEN p_resolution = 'theirs' THEN COALESCE(branch_a_value, '"theirs"'::jsonb)
+            WHEN p_resolution = 'custom' THEN to_jsonb(p_custom_definition)
+            ELSE '"unresolved"'::jsonb
+        END,
+        auto_resolved = false,
+        resolved_by = current_user,
+        resolved_at = now()
+    WHERE id = p_conflict_id
+      AND merge_id = p_merge_id::text;
+
+    -- Check if all conflicts are now resolved
+    SELECT COUNT(*) INTO v_unresolved_count
+    FROM pggit.merge_conflicts
+    WHERE merge_id = p_merge_id::text
+      AND resolved_value IS NULL;
+
+    -- If all resolved, mark merge as completed
+    IF v_unresolved_count = 0 THEN
+        PERFORM pggit._complete_merge_after_resolution(p_merge_id);
+    END IF;
+
+    RAISE NOTICE 'resolve_conflict: Conflict % resolved with %', p_conflict_id, p_resolution;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -318,15 +358,44 @@ CREATE OR REPLACE FUNCTION pggit._complete_merge_after_resolution(
     p_merge_id uuid
 )
 RETURNS void AS $$
+DECLARE
+    v_merge_record record;
+    v_conflict record;
 BEGIN
-    -- TODO: Implement merge completion logic
-    -- 1. Get merge record
-    -- 2. Apply all resolved conflicts
-    -- 3. Create merge commit
-    -- 4. Update merge_history status to completed
-    -- 5. Handle errors and rollback if needed
+    -- Get merge record
+    SELECT * INTO v_merge_record
+    FROM pggit.merge_history
+    WHERE id = p_merge_id;
 
-    RAISE NOTICE '_complete_merge_after_resolution: Completing merge %s', p_merge_id;
+    IF v_merge_record IS NULL THEN
+        RAISE EXCEPTION 'Merge % not found', p_merge_id;
+    END IF;
+
+    -- Apply all resolved conflicts (for now, just mark them as applied)
+    -- In a full implementation, this would apply DDL changes to the target branch
+    FOR v_conflict IN
+        SELECT * FROM pggit.merge_conflicts
+        WHERE merge_id = p_merge_id::text
+          AND resolved_value IS NOT NULL
+    LOOP
+        -- TODO: Apply the resolved conflict to the target schema
+        -- This would involve executing DDL statements based on the resolution
+        RAISE NOTICE 'Applying resolved conflict: %', v_conflict.conflict_object;
+    END LOOP;
+
+    -- Update merge_history status to completed
+    UPDATE pggit.merge_history
+    SET
+        status = 'completed',
+        completed_at = now(),
+        resolved_conflicts = (
+            SELECT COUNT(*) FROM pggit.merge_conflicts
+            WHERE merge_id = p_merge_id::text
+              AND resolved_value IS NOT NULL
+        )
+    WHERE id = p_merge_id;
+
+    RAISE NOTICE '_complete_merge_after_resolution: Merge % completed', p_merge_id;
 END;
 $$ LANGUAGE plpgsql;
 
