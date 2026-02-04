@@ -175,90 +175,331 @@ SELECT * FROM pggit.list_branches();
 
 ---
 
-## 🔀 Merge Operations
+## 🔀 Merge Operations (v0.2)
 
-### `merge_branches()`
+### `merge(source_branch, target_branch, merge_strategy)` ✅
 
-Merges schema changes between branches.
+**v0.2 - Merges schema changes between branches with conflict detection.**
+
+Merges schema objects from source branch into target branch. Automatically detects conflicts and returns their details or completes merge if no conflicts.
 
 ```sql
-pggit.merge_branches(
+pggit.merge(
     p_source_branch TEXT,
-    p_target_branch TEXT
-) RETURNS TEXT
+    p_target_branch TEXT DEFAULT NULL,
+    p_merge_strategy TEXT DEFAULT 'auto'
+) RETURNS jsonb
 ```
 
 **Parameters:**
 
-- `p_source_branch`: Branch to merge from
-- `p_target_branch`: Branch to merge into
+- `p_source_branch` (TEXT): Branch name to merge FROM
+- `p_target_branch` (TEXT, optional): Branch name to merge INTO. If NULL, uses current branch
+- `p_merge_strategy` (TEXT): 'auto' (default) - automatic merge if no conflicts
 
-**Returns:** Merge result ('MERGE_SUCCESS' or 'CONFLICTS_DETECTED')
+**Returns:** JSONB with structure:
+```json
+{
+  "merge_id": "uuid",
+  "status": "completed|awaiting_resolution|failed",
+  "tables_merged": 42,
+  "conflict_count": 0,
+  "conflicts": [],
+  "error_message": null
+}
+```
+
+**Status Values:**
+- `completed` - Merge finished successfully with no conflicts
+- `awaiting_resolution` - Conflicts detected, manual resolution required
+- `failed` - Merge operation failed (check error_message)
 
 **Example:**
 
 ```sql
--- Merge feature branch to main
-SELECT pggit.merge_branches('feature/user-auth', 'main');
--- Returns: 'MERGE_SUCCESS:commit_hash_here'
+-- Simple merge (no conflicts expected)
+SELECT pggit.merge('feature/user-auth', 'main', 'auto');
+-- Returns:
+-- {
+--   "merge_id": "550e8400-e29b-41d4-a716-446655440000",
+--   "status": "completed",
+--   "tables_merged": 5,
+--   "conflict_count": 0
+-- }
 
 -- Merge with conflicts
-SELECT pggit.merge_branches('feature/conflicting', 'main');
--- Returns: 'CONFLICTS_DETECTED:merge_id_abc123'
+SELECT pggit.merge('feature/conflicting', 'main', 'auto');
+-- Returns:
+-- {
+--   "merge_id": "550e8400-e29b-41d4-a716-446655440001",
+--   "status": "awaiting_resolution",
+--   "conflict_count": 2,
+--   "conflicts": [
+--     {"table": "public.users", "type": "column_modified", ...},
+--     {"table": "public.posts", "type": "table_added", ...}
+--   ]
+-- }
 ```
 
-### `merge_compressed_branches()` ⭐
+**See Also:** [Merge Workflow Guide](/docs/guides/MERGE_WORKFLOW.md) for complete examples and best practices.
 
-**PostgreSQL 17+ only** - Advanced merge with compression optimization.
+---
+
+### `detect_conflicts(source_branch, target_branch)` ✅
+
+**v0.2 - Identifies schema conflicts between two branches.**
+
+Compares schema objects between branches and returns detailed conflict information. Use before merging to plan resolution strategy.
 
 ```sql
-pggit.merge_compressed_branches(
+pggit.detect_conflicts(
     p_source_branch TEXT,
     p_target_branch TEXT
-) RETURNS TEXT
+) RETURNS jsonb
 ```
 
-**Features:**
+**Parameters:**
 
-- Compression-aware conflict resolution
-- Storage optimization during merge
-- Performance monitoring
+- `p_source_branch` (TEXT): First branch to compare
+- `p_target_branch` (TEXT): Second branch to compare
+
+**Returns:** JSONB with structure:
+```json
+{
+  "conflict_count": 2,
+  "conflicts": [
+    {
+      "table": "schema.object_name",
+      "type": "conflict_type",
+      "source_hash": "2a13091f...",
+      "target_hash": "3b24102g..."
+    }
+  ]
+}
+```
+
+**Conflict Types:**
+- `table_added` - Table exists in source but not in target
+- `table_removed` - Table removed from source but exists in target
+- `table_modified` - Table structure differs
+- `column_added` - Column added in source
+- `column_removed` - Column removed in source
+- `column_modified` - Column properties differ
+- `constraint_added` - Constraint created in source
+- `constraint_removed` - Constraint dropped in source
+- `index_added` - Index created in source
+- `index_removed` - Index dropped in source
 
 **Example:**
 
 ```sql
-SELECT pggit.merge_compressed_branches('feature/pg17-branch', 'main');
--- NOTICE: 🔀 Merging with compression optimization
--- NOTICE: 📊 Storage optimized: 1.2GB → 360MB (70% efficiency maintained)
--- Returns: 'MERGE_SUCCESS:abcd1234...'
+-- Check for conflicts before merging
+SELECT pggit.detect_conflicts('feature/new-api', 'main');
+-- Returns:
+-- {
+--   "conflict_count": 1,
+--   "conflicts": [
+--     {
+--       "table": "public.users",
+--       "type": "column_added",
+--       "source_hash": "abc123def456",
+--       "target_hash": null
+--     }
+--   ]
+-- }
 ```
 
-### `auto_resolve_compressed_conflicts()`
+---
 
-Automatically resolves merge conflicts using compression heuristics.
+### `resolve_conflict(merge_id, table_name, resolution, custom_definition)` ✅
+
+**v0.2 - Resolves a specific conflict in a pending merge.**
+
+Choose how to resolve an individual conflict: keep target version, use source version, or apply custom DDL.
 
 ```sql
-pggit.auto_resolve_compressed_conflicts(
-    p_merge_id TEXT,
-    p_strategy TEXT DEFAULT 'COMPRESSION_OPTIMIZED'
-) RETURNS TEXT
+pggit.resolve_conflict(
+    p_merge_id uuid,
+    p_table_name TEXT,
+    p_resolution TEXT,  -- 'ours' | 'theirs' | 'custom'
+    p_custom_definition TEXT DEFAULT NULL
+) RETURNS void
 ```
 
-**Strategies:**
+**Parameters:**
 
-- `COMPRESSION_OPTIMIZED`: Choose version with better compression
-- `TAKE_SOURCE`: Always take source branch version
-- `TAKE_TARGET`: Always take target branch version
+- `p_merge_id` (UUID): ID from merge() operation
+- `p_table_name` (TEXT): Schema-qualified object name (e.g., 'public.users')
+- `p_resolution` (TEXT): Resolution strategy:
+  - `ours` - Keep target branch version (what's in the branch being merged into)
+  - `theirs` - Use source branch version (what's being merged from)
+  - `custom` - Apply custom DDL statement
+- `p_custom_definition` (TEXT, optional): Custom DDL when resolution='custom'
+
+**Raises:** Exception if merge_id invalid or object not in conflict
 
 **Example:**
 
 ```sql
--- Auto-resolve using compression optimization
-SELECT pggit.auto_resolve_compressed_conflicts(
-    'merge_abc123',
-    'COMPRESSION_OPTIMIZED'
+-- Store merge result
+SELECT pggit.merge('feature/modify-users', 'main', 'auto')
+INTO v_merge;
+
+-- Get merge ID
+SELECT (v_merge->>'merge_id')::uuid INTO v_merge_id;
+
+-- Check conflicts
+SELECT * FROM pggit.get_conflicts(v_merge_id);
+
+-- Resolve first conflict: keep main's version
+SELECT pggit.resolve_conflict(
+    v_merge_id,
+    'public.users',
+    'ours'
 );
--- Returns: 'CONFLICTS_RESOLVED:5_auto_3_manual'
+
+-- Resolve second conflict: use feature branch's version
+SELECT pggit.resolve_conflict(
+    v_merge_id,
+    'public.api_keys',
+    'theirs'
+);
+
+-- Resolve third conflict: custom merge
+SELECT pggit.resolve_conflict(
+    v_merge_id,
+    'public.posts',
+    'custom',
+    'ALTER TABLE public.posts ADD COLUMN updated_at TIMESTAMP DEFAULT NOW();'
+);
+
+-- After resolving all conflicts
+SELECT pggit._complete_merge_after_resolution(v_merge_id);
+```
+
+---
+
+### `get_conflicts(merge_id)` ✅
+
+**v0.2 - Returns detailed information about conflicts in a pending merge.**
+
+```sql
+pggit.get_conflicts(
+    p_merge_id uuid
+) RETURNS TABLE (
+    id uuid,
+    table_name TEXT,
+    conflict_type TEXT,
+    source_definition TEXT,
+    target_definition TEXT,
+    resolution TEXT,
+    resolution_notes TEXT
+)
+```
+
+**Parameters:**
+
+- `p_merge_id` (UUID): ID from merge() operation
+
+**Returns:** Table of conflicts with full details
+
+**Example:**
+
+```sql
+SELECT * FROM pggit.get_conflicts('550e8400-e29b-41d4-a716-446655440001'::uuid);
+-- Returns multiple rows, one per conflict, showing definitions and resolutions
+```
+
+---
+
+### `get_merge_status(merge_id)` ✅
+
+**v0.2 - Returns current status of a merge operation.**
+
+```sql
+pggit.get_merge_status(
+    p_merge_id uuid
+) RETURNS jsonb
+```
+
+**Parameters:**
+
+- `p_merge_id` (UUID): ID from merge() operation
+
+**Returns:** JSONB with current status
+
+**Example:**
+
+```sql
+SELECT pggit.get_merge_status('550e8400-e29b-41d4-a716-446655440001'::uuid);
+-- Returns:
+-- {
+--   "status": "awaiting_resolution",
+--   "resolved_conflicts": 1,
+--   "unresolved_conflicts": 1,
+--   "total_conflicts": 2
+-- }
+```
+
+---
+
+### `abort_merge(merge_id)` ✅
+
+**v0.2 - Cancels a merge operation and cleans up conflict records.**
+
+```sql
+pggit.abort_merge(
+    p_merge_id uuid
+) RETURNS void
+```
+
+**Parameters:**
+
+- `p_merge_id` (UUID): ID from merge() operation to cancel
+
+**Example:**
+
+```sql
+-- Cancel a merge that's taking too long or has too many conflicts
+SELECT pggit.abort_merge('550e8400-e29b-41d4-a716-446655440001'::uuid);
+-- NOTICE: Merge aborted, conflict records cleaned up
+```
+
+---
+
+### `_complete_merge_after_resolution(merge_id)` ✅
+
+**v0.2 - Internal function - Completes a merge after all conflicts are resolved.**
+
+Called automatically when all conflicts are resolved, or manually via:
+
+```sql
+pggit._complete_merge_after_resolution(
+    p_merge_id uuid
+) RETURNS void
+```
+
+**Parameters:**
+
+- `p_merge_id` (UUID): ID from merge() operation
+
+**Raises:** Exception if unresolved conflicts remain
+
+**Note:** This is called automatically when the last conflict is resolved via resolve_conflict(). Rarely needs manual invocation.
+
+**Example:**
+
+```sql
+-- Resolve all conflicts
+SELECT pggit.resolve_conflict(merge_id, 'table1', 'ours');
+SELECT pggit.resolve_conflict(merge_id, 'table2', 'theirs');
+
+-- Check if all resolved
+SELECT * FROM pggit.merge_conflicts
+WHERE merge_id = 'your-merge-id' AND resolution IS NULL;
+
+-- If no rows returned, complete merge
+SELECT pggit._complete_merge_after_resolution('your-merge-id'::uuid);
 ```
 
 ---
