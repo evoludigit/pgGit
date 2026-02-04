@@ -24,6 +24,7 @@
 \i 056_versioning_stubs.sql
 \i pggit_cqrs_support.sql
 \i 051_data_branching_cow.sql
+\i 052_merge_operations.sql
 \i pggit_conflict_resolution_minimal.sql
 \i pggit_diff_functionality.sql
 \i 060_time_travel.sql
