@@ -48,7 +48,7 @@ SELECT
     COUNT(*) >= 1 AS version_table_exists
 FROM pg_tables
 WHERE schemaname = 'pggit'
-AND tablename LIKE '%version%';
+AND tablename IN ('schema_changes', 'schema_snapshots', 'objects', 'commits', 'branches');
 
 -- Test output message
 SELECT 'pgGit extension installed successfully' AS status;
