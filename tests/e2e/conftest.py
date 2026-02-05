@@ -364,8 +364,51 @@ def db(e2e_pool) -> PooledDatabaseFixture:
         fixture.rollback_transaction()
 
 
+@pytest.fixture(scope="session")
+def db_setup(e2e_pool) -> None:
+    """Session-scoped setup for test database.
+
+    Creates tables and baseline data that all tests can use.
+    This runs OUTSIDE of transaction boundaries so changes persist.
+    """
+    # Use a temporary fixture to run setup code
+    setup_fixture = TransactionDatabaseFixture(e2e_pool)
+
+    # Ensure commits table exists (required for tests)
+    try:
+        setup_fixture.execute("""
+            CREATE TABLE IF NOT EXISTS pggit.commits (
+                id SERIAL PRIMARY KEY,
+                hash TEXT NOT NULL UNIQUE DEFAULT (md5(random()::text)),
+                branch_id INTEGER NOT NULL REFERENCES pggit.branches(id),
+                parent_commit_hash TEXT,
+                message TEXT,
+                author TEXT DEFAULT CURRENT_USER,
+                authored_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                committer TEXT DEFAULT CURRENT_USER,
+                committed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                tree_hash TEXT,
+                metadata JSONB,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+    except Exception:
+        pass  # Table might already exist
+
+    # Commit setup changes (no transaction, just auto-commit)
+    if setup_fixture._conn is not None:
+        try:
+            setup_fixture._conn.commit()
+        except Exception:
+            pass
+        setup_fixture._release_connection()
+
+    yield
+    # No cleanup needed for session-scoped setup
+
+
 @pytest.fixture
-def db_unit(e2e_pool) -> Generator[TransactionDatabaseFixture, None, None]:
+def db_unit(db_setup, e2e_pool) -> Generator[TransactionDatabaseFixture, None, None]:
     """Unit test fixture with transaction rollback isolation.
 
     Use for:
@@ -390,13 +433,21 @@ def db_unit(e2e_pool) -> Generator[TransactionDatabaseFixture, None, None]:
     fixture = TransactionDatabaseFixture(e2e_pool)
     fixture.begin_transaction()
 
+    # Ensure main branch exists (inside transaction so it gets rolled back)
+    try:
+        fixture.execute(
+            "INSERT INTO pggit.branches (name, status) VALUES ('main', 'ACTIVE') ON CONFLICT (name) DO NOTHING"
+        )
+    except Exception:
+        pass
+
     yield fixture
 
     fixture.rollback_transaction()
 
 
 @pytest.fixture
-def db_integration(e2e_pool) -> Generator[TransactionDatabaseFixture, None, None]:
+def db_integration(db_setup, e2e_pool) -> Generator[TransactionDatabaseFixture, None, None]:
     """Integration test fixture with transaction rollback isolation.
 
     Use for:
@@ -422,13 +473,21 @@ def db_integration(e2e_pool) -> Generator[TransactionDatabaseFixture, None, None
     fixture = TransactionDatabaseFixture(e2e_pool)
     fixture.begin_transaction()
 
+    # Ensure main branch exists (inside transaction so it gets rolled back)
+    try:
+        fixture.execute(
+            "INSERT INTO pggit.branches (name, status) VALUES ('main', 'ACTIVE') ON CONFLICT (name) DO NOTHING"
+        )
+    except Exception:
+        pass
+
     yield fixture
 
     fixture.rollback_transaction()
 
 
 @pytest.fixture
-def db_e2e(e2e_pool) -> Generator[TransactionDatabaseFixture, None, None]:
+def db_e2e(db_setup, e2e_pool) -> Generator[TransactionDatabaseFixture, None, None]:
     """E2E test fixture with transaction rollback isolation.
 
     Use for:
@@ -456,13 +515,21 @@ def db_e2e(e2e_pool) -> Generator[TransactionDatabaseFixture, None, None]:
     fixture = TransactionDatabaseFixture(e2e_pool)
     fixture.begin_transaction()
 
+    # Ensure main branch exists (inside transaction so it gets rolled back)
+    try:
+        fixture.execute(
+            "INSERT INTO pggit.branches (name, status) VALUES ('main', 'ACTIVE') ON CONFLICT (name) DO NOTHING"
+        )
+    except Exception:
+        pass
+
     yield fixture
 
     fixture.rollback_transaction()
 
 
 @pytest.fixture
-def db_load(e2e_pool) -> Generator[LoadDatabaseFixture, None, None]:
+def db_load(db_setup, e2e_pool) -> Generator[LoadDatabaseFixture, None, None]:
     """Load test fixture with no automatic cleanup.
 
     Use for:

@@ -17,9 +17,9 @@ import pytest
 class TestHealthMonitoring:
     """Test health monitoring functions."""
 
-    def test_get_backup_health_empty(self, db, pggit_installed):
+    def test_get_backup_health_empty(self, db_e2e, pggit_installed):
         """Test health status with no jobs."""
-        health = db.execute("""
+        health = db_e2e.execute("""
             SELECT * FROM pggit.get_backup_health()
         """)
 
@@ -36,9 +36,9 @@ class TestHealthMonitoring:
 
         print("✓ Health monitoring works with empty queue")
 
-    def test_backup_system_health_view(self, db, pggit_installed):
+    def test_backup_system_health_view(self, db_e2e, pggit_installed):
         """Test health dashboard view."""
-        health = db.execute("""
+        health = db_e2e.execute("""
             SELECT * FROM pggit.backup_system_health
         """)
 
@@ -57,25 +57,25 @@ class TestHealthMonitoring:
 class TestWorkerManagement:
     """Test worker management functions."""
 
-    def test_list_active_workers_none(self, db, pggit_installed):
+    def test_list_active_workers_none(self, db_e2e, pggit_installed):
         """Test listing workers when none are active."""
-        workers = db.execute("""
+        workers = db_e2e.execute("""
             SELECT * FROM pggit.list_active_workers(10)
         """)
 
         assert len(workers) == 0
         print("✓ No workers listed when none active")
 
-    def test_list_active_workers_with_activity(self, db, pggit_installed):
+    def test_list_active_workers_with_activity(self, db_e2e, pggit_installed):
         """Test listing workers after job activity."""
         # Create commit and backup
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message)
             VALUES ('test-commit-worker', 1, 'Worker test')
             ON CONFLICT (hash) DO NOTHING
         """)
 
-        backup_id = db.execute_returning("""
+        backup_id = db_e2e.execute_returning("""
             SELECT pggit.register_backup(
                 'worker-test-backup',
                 'full',
@@ -86,7 +86,7 @@ class TestWorkerManagement:
         """)
 
         # Enqueue and process job
-        job_id = db.execute_returning(
+        job_id = db_e2e.execute_returning(
             """
             SELECT pggit.enqueue_backup_job(
                 %s::UUID,
@@ -98,10 +98,10 @@ class TestWorkerManagement:
         )
 
         # Simulate worker processing
-        db.execute("SELECT * FROM pggit.get_next_backup_job('test-worker-001')")
+        db_e2e.execute("SELECT * FROM pggit.get_next_backup_job('test-worker-001')")
 
         # List workers
-        workers = db.execute("""
+        workers = db_e2e.execute("""
             SELECT * FROM pggit.list_active_workers(10)
         """)
 
@@ -120,9 +120,9 @@ class TestWorkerManagement:
 
         print(f"✓ Worker listed: {worker_id} with {jobs_processed} jobs")
 
-    def test_get_worker_stats(self, db, pggit_installed):
+    def test_get_worker_stats(self, db_e2e, pggit_installed):
         """Test getting worker statistics."""
-        stats = db.execute("""
+        stats = db_e2e.execute("""
             SELECT * FROM pggit.get_worker_stats('test-worker-001', 24)
         """)
 
@@ -137,9 +137,9 @@ class TestWorkerManagement:
 class TestJobCleanup:
     """Test job cleanup functions."""
 
-    def test_cleanup_old_jobs_dry_run(self, db, pggit_installed):
+    def test_cleanup_old_jobs_dry_run(self, db_e2e, pggit_installed):
         """Test cleanup in dry-run mode."""
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT * FROM pggit.cleanup_old_jobs(7, TRUE)
         """)
 
@@ -149,9 +149,9 @@ class TestJobCleanup:
             assert action == "would_delete"
             print(f"✓ Dry-run would delete {count} old jobs")
 
-    def test_cancel_stuck_jobs_dry_run(self, db, pggit_installed):
+    def test_cancel_stuck_jobs_dry_run(self, db_e2e, pggit_installed):
         """Test cancelling stuck jobs (dry-run)."""
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT * FROM pggit.cancel_stuck_jobs(60, TRUE)
         """)
 
@@ -159,16 +159,16 @@ class TestJobCleanup:
         assert isinstance(result, list)
         print(f"✓ Found {len(result)} potentially stuck jobs")
 
-    def test_reset_job(self, db, pggit_installed):
+    def test_reset_job(self, db_e2e, pggit_installed):
         """Test resetting a failed job."""
         # Create a failed job first
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message)
             VALUES ('test-commit-reset', 1, 'Reset test')
             ON CONFLICT (hash) DO NOTHING
         """)
 
-        backup_id = db.execute_returning("""
+        backup_id = db_e2e.execute_returning("""
             SELECT pggit.register_backup(
                 'reset-test',
                 'full',
@@ -178,7 +178,7 @@ class TestJobCleanup:
             )
         """)
 
-        job_id = db.execute_returning(
+        job_id = db_e2e.execute_returning(
             """
             SELECT pggit.enqueue_backup_job(%s::UUID, 'echo test', 'custom')
         """,
@@ -186,11 +186,11 @@ class TestJobCleanup:
         )
 
         # Mark as failed
-        db.execute("SELECT * FROM pggit.get_next_backup_job('worker')")
-        db.execute("SELECT pggit.fail_backup_job(%s::UUID, 'Test error', 0)", job_id[0])
+        db_e2e.execute("SELECT * FROM pggit.get_next_backup_job('worker')")
+        db_e2e.execute("SELECT pggit.fail_backup_job(%s::UUID, 'Test error', 0)", job_id[0])
 
         # Reset job
-        result = db.execute_returning(
+        result = db_e2e.execute_returning(
             """
             SELECT pggit.reset_job(%s::UUID)
         """,
@@ -200,7 +200,7 @@ class TestJobCleanup:
         assert result[0] is True
 
         # Verify reset
-        status = db.execute_returning(
+        status = db_e2e.execute_returning(
             """
             SELECT status, attempts FROM pggit.backup_jobs WHERE job_id = %s
         """,
@@ -216,16 +216,16 @@ class TestJobCleanup:
 class TestMaintenanceMode:
     """Test maintenance mode functionality."""
 
-    def test_enable_maintenance_mode(self, db, pggit_installed):
+    def test_enable_maintenance_mode(self, db_e2e, pggit_installed):
         """Test enabling maintenance mode."""
         # Create some queued jobs
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message)
             VALUES ('test-commit-maint', 1, 'Maintenance test')
             ON CONFLICT (hash) DO NOTHING
         """)
 
-        backup_id = db.execute_returning("""
+        backup_id = db_e2e.execute_returning("""
             SELECT pggit.register_backup(
                 'maint-test',
                 'full',
@@ -235,7 +235,7 @@ class TestMaintenanceMode:
             )
         """)
 
-        job_id = db.execute_returning(
+        job_id = db_e2e.execute_returning(
             """
             SELECT pggit.enqueue_backup_job(%s::UUID, 'echo test', 'custom')
         """,
@@ -243,7 +243,7 @@ class TestMaintenanceMode:
         )
 
         # Enable maintenance mode
-        result = db.execute_returning("""
+        result = db_e2e.execute_returning("""
             SELECT pggit.set_maintenance_mode(TRUE, 'Testing')
         """)
 
@@ -254,7 +254,7 @@ class TestMaintenanceMode:
         print(f"✓ Maintenance mode enabled, paused {paused_count} jobs")
 
         # Disable maintenance mode
-        result = db.execute_returning("""
+        result = db_e2e.execute_returning("""
             SELECT pggit.set_maintenance_mode(FALSE)
         """)
 
@@ -266,9 +266,9 @@ class TestMaintenanceMode:
 class TestBackupStats:
     """Test backup statistics functions."""
 
-    def test_get_backup_stats(self, db, pggit_installed):
+    def test_get_backup_stats(self, db_e2e, pggit_installed):
         """Test getting backup statistics."""
-        stats = db.execute("""
+        stats = db_e2e.execute("""
             SELECT * FROM pggit.get_backup_stats(30)
         """)
 
@@ -281,9 +281,9 @@ class TestBackupStats:
 
         print("✓ Backup statistics retrieved")
 
-    def test_get_tool_usage_stats(self, db, pggit_installed):
+    def test_get_tool_usage_stats(self, db_e2e, pggit_installed):
         """Test tool usage statistics."""
-        stats = db.execute("""
+        stats = db_e2e.execute("""
             SELECT * FROM pggit.get_tool_usage_stats(30)
         """)
 
@@ -295,16 +295,16 @@ class TestBackupStats:
 class TestRecoveryPlanning:
     """Test recovery planning functions."""
 
-    def test_find_backup_for_commit_no_backups(self, db, pggit_installed):
+    def test_find_backup_for_commit_no_backups(self, db_e2e, pggit_installed):
         """Test finding backup when none exist."""
         # Create commit
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message, committed_at)
             VALUES ('test-commit-recovery', 1, 'Recovery test', CURRENT_TIMESTAMP)
             ON CONFLICT (hash) DO NOTHING
         """)
 
-        backups = db.execute("""
+        backups = db_e2e.execute("""
             SELECT * FROM pggit.find_backup_for_commit('test-commit-recovery')
         """)
 
@@ -312,17 +312,17 @@ class TestRecoveryPlanning:
         assert len(backups) == 0
         print("✓ No backups found for commit (expected)")
 
-    def test_find_backup_for_commit_with_backup(self, db, pggit_installed):
+    def test_find_backup_for_commit_with_backup(self, db_e2e, pggit_installed):
         """Test finding backup for commit."""
         # Create commit
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message, committed_at)
             VALUES ('test-commit-with-backup', 1, 'Backup test', CURRENT_TIMESTAMP)
             ON CONFLICT (hash) DO NOTHING
         """)
 
         # Create backup for this commit
-        backup_id = db.execute_returning("""
+        backup_id = db_e2e.execute_returning("""
             SELECT pggit.register_backup(
                 'recovery-test-backup',
                 'full',
@@ -336,7 +336,7 @@ class TestRecoveryPlanning:
         """)
 
         # Mark as completed
-        db.execute(
+        db_e2e.execute(
             """
             SELECT pggit.complete_backup(%s::UUID, 1000000, 500000, 'gzip')
         """,
@@ -344,7 +344,7 @@ class TestRecoveryPlanning:
         )
 
         # Find backup
-        backups = db.execute("""
+        backups = db_e2e.execute("""
             SELECT * FROM pggit.find_backup_for_commit('test-commit-with-backup')
         """)
 
@@ -365,16 +365,16 @@ class TestRecoveryPlanning:
 
         print("✓ Found exact backup for commit")
 
-    def test_generate_recovery_plan_disaster(self, db, pggit_installed):
+    def test_generate_recovery_plan_disaster(self, db_e2e, pggit_installed):
         """Test generating disaster recovery plan."""
         # Setup commit and backup
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message, committed_at)
             VALUES ('test-commit-disaster', 1, 'Disaster recovery', CURRENT_TIMESTAMP)
             ON CONFLICT (hash) DO NOTHING
         """)
 
-        backup_id = db.execute_returning("""
+        backup_id = db_e2e.execute_returning("""
             SELECT pggit.register_backup(
                 'disaster-backup',
                 'full',
@@ -384,10 +384,10 @@ class TestRecoveryPlanning:
             )
         """)
 
-        db.execute("SELECT pggit.complete_backup(%s::UUID)", backup_id[0])
+        db_e2e.execute("SELECT pggit.complete_backup(%s::UUID)", backup_id[0])
 
         # Generate recovery plan
-        plan = db.execute("""
+        plan = db_e2e.execute("""
             SELECT * FROM pggit.generate_recovery_plan(
                 'test-commit-disaster',
                 'disaster'
@@ -408,16 +408,16 @@ class TestRecoveryPlanning:
 
         print(f"✓ Generated disaster recovery plan with {len(plan)} steps")
 
-    def test_generate_recovery_plan_clone(self, db, pggit_installed):
+    def test_generate_recovery_plan_clone(self, db_e2e, pggit_installed):
         """Test generating live clone recovery plan."""
         # Setup
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message, committed_at)
             VALUES ('test-commit-clone', 1, 'Clone test', CURRENT_TIMESTAMP)
             ON CONFLICT (hash) DO NOTHING
         """)
 
-        backup_id = db.execute_returning("""
+        backup_id = db_e2e.execute_returning("""
             SELECT pggit.register_backup(
                 'clone-backup',
                 'full',
@@ -427,10 +427,10 @@ class TestRecoveryPlanning:
             )
         """)
 
-        db.execute("SELECT pggit.complete_backup(%s::UUID)", backup_id[0])
+        db_e2e.execute("SELECT pggit.complete_backup(%s::UUID)", backup_id[0])
 
         # Generate clone plan
-        plan = db.execute("""
+        plan = db_e2e.execute("""
             SELECT * FROM pggit.generate_recovery_plan(
                 'test-commit-clone',
                 'clone',
@@ -450,16 +450,16 @@ class TestRecoveryPlanning:
 
         print(f"✓ Generated clone recovery plan with {len(plan)} steps")
 
-    def test_restore_from_commit_dry_run(self, db, pggit_installed):
+    def test_restore_from_commit_dry_run(self, db_e2e, pggit_installed):
         """Test dry-run restore shows plan."""
         # Setup
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message, committed_at)
             VALUES ('test-commit-restore', 1, 'Restore test', CURRENT_TIMESTAMP)
             ON CONFLICT (hash) DO NOTHING
         """)
 
-        backup_id = db.execute_returning("""
+        backup_id = db_e2e.execute_returning("""
             SELECT pggit.register_backup(
                 'restore-backup',
                 'full',
@@ -469,10 +469,10 @@ class TestRecoveryPlanning:
             )
         """)
 
-        db.execute("SELECT pggit.complete_backup(%s::UUID)", backup_id[0])
+        db_e2e.execute("SELECT pggit.complete_backup(%s::UUID)", backup_id[0])
 
         # Dry-run restore
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT * FROM pggit.restore_from_commit('test-commit-restore', TRUE)
         """)
 
@@ -489,7 +489,7 @@ class TestRecoveryPlanning:
 class TestBackupVerification:
     """Test backup verification functions."""
 
-    def test_verify_backup(self, db, pggit_installed):
+    def test_verify_backup(self, db_e2e, pggit_installed):
         """Test triggering backup verification."""
         from tests.e2e.test_helpers import (
             create_test_commit,
@@ -506,7 +506,7 @@ class TestBackupVerification:
         backup_id = register_and_complete_backup(db, "verify-backup", "full", commit)
 
         # Trigger verification
-        verification_id = db.execute_returning(
+        verification_id = db_e2e.execute_returning(
             """
             SELECT pggit.verify_backup(%s::UUID, 'checksum')
         """,
@@ -517,19 +517,19 @@ class TestBackupVerification:
 
         print(f"✓ Verification triggered: {verification_id[0]}")
 
-    def test_list_backup_verifications(self, db, pggit_installed):
+    def test_list_backup_verifications(self, db_e2e, pggit_installed):
         """Test listing verifications."""
-        verifications = db.execute("""
+        verifications = db_e2e.execute("""
             SELECT * FROM pggit.list_backup_verifications(NULL, 20)
         """)
 
         assert isinstance(verifications, list)
         print(f"✓ Listed {len(verifications)} verifications")
 
-    def test_update_verification_result(self, db, pggit_installed):
+    def test_update_verification_result(self, db_e2e, pggit_installed):
         """Test updating verification status."""
         # Get a verification (from previous test or create new)
-        verifications = db.execute("""
+        verifications = db_e2e.execute("""
             SELECT verification_id FROM pggit.backup_verifications LIMIT 1
         """)
 
@@ -537,7 +537,7 @@ class TestBackupVerification:
             verification_id = verifications[0][0]
 
             # Update status
-            result = db.execute_returning(
+            result = db_e2e.execute_returning(
                 """
                 SELECT pggit.update_verification_result(
                     %s::UUID,
@@ -555,9 +555,9 @@ class TestBackupVerification:
 class TestRetentionPolicy:
     """Test retention policy management."""
 
-    def test_apply_retention_policy(self, db, pggit_installed):
+    def test_apply_retention_policy(self, db_e2e, pggit_installed):
         """Test applying retention policy."""
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT * FROM pggit.apply_retention_policy(
                 '{"full_days": 30, "incremental_days": 7}'::jsonb
             )
@@ -567,18 +567,18 @@ class TestRetentionPolicy:
         assert isinstance(result, list)
         print(f"✓ Retention policy applied, {len(result)} backups expired")
 
-    def test_cleanup_expired_backups_dry_run(self, db, pggit_installed):
+    def test_cleanup_expired_backups_dry_run(self, db_e2e, pggit_installed):
         """Test cleanup in dry-run mode."""
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT * FROM pggit.cleanup_expired_backups(TRUE)
         """)
 
         assert isinstance(result, list)
         print(f"✓ Would delete {len(result)} expired backups")
 
-    def test_get_retention_recommendations(self, db, pggit_installed):
+    def test_get_retention_recommendations(self, db_e2e, pggit_installed):
         """Test getting retention recommendations."""
-        recommendations = db.execute("""
+        recommendations = db_e2e.execute("""
             SELECT * FROM pggit.get_retention_recommendations()
         """)
 
@@ -595,16 +595,16 @@ class TestRetentionPolicy:
 class TestRecoveryTesting:
     """Test recovery testing functions."""
 
-    def test_test_backup_restore(self, db, pggit_installed):
+    def test_test_backup_restore(self, db_e2e, pggit_installed):
         """Test queueing a backup restore test."""
         # Create backup
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message)
             VALUES ('test-commit-restore-test', 1, 'Restore test')
             ON CONFLICT (hash) DO NOTHING
         """)
 
-        backup_id = db.execute_returning("""
+        backup_id = db_e2e.execute_returning("""
             SELECT pggit.register_backup(
                 'restore-test-backup',
                 'full',
@@ -614,10 +614,10 @@ class TestRecoveryTesting:
             )
         """)
 
-        db.execute("SELECT pggit.complete_backup(%s::UUID)", backup_id[0])
+        db_e2e.execute("SELECT pggit.complete_backup(%s::UUID)", backup_id[0])
 
         # Queue restore test
-        result = db.execute_returning(
+        result = db_e2e.execute_returning(
             """
             SELECT pggit.test_backup_restore(%s::UUID, 'validate')
         """,
@@ -633,9 +633,9 @@ class TestRecoveryTesting:
 class TestRecentFailuresView:
     """Test recent failures monitoring view."""
 
-    def test_recent_backup_failures_view(self, db, pggit_installed):
+    def test_recent_backup_failures_view(self, db_e2e, pggit_installed):
         """Test recent failures view."""
-        failures = db.execute("""
+        failures = db_e2e.execute("""
             SELECT * FROM pggit.recent_backup_failures
         """)
 

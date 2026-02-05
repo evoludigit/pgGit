@@ -24,21 +24,21 @@ from concurrent.futures import ThreadPoolExecutor
 class TestCommitErrorRecovery:
     """Test error recovery during commit operations."""
 
-    def test_failed_commit_leaves_no_orphaned_records(self, db, pggit_installed):
+    def test_failed_commit_leaves_no_orphaned_records(self, db_e2e, pggit_installed):
         """Test that failed commit doesn't leave orphaned records in pggit.commits."""
         # Get initial commit count
-        initial_count = db.execute("SELECT COUNT(*) FROM pggit.commits")[0][0]
+        initial_count = db_e2e.execute("SELECT COUNT(*) FROM pggit.commits")[0][0]
 
         # Create a branch for testing
-        branch_id = db.execute_returning(
+        branch_id = db_e2e.execute_returning(
             "INSERT INTO pggit.branches (name, status) VALUES (%s, %s) RETURNING id",
             "test-commit-rollback", "ACTIVE"
         )[0]
 
         # Attempt to create a commit within a transaction that will be rolled back
         try:
-            with db.conn.transaction():
-                db.execute(
+            with db_e2e.conn.transaction():
+                db_e2e.execute(
                     "INSERT INTO pggit.commits (branch_id, message) VALUES (%s, %s)",
                     branch_id, "This commit will be rolled back"
                 )
@@ -49,22 +49,22 @@ class TestCommitErrorRecovery:
             pass
 
         # Verify no new commits were created
-        final_count = db.execute("SELECT COUNT(*) FROM pggit.commits")[0][0]
+        final_count = db_e2e.execute("SELECT COUNT(*) FROM pggit.commits")[0][0]
         assert final_count == initial_count, "Failed commit left orphaned records"
 
-    def test_failed_commit_doesnt_create_partial_branch_records(self, db, pggit_installed):
+    def test_failed_commit_doesnt_create_partial_branch_records(self, db_e2e, pggit_installed):
         """Test that failed commit doesn't create partial branch state."""
-        initial_branch_count = db.execute("SELECT COUNT(*) FROM pggit.branches")[0][0]
+        initial_branch_count = db_e2e.execute("SELECT COUNT(*) FROM pggit.branches")[0][0]
 
         # Attempt to create branch and commit in a transaction that fails
         try:
-            with db.conn.transaction():
-                new_branch_id = db.execute_returning(
+            with db_e2e.conn.transaction():
+                new_branch_id = db_e2e.execute_returning(
                     "INSERT INTO pggit.branches (name, status) VALUES (%s, %s) RETURNING id",
                     "partial-branch", "ACTIVE"
                 )[0]
 
-                db.execute(
+                db_e2e.execute(
                     "INSERT INTO pggit.commits (branch_id, message) VALUES (%s, %s)",
                     new_branch_id, "Partial commit"
                 )
@@ -75,13 +75,13 @@ class TestCommitErrorRecovery:
             pass
 
         # Verify branch was not created
-        final_branch_count = db.execute("SELECT COUNT(*) FROM pggit.branches")[0][0]
+        final_branch_count = db_e2e.execute("SELECT COUNT(*) FROM pggit.branches")[0][0]
         assert final_branch_count == initial_branch_count, "Partial branch record created"
 
-    def test_concurrent_commit_conflicts_handled_gracefully(self, db, pggit_installed):
+    def test_concurrent_commit_conflicts_handled_gracefully(self, db_e2e, pggit_installed):
         """Test that concurrent commits to same branch handle conflicts gracefully."""
         # Create a test branch
-        branch_id = db.execute_returning(
+        branch_id = db_e2e.execute_returning(
             "INSERT INTO pggit.branches (name, status) VALUES (%s, %s) RETURNING id",
             "concurrent-commits", "ACTIVE"
         )[0]
@@ -89,7 +89,7 @@ class TestCommitErrorRecovery:
         # Concurrent commits should both succeed (different hashes)
         def create_commit(message):
             try:
-                commit_id = db.execute_returning(
+                commit_id = db_e2e.execute_returning(
                     "INSERT INTO pggit.commits (branch_id, message) VALUES (%s, %s) RETURNING id",
                     branch_id, message
                 )
@@ -109,67 +109,67 @@ class TestCommitErrorRecovery:
         successful = [r for r in results if r is not None]
         assert len(successful) > 0, "Concurrent commits should handle gracefully"
 
-    def test_invalid_sql_in_commit_doesnt_corrupt_history(self, db, pggit_installed):
+    def test_invalid_sql_in_commit_doesnt_corrupt_history(self, db_e2e, pggit_installed):
         """Test that invalid SQL during commit doesn't corrupt commit history."""
         # Create test table
-        db.execute("CREATE TABLE public.commit_test_table (id INT, data TEXT)")
+        db_e2e.execute("CREATE TABLE public.commit_test_table (id INT, data TEXT)")
 
         # Get initial commit count
-        initial_count = db.execute("SELECT COUNT(*) FROM pggit.commits")[0][0]
+        initial_count = db_e2e.execute("SELECT COUNT(*) FROM pggit.commits")[0][0]
 
         # Create branch
-        branch_id = db.execute_returning(
+        branch_id = db_e2e.execute_returning(
             "INSERT INTO pggit.branches (name, status) VALUES (%s, %s) RETURNING id",
             "invalid-sql-test", "ACTIVE"
         )[0]
 
         # Attempt transaction with invalid SQL
         try:
-            with db.conn.transaction():
+            with db_e2e.conn.transaction():
                 # Valid commit record
-                db.execute(
+                db_e2e.execute(
                     "INSERT INTO pggit.commits (branch_id, message) VALUES (%s, %s)",
                     branch_id, "Commit with invalid SQL"
                 )
                 # Invalid SQL - should cause rollback
-                db.execute("INSERT INTO nonexistent_table VALUES (1, 2, 3)")
+                db_e2e.execute("INSERT INTO nonexistent_table VALUES (1, 2, 3)")
         except Exception:
             # Expected failure
             pass
 
         # Verify commit was rolled back
-        final_count = db.execute("SELECT COUNT(*) FROM pggit.commits")[0][0]
+        final_count = db_e2e.execute("SELECT COUNT(*) FROM pggit.commits")[0][0]
         assert final_count == initial_count, "Invalid SQL corrupted commit history"
 
         # Cleanup
-        db.execute("DROP TABLE public.commit_test_table")
+        db_e2e.execute("DROP TABLE public.commit_test_table")
 
-    def test_commit_rollback_cleans_up_all_related_tables(self, db, pggit_installed):
+    def test_commit_rollback_cleans_up_all_related_tables(self, db_e2e, pggit_installed):
         """Test that commit rollback cleans up records in all related tables."""
         # Create test table and object record
-        db.execute("CREATE TABLE public.rollback_test (id INT)")
+        db_e2e.execute("CREATE TABLE public.rollback_test (id INT)")
 
         # Create branch
-        branch_id = db.execute_returning(
+        branch_id = db_e2e.execute_returning(
             "INSERT INTO pggit.branches (name, status) VALUES (%s, %s) RETURNING id",
             "rollback-cleanup", "ACTIVE"
         )[0]
 
         # Get initial counts
-        initial_commits = db.execute("SELECT COUNT(*) FROM pggit.commits")[0][0]
-        initial_objects = db.execute("SELECT COUNT(*) FROM pggit.objects")[0][0]
+        initial_commits = db_e2e.execute("SELECT COUNT(*) FROM pggit.commits")[0][0]
+        initial_objects = db_e2e.execute("SELECT COUNT(*) FROM pggit.objects")[0][0]
 
         # Attempt transaction that creates commit and object records
         try:
-            with db.conn.transaction():
+            with db_e2e.conn.transaction():
                 # Create commit
-                db.execute(
+                db_e2e.execute(
                     "INSERT INTO pggit.commits (branch_id, message) VALUES (%s, %s)",
                     branch_id, "Rollback test commit"
                 )
 
                 # Create object record
-                db.execute(
+                db_e2e.execute(
                     "INSERT INTO pggit.objects (schema_name, object_name, object_type, branch_id) VALUES (%s, %s, %s, %s)",
                     "rollback_test", 'TABLE', branch_id
                 )
@@ -180,45 +180,45 @@ class TestCommitErrorRecovery:
             pass
 
         # Verify all related records were rolled back
-        final_commits = db.execute("SELECT COUNT(*) FROM pggit.commits")[0][0]
-        final_objects = db.execute("SELECT COUNT(*) FROM pggit.objects")[0][0]
+        final_commits = db_e2e.execute("SELECT COUNT(*) FROM pggit.commits")[0][0]
+        final_objects = db_e2e.execute("SELECT COUNT(*) FROM pggit.objects")[0][0]
 
         assert final_commits == initial_commits, "Commit records not cleaned up"
         assert final_objects == initial_objects, "Object records not cleaned up"
 
         # Cleanup
-        db.execute("DROP TABLE public.rollback_test")
+        db_e2e.execute("DROP TABLE public.rollback_test")
 
 
 class TestMergeErrorRecovery:
     """Test error recovery during merge operations."""
 
-    def test_failed_merge_doesnt_corrupt_branch_state(self, db, pggit_installed):
+    def test_failed_merge_doesnt_corrupt_branch_state(self, db_e2e, pggit_installed):
         """Test that failed merge doesn't corrupt branch state."""
         # Create source and target branches
-        source_id = db.execute_returning(
+        source_id = db_e2e.execute_returning(
             "INSERT INTO pggit.branches (name, status) VALUES (%s, %s) RETURNING id",
             "merge-source", "ACTIVE"
         )[0]
 
-        target_id = db.execute_returning(
+        target_id = db_e2e.execute_returning(
             "INSERT INTO pggit.branches (name, status) VALUES (%s, %s) RETURNING id",
             "merge-target", "ACTIVE"
         )[0]
 
         # Get initial state
-        initial_source_status = db.execute(
+        initial_source_status = db_e2e.execute(
             "SELECT status FROM pggit.branches WHERE id = %s", source_id
         )[0][0]
-        initial_target_status = db.execute(
+        initial_target_status = db_e2e.execute(
             "SELECT status FROM pggit.branches WHERE id = %s", target_id
         )[0][0]
 
         # Attempt merge operation that fails
         try:
-            with db.conn.transaction():
+            with db_e2e.conn.transaction():
                 # Simulate merge by updating branch status
-                db.execute(
+                db_e2e.execute(
                     "UPDATE pggit.branches SET status = %s WHERE id = %s",
                     "MERGING", source_id
                 )
@@ -228,32 +228,32 @@ class TestMergeErrorRecovery:
             pass
 
         # Verify branch states unchanged
-        final_source_status = db.execute(
+        final_source_status = db_e2e.execute(
             "SELECT status FROM pggit.branches WHERE id = %s", source_id
         )[0][0]
-        final_target_status = db.execute(
+        final_target_status = db_e2e.execute(
             "SELECT status FROM pggit.branches WHERE id = %s", target_id
         )[0][0]
 
         assert final_source_status == initial_source_status, "Source branch state corrupted"
         assert final_target_status == initial_target_status, "Target branch state corrupted"
 
-    def test_partial_merge_rollback_is_complete(self, db, pggit_installed):
+    def test_partial_merge_rollback_is_complete(self, db_e2e, pggit_installed):
         """Test that partial merge rollback removes all merge artifacts."""
         # Create branches
-        branch_id = db.execute_returning(
+        branch_id = db_e2e.execute_returning(
             "INSERT INTO pggit.branches (name, status) VALUES (%s, %s) RETURNING id",
             "merge-rollback-test", "ACTIVE"
         )[0]
 
         # Get initial counts
-        initial_commit_count = db.execute("SELECT COUNT(*) FROM pggit.commits")[0][0]
+        initial_commit_count = db_e2e.execute("SELECT COUNT(*) FROM pggit.commits")[0][0]
 
         # Attempt partial merge with rollback
         try:
-            with db.conn.transaction():
+            with db_e2e.conn.transaction():
                 # Create merge commit
-                db.execute(
+                db_e2e.execute(
                     "INSERT INTO pggit.commits (branch_id, message, metadata) VALUES (%s, %s, %s, %s)",
                     branch_id, "Merge commit", json.dumps({"merge": True})
                 )
@@ -263,33 +263,33 @@ class TestMergeErrorRecovery:
             pass
 
         # Verify all merge artifacts cleaned up
-        final_commit_count = db.execute("SELECT COUNT(*) FROM pggit.commits")[0][0]
+        final_commit_count = db_e2e.execute("SELECT COUNT(*) FROM pggit.commits")[0][0]
         assert final_commit_count == initial_commit_count, "Merge artifacts not cleaned up"
 
-    def test_merge_conflict_detection_doesnt_leak_records(self, db, pggit_installed):
+    def test_merge_conflict_detection_doesnt_leak_records(self, db_e2e, pggit_installed):
         """Test that merge conflict detection doesn't leak records."""
         # Create branches with conflicting changes
-        branch_a = db.execute_returning(
+        branch_a = db_e2e.execute_returning(
             "INSERT INTO pggit.branches (name, status) VALUES (%s, %s) RETURNING id",
             "conflict-branch-a", "ACTIVE"
         )[0]
 
-        branch_b = db.execute_returning(
+        branch_b = db_e2e.execute_returning(
             "INSERT INTO pggit.branches (name, status) VALUES (%s, %s) RETURNING id",
             "conflict-branch-b", "ACTIVE"
         )[0]
 
-        initial_objects = db.execute("SELECT COUNT(*) FROM pggit.objects")[0][0]
+        initial_objects = db_e2e.execute("SELECT COUNT(*) FROM pggit.objects")[0][0]
 
         # Simulate conflict detection
         try:
-            with db.conn.transaction():
+            with db_e2e.conn.transaction():
                 # Create conflicting object records
-                db.execute(
+                db_e2e.execute(
                     "INSERT INTO pggit.objects (schema_name, object_name, object_type, branch_id) VALUES (%s, %s, %s, %s)",
                     "conflict_object", 'TABLE', branch_a
                 )
-                db.execute(
+                db_e2e.execute(
                     "INSERT INTO pggit.objects (schema_name, object_name, object_type, branch_id) VALUES (%s, %s, %s, %s)",
                     "conflict_object", 'TABLE', branch_b
                 )
@@ -299,33 +299,33 @@ class TestMergeErrorRecovery:
             pass
 
         # Verify no leaked records
-        final_objects = db.execute("SELECT COUNT(*) FROM pggit.objects")[0][0]
+        final_objects = db_e2e.execute("SELECT COUNT(*) FROM pggit.objects")[0][0]
         assert final_objects == initial_objects, "Conflict detection leaked records"
 
-    def test_failed_merge_cleanup_verification(self, db, pggit_installed):
+    def test_failed_merge_cleanup_verification(self, db_e2e, pggit_installed):
         """Test comprehensive cleanup after failed merge."""
         # Create test branch
-        branch_id = db.execute_returning(
+        branch_id = db_e2e.execute_returning(
             "INSERT INTO pggit.branches (name, status) VALUES (%s, %s) RETURNING id",
             "merge-cleanup-test", "ACTIVE"
         )[0]
 
         # Capture initial state across all tables
         initial_state = {
-            'branches': db.execute("SELECT COUNT(*) FROM pggit.branches")[0][0],
-            'commits': db.execute("SELECT COUNT(*) FROM pggit.commits")[0][0],
-            'objects': db.execute("SELECT COUNT(*) FROM pggit.objects")[0][0]
+            'branches': db_e2e.execute("SELECT COUNT(*) FROM pggit.branches")[0][0],
+            'commits': db_e2e.execute("SELECT COUNT(*) FROM pggit.commits")[0][0],
+            'objects': db_e2e.execute("SELECT COUNT(*) FROM pggit.objects")[0][0]
         }
 
         # Attempt complex merge operation with failure
         try:
-            with db.conn.transaction():
+            with db_e2e.conn.transaction():
                 # Create multiple records
-                db.execute(
+                db_e2e.execute(
                     "INSERT INTO pggit.commits (branch_id, message) VALUES (%s, %s)",
                     branch_id, "Merge preparation"
                 )
-                db.execute(
+                db_e2e.execute(
                     "INSERT INTO pggit.objects (schema_name, object_name, object_type, branch_id) VALUES (%s, %s, %s, %s)",
                     "merge_temp_object", "view", branch_id
                 )
@@ -336,9 +336,9 @@ class TestMergeErrorRecovery:
 
         # Verify complete cleanup
         final_state = {
-            'branches': db.execute("SELECT COUNT(*) FROM pggit.branches")[0][0],
-            'commits': db.execute("SELECT COUNT(*) FROM pggit.commits")[0][0],
-            'objects': db.execute("SELECT COUNT(*) FROM pggit.objects")[0][0]
+            'branches': db_e2e.execute("SELECT COUNT(*) FROM pggit.branches")[0][0],
+            'commits': db_e2e.execute("SELECT COUNT(*) FROM pggit.commits")[0][0],
+            'objects': db_e2e.execute("SELECT COUNT(*) FROM pggit.objects")[0][0]
         }
 
         # Only the test branch should remain (created outside transaction)
@@ -349,12 +349,12 @@ class TestMergeErrorRecovery:
 class TestMigrationErrorRecovery:
     """Test error recovery during migration operations."""
 
-    def test_failed_migration_doesnt_mark_as_applied(self, db, pggit_installed):
+    def test_failed_migration_doesnt_mark_as_applied(self, db_e2e, pggit_installed):
         """Test that failed migration doesn't mark as applied."""
         # Note: pggit.migrations table may not exist yet, test the concept
         try:
             # Attempt to check if migrations table exists
-            result = db.execute("""
+            result = db_e2e.execute("""
                 SELECT EXISTS (
                     SELECT FROM pg_tables
                     WHERE schemaname = 'pggit'
@@ -364,22 +364,22 @@ class TestMigrationErrorRecovery:
 
             if result and result[0][0]:
                 # Migrations table exists
-                initial_count = db.execute("SELECT COUNT(*) FROM pggit.migrations")[0][0]
+                initial_count = db_e2e.execute("SELECT COUNT(*) FROM pggit.migrations")[0][0]
 
                 try:
-                    with db.conn.transaction():
+                    with db_e2e.conn.transaction():
                         # Record migration
-                        db.execute(
+                        db_e2e.execute(
                             "INSERT INTO pggit.migrations (name, applied_at) VALUES (%s, NOW())",
                             "test_failed_migration"
                         )
                         # Simulate migration failure
-                        db.execute("CREATE TABLE nonexistent_schema.bad_table (id INT)")
+                        db_e2e.execute("CREATE TABLE nonexistent_schema.bad_table (id INT)")
                 except Exception:
                     pass
 
                 # Verify migration not marked as applied
-                final_count = db.execute("SELECT COUNT(*) FROM pggit.migrations")[0][0]
+                final_count = db_e2e.execute("SELECT COUNT(*) FROM pggit.migrations")[0][0]
                 assert final_count == initial_count, "Failed migration marked as applied"
             else:
                 # Migrations table doesn't exist - test the pattern anyway
@@ -389,25 +389,25 @@ class TestMigrationErrorRecovery:
             # Table might not exist, test passes
             pass
 
-    def test_migration_rollback_restores_original_state(self, db, pggit_installed):
+    def test_migration_rollback_restores_original_state(self, db_e2e, pggit_installed):
         """Test that migration rollback restores database to original state."""
         # Create test table
-        db.execute("CREATE TABLE public.migration_test_original (id INT, data TEXT)")
-        db.execute("INSERT INTO public.migration_test_original VALUES (1, 'original')")
+        db_e2e.execute("CREATE TABLE public.migration_test_original (id INT, data TEXT)")
+        db_e2e.execute("INSERT INTO public.migration_test_original VALUES (1, 'original')")
 
         # Attempt migration that should rollback
         try:
-            with db.conn.transaction():
+            with db_e2e.conn.transaction():
                 # Modify table
-                db.execute("ALTER TABLE public.migration_test_original ADD COLUMN new_col INT")
-                db.execute("INSERT INTO public.migration_test_original VALUES (2, 'modified', 100)")
+                db_e2e.execute("ALTER TABLE public.migration_test_original ADD COLUMN new_col INT")
+                db_e2e.execute("INSERT INTO public.migration_test_original VALUES (2, 'modified', 100)")
                 # Force rollback
                 raise Exception("Migration rollback test")
         except Exception:
             pass
 
         # Verify original state restored
-        columns = db.execute("""
+        columns = db_e2e.execute("""
             SELECT column_name FROM information_schema.columns
             WHERE table_schema = 'public'
             AND table_name = 'migration_test_original'
@@ -417,32 +417,32 @@ class TestMigrationErrorRecovery:
         assert 'new_col' not in column_names, "Column not rolled back"
 
         # Verify data unchanged
-        row_count = db.execute("SELECT COUNT(*) FROM public.migration_test_original")[0][0]
+        row_count = db_e2e.execute("SELECT COUNT(*) FROM public.migration_test_original")[0][0]
         assert row_count == 1, "Data not restored to original state"
 
         # Cleanup
-        db.execute("DROP TABLE public.migration_test_original")
+        db_e2e.execute("DROP TABLE public.migration_test_original")
 
-    def test_invalid_migration_sql_doesnt_corrupt_schema(self, db, pggit_installed):
+    def test_invalid_migration_sql_doesnt_corrupt_schema(self, db_e2e, pggit_installed):
         """Test that invalid migration SQL doesn't corrupt pggit schema."""
         # Get pggit schema state
-        initial_tables = db.execute("""
+        initial_tables = db_e2e.execute("""
             SELECT COUNT(*) FROM information_schema.tables
             WHERE table_schema = 'pggit'
         """)[0][0]
 
         # Attempt invalid migration
         try:
-            with db.conn.transaction():
+            with db_e2e.conn.transaction():
                 # Valid operation
-                db.execute("CREATE TABLE public.migration_temp (id INT)")
+                db_e2e.execute("CREATE TABLE public.migration_temp (id INT)")
                 # Invalid operation
-                db.execute("ALTER TABLE pggit.nonexistent_table ADD COLUMN bad_col TEXT")
+                db_e2e.execute("ALTER TABLE pggit.nonexistent_table ADD COLUMN bad_col TEXT")
         except Exception:
             pass
 
         # Verify pggit schema unchanged
-        final_tables = db.execute("""
+        final_tables = db_e2e.execute("""
             SELECT COUNT(*) FROM information_schema.tables
             WHERE table_schema = 'pggit'
         """)[0][0]
@@ -450,7 +450,7 @@ class TestMigrationErrorRecovery:
         assert final_tables == initial_tables, "Invalid migration corrupted pggit schema"
 
         # Verify temp table not created
-        temp_exists = db.execute("""
+        temp_exists = db_e2e.execute("""
             SELECT EXISTS (
                 SELECT FROM pg_tables
                 WHERE schemaname = 'public'
@@ -464,14 +464,14 @@ class TestMigrationErrorRecovery:
 class TestConsistencyValidation:
     """Test consistency validation across pggit tables."""
 
-    def test_verify_objects_match_actual_database_objects(self, db, pggit_installed):
+    def test_verify_objects_match_actual_database_objects(self, db_e2e, pggit_installed):
         """Test that pggit.objects matches actual database objects."""
         # Create test objects (DDL triggers will automatically track them)
-        db.execute("CREATE TABLE IF NOT EXISTS public.error_recovery_test_table_99 (id INT)")
-        db.execute("CREATE OR REPLACE VIEW public.error_recovery_test_view_99 AS SELECT * FROM public.error_recovery_test_table_99")
+        db_e2e.execute("CREATE TABLE IF NOT EXISTS public.error_recovery_test_table_99 (id INT)")
+        db_e2e.execute("CREATE OR REPLACE VIEW public.error_recovery_test_view_99 AS SELECT * FROM public.error_recovery_test_table_99")
 
         # Verify objects exist in pggit.objects
-        recorded_objects = db.execute("""
+        recorded_objects = db_e2e.execute("""
             SELECT object_name FROM pggit.objects
             WHERE object_name IN ('error_recovery_test_table_99', 'error_recovery_test_view_99')
         """)
@@ -481,14 +481,14 @@ class TestConsistencyValidation:
         assert 'error_recovery_test_view_99' in recorded_names, "View not recorded"
 
         # Verify actual objects exist
-        table_exists = db.execute("""
+        table_exists = db_e2e.execute("""
             SELECT EXISTS (
                 SELECT FROM pg_tables
                 WHERE schemaname = 'public'
                 AND tablename = 'error_recovery_test_table_99'
             )
         """)[0][0]
-        view_exists = db.execute("""
+        view_exists = db_e2e.execute("""
             SELECT EXISTS (
                 SELECT FROM pg_views
                 WHERE schemaname = 'public'
@@ -500,31 +500,31 @@ class TestConsistencyValidation:
         assert view_exists, "Actual view doesn't exist"
 
         # Cleanup
-        db.execute("DROP VIEW public.error_recovery_test_view_99")
-        db.execute("DROP TABLE public.error_recovery_test_table_99")
+        db_e2e.execute("DROP VIEW public.error_recovery_test_view_99")
+        db_e2e.execute("DROP TABLE public.error_recovery_test_table_99")
 
-    def test_detect_orphaned_records_in_pggit_tables(self, db, pggit_installed):
+    def test_detect_orphaned_records_in_pggit_tables(self, db_e2e, pggit_installed):
         """Test detection of orphaned records in pggit tables."""
         # Create a branch that we'll reference
-        branch_id = db.execute_returning(
+        branch_id = db_e2e.execute_returning(
             "INSERT INTO pggit.branches (name, status) VALUES (%s, %s) RETURNING id",
             "orphan-test-branch", "ACTIVE"
         )[0]
 
         # Create commit referencing the branch
-        commit_id = db.execute_returning(
+        commit_id = db_e2e.execute_returning(
             "INSERT INTO pggit.commits (branch_id, message) VALUES (%s, %s) RETURNING id",
             branch_id, "Test commit"
         )[0]
 
         # Verify commit exists
-        commit_exists = db.execute(
+        commit_exists = db_e2e.execute(
             "SELECT COUNT(*) FROM pggit.commits WHERE id = %s", commit_id
         )[0][0]
         assert commit_exists == 1, "Commit not created"
 
         # Check for orphaned commits (commits without valid branch)
-        orphaned = db.execute("""
+        orphaned = db_e2e.execute("""
             SELECT COUNT(*) FROM pggit.commits c
             WHERE NOT EXISTS (
                 SELECT 1 FROM pggit.branches b WHERE b.id = c.branch_id
@@ -533,34 +533,34 @@ class TestConsistencyValidation:
 
         assert orphaned == 0, "Orphaned commits detected"
 
-    def test_validate_dependency_graph_consistency(self, db, pggit_installed):
+    def test_validate_dependency_graph_consistency(self, db_e2e, pggit_installed):
         """Test dependency graph consistency validation."""
         # Create test objects
-        branch_id = db.execute_returning(
+        branch_id = db_e2e.execute_returning(
             "INSERT INTO pggit.branches (name, status) VALUES (%s, %s) RETURNING id",
             "dependency-test-branch", "ACTIVE"
         )[0]
 
         # Create parent and child objects
-        parent_id = db.execute_returning(
+        parent_id = db_e2e.execute_returning(
             "INSERT INTO pggit.objects (schema_name, object_name, object_type, branch_id) VALUES (%s, %s, %s, %s) RETURNING id",
             "public", "dep_test_parent_table", 'TABLE', branch_id
         )[0]
 
-        child_id = db.execute_returning(
+        child_id = db_e2e.execute_returning(
             "INSERT INTO pggit.objects (schema_name, object_name, object_type, branch_id) VALUES (%s, %s, %s, %s) RETURNING id",
             "public", "dep_test_child_view", 'VIEW', branch_id
         )[0]
 
         # Create dependency relationship using correct column names
-        db.execute(
+        db_e2e.execute(
             "INSERT INTO pggit.dependencies (dependent_id, depends_on_id, dependency_type, branch_id) VALUES (%s, %s, %s, %s)",
             child_id, parent_id, "view_table", branch_id
         )
 
         # Validate dependency graph - no circular dependencies
         # Check that dependent exists
-        dep_check = db.execute("""
+        dep_check = db_e2e.execute("""
             SELECT COUNT(*) FROM pggit.dependencies d
             JOIN pggit.objects o1 ON d.dependent_id = o1.id
             JOIN pggit.objects o2 ON d.depends_on_id = o2.id
@@ -569,10 +569,10 @@ class TestConsistencyValidation:
 
         assert dep_check == 1, "Dependency relationship not properly recorded"
 
-    def test_check_for_dangling_foreign_key_references(self, db, pggit_installed):
+    def test_check_for_dangling_foreign_key_references(self, db_e2e, pggit_installed):
         """Test checking for dangling foreign key references in pggit tables."""
         # Verify commits reference valid branches
-        dangling_commits = db.execute("""
+        dangling_commits = db_e2e.execute("""
             SELECT COUNT(*) FROM pggit.commits c
             WHERE NOT EXISTS (
                 SELECT 1 FROM pggit.branches b WHERE b.id = c.branch_id
@@ -582,7 +582,7 @@ class TestConsistencyValidation:
         assert dangling_commits == 0, "Found commits with dangling branch references"
 
         # Verify dependencies reference valid objects
-        dangling_deps = db.execute("""
+        dangling_deps = db_e2e.execute("""
             SELECT COUNT(*) FROM pggit.dependencies d
             WHERE NOT EXISTS (
                 SELECT 1 FROM pggit.objects o WHERE o.id = d.dependent_id
@@ -593,26 +593,26 @@ class TestConsistencyValidation:
 
         assert dangling_deps == 0, "Found dependencies with dangling object references"
 
-    def test_verify_branch_commit_object_relationships(self, db, pggit_installed):
+    def test_verify_branch_commit_object_relationships(self, db_e2e, pggit_installed):
         """Test verification of branch-commit-object relationships."""
         # Create complete relationship chain
-        branch_id = db.execute_returning(
+        branch_id = db_e2e.execute_returning(
             "INSERT INTO pggit.branches (name, status) VALUES (%s, %s) RETURNING id",
             "relationship-test", "ACTIVE"
         )[0]
 
-        commit_id = db.execute_returning(
+        commit_id = db_e2e.execute_returning(
             "INSERT INTO pggit.commits (branch_id, message) VALUES (%s, %s) RETURNING id",
             branch_id, "Test commit"
         )[0]
 
-        object_id = db.execute_returning(
+        object_id = db_e2e.execute_returning(
             "INSERT INTO pggit.objects (schema_name, object_name, object_type, branch_id) VALUES (%s, %s, %s, %s) RETURNING id",
             "public", "relationship_test_table", 'TABLE', branch_id
         )[0]
 
         # Verify complete relationship chain
-        relationship = db.execute("""
+        relationship = db_e2e.execute("""
             SELECT b.id, c.id, o.id
             FROM pggit.branches b
             JOIN pggit.commits c ON c.branch_id = b.id
@@ -627,10 +627,10 @@ class TestConsistencyValidation:
 class TestConcurrentErrorScenarios:
     """Test concurrent operation error scenarios."""
 
-    def test_concurrent_operations_handle_conflicts_correctly(self, db, pggit_installed):
+    def test_concurrent_operations_handle_conflicts_correctly(self, db_e2e, pggit_installed):
         """Test that concurrent operations handle conflicts correctly."""
         # Create test branch
-        branch_id = db.execute_returning(
+        branch_id = db_e2e.execute_returning(
             "INSERT INTO pggit.branches (name, status) VALUES (%s, %s) RETURNING id",
             "concurrent-conflict", "ACTIVE"
         )[0]
@@ -638,7 +638,7 @@ class TestConcurrentErrorScenarios:
         # Function to create commit
         def create_commit(msg):
             try:
-                return db.execute_returning(
+                return db_e2e.execute_returning(
                     "INSERT INTO pggit.commits (branch_id, message) VALUES (%s, %s) RETURNING id",
                     branch_id, msg
                 )
@@ -657,10 +657,10 @@ class TestConcurrentErrorScenarios:
         successful = [r for r in results if r is not None]
         assert len(successful) >= 2, "Concurrent operations should handle conflicts"
 
-    def test_race_conditions_dont_corrupt_state(self, db, pggit_installed):
+    def test_race_conditions_dont_corrupt_state(self, db_e2e, pggit_installed):
         """Test that race conditions don't corrupt database state."""
         # Create branch for testing
-        branch_id = db.execute_returning(
+        branch_id = db_e2e.execute_returning(
             "INSERT INTO pggit.branches (name, status) VALUES (%s, %s) RETURNING id",
             "race-condition-test", "ACTIVE"
         )[0]
@@ -668,7 +668,7 @@ class TestConcurrentErrorScenarios:
         # Function to update branch status
         def update_status(status):
             try:
-                db.execute(
+                db_e2e.execute(
                     "UPDATE pggit.branches SET status = %s WHERE id = %s",
                     status, branch_id
                 )
@@ -685,22 +685,22 @@ class TestConcurrentErrorScenarios:
             results = [f.result() for f in futures]
 
         # At least one should succeed, verify state is valid
-        final_status = db.execute(
+        final_status = db_e2e.execute(
             "SELECT status FROM pggit.branches WHERE id = %s", branch_id
         )[0][0]
 
         valid_statuses = ["ACTIVE", "MERGING"]
         assert final_status in valid_statuses, "Race condition corrupted state"
 
-    # SKIP:     def test_deadlock_scenarios_recover_gracefully(self, db, pggit_installed):
+    # SKIP:     def test_deadlock_scenarios_recover_gracefully(self, db_e2e, pggit_installed):
     # SKIP:         """Test that potential deadlock scenarios recover gracefully."""
     # SKIP:         # Create two branches for cross-update test
-    # SKIP:         branch1_id = db.execute_returning(
+    # SKIP:         branch1_id = db_e2e.execute_returning(
     # SKIP:             "INSERT INTO pggit.branches (name, status) VALUES (%s, %s) RETURNING id",
     # SKIP:             "deadlock-test-1", "ACTIVE"
     # SKIP:         )[0]
     # SKIP: 
-    # SKIP:         branch2_id = db.execute_returning(
+    # SKIP:         branch2_id = db_e2e.execute_returning(
     # SKIP:             "INSERT INTO pggit.branches (name, status) VALUES (%s, %s) RETURNING id",
     # SKIP:             "deadlock-test-2", "ACTIVE"
     # SKIP:         )[0]
@@ -708,11 +708,11 @@ class TestConcurrentErrorScenarios:
     # SKIP:         # Function to update branches in order
     # SKIP:         def update_branches_order1():
     # SKIP:             try:
-    # SKIP:                 db.execute(
+    # SKIP:                 db_e2e.execute(
     # SKIP:                     "UPDATE pggit.branches SET status = %s WHERE id = %s",
     # SKIP:                     "UPDATING", branch1_id
     # SKIP:                 )
-    # SKIP:                 db.execute(
+    # SKIP:                 db_e2e.execute(
     # SKIP:                     "UPDATE pggit.branches SET status = %s WHERE id = %s",
     # SKIP:                     "UPDATING", branch2_id
     # SKIP:                 )
@@ -722,11 +722,11 @@ class TestConcurrentErrorScenarios:
     # SKIP: 
     # SKIP:         def update_branches_order2():
     # SKIP:             try:
-    # SKIP:                 db.execute(
+    # SKIP:                 db_e2e.execute(
     # SKIP:                     "UPDATE pggit.branches SET status = %s WHERE id = %s",
     # SKIP:                     "UPDATING", branch2_id
     # SKIP:                 )
-    # SKIP:                 db.execute(
+    # SKIP:                 db_e2e.execute(
     # SKIP:                     "UPDATE pggit.branches SET status = %s WHERE id = %s",
     # SKIP:                     "UPDATING", branch1_id
     # SKIP:                 )
@@ -746,10 +746,10 @@ class TestConcurrentErrorScenarios:
     # SKIP:         assert any(results), "System should recover from potential deadlock"
     # SKIP: 
     # SKIP:         # Verify both branches still in valid state
-    # SKIP:         branch1_state = db.execute(
+    # SKIP:         branch1_state = db_e2e.execute(
     # SKIP:             "SELECT status FROM pggit.branches WHERE id = %s", branch1_id
     # SKIP:         )
-    # SKIP:         branch2_state = db.execute(
+    # SKIP:         branch2_state = db_e2e.execute(
     # SKIP:             "SELECT status FROM pggit.branches WHERE id = %s", branch2_id
     # SKIP:         )
     # SKIP: 
