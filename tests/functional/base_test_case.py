@@ -22,13 +22,20 @@ class FunctionalTestCase:
     """
 
     def execute_sql(self, db_connection, sql: str, params=None):
-        """Execute SQL and return all results"""
+        """Execute SQL and return all results (for SELECT) or None (for DML)"""
         try:
             if params:
                 result = db_connection.execute(sql, params)
             else:
                 result = db_connection.execute(sql)
-            return result.fetchall()
+
+            # Try to fetch results (works for SELECT)
+            try:
+                return result.fetchall()
+            except Exception:
+                # DML statements (INSERT/UPDATE/DELETE) don't have fetchable results
+                # Return empty list to indicate successful execution
+                return []
         except Exception as e:
             raise AssertionError(f"SQL execution failed: {e}\nSQL: {sql}")
 

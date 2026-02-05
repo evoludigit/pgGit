@@ -153,10 +153,10 @@ class CQRSTestBuilder(BaseTestBuilder):
     """Builder for CQRS support tests"""
 
     def create_cqrs_scenario(self) -> dict:
-        """Create complete CQRS scenario"""
+        """Create complete CQRS scenario with command and query schemas"""
         # Create command and query schemas
-        command_schema = self.create_schema("command_schema")
-        query_schema = self.create_schema("query_schema")
+        command_schema = self.create_schema("command")
+        query_schema = self.create_schema("query")
 
         # Create command table (events/writes)
         command_table = self.create_table(command_schema, "events", {
@@ -181,11 +181,79 @@ class CQRSTestBuilder(BaseTestBuilder):
             "query_table": query_table
         }
 
-    def create_cqrs_change(self, command_ops: list, query_ops: list,
-                          description: str = "Test changeset") -> tuple:
-        """Create CQRS change object"""
-        # Return tuple of (commands, queries, description, version)
-        return (command_ops, query_ops, description, "1.0")
+    def create_cqrs_scenario_advanced(self) -> dict:
+        """Create advanced CQRS scenario with multiple tables and views"""
+        command_schema = self.create_schema("command")
+        query_schema = self.create_schema("query")
+
+        # Create multiple command tables
+        users_cmd = self.create_table(command_schema, "users_cmd", {
+            "id": "SERIAL PRIMARY KEY",
+            "name": "TEXT NOT NULL",
+            "email": "TEXT",
+            "created_at": "TIMESTAMP DEFAULT NOW()"
+        })
+
+        orders_cmd = self.create_table(command_schema, "orders_cmd", {
+            "id": "SERIAL PRIMARY KEY",
+            "user_id": "INT",
+            "amount": "DECIMAL(10,2)",
+            "created_at": "TIMESTAMP DEFAULT NOW()"
+        })
+
+        # Create materialized view on query side
+        self.execute(f"""
+            CREATE MATERIALIZED VIEW {query_schema}.users_view AS
+            SELECT id, name, email, created_at FROM {command_schema}.users_cmd
+        """)
+
+        return {
+            "command_schema": command_schema,
+            "query_schema": query_schema,
+            "users_cmd": users_cmd,
+            "orders_cmd": orders_cmd,
+            "view": f"{query_schema}.users_view"
+        }
+
+    def track_cqrs_change(self, command_ops: list, query_ops: list,
+                         description: str = "Test changeset", atomic: bool = True) -> dict:
+        """Track a CQRS change and return changeset metadata"""
+        result = self.execute(f"""
+            SELECT pggit.track_cqrs_change(
+                ROW(%s, %s, %s, '1.0')::pggit.cqrs_change,
+                %s
+            )
+        """, (command_ops, query_ops, description, atomic))
+
+        changeset_id = result.fetchone()[0]
+        return {
+            "changeset_id": changeset_id,
+            "description": description,
+            "command_ops": command_ops,
+            "query_ops": query_ops,
+            "atomic": atomic
+        }
+
+    def execute_changeset(self, changeset_id) -> None:
+        """Execute a CQRS changeset"""
+        self.execute("SELECT pggit.execute_cqrs_changeset(%s)", (changeset_id,))
+
+    def get_changeset_status(self, changeset_id) -> dict:
+        """Get status of a CQRS changeset"""
+        result = self.execute("""
+            SELECT status, created_at, updated_at
+            FROM pggit.cqrs_changesets
+            WHERE id = %s
+        """, (changeset_id,))
+
+        row = result.fetchone()
+        if row:
+            return {
+                "status": row[0],
+                "created_at": row[1],
+                "updated_at": row[2]
+            }
+        return None
 
 
 class FunctionVersioningTestBuilder(BaseTestBuilder):
