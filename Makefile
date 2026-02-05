@@ -9,7 +9,7 @@ PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
 
 # Test targets
-.PHONY: test test-pgtap test-core test-enterprise test-ai test-podman test-all test-clean install clean
+.PHONY: test test-pgtap test-core test-enterprise test-ai test-podman test-all test-clean install clean lint
 
 # Run all tests locally
 test:
@@ -73,6 +73,12 @@ clean:
 	@psql -c "DROP EXTENSION IF EXISTS pggit CASCADE;" 2>/dev/null || true
 	@psql -c "DROP SCHEMA IF EXISTS pggit CASCADE;" 2>/dev/null || true
 	@echo "pgGit extension removed."
+
+# Lint SQL files for syntax errors
+lint:
+	@echo "Linting SQL files for syntax errors..."
+	@python3 scripts/lint_sql.py sql/*.sql
+	@echo "✓ SQL linting complete"
 
 # Help for test commands
 test-help:
