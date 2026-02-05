@@ -5,7 +5,7 @@ Tests against a fresh PostgreSQL database in Docker
 
 import json
 import pytest
-from conftest import db, docker_setup, pggit_installed  # noqa: F401
+from conftest import docker_setup, pggit_installed  # noqa: F401
 
 
 class TestE2EBasicOperations:
