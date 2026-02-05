@@ -7,8 +7,15 @@
 -- STORAGE TABLES FOR SCHEMA ANALYSIS
 -- ============================================================================
 
--- Table: schema_snapshots (already exists from prior work)
--- No need to recreate - using existing table
+-- Table: schema_snapshots
+CREATE TABLE IF NOT EXISTS pggit.schema_snapshots (
+    id bigserial PRIMARY KEY,
+    branch_id integer REFERENCES pggit.branches(id),
+    branch_name text NOT NULL,
+    schema_json jsonb NOT NULL,
+    object_count integer DEFAULT 0,
+    snapshot_date timestamp NOT NULL DEFAULT NOW()
+);
 
 -- Table: schema_diffs (recreate with proper structure for Phase 9)
 -- Drop existing if it has wrong structure
@@ -44,8 +51,16 @@ CREATE TABLE IF NOT EXISTS pggit.schema_changes (
     created_at timestamp NOT NULL DEFAULT NOW()
 );
 
--- Table: migration_plans (already exists from prior work)
--- No need to recreate - using existing table
+-- Table: migration_plans
+CREATE TABLE IF NOT EXISTS pggit.migration_plans (
+    id bigserial PRIMARY KEY,
+    source_branch text NOT NULL,
+    target_branch text NOT NULL,
+    plan_json jsonb NOT NULL,
+    feasibility text,
+    estimated_duration_seconds integer,
+    created_at timestamp NOT NULL DEFAULT NOW()
+);
 
 -- ============================================================================
 -- INDEXES FOR PERFORMANCE

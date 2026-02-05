@@ -37,31 +37,8 @@ CREATE INDEX IF NOT EXISTS idx_merge_history_branches
 CREATE INDEX IF NOT EXISTS idx_merge_history_time
     ON pggit.merge_history(initiated_at DESC);
 
--- ============================================================================
--- CREATE MERGE CONFLICTS TABLE
--- ============================================================================
--- Tracks individual conflicts identified during merge operations
-
-CREATE TABLE IF NOT EXISTS pggit.merge_conflicts (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    merge_id uuid NOT NULL REFERENCES pggit.merge_history(id) ON DELETE CASCADE,
-    table_name text NOT NULL,
-    conflict_type text NOT NULL,
-    source_definition text,
-    target_definition text,
-    resolution text DEFAULT NULL,
-    resolved_at timestamp,
-    resolved_by text,
-    resolution_notes text,
-
-    UNIQUE(merge_id, table_name, conflict_type)
-);
-
-CREATE INDEX IF NOT EXISTS idx_merge_conflicts_merge
-    ON pggit.merge_conflicts(merge_id);
-CREATE INDEX IF NOT EXISTS idx_merge_conflicts_unresolved
-    ON pggit.merge_conflicts(merge_id, resolution)
-    WHERE resolution IS NULL;
+-- NOTE: pggit.merge_conflicts table is defined in 001_schema.sql
+-- Do not redefine it here to avoid conflicts.
 
 -- ============================================================================
 -- FUNCTION: pggit.detect_conflicts()
@@ -526,7 +503,7 @@ GRANT SELECT, INSERT ON pggit.merge_history TO PUBLIC;
 GRANT SELECT, INSERT ON pggit.merge_conflicts TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.detect_conflicts(text, text) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.merge(text, text, text) TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.resolve_conflict(uuid, text, text, text) TO PUBLIC;
+GRANT EXECUTE ON FUNCTION pggit.resolve_conflict(uuid, integer, text, text) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.get_merge_status(uuid) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.abort_merge(uuid, text) TO PUBLIC;
 
