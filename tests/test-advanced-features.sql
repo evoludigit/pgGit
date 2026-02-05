@@ -22,3 +22,5 @@ BEGIN
     PERFORM pggit.assert_function_exists('record_ai_prediction');
     RAISE NOTICE 'PASS: Advanced features are loaded';
 END $$;
+
+ROLLBACK;

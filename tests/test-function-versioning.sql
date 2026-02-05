@@ -30,3 +30,5 @@ BEGIN
     PERFORM pggit.assert_function_exists('track_function');
     RAISE NOTICE 'PASS: Function versioning is loaded';
 END $$;
+
+ROLLBACK;

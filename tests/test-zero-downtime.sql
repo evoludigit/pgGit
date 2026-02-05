@@ -22,3 +22,5 @@ BEGIN
     PERFORM pggit.assert_function_exists('start_zero_downtime_deployment');
     RAISE NOTICE 'PASS: Zero-downtime deployment features are loaded';
 END $$;
+
+ROLLBACK;
