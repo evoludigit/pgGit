@@ -8,7 +8,6 @@
 \echo 'Installing pggit Database Versioning Extension...'
 
 -- Include all component scripts
-\i 000_rename_schemas_to_v0.sql
 \i 001_schema.sql
 \i 002_schema_version.sql
 \i 003_event_triggers.sql
@@ -48,6 +47,7 @@
 \i 037_backup_recovery.sql
 \i 038_error_codes.sql
 \i 039_audit_log.sql
+\i 999_migrate_schemas_to_v0.sql
 
 \echo ''
 \echo 'Installation complete!'
