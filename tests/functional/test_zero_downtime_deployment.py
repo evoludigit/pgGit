@@ -10,9 +10,8 @@ Tests for:
 - Size management and pruning
 """
 
-import pytest
-from .base_test_case import FunctionalTestCase
 from ..fixtures.test_data_builders import DeploymentTestBuilder
+from .base_test_case import FunctionalTestCase
 
 
 class TestDeploymentFunctionExistence(FunctionalTestCase):

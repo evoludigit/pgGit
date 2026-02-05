@@ -10,9 +10,8 @@ Tests for:
 - Batch conflict operations
 """
 
-import pytest
-from .base_test_case import FunctionalTestCase
 from ..fixtures.test_data_builders import ConflictTestBuilder
+from .base_test_case import FunctionalTestCase
 
 
 class TestConflictResolutionFunctionExistence(FunctionalTestCase):

@@ -9,9 +9,8 @@ Tests for:
 - Migration status and error reporting
 """
 
-import pytest
-from .base_test_case import FunctionalTestCase
 from ..fixtures.test_data_builders import MigrationTestBuilder
+from .base_test_case import FunctionalTestCase
 
 
 class TestMigrationFunctionExistence(FunctionalTestCase):
@@ -268,7 +267,7 @@ class TestMigrationTracking(FunctionalTestCase):
 
             # Should return UUID
             assert result is not None
-        except Exception as e:
+        except Exception:
             # Migration tracking might require specific setup
             pass
 
