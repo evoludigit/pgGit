@@ -30,3 +30,5 @@ BEGIN
     RAISE NOTICE 'PASS: Migration integration is loaded';
 END $$;
 
+
+ROLLBACK;

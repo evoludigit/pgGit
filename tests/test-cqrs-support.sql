@@ -31,3 +31,5 @@ BEGIN
     PERFORM pggit.assert_function_exists('track_cqrs_change');
     RAISE NOTICE 'PASS: CQRS system available, running tests';
 END $$;
+
+ROLLBACK;

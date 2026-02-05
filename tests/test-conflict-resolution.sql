@@ -30,3 +30,5 @@ BEGIN
     RAISE NOTICE 'PASS: Conflict resolution is loaded';
 END $$;
 
+
+ROLLBACK;
