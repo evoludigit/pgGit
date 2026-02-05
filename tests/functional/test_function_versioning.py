@@ -13,9 +13,8 @@ Tests for:
 - increment_version
 """
 
-import pytest
-from .base_test_case import FunctionalTestCase
 from ..fixtures.test_data_builders import FunctionVersioningTestBuilder
+from .base_test_case import FunctionalTestCase
 
 
 class TestFunctionVersioningFunctionExistence(FunctionalTestCase):
@@ -322,7 +321,7 @@ class TestIncrementVersion(FunctionalTestCase):
             # Get object to increment
             obj_result = self.execute_sql_value(
                 db_transaction,
-                f"""
+                """
                 SELECT id FROM pggit.objects
                 WHERE object_name = 'test_table'
                 LIMIT 1
@@ -333,7 +332,7 @@ class TestIncrementVersion(FunctionalTestCase):
                 # Try to increment version
                 result = self.execute_sql_value(
                     db_transaction,
-                    f"""
+                    """
                     SELECT pggit.increment_version(
                         %s,
                         'PATCH'::pggit.change_type,

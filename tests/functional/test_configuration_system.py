@@ -7,9 +7,8 @@ Tests for:
 - validate_schema_changes
 """
 
-import pytest
-from .base_test_case import FunctionalTestCase
 from ..fixtures.test_data_builders import ConfigurationTestBuilder
+from .base_test_case import FunctionalTestCase
 
 
 class TestConfigureTrackingBasic(FunctionalTestCase):

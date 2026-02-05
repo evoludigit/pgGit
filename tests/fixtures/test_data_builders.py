@@ -255,7 +255,7 @@ class CQRSTestBuilder(BaseTestBuilder):
     ) -> dict:
         """Track a CQRS change and return changeset metadata"""
         result = self.execute(
-            f"""
+            """
             SELECT pggit.track_cqrs_change(
                 ROW(%s, %s, %s, '1.0')::pggit.cqrs_change,
                 %s
@@ -352,7 +352,7 @@ class FunctionVersioningTestBuilder(BaseTestBuilder):
         """Track a function version"""
         try:
             result = self.execute(
-                f"""
+                """
                 SELECT pggit.track_function(%s, %s, %s::jsonb)
             """,
                 (function_signature, version, metadata),
@@ -377,7 +377,7 @@ class FunctionVersioningTestBuilder(BaseTestBuilder):
         """Get all overloads of a function"""
         try:
             result = self.execute(
-                f"""
+                """
                 SELECT signature, argument_types, return_type, current_version, last_modified
                 FROM pggit.list_function_overloads(%s, %s)
             """,
@@ -415,7 +415,7 @@ class FunctionVersioningTestBuilder(BaseTestBuilder):
         """Get version information for a function"""
         try:
             result = self.execute(
-                f"""
+                """
                 SELECT version, created_at, created_by, metadata
                 FROM pggit.get_function_version(%s)
                 LIMIT 1
@@ -442,7 +442,7 @@ class FunctionVersioningTestBuilder(BaseTestBuilder):
         """Get diff between two function versions"""
         try:
             result = self.execute(
-                f"""
+                """
                 SELECT line_number, change_type, version1_line, version2_line
                 FROM pggit.diff_function_versions(%s, %s, %s)
             """,

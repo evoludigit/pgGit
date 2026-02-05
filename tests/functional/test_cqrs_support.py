@@ -8,9 +8,8 @@ Tests for:
 - analyze_cqrs_dependencies
 """
 
-import pytest
-from .base_test_case import FunctionalTestCase
 from ..fixtures.test_data_builders import CQRSTestBuilder
+from .base_test_case import FunctionalTestCase
 
 
 class TestCQRSFunctionExistence(FunctionalTestCase):
@@ -83,7 +82,7 @@ class TestAnalyzeCQRSDependencies(FunctionalTestCase):
 
             # Result can be empty or contain dependencies
             assert isinstance(result, list)
-        except Exception as e:
+        except Exception:
             # It's OK if function has specific setup requirements
             pass
 
@@ -158,7 +157,7 @@ class TestRefreshQuerySide(FunctionalTestCase):
 
             # If refresh succeeds, result should be null (void return)
             assert result is None or result is not None
-        except Exception as e:
+        except Exception:
             # It's OK if refresh fails - could be setup dependency
             pass
 

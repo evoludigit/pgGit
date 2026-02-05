@@ -9,9 +9,8 @@ Tests for:
 - Model evaluation and metrics
 """
 
-import pytest
-from .base_test_case import FunctionalTestCase
 from ..fixtures.test_data_builders import AITestBuilder
+from .base_test_case import FunctionalTestCase
 
 
 class TestAIFunctionExistence(FunctionalTestCase):
