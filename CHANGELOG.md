@@ -5,6 +5,23 @@ All notable changes to pgGit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **Data Branching - Collation Bug** ✅
+  - Fixed collation mismatch in `get_base_table_info()` WHERE clause
+  - Added explicit `COLLATE "C"` to information_schema.views queries
+  - Enables proper detection of routed views for tables without PRIMARY KEY
+  - Resolves issue where view-based routing failed for copy-on-write branching
+
+### Known Issues
+- Tests 3-6 in test-data-branching.sql test future features not yet fully implemented:
+  - Test 3: Multi-table branching with dependencies (partial implementation)
+  - Test 4: Data merge with conflict resolution (partial implementation)
+  - Test 5: Temporal data branching (function signature mismatch)
+  - Test 6: Storage optimization with compression (partial implementation)
+- These tests are marked as testing unimplemented features and may not pass
+
 ## [0.5.0] - 2026-02-04
 
 ### Summary
