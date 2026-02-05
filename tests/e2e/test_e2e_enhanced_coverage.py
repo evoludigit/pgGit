@@ -551,8 +551,11 @@ class TestE2EDataIntegrity:
 
         recorded_time = result[0]
 
-        # Verify timestamp is reasonable
-        assert before <= recorded_time <= after, "Timestamp accuracy issue"
+        # Verify timestamp is reasonable (with 1-second tolerance for clock differences)
+        from datetime import timedelta
+        tolerance = timedelta(seconds=1)
+        assert (before - tolerance) <= recorded_time <= (after + tolerance), \
+            f"Timestamp accuracy issue: {before} <= {recorded_time} <= {after}"
 
 
 class TestE2EAdvancedFeatures:
