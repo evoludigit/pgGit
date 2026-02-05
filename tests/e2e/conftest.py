@@ -13,7 +13,6 @@ import pytest
 from psycopg import connect
 from psycopg_pool import ConnectionPool
 
-from tests.fixtures.pooled_database import PooledDatabaseFixture
 from tests.fixtures.isolated_database import (
     TransactionDatabaseFixture,
     LoadDatabaseFixture,
@@ -314,54 +313,6 @@ def e2e_pool(docker_setup, pggit_installed) -> ConnectionPool:
     yield pool
     pool.close()
     print("\n✅ Connection pool closed")
-
-
-@pytest.fixture
-def db(e2e_pool) -> PooledDatabaseFixture:
-    """Fixture providing test database connection"""
-    fixture = PooledDatabaseFixture(e2e_pool, transaction_isolation=False)
-
-    # Ensure commits table exists (required for tests)
-    try:
-        fixture.execute("""
-            CREATE TABLE IF NOT EXISTS pggit.commits (
-                id SERIAL PRIMARY KEY,
-                hash TEXT NOT NULL UNIQUE DEFAULT (md5(random()::text)),
-                branch_id INTEGER NOT NULL REFERENCES pggit.branches(id),
-                parent_commit_hash TEXT,
-                message TEXT,
-                author TEXT DEFAULT CURRENT_USER,
-                authored_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                committer TEXT DEFAULT CURRENT_USER,
-                committed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                tree_hash TEXT,
-                metadata JSONB,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-    except Exception:
-        pass  # Table might already exist
-
-    # Create main branch if it doesn't exist (required for tests)
-    try:
-        fixture.execute(
-            "INSERT INTO pggit.branches (name, status) VALUES ('main', 'ACTIVE')"
-        )
-    except Exception:
-        pass  # Branch might already exist
-
-    # Start a transaction for test isolation (if enabled)
-    if fixture.transaction_isolation:
-        try:
-            fixture.begin_transaction()
-        except Exception:
-            fixture.in_test_transaction = False
-
-    yield fixture
-
-    # Rollback the transaction to undo all test changes (if in transaction)
-    if fixture.in_test_transaction:
-        fixture.rollback_transaction()
 
 
 @pytest.fixture(scope="session")

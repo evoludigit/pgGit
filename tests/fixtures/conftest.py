@@ -5,7 +5,6 @@ from tests.e2e.conftest import (  # noqa: F401
     docker_setup,
     pggit_installed,
     e2e_pool,
-    db,
     db_setup,
     db_unit,
     db_integration,
