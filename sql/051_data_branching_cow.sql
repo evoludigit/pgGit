@@ -228,9 +228,11 @@ CREATE OR REPLACE FUNCTION pggit.get_base_table_info(
 ) AS $$
 BEGIN
     -- Check if this is a routed view
+    -- Note: COLLATE "C" matches information_schema's collation
     IF EXISTS (
         SELECT 1 FROM information_schema.views
-        WHERE table_schema = p_schema AND table_name = p_table
+        WHERE table_schema = p_schema COLLATE "C"
+        AND table_name = p_table COLLATE "C"
     ) THEN
         base_schema := 'pggit_base';
         base_table := '_pggit_main_' || p_table;
