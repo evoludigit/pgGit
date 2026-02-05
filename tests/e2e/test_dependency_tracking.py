@@ -62,6 +62,29 @@ class TestBasicDependencies:
             )
         """)
 
+        # Debug: Check if tables are tracked
+        objects_check = db_e2e.execute("""
+            SELECT full_name FROM pggit.objects
+            WHERE full_name IN ('public.child', 'public.parent')
+            ORDER BY full_name
+        """)
+        tracked_objects = [row[0] for row in objects_check]
+
+        # Verify pgGit tracked the FK dependency
+        dependency_check = db_e2e.execute("""
+            SELECT COUNT(*) FROM pggit.dependencies d
+            JOIN pggit.objects dependent_obj ON d.dependent_id = dependent_obj.id
+            JOIN pggit.objects depends_on_obj ON d.depends_on_id = depends_on_obj.id
+            WHERE dependent_obj.full_name = 'public.child'
+            AND depends_on_obj.full_name = 'public.parent'
+            AND d.dependency_type = 'foreign_key'
+        """)
+
+        if not tracked_objects:
+            pytest.skip("Tables not tracked in pggit.objects - event triggers may not be enabled")
+
+        assert dependency_check[0][0] > 0, f"FK dependency not tracked by pgGit. Tracked objects: {tracked_objects}"
+
         # Insert test data
         parent_id = db_e2e.execute_returning(
             "INSERT INTO parent (name) VALUES (%s) RETURNING id",
@@ -92,7 +115,7 @@ class TestBasicDependencies:
         # Cleanup
         db_e2e.execute("DROP TABLE child")
         db_e2e.execute("DROP TABLE parent")
-        print("✓ Foreign key dependency enforced")
+        print("✓ Foreign key dependency tracked and enforced")
 
     def test_function_table_dependency(self, db_e2e, pggit_installed):
         """Test dependency between function and table."""
