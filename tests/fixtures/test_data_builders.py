@@ -918,6 +918,306 @@ class ZeroDowntimeTestBuilder(BaseTestBuilder):
         }
 
 
+class DeploymentTestBuilder(BaseTestBuilder):
+    """Builder for zero-downtime deployment tests"""
+
+    def create_deployment_scenario(self) -> dict:
+        """Create deployment scenario with source and target branches"""
+        source_schema = self.create_schema("source_deploy")
+        target_schema = self.create_schema("target_deploy")
+
+        # Create source table
+        source_table = self.create_table(source_schema, "users", {
+            "id": "SERIAL PRIMARY KEY",
+            "name": "TEXT",
+            "version": "INT DEFAULT 1"
+        })
+
+        # Create target table
+        target_table = self.create_table(target_schema, "users", {
+            "id": "SERIAL PRIMARY KEY",
+            "name": "TEXT",
+            "version": "INT DEFAULT 1"
+        })
+
+        return {
+            "source_schema": source_schema,
+            "target_schema": target_schema,
+            "source_table": source_table,
+            "target_table": target_table
+        }
+
+    def plan_zero_downtime_deployment(self, source_branch: str = "dev",
+                                      target_branch: str = "main") -> dict:
+        """Plan a zero-downtime deployment"""
+        try:
+            result = self.execute("""
+                SELECT deployment_id, strategy, estimated_duration_seconds,
+                       requires_validation, rollback_plan
+                FROM pggit.plan_zero_downtime_deployment(%s, %s)
+            """, (source_branch, target_branch))
+
+            if result.fetchone():
+                row = result.fetchone()
+                return {
+                    "deployment_id": row[0],
+                    "strategy": row[1],
+                    "estimated_duration_seconds": row[2],
+                    "requires_validation": row[3],
+                    "rollback_plan": row[4],
+                    "planned": True
+                }
+            return {
+                "planned": False
+            }
+        except Exception as e:
+            return {
+                "planned": False,
+                "error": str(e)
+            }
+
+    def start_zero_downtime_deployment(self, deployment_id: str) -> dict:
+        """Start a zero-downtime deployment"""
+        try:
+            result = self.execute("""
+                SELECT deployment_id, status, start_time, current_phase
+                FROM pggit.start_zero_downtime_deployment(%s)
+            """, (deployment_id,))
+
+            if result.fetchone():
+                row = result.fetchone()
+                return {
+                    "deployment_id": row[0],
+                    "status": row[1],
+                    "start_time": row[2],
+                    "current_phase": row[3],
+                    "started": True
+                }
+            return {
+                "deployment_id": deployment_id,
+                "started": False
+            }
+        except Exception as e:
+            return {
+                "deployment_id": deployment_id,
+                "started": False,
+                "error": str(e)
+            }
+
+    def execute_zero_downtime(self, deployment_id: str) -> dict:
+        """Execute zero-downtime deployment"""
+        try:
+            result = self.execute("""
+                SELECT deployment_id, status, completion_time, success_rate
+                FROM pggit.execute_zero_downtime(%s)
+            """, (deployment_id,))
+
+            if result.fetchone():
+                row = result.fetchone()
+                return {
+                    "deployment_id": row[0],
+                    "status": row[1],
+                    "completion_time": row[2],
+                    "success_rate": row[3],
+                    "executed": True
+                }
+            return {
+                "deployment_id": deployment_id,
+                "executed": False
+            }
+        except Exception as e:
+            return {
+                "deployment_id": deployment_id,
+                "executed": False,
+                "error": str(e)
+            }
+
+    def validate_deployment(self, deployment_id: str) -> dict:
+        """Validate deployment status and integrity"""
+        try:
+            result = self.execute("""
+                SELECT is_valid, validation_errors, validated_at
+                FROM pggit.validate_deployment(%s)
+            """, (deployment_id,))
+
+            if result.fetchone():
+                row = result.fetchone()
+                return {
+                    "deployment_id": deployment_id,
+                    "is_valid": row[0],
+                    "validation_errors": row[1],
+                    "validated_at": row[2],
+                    "validated": True
+                }
+            return {
+                "deployment_id": deployment_id,
+                "validated": False
+            }
+        except Exception as e:
+            return {
+                "deployment_id": deployment_id,
+                "validated": False,
+                "error": str(e)
+            }
+
+    def create_branch_for_deployment(self, branch_name: str,
+                                     base_branch: str = "main") -> dict:
+        """Create a branch for deployment"""
+        try:
+            result = self.execute("""
+                SELECT branch_id, branch_name, status, created_at
+                FROM pggit.create_branch(%s, %s)
+            """, (branch_name, base_branch))
+
+            if result.fetchone():
+                row = result.fetchone()
+                return {
+                    "branch_id": row[0],
+                    "branch_name": row[1],
+                    "status": row[2],
+                    "created_at": row[3],
+                    "created": True
+                }
+            return {
+                "branch_name": branch_name,
+                "created": False
+            }
+        except Exception as e:
+            return {
+                "branch_name": branch_name,
+                "created": False,
+                "error": str(e)
+            }
+
+    def checkout_branch(self, branch_name: str) -> dict:
+        """Checkout a branch"""
+        try:
+            self.execute("""
+                SELECT pggit.checkout_branch(%s)
+            """, (branch_name,))
+
+            return {
+                "branch_name": branch_name,
+                "checked_out": True
+            }
+        except Exception as e:
+            return {
+                "branch_name": branch_name,
+                "checked_out": False,
+                "error": str(e)
+            }
+
+    def calculate_branch_size(self, branch_name: str) -> dict:
+        """Calculate branch size"""
+        try:
+            result = self.execute("""
+                SELECT branch_id, size_bytes, table_count, index_count
+                FROM pggit.calculate_branch_size(%s)
+            """, (branch_name,))
+
+            if result.fetchone():
+                row = result.fetchone()
+                return {
+                    "branch_id": row[0],
+                    "size_bytes": row[1],
+                    "table_count": row[2],
+                    "index_count": row[3],
+                    "calculated": True
+                }
+            return {
+                "branch_name": branch_name,
+                "calculated": False
+            }
+        except Exception as e:
+            return {
+                "branch_name": branch_name,
+                "calculated": False,
+                "error": str(e)
+            }
+
+    def run_maintenance(self, maintenance_type: str = "full") -> dict:
+        """Run maintenance operations"""
+        try:
+            result = self.execute("""
+                SELECT maintenance_id, maintenance_type, status,
+                       maintenance_duration_seconds, tables_processed
+                FROM pggit.run_maintenance()
+            """)
+
+            if result.fetchone():
+                row = result.fetchone()
+                return {
+                    "maintenance_id": row[0],
+                    "maintenance_type": row[1],
+                    "status": row[2],
+                    "maintenance_duration_seconds": row[3],
+                    "tables_processed": row[4],
+                    "executed": True
+                }
+            return {
+                "executed": False
+            }
+        except Exception as e:
+            return {
+                "executed": False,
+                "error": str(e)
+            }
+
+    def run_size_maintenance(self) -> dict:
+        """Run size-related maintenance"""
+        try:
+            result = self.execute("""
+                SELECT maintenance_id, status, total_freed_bytes, tables_optimized
+                FROM pggit.run_size_maintenance()
+            """)
+
+            if result.fetchone():
+                row = result.fetchone()
+                return {
+                    "maintenance_id": row[0],
+                    "status": row[1],
+                    "total_freed_bytes": row[2],
+                    "tables_optimized": row[3],
+                    "executed": True
+                }
+            return {
+                "executed": False
+            }
+        except Exception as e:
+            return {
+                "executed": False,
+                "error": str(e)
+            }
+
+    def prune_low_confidence_patterns(self, threshold: float = 0.5) -> dict:
+        """Prune low confidence patterns"""
+        try:
+            result = self.execute("""
+                SELECT patterns_removed, space_freed_bytes, patterns_remaining
+                FROM pggit.prune_low_confidence_patterns(%s)
+            """, (threshold,))
+
+            if result.fetchone():
+                row = result.fetchone()
+                return {
+                    "threshold": threshold,
+                    "patterns_removed": row[0],
+                    "space_freed_bytes": row[1],
+                    "patterns_remaining": row[2],
+                    "pruned": True
+                }
+            return {
+                "threshold": threshold,
+                "pruned": False
+            }
+        except Exception as e:
+            return {
+                "threshold": threshold,
+                "pruned": False,
+                "error": str(e)
+            }
+
+
 class AITestBuilder(BaseTestBuilder):
     """Builder for AI/ML features tests"""
 
