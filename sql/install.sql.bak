@@ -1,5 +1,5 @@
 -- pggit Database Versioning Extension - Single Installation Script
---
+-- 
 -- This script installs the complete PostgreSQL-native database versioning system.
 -- It combines all individual scripts into one file for easy installation.
 --
@@ -8,46 +8,43 @@
 \echo 'Installing pggit Database Versioning Extension...'
 
 -- Include all component scripts
-\i 000_rename_schemas_to_v0.sql
+\i 000_version.sql
+\i 002_missing_tables.sql
 \i 001_schema.sql
-\i 002_schema_version.sql
-\i 003_event_triggers.sql
-\i 004_missing_tables.sql
-\i 005_migration_functions.sql
-\i 006_utility_views.sql
-\i 007_example_usage.sql
-\i 008_ddl_hashing.sql
-\i 009_performance_optimizations.sql
-\i 010_git_core_implementation.sql
-\i 011_ai_migration_analysis.sql
-\i 012_size_management.sql
-\i 013_zero_downtime_deployment.sql
-\i 014_branch_merge_operations.sql
-\i 015_create_commit.sql
-\i 016_data_branching_cow.sql
-\i 017_merge_operations.sql
-\i 018_performance_monitoring.sql
-\i 019_advanced_merge_operations.sql
-\i 020_ai_accuracy_tracking.sql
-\i 021_batch_operations_monitoring.sql
-\i 022_cold_hot_storage.sql
-\i 023_schema_diffing_foundation.sql
-\i 024_storage_tier_stubs.sql
-\i 025_advanced_workflows.sql
-\i 026_versioning_stubs.sql
-\i 027_advanced_reporting.sql
-\i 028_analytics_insights.sql
-\i 029_performance_optimization.sql
-\i 030_chaos_engineering_core.sql
-\i 031_time_travel.sql
-\i 032_advanced_ml_optimization.sql
-\i 033_advanced_conflict_resolution.sql
-\i 034_backup_integration.sql
-\i 035_backup_automation.sql
-\i 036_backup_management.sql
-\i 037_backup_recovery.sql
-\i 038_error_codes.sql
-\i 039_audit_log.sql
+\i 002_event_triggers.sql
+\i 003_migration_functions.sql
+\i test_helpers.sql
+\i 004_utility_views.sql
+\i 009_ddl_hashing.sql
+\i 017_performance_optimizations.sql
+\i 020_git_core_implementation.sql
+\i 030_ai_migration_analysis.sql
+\i 040_size_management.sql
+\i 050_create_commit.sql
+\i 050_branch_merge_operations.sql
+\i 055_storage_tier_stubs.sql
+\i 056_versioning_stubs.sql
+\i pggit_cqrs_support.sql
+\i 051_data_branching_cow.sql
+\i 052_merge_operations.sql
+\i 053_advanced_merge_operations.sql
+\i 054_batch_operations_monitoring.sql
+\i 055_schema_diffing_foundation.sql
+\i 056_advanced_workflows.sql
+\i 057_advanced_reporting.sql
+\i 058_analytics_insights.sql
+\i 059_performance_optimization.sql
+\i pggit_conflict_resolution_minimal.sql
+\i pggit_diff_functionality.sql
+\i 060_time_travel.sql
+\i 070_backup_integration.sql
+\i 071_backup_automation.sql
+\i 072_backup_management.sql
+\i 073_backup_recovery.sql
+\i 074_error_codes.sql
+\i 075_audit_log.sql
+\i 061_advanced_ml_optimization.sql
+\i 062_advanced_conflict_resolution.sql
 
 \echo ''
 \echo 'Installation complete!'
