@@ -144,9 +144,10 @@ def sync_conn(chaos_pool: ConnectionPool) -> Generator[psycopg.Connection, None,
     try:
         cursor = conn.execute(
             "SELECT EXISTS (SELECT 1 FROM information_schema.schemata "
-            "WHERE schema_name = 'pggit')",
+            "WHERE schema_name = 'pggit') AS exists",
         )
-        if not cursor.fetchone()[0]:
+        result = cursor.fetchone()
+        if not list(result.values())[0]:
             chaos_pool.putconn(conn)
             raise RuntimeError(
                 "pggit schema not found. Please install: cd sql && "
@@ -199,9 +200,10 @@ def sync_conn_with_transactions(
     try:
         cursor = conn.execute(
             "SELECT EXISTS (SELECT 1 FROM information_schema.schemata "
-            "WHERE schema_name = 'pggit')",
+            "WHERE schema_name = 'pggit') AS exists",
         )
-        if not cursor.fetchone()[0]:
+        result = cursor.fetchone()
+        if not list(result.values())[0]:
             chaos_pool.putconn(conn)
             raise RuntimeError(
                 "pggit schema not found. Please install: cd sql && "
