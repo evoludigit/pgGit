@@ -8,8 +8,8 @@
 \echo 'Installing pggit Database Versioning Extension...'
 
 -- Include all component scripts
-\i 000_version_function.sql
-\i 001_missing_tables.sql
+\i 000_version.sql
+\i 002_missing_tables.sql
 \i 001_schema.sql
 \i 002_event_triggers.sql
 \i 003_migration_functions.sql
