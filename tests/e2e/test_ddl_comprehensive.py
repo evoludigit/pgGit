@@ -549,12 +549,9 @@ class TestTypeDDL:
 
         assert 'invalid input' in str(exc.value).lower() or 'enum' in str(exc.value).lower()
 
-        # Rollback failed transaction before cleanup
-        db_e2e.rollback()
-
-        # Cleanup
-        db_e2e.execute("DROP TABLE status_test")
-        db_e2e.execute("DROP TYPE status_enum")
+        # Note: Transaction is aborted after the failed INSERT
+        # The fixture will handle cleanup on test end
+        # Just verify that enum constraint is enforced
         print("✓ CREATE TYPE (enum) tracked")
 
     def test_track_create_domain(self, db_e2e, pggit_installed):
@@ -579,12 +576,9 @@ class TestTypeDDL:
 
         assert 'violates check constraint' in str(exc.value).lower() or 'domain' in str(exc.value).lower()
 
-        # Rollback failed transaction before cleanup
-        db_e2e.rollback()
-
-        # Cleanup
-        db_e2e.execute("DROP TABLE user_emails")
-        db_e2e.execute("DROP DOMAIN email_address")
+        # Note: Transaction is aborted after the failed INSERT
+        # The fixture will handle cleanup on test end
+        # Just verify that domain constraint is enforced
         print("✓ CREATE DOMAIN tracked")
 
 
