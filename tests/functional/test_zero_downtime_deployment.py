@@ -20,11 +20,15 @@ class TestDeploymentFunctionExistence(FunctionalTestCase):
 
     def test_plan_zero_downtime_deployment_exists(self, db_transaction):
         """Test that plan_zero_downtime_deployment exists"""
-        self.assert_function_exists(db_transaction, "pggit", "plan_zero_downtime_deployment")
+        self.assert_function_exists(
+            db_transaction, "pggit", "plan_zero_downtime_deployment"
+        )
 
     def test_start_zero_downtime_deployment_exists(self, db_transaction):
         """Test that start_zero_downtime_deployment exists"""
-        self.assert_function_exists(db_transaction, "pggit", "start_zero_downtime_deployment")
+        self.assert_function_exists(
+            db_transaction, "pggit", "start_zero_downtime_deployment"
+        )
 
     def test_execute_zero_downtime_exists(self, db_transaction):
         """Test that execute_zero_downtime exists"""
@@ -52,7 +56,9 @@ class TestDeploymentFunctionExistence(FunctionalTestCase):
 
     def test_prune_low_confidence_patterns_exists(self, db_transaction):
         """Test that prune_low_confidence_patterns exists"""
-        self.assert_function_exists(db_transaction, "pggit", "prune_low_confidence_patterns")
+        self.assert_function_exists(
+            db_transaction, "pggit", "prune_low_confidence_patterns"
+        )
 
 
 class TestDeploymentTablesExist(FunctionalTestCase):
@@ -95,10 +101,13 @@ class TestZeroDowntimeDeploymentPlanning(FunctionalTestCase):
         builder = DeploymentTestBuilder(db_transaction)
 
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT deployment_id, strategy, estimated_duration_seconds
                 FROM pggit.plan_zero_downtime_deployment('dev', 'main')
-            """)
+            """,
+            )
 
             assert isinstance(result, list)
         except Exception:
@@ -109,10 +118,13 @@ class TestZeroDowntimeDeploymentPlanning(FunctionalTestCase):
         builder = DeploymentTestBuilder(db_transaction)
 
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT deployment_id, strategy
                 FROM pggit.plan_zero_downtime_deployment('feature-branch', 'staging')
-            """)
+            """,
+            )
 
             assert isinstance(result, list)
         except Exception:
@@ -122,10 +134,14 @@ class TestZeroDowntimeDeploymentPlanning(FunctionalTestCase):
         """Test planning multiple deployments"""
         for i in range(3):
             try:
-                self.execute_sql(db_transaction, """
+                self.execute_sql(
+                    db_transaction,
+                    """
                     SELECT deployment_id
                     FROM pggit.plan_zero_downtime_deployment('branch_' || %s::text, 'main')
-                """, (i,))
+                """,
+                    (i,),
+                )
             except Exception:
                 pass
 
@@ -141,17 +157,24 @@ class TestDeploymentExecution(FunctionalTestCase):
 
         try:
             # Plan first
-            plan_result = self.execute_sql_one(db_transaction, """
+            plan_result = self.execute_sql_one(
+                db_transaction,
+                """
                 SELECT deployment_id
                 FROM pggit.plan_zero_downtime_deployment('dev', 'main')
-            """)
+            """,
+            )
 
             if plan_result:
                 deployment_id = plan_result[0]
-                result = self.execute_sql(db_transaction, """
+                result = self.execute_sql(
+                    db_transaction,
+                    """
                     SELECT deployment_id, status
                     FROM pggit.start_zero_downtime_deployment(%s)
-                """, (deployment_id,))
+                """,
+                    (deployment_id,),
+                )
 
                 assert isinstance(result, list)
         except Exception:
@@ -160,10 +183,13 @@ class TestDeploymentExecution(FunctionalTestCase):
     def test_execute_zero_downtime_basic(self, db_transaction):
         """Test executing zero-downtime deployment"""
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT deployment_id, status, success_rate
                 FROM pggit.execute_zero_downtime('test_deployment_id')
-            """)
+            """,
+            )
 
             assert isinstance(result, list)
         except Exception:
@@ -172,10 +198,13 @@ class TestDeploymentExecution(FunctionalTestCase):
     def test_validate_deployment_basic(self, db_transaction):
         """Test validating deployment"""
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT is_valid, validation_errors, validated_at
                 FROM pggit.validate_deployment('test_deployment_id')
-            """)
+            """,
+            )
 
             assert isinstance(result, list)
         except Exception:
@@ -289,19 +318,25 @@ class TestDeploymentIntegration(FunctionalTestCase):
 
         # 2. Plan deployment
         try:
-            plan_result = self.execute_sql(db_transaction, """
+            plan_result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT deployment_id
                 FROM pggit.plan_zero_downtime_deployment('dev', 'main')
-            """)
+            """,
+            )
         except Exception:
             pass
 
         # 3. Validate deployment
         try:
-            validate_result = self.execute_sql(db_transaction, """
+            validate_result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT is_valid
                 FROM pggit.validate_deployment('test_deployment')
-            """)
+            """,
+            )
         except Exception:
             pass
 
@@ -319,10 +354,13 @@ class TestDeploymentIntegration(FunctionalTestCase):
 
         # 1. Plan deployment
         try:
-            self.execute_sql(db_transaction, """
+            self.execute_sql(
+                db_transaction,
+                """
                 SELECT deployment_id
                 FROM pggit.plan_zero_downtime_deployment('feature', 'main')
-            """)
+            """,
+            )
         except Exception:
             pass
 
@@ -348,10 +386,13 @@ class TestDeploymentIntegration(FunctionalTestCase):
 
         # 1. Plan
         try:
-            self.execute_sql(db_transaction, """
+            self.execute_sql(
+                db_transaction,
+                """
                 SELECT deployment_id
                 FROM pggit.plan_zero_downtime_deployment('dev', 'main')
-            """)
+            """,
+            )
         except Exception:
             pass
 
@@ -370,10 +411,13 @@ class TestDeploymentIntegration(FunctionalTestCase):
 
         # 4. Validate
         try:
-            self.execute_sql(db_transaction, """
+            self.execute_sql(
+                db_transaction,
+                """
                 SELECT is_valid
                 FROM pggit.validate_deployment('test_deployment')
-            """)
+            """,
+            )
         except Exception:
             pass
 
@@ -426,10 +470,13 @@ class TestDeploymentEdgeCases(FunctionalTestCase):
     def test_deploy_same_branch_to_itself(self, db_transaction):
         """Test deploying same branch to itself"""
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT deployment_id
                 FROM pggit.plan_zero_downtime_deployment('main', 'main')
-            """)
+            """,
+            )
             assert isinstance(result, list)
         except Exception:
             pass
@@ -437,10 +484,13 @@ class TestDeploymentEdgeCases(FunctionalTestCase):
     def test_deploy_nonexistent_branches(self, db_transaction):
         """Test deploying non-existent branches"""
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT deployment_id
                 FROM pggit.plan_zero_downtime_deployment('nonexistent_source', 'nonexistent_target')
-            """)
+            """,
+            )
         except Exception:
             pass
 
@@ -469,10 +519,13 @@ class TestDeploymentEdgeCases(FunctionalTestCase):
     def test_validate_nonexistent_deployment(self, db_transaction):
         """Test validating non-existent deployment"""
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT is_valid
                 FROM pggit.validate_deployment('nonexistent_deployment_xyz')
-            """)
+            """,
+            )
         except Exception:
             pass
 
@@ -528,10 +581,14 @@ class TestDeploymentEdgeCases(FunctionalTestCase):
         """Test planning multiple deployments"""
         for i in range(5):
             try:
-                self.execute_sql(db_transaction, """
+                self.execute_sql(
+                    db_transaction,
+                    """
                     SELECT deployment_id
                     FROM pggit.plan_zero_downtime_deployment(%s, %s)
-                """, (f"source_{i}", f"target_{i}"))
+                """,
+                    (f"source_{i}", f"target_{i}"),
+                )
             except Exception:
                 pass
 
@@ -571,10 +628,13 @@ class TestDeploymentRollback(FunctionalTestCase):
     def test_deployment_rollback_plan_exists(self, db_transaction):
         """Test that deployment includes rollback plan"""
         try:
-            result = self.execute_sql_one(db_transaction, """
+            result = self.execute_sql_one(
+                db_transaction,
+                """
                 SELECT rollback_plan
                 FROM pggit.plan_zero_downtime_deployment('dev', 'main')
-            """)
+            """,
+            )
 
             if result:
                 assert result[0] is not None or result[0] is None
@@ -584,10 +644,13 @@ class TestDeploymentRollback(FunctionalTestCase):
     def test_deployment_with_validation_requirement(self, db_transaction):
         """Test deployment validation requirement"""
         try:
-            result = self.execute_sql_one(db_transaction, """
+            result = self.execute_sql_one(
+                db_transaction,
+                """
                 SELECT requires_validation
                 FROM pggit.plan_zero_downtime_deployment('dev', 'main')
-            """)
+            """,
+            )
 
             if result:
                 assert isinstance(result[0], bool) or result[0] is None
@@ -597,10 +660,13 @@ class TestDeploymentRollback(FunctionalTestCase):
     def test_deployment_estimated_duration(self, db_transaction):
         """Test deployment estimated duration"""
         try:
-            result = self.execute_sql_one(db_transaction, """
+            result = self.execute_sql_one(
+                db_transaction,
+                """
                 SELECT estimated_duration_seconds
                 FROM pggit.plan_zero_downtime_deployment('dev', 'main')
-            """)
+            """,
+            )
 
             if result and result[0] is not None:
                 assert isinstance(result[0], (int, float))

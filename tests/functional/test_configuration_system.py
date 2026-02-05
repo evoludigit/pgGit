@@ -20,9 +20,13 @@ class TestConfigureTrackingBasic(FunctionalTestCase):
         builder = ConfigurationTestBuilder(db_transaction)
         schema = builder.create_schema("test_schema")
 
-        result = self.execute_sql_value(db_transaction, """
+        result = self.execute_sql_value(
+            db_transaction,
+            """
             SELECT pggit.configure_tracking(%s, %s)
-        """, (schema, True))
+        """,
+            (schema, True),
+        )
 
         assert result is True, "configure_tracking should return true"
 
@@ -31,9 +35,13 @@ class TestConfigureTrackingBasic(FunctionalTestCase):
         builder = ConfigurationTestBuilder(db_transaction)
         schemas = builder.create_schemas(["schema1", "schema2"])
 
-        result = self.execute_sql_value(db_transaction, """
+        result = self.execute_sql_value(
+            db_transaction,
+            """
             SELECT pggit.configure_tracking(%s::text[], %s::text[])
-        """, (schemas, []))
+        """,
+            (schemas, []),
+        )
 
         assert result is True, "configure_tracking should return true"
 
@@ -42,9 +50,13 @@ class TestConfigureTrackingBasic(FunctionalTestCase):
         builder = ConfigurationTestBuilder(db_transaction)
         schema = builder.create_schema("test_schema")
 
-        result = self.execute_sql_value(db_transaction, """
+        result = self.execute_sql_value(
+            db_transaction,
+            """
             SELECT pggit.configure_tracking(%s, %s)
-        """, (schema, False))
+        """,
+            (schema, False),
+        )
 
         assert result is True, "configure_tracking should return true"
 
@@ -53,9 +65,13 @@ class TestConfigureTrackingBasic(FunctionalTestCase):
         builder = ConfigurationTestBuilder(db_transaction)
         builder.create_schemas(["tracked", "ignored"])
 
-        result = self.execute_sql_value(db_transaction, """
+        result = self.execute_sql_value(
+            db_transaction,
+            """
             SELECT pggit.configure_tracking(%s::text[], %s::text[])
-        """, (["tracked"], ["ignored"]))
+        """,
+            (["tracked"], ["ignored"]),
+        )
 
         assert result is True, "configure_tracking should return true"
 
@@ -66,14 +82,22 @@ class TestConfigureTrackingBasic(FunctionalTestCase):
         schema2 = builder.create_schema("schema2")
 
         # First call
-        result1 = self.execute_sql_value(db_transaction, """
+        result1 = self.execute_sql_value(
+            db_transaction,
+            """
             SELECT pggit.configure_tracking(%s, %s)
-        """, (schema1, True))
+        """,
+            (schema1, True),
+        )
 
         # Second call
-        result2 = self.execute_sql_value(db_transaction, """
+        result2 = self.execute_sql_value(
+            db_transaction,
+            """
             SELECT pggit.configure_tracking(%s, %s)
-        """, (schema2, True))
+        """,
+            (schema2, True),
+        )
 
         assert result1 is True, "First configure_tracking should return true"
         assert result2 is True, "Second configure_tracking should return true"
@@ -85,9 +109,12 @@ class TestGetFeatureConfiguration(FunctionalTestCase):
     def test_get_feature_configuration_exists(self, db_transaction):
         """Test that get_feature_configuration is callable"""
         try:
-            result = self.execute_sql_value(db_transaction, """
+            result = self.execute_sql_value(
+                db_transaction,
+                """
                 SELECT pggit.get_feature_configuration('migration_mode')
-            """)
+            """,
+            )
             # Result can be any JSON/configuration value
             assert result is not None or result is None, "Function should return result"
         except Exception as e:
@@ -117,9 +144,13 @@ class TestTrackingIntegration(FunctionalTestCase):
         schema = builder.create_schema("app_schema")
 
         # Configure tracking
-        result = self.execute_sql_value(db_transaction, """
+        result = self.execute_sql_value(
+            db_transaction,
+            """
             SELECT pggit.configure_tracking(%s, %s)
-        """, (schema, True))
+        """,
+            (schema, True),
+        )
 
         assert result is True, "configure_tracking should succeed"
 
@@ -133,9 +164,13 @@ class TestTrackingIntegration(FunctionalTestCase):
         schema = builder.create_schema("test_schema")
 
         # Configure
-        self.execute_sql(db_transaction, """
+        self.execute_sql(
+            db_transaction,
+            """
             SELECT pggit.configure_tracking(%s, %s)
-        """, (schema, True))
+        """,
+            (schema, True),
+        )
 
         # Create table in new statement
         builder.create_table(schema, "table1")
@@ -148,9 +183,13 @@ class TestTrackingIntegration(FunctionalTestCase):
         builder = ConfigurationTestBuilder(db_transaction)
         schemas = builder.create_schemas(["schema1", "schema2", "schema3"])
 
-        result = self.execute_sql_value(db_transaction, """
+        result = self.execute_sql_value(
+            db_transaction,
+            """
             SELECT pggit.configure_tracking(%s::text[], %s::text[])
-        """, (schemas, []))
+        """,
+            (schemas, []),
+        )
 
         assert result is True
 
@@ -159,7 +198,7 @@ class TestTrackingIntegration(FunctionalTestCase):
             count = self.get_count(
                 db_transaction,
                 "information_schema.schemata",
-                f"schema_name = '{schema}'"
+                f"schema_name = '{schema}'",
             )
             assert count > 0, f"Schema {schema} should exist"
 
@@ -173,9 +212,13 @@ class TestTrackingWithData(FunctionalTestCase):
         schema = builder.create_schema("app_schema")
 
         # Configure tracking
-        self.execute_sql(db_transaction, """
+        self.execute_sql(
+            db_transaction,
+            """
             SELECT pggit.configure_tracking(%s, %s)
-        """, (schema, True))
+        """,
+            (schema, True),
+        )
 
         # Create table with data
         table = builder.create_table(schema, "users")
@@ -190,8 +233,12 @@ class TestTrackingWithData(FunctionalTestCase):
         builder = ConfigurationTestBuilder(db_transaction)
         builder.create_schemas(["tracked", "ignored1", "ignored2"])
 
-        result = self.execute_sql_value(db_transaction, """
+        result = self.execute_sql_value(
+            db_transaction,
+            """
             SELECT pggit.configure_tracking(%s::text[], %s::text[])
-        """, (["tracked"], ["ignored1", "ignored2"]))
+        """,
+            (["tracked"], ["ignored1", "ignored2"]),
+        )
 
         assert result is True

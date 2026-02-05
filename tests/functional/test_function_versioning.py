@@ -59,22 +59,28 @@ class TestFunctionVersioningTablesExist(FunctionalTestCase):
 
     def test_objects_table_has_version_column(self, db_transaction):
         """Test that objects table has version column"""
-        result = self.execute_sql(db_transaction, """
+        result = self.execute_sql(
+            db_transaction,
+            """
             SELECT column_name FROM information_schema.columns
             WHERE table_schema = 'pggit' AND table_name = 'objects'
             AND column_name = 'version'
-        """)
+        """,
+        )
 
         # Should have version column
         assert len(result) > 0
 
     def test_objects_table_has_semantic_version_columns(self, db_transaction):
         """Test that objects table has semantic version columns"""
-        result = self.execute_sql(db_transaction, """
+        result = self.execute_sql(
+            db_transaction,
+            """
             SELECT column_name FROM information_schema.columns
             WHERE table_schema = 'pggit' AND table_name = 'objects'
             AND column_name IN ('version_major', 'version_minor', 'version_patch')
-        """)
+        """,
+        )
 
         # Should have some version columns (not all are required)
         assert len(result) >= 1
@@ -90,10 +96,11 @@ class TestSimpleFunctionCreation(FunctionalTestCase):
 
         # Create a simple function
         func = builder.create_function(
-            schema, "add_numbers",
+            schema,
+            "add_numbers",
             params=["p_a int", "p_b int"],
             returns="int",
-            body="RETURN p_a + p_b"
+            body="RETURN p_a + p_b",
         )
 
         # Verify function exists
@@ -106,18 +113,20 @@ class TestSimpleFunctionCreation(FunctionalTestCase):
 
         # Create first overload (int)
         func1 = builder.create_function(
-            schema, "process",
+            schema,
+            "process",
             params=["p_val int"],
             returns="int",
-            body="RETURN p_val * 2"
+            body="RETURN p_val * 2",
         )
 
         # Create second overload (text)
         func2 = builder.create_function(
-            schema, "process",
+            schema,
+            "process",
             params=["p_val text"],
             returns="text",
-            body="RETURN 'Processed: ' || p_val"
+            body="RETURN 'Processed: ' || p_val",
         )
 
         # Verify both exist
@@ -129,10 +138,11 @@ class TestSimpleFunctionCreation(FunctionalTestCase):
         schema = builder.create_schema("complex_func_test")
 
         func = builder.create_function(
-            schema, "complex_op",
+            schema,
+            "complex_op",
             params=["p_arr int[]", "p_filter text", "p_limit int DEFAULT 10"],
             returns="text[]",
-            body="RETURN ARRAY[]::text[]"
+            body="RETURN ARRAY[]::text[]",
         )
 
         self.assert_function_exists(db_transaction, schema, "complex_op")
@@ -148,17 +158,18 @@ class TestFunctionSignatureTracking(FunctionalTestCase):
 
         # Create a function
         builder.create_function(
-            schema, "test_func",
-            params=["p_x int"],
-            returns="int",
-            body="RETURN p_x"
+            schema, "test_func", params=["p_x int"], returns="int", body="RETURN p_x"
         )
 
         # Try to normalize its DDL (may or may not succeed depending on setup)
         try:
-            result = self.execute_sql_value(db_transaction, """
+            result = self.execute_sql_value(
+                db_transaction,
+                """
                 SELECT pggit.normalize_function_ddl(%s, %s)
-            """, (schema, "test_func"))
+            """,
+                (schema, "test_func"),
+            )
 
             # Result could be a normalized string
             assert result is None or isinstance(result, str)
@@ -172,10 +183,14 @@ class TestFunctionSignatureTracking(FunctionalTestCase):
         scenario = builder.create_test_functions()
 
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT signature, argument_types, return_type
                 FROM pggit.list_function_overloads(%s, %s)
-            """, (scenario["schema"], "greet"))
+            """,
+                (scenario["schema"], "greet"),
+            )
 
             # Result can be empty or contain overloads
             assert isinstance(result, list)
@@ -189,27 +204,36 @@ class TestFunctionSignatureTracking(FunctionalTestCase):
 
         # Create a function
         builder.create_function(
-            schema, "to_parse",
+            schema,
+            "to_parse",
             params=["p_name text"],
             returns="text",
-            body="RETURN p_name"
+            body="RETURN p_name",
         )
 
         # Get the function OID
         try:
-            oid = self.execute_sql_value(db_transaction, """
+            oid = self.execute_sql_value(
+                db_transaction,
+                """
                 SELECT p.oid FROM pg_proc p
                 JOIN pg_namespace n ON p.pronamespace = n.oid
                 WHERE n.nspname = %s AND p.proname = 'to_parse'
                 LIMIT 1
-            """, (schema,))
+            """,
+                (schema,),
+            )
 
             if oid:
                 # Try to parse it
-                result = self.execute_sql(db_transaction, """
+                result = self.execute_sql(
+                    db_transaction,
+                    """
                     SELECT schema_name, function_name, argument_types, return_type
                     FROM pggit.parse_function_signature(%s)
-                """, (oid,))
+                """,
+                    (oid,),
+                )
 
                 assert isinstance(result, list)
         except Exception:
@@ -225,7 +249,9 @@ class TestFunctionVersioning(FunctionalTestCase):
         schema = builder.create_schema("track_test")
 
         # Create function with version info in comment
-        self.execute_sql(db_transaction, f"""
+        self.execute_sql(
+            db_transaction,
+            f"""
             CREATE OR REPLACE FUNCTION {schema}.versioned_func(p_x int)
             RETURNS int
             LANGUAGE plpgsql
@@ -236,13 +262,17 @@ class TestFunctionVersioning(FunctionalTestCase):
                 RETURN p_x * 2;
             END;
             $$
-        """)
+        """,
+        )
 
         # Try to track it
         try:
-            result = self.execute_sql_value(db_transaction, f"""
+            result = self.execute_sql_value(
+                db_transaction,
+                f"""
                 SELECT pggit.track_function('{schema}.versioned_func(int)'::text)
-            """)
+            """,
+            )
 
             # Should return without error
             assert result is not None or result is None
@@ -256,17 +286,21 @@ class TestFunctionVersioning(FunctionalTestCase):
         schema = builder.create_schema("version_info_test")
 
         builder.create_function(
-            schema, "sample_func",
+            schema,
+            "sample_func",
             params=["p_val int"],
             returns="int",
-            body="RETURN p_val"
+            body="RETURN p_val",
         )
 
         try:
-            result = self.execute_sql(db_transaction, f"""
+            result = self.execute_sql(
+                db_transaction,
+                f"""
                 SELECT version, created_at, created_by
                 FROM pggit.get_function_version('{schema}.sample_func(int)'::text)
-            """)
+            """,
+            )
 
             assert isinstance(result, list)
         except Exception:
@@ -286,22 +320,29 @@ class TestIncrementVersion(FunctionalTestCase):
 
         try:
             # Get object to increment
-            obj_result = self.execute_sql_value(db_transaction, f"""
+            obj_result = self.execute_sql_value(
+                db_transaction,
+                f"""
                 SELECT id FROM pggit.objects
                 WHERE object_name = 'test_table'
                 LIMIT 1
-            """)
+            """,
+            )
 
             if obj_result:
                 # Try to increment version
-                result = self.execute_sql_value(db_transaction, f"""
+                result = self.execute_sql_value(
+                    db_transaction,
+                    f"""
                     SELECT pggit.increment_version(
                         %s,
                         'PATCH'::pggit.change_type,
                         'PATCH'::pggit.change_severity,
                         'Test increment'
                     )
-                """, (obj_result,))
+                """,
+                    (obj_result,),
+                )
 
                 # Should return without error
                 assert result is not None
@@ -321,10 +362,11 @@ class TestFunctionVersioningIntegration(FunctionalTestCase):
 
         # 2. Create initial function
         func1 = builder.create_function(
-            schema, "calculate",
+            schema,
+            "calculate",
             params=["p_a int", "p_b int"],
             returns="int",
-            body="RETURN p_a + p_b"
+            body="RETURN p_a + p_b",
         )
 
         # 3. Verify function exists
@@ -332,18 +374,23 @@ class TestFunctionVersioningIntegration(FunctionalTestCase):
 
         # 4. Create an overload
         func2 = builder.create_function(
-            schema, "calculate",
+            schema,
+            "calculate",
             params=["p_a numeric", "p_b numeric"],
             returns="numeric",
-            body="RETURN p_a + p_b"
+            body="RETURN p_a + p_b",
         )
 
         # 5. Verify both overloads exist
-        result = self.execute_sql(db_transaction, """
+        result = self.execute_sql(
+            db_transaction,
+            """
             SELECT COUNT(*) FROM pg_proc p
             JOIN pg_namespace n ON p.pronamespace = n.oid
             WHERE n.nspname = %s AND p.proname = 'calculate'
-        """, (schema,))
+        """,
+            (schema,),
+        )
 
         count = result[0][0]
         assert count == 2
@@ -355,10 +402,11 @@ class TestFunctionVersioningIntegration(FunctionalTestCase):
 
         # Create function with simple approach
         builder.create_function(
-            schema, "documented_func",
+            schema,
+            "documented_func",
             params=["p_input text"],
             returns="text",
-            body="RETURN upper(p_input)"
+            body="RETURN upper(p_input)",
         )
 
         # Verify function exists
@@ -373,10 +421,11 @@ class TestFunctionVersioningIntegration(FunctionalTestCase):
         # Create same function in each schema
         for schema in schemas:
             builder.create_function(
-                schema, "utility_func",
+                schema,
+                "utility_func",
                 params=["p_x int"],
                 returns="int",
-                body="RETURN p_x"
+                body="RETURN p_x",
             )
 
             # Verify it exists
@@ -393,17 +442,18 @@ class TestFunctionOverloads(FunctionalTestCase):
         # Create function family with try/catch (schema creation might fail)
         try:
             scenario = builder.create_function_family(
-                schema="overload_detection",
-                base_name="versatile",
-                overload_count=3
+                schema="overload_detection", base_name="versatile", overload_count=3
             )
 
             # Verify all overloads exist
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT COUNT(*) FROM pg_proc p
                 JOIN pg_namespace n ON p.pronamespace = n.oid
                 WHERE n.nspname = 'overload_detection' AND p.proname = 'versatile'
-            """)
+            """,
+            )
 
             count = result[0][0]
             assert count == 3
@@ -421,19 +471,24 @@ class TestFunctionOverloads(FunctionalTestCase):
         # Create multiple overloads
         for i, param_type in enumerate(["int", "text", "boolean"]):
             builder.create_function(
-                schema, "multi_type",
+                schema,
+                "multi_type",
                 params=[f"p_val {param_type}"],
                 returns=param_type,
-                body="RETURN p_val"
+                body="RETURN p_val",
             )
 
         # Try to list them
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT signature, argument_types
                 FROM pggit.list_function_overloads(%s, %s)
                 ORDER BY signature
-            """, (schema, "multi_type"))
+            """,
+                (schema, "multi_type"),
+            )
 
             # Should have multiple results
             assert len(result) >= 1
@@ -450,18 +505,18 @@ class TestFunctionDifference(FunctionalTestCase):
         schema = builder.create_schema("diff_test")
 
         builder.create_function(
-            schema, "original",
-            params=["p_x int"],
-            returns="int",
-            body="RETURN p_x * 2"
+            schema, "original", params=["p_x int"], returns="int", body="RETURN p_x * 2"
         )
 
         # Try to diff (same version)
         try:
-            result = self.execute_sql(db_transaction, f"""
+            result = self.execute_sql(
+                db_transaction,
+                f"""
                 SELECT line_number, change_type
                 FROM pggit.diff_function_versions('{schema}.original(int)'::text)
-            """)
+            """,
+            )
 
             # Result should be valid (possibly empty)
             assert isinstance(result, list)
@@ -481,10 +536,11 @@ class TestFunctionVersioningEdgeCases(FunctionalTestCase):
 
         try:
             builder.create_function(
-                schema, long_name[:63],  # PostgreSQL has 63 char limit
+                schema,
+                long_name[:63],  # PostgreSQL has 63 char limit
                 params=["p_x int"],
                 returns="int",
-                body="RETURN p_x"
+                body="RETURN p_x",
             )
 
             # Verify it was created
@@ -500,10 +556,7 @@ class TestFunctionVersioningEdgeCases(FunctionalTestCase):
         # Create function with many parameters
         params = [f"p_arg{i} int" for i in range(20)]
         func = builder.create_function(
-            schema, "many_args",
-            params=params,
-            returns="int",
-            body="RETURN 1"
+            schema, "many_args", params=params, returns="int", body="RETURN 1"
         )
 
         self.assert_function_exists(db_transaction, schema, "many_args")
@@ -515,10 +568,11 @@ class TestFunctionVersioningEdgeCases(FunctionalTestCase):
 
         # Create function returning array
         builder.create_function(
-            schema, "array_result",
+            schema,
+            "array_result",
             params=["p_count int"],
             returns="int[]",
-            body="RETURN ARRAY[1, 2, 3]"
+            body="RETURN ARRAY[1, 2, 3]",
         )
 
         self.assert_function_exists(db_transaction, schema, "array_result")
@@ -530,10 +584,7 @@ class TestFunctionVersioningEdgeCases(FunctionalTestCase):
 
         # Create function with unicode handling
         builder.create_function(
-            schema, "unicode_func",
-            params=["p_x int"],
-            returns="int",
-            body="RETURN p_x"
+            schema, "unicode_func", params=["p_x int"], returns="int", body="RETURN p_x"
         )
         self.assert_function_exists(db_transaction, schema, "unicode_func")
 
@@ -543,10 +594,7 @@ class TestFunctionVersioningEdgeCases(FunctionalTestCase):
         schema = builder.create_schema("test_schema_with_underscores")
 
         builder.create_function(
-            schema, "test_func",
-            params=["p_x int"],
-            returns="int",
-            body="RETURN p_x"
+            schema, "test_func", params=["p_x int"], returns="int", body="RETURN p_x"
         )
 
         self.assert_function_exists(db_transaction, schema, "test_func")
