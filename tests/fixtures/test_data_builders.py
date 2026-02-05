@@ -612,7 +612,7 @@ class ConflictTestBuilder(BaseTestBuilder):
     """Builder for conflict resolution tests"""
 
     def create_conflict_scenario(self) -> dict:
-        """Create conflict test scenario"""
+        """Create conflict test scenario with conflicting changes"""
         # Create two branches with different changes
         schema1 = self.create_schema("branch_1")
         schema2 = self.create_schema("branch_2")
@@ -638,15 +638,197 @@ class ConflictTestBuilder(BaseTestBuilder):
             "table_2": table2
         }
 
+    def create_three_way_merge_scenario(self) -> dict:
+        """Create scenario for three-way merge testing"""
+        base_schema = self.create_schema("base")
+        source_schema = self.create_schema("source")
+        target_schema = self.create_schema("target")
+
+        # Create identical base table in all branches
+        base_table = self.create_table(base_schema, "products", {
+            "id": "SERIAL PRIMARY KEY",
+            "name": "TEXT NOT NULL",
+            "price": "DECIMAL(10,2)",
+            "stock": "INT"
+        })
+
+        source_table = self.create_table(source_schema, "products", {
+            "id": "SERIAL PRIMARY KEY",
+            "name": "TEXT NOT NULL",
+            "price": "DECIMAL(10,2)",
+            "stock": "INT"
+        })
+
+        target_table = self.create_table(target_schema, "products", {
+            "id": "SERIAL PRIMARY KEY",
+            "name": "TEXT NOT NULL",
+            "price": "DECIMAL(10,2)",
+            "stock": "INT"
+        })
+
+        return {
+            "base_schema": base_schema,
+            "source_schema": source_schema,
+            "target_schema": target_schema,
+            "base_table": base_table,
+            "source_table": source_table,
+            "target_table": target_table
+        }
+
     def register_test_conflict(self, conflict_type: str = "merge",
                               object_type: str = "table",
-                              object_id: str = "test_table") -> str:
+                              object_id: str = "test_table") -> dict:
         """Register a test conflict"""
-        result = self.execute("""
-            SELECT pggit.register_conflict(%s, %s, %s, %s)
-        """, (conflict_type, object_type, object_id, '{"test": "data"}'))
+        try:
+            result = self.execute("""
+                SELECT pggit.register_conflict(%s, %s, %s, %s)
+            """, (conflict_type, object_type, object_id, '{"test": "data"}'))
 
-        return result.fetchone()[0]
+            conflict_id = result.fetchone()[0] if result.fetchone() else None
+            return {
+                "conflict_id": conflict_id,
+                "conflict_type": conflict_type,
+                "object_type": object_type,
+                "object_id": object_id,
+                "registered": conflict_id is not None
+            }
+        except Exception as e:
+            return {
+                "conflict_id": None,
+                "conflict_type": conflict_type,
+                "object_type": object_type,
+                "object_id": object_id,
+                "registered": False,
+                "error": str(e)
+            }
+
+    def list_conflicts(self, status_filter: str = "unresolved") -> dict:
+        """List conflicts with optional filtering"""
+        try:
+            result = self.execute("""
+                SELECT conflict_id, conflict_type, object_type, object_identifier
+                FROM pggit.list_conflicts(%s)
+            """, (status_filter,))
+
+            conflicts = []
+            for row in result.fetchall():
+                conflicts.append({
+                    "conflict_id": row[0],
+                    "conflict_type": row[1],
+                    "object_type": row[2],
+                    "object_identifier": row[3]
+                })
+
+            return {
+                "status_filter": status_filter,
+                "conflicts": conflicts,
+                "conflict_count": len(conflicts)
+            }
+        except Exception:
+            return {
+                "status_filter": status_filter,
+                "conflicts": [],
+                "conflict_count": 0
+            }
+
+    def resolve_conflict(self, conflict_id, resolution: str,
+                        reason: str = None) -> dict:
+        """Resolve a conflict"""
+        try:
+            self.execute("""
+                SELECT pggit.resolve_conflict(%s, %s, %s)
+            """, (conflict_id, resolution, reason))
+
+            return {
+                "conflict_id": conflict_id,
+                "resolution": resolution,
+                "resolved": True
+            }
+        except Exception as e:
+            return {
+                "conflict_id": conflict_id,
+                "resolution": resolution,
+                "resolved": False,
+                "error": str(e)
+            }
+
+    def detect_conflicts_between_branches(self, source: str,
+                                         target: str) -> dict:
+        """Detect conflicts between two branches"""
+        try:
+            result = self.execute("""
+                SELECT pggit.detect_conflicts(%s, %s)
+            """, (source, target))
+
+            conflicts_data = result.fetchone()[0] if result.fetchone() else None
+            return {
+                "source": source,
+                "target": target,
+                "conflicts": conflicts_data,
+                "detected": conflicts_data is not None
+            }
+        except Exception:
+            return {
+                "source": source,
+                "target": target,
+                "conflicts": None,
+                "detected": False
+            }
+
+    def merge_branches(self, source: str, target: str = "main") -> dict:
+        """Attempt to merge two branches"""
+        try:
+            result = self.execute("""
+                SELECT pggit.merge(%s, %s)
+            """, (source, target))
+
+            merge_result = result.fetchone()[0] if result.fetchone() else None
+            return {
+                "source": source,
+                "target": target,
+                "merge_result": merge_result,
+                "succeeded": merge_result is not None
+            }
+        except Exception as e:
+            return {
+                "source": source,
+                "target": target,
+                "merge_result": None,
+                "succeeded": False,
+                "error": str(e)
+            }
+
+    def analyze_semantic_conflict(self, base_json: dict,
+                                 source_json: dict,
+                                 target_json: dict) -> dict:
+        """Analyze semantic conflicts"""
+        try:
+            result = self.execute("""
+                SELECT conflict_id, type, severity, can_auto_resolve, suggestion
+                FROM pggit.analyze_semantic_conflict(%s, %s, %s)
+            """, (base_json, source_json, target_json))
+
+            conflicts = []
+            for row in result.fetchall():
+                conflicts.append({
+                    "conflict_id": row[0],
+                    "type": row[1],
+                    "severity": row[2],
+                    "can_auto_resolve": row[3],
+                    "suggestion": row[4]
+                })
+
+            return {
+                "conflicts": conflicts,
+                "conflict_count": len(conflicts),
+                "analyzed": True
+            }
+        except Exception:
+            return {
+                "conflicts": [],
+                "conflict_count": 0,
+                "analyzed": False
+            }
 
 
 class AITestBuilder(BaseTestBuilder):
