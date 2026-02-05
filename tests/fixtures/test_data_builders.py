@@ -308,6 +308,119 @@ class FunctionVersioningTestBuilder(BaseTestBuilder):
             "count": overload_count
         }
 
+    def track_function_version(self, function_signature: str, version: str = None,
+                              metadata: dict = None) -> dict:
+        """Track a function version"""
+        try:
+            result = self.execute(f"""
+                SELECT pggit.track_function(%s, %s, %s::jsonb)
+            """, (function_signature, version, metadata))
+            return {
+                "function_signature": function_signature,
+                "version": version,
+                "metadata": metadata,
+                "tracked": True
+            }
+        except Exception as e:
+            # Function tracking might have dependencies
+            return {
+                "function_signature": function_signature,
+                "version": version,
+                "metadata": metadata,
+                "tracked": False,
+                "error": str(e)
+            }
+
+    def get_function_overloads(self, schema: str, function_name: str) -> dict:
+        """Get all overloads of a function"""
+        try:
+            result = self.execute(f"""
+                SELECT signature, argument_types, return_type, current_version, last_modified
+                FROM pggit.list_function_overloads(%s, %s)
+            """, (schema, function_name))
+
+            overloads = []
+            for row in result.fetchall():
+                overloads.append({
+                    "signature": row[0],
+                    "argument_types": row[1],
+                    "return_type": row[2],
+                    "current_version": row[3],
+                    "last_modified": row[4]
+                })
+
+            return {
+                "schema": schema,
+                "function_name": function_name,
+                "overloads": overloads,
+                "count": len(overloads)
+            }
+        except Exception as e:
+            return {
+                "schema": schema,
+                "function_name": function_name,
+                "overloads": [],
+                "count": 0,
+                "error": str(e)
+            }
+
+    def get_function_version_info(self, function_signature: str) -> dict:
+        """Get version information for a function"""
+        try:
+            result = self.execute(f"""
+                SELECT version, created_at, created_by, metadata
+                FROM pggit.get_function_version(%s)
+                LIMIT 1
+            """, (function_signature,))
+
+            row = result.fetchone()
+            if row:
+                return {
+                    "version": row[0],
+                    "created_at": row[1],
+                    "created_by": row[2],
+                    "metadata": row[3],
+                    "found": True
+                }
+            return {"found": False}
+        except Exception:
+            return {"found": False}
+
+    def diff_function_versions(self, function_signature: str, version1: str = None,
+                              version2: str = None) -> dict:
+        """Get diff between two function versions"""
+        try:
+            result = self.execute(f"""
+                SELECT line_number, change_type, version1_line, version2_line
+                FROM pggit.diff_function_versions(%s, %s, %s)
+            """, (function_signature, version1, version2))
+
+            diffs = []
+            for row in result.fetchall():
+                diffs.append({
+                    "line_number": row[0],
+                    "change_type": row[1],
+                    "version1_line": row[2],
+                    "version2_line": row[3]
+                })
+
+            return {
+                "function_signature": function_signature,
+                "version1": version1,
+                "version2": version2,
+                "diffs": diffs,
+                "change_count": len(diffs)
+            }
+        except Exception as e:
+            return {
+                "function_signature": function_signature,
+                "version1": version1,
+                "version2": version2,
+                "diffs": [],
+                "change_count": 0,
+                "error": str(e)
+            }
+
 
 class MigrationTestBuilder(BaseTestBuilder):
     """Builder for migration integration tests"""
