@@ -2,14 +2,8 @@
 -- Phase 5: Provide minimal implementations for cold/hot storage tests
 
 -- Function to classify storage tier based on data age
+DROP FUNCTION IF EXISTS pggit.classify_storage_tier(p_table_name TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.classify_storage_tier(
-    p_table_name TEXT
-) RETURNS TABLE (
-    tier TEXT,
-    estimated_size BIGINT,
-    access_frequency INT,
-    last_accessed TIMESTAMP
-) AS $$
 DECLARE
     v_max_accessed TIMESTAMP WITH TIME ZONE;
     v_size BIGINT;
@@ -48,14 +42,8 @@ COMMENT ON FUNCTION pggit.classify_storage_tier(TEXT) IS
 'Classify a table as HOT (frequently accessed) or COLD (archival) storage';
 
 -- Function to deduplicate storage blocks
+DROP FUNCTION IF EXISTS pggit.deduplicate_storage(p_table_name TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.deduplicate_storage(
-    p_table_name TEXT
-) RETURNS TABLE (
-    original_size BIGINT,
-    deduplicated_size BIGINT,
-    compression_ratio DECIMAL,
-    blocks_deduped INT
-) AS $$
 DECLARE
     v_size BIGINT;
 BEGIN
@@ -73,14 +61,8 @@ COMMENT ON FUNCTION pggit.deduplicate_storage(TEXT) IS
 'Simulate deduplication of storage blocks in a table';
 
 -- Alias for compatibility with test expectations
+DROP FUNCTION IF EXISTS pggit.deduplicate_blocks(p_table_name TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.deduplicate_blocks(
-    p_table_name TEXT
-) RETURNS TABLE (
-    original_size BIGINT,
-    deduplicated_size BIGINT,
-    compression_ratio DECIMAL,
-    blocks_deduped INT
-) AS $$
 BEGIN
     RETURN QUERY SELECT * FROM pggit.deduplicate_storage(p_table_name);
 END;
@@ -90,14 +72,9 @@ COMMENT ON FUNCTION pggit.deduplicate_blocks(TEXT) IS
 'Alias for deduplicate_storage for compatibility';
 
 -- Function to migrate old data to cold storage
+DROP FUNCTION IF EXISTS pggit.migrate_to_cold_storage(p_age_threshold INTERVAL DEFAULT '30 days'::INTERVAL,
+    p_size_threshold BIGINT DEFAULT 104857600  -- 100MB) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.migrate_to_cold_storage(
-    p_age_threshold INTERVAL DEFAULT '30 days'::INTERVAL,
-    p_size_threshold BIGINT DEFAULT 104857600  -- 100MB
-) RETURNS TABLE (
-    objects_migrated INT,
-    bytes_freed BIGINT,
-    archives_created INT
-) AS $$
 DECLARE
     v_migrated INT := 0;
     v_bytes BIGINT := 0;
@@ -121,12 +98,8 @@ COMMENT ON FUNCTION pggit.migrate_to_cold_storage(INTERVAL, BIGINT) IS
 'Migrate objects older than threshold to cold storage';
 
 -- Function to predict prefetch candidates based on access patterns
+DROP FUNCTION IF EXISTS pggit.predict_prefetch_candidates() CASCADE;
 CREATE OR REPLACE FUNCTION pggit.predict_prefetch_candidates(
-) RETURNS TABLE (
-    predicted_objects TEXT[],
-    confidence DECIMAL,
-    estimated_benefit BIGINT
-) AS $$
 BEGIN
     RETURN QUERY SELECT
         ARRAY['predicted_object_1'::TEXT, 'predicted_object_2'::TEXT],
@@ -139,10 +112,9 @@ COMMENT ON FUNCTION pggit.predict_prefetch_candidates() IS
 'Predict next objects that should be prefetched from cold storage';
 
 -- Function to record access patterns for ML-based prediction
+DROP FUNCTION IF EXISTS pggit.record_access_pattern(p_object_name TEXT,
+    p_access_type TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.record_access_pattern(
-    p_object_name TEXT,
-    p_access_type TEXT
-) RETURNS VOID AS $$
 BEGIN
     -- Record access pattern for ML-based prefetching
     INSERT INTO pggit.access_patterns (object_name, access_type, accessed_by, response_time_ms)
@@ -174,13 +146,8 @@ COMMENT ON FUNCTION pggit.record_access_pattern(TEXT, TEXT) IS
 'Record access pattern for ML-based prefetching prediction';
 
 -- Function to prefetch data from cold storage to hot cache
+DROP FUNCTION IF EXISTS pggit.prefetch_from_cold(p_object_name TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.prefetch_from_cold(
-    p_object_name TEXT
-) RETURNS TABLE (
-    object_name TEXT,
-    bytes_prefetched BIGINT,
-    estimated_latency_ms INT
-) AS $$
 DECLARE
     v_object_id UUID;
     v_current_size BIGINT;
@@ -239,11 +206,10 @@ COMMENT ON FUNCTION pggit.prefetch_from_cold(TEXT) IS
 'Prefetch object from cold storage to hot cache';
 
 -- Helper function to create test branch with age
-CREATE OR REPLACE FUNCTION pggit.create_test_branch_with_age(
-    p_branch_name TEXT,
+DROP FUNCTION IF EXISTS pggit.create_test_branch_with_age(p_branch_name TEXT,
     p_age INTERVAL,
-    p_size BIGINT
-) RETURNS VOID AS $$
+    p_size BIGINT) CASCADE;
+CREATE OR REPLACE FUNCTION pggit.create_test_branch_with_age(
 BEGIN
     -- Stub: In real implementation, this would create a branch with specified age
     -- For testing, we just acknowledge the call and update stats

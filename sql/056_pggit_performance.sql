@@ -24,7 +24,7 @@ BEGIN
         MAX(metric_value)::NUMERIC(10,2),
         COUNT(*)::BIGINT,
         SUM(metric_value)::NUMERIC(10,2)
-    FROM pggit.performance_metrics
+    FROM pggit.performance_tracking_metrics
     WHERE metric_value > threshold_ms
         AND recorded_at > NOW() - INTERVAL '1 hour'
     GROUP BY metric_type
@@ -146,7 +146,11 @@ $$ LANGUAGE plpgsql;
 -- PART 6: Performance Metrics Collection
 -- ============================================
 
-CREATE TABLE IF NOT EXISTS pggit.performance_metrics (
+-- NOTE: performance_metrics table defined in 017_performance_monitoring.sql
+-- This file extends with additional utility functions
+
+-- Performance tracking metrics table for this module
+CREATE TABLE IF NOT EXISTS pggit.performance_tracking_metrics (
     id BIGSERIAL PRIMARY KEY,
     metric_type TEXT NOT NULL,
     metric_value NUMERIC NOT NULL,
@@ -154,17 +158,14 @@ CREATE TABLE IF NOT EXISTS pggit.performance_metrics (
     recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_performance_metrics_type_time
-    ON pggit.performance_metrics (metric_type, recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_perf_tracking_metrics_type_time
+    ON pggit.performance_tracking_metrics (metric_type, recorded_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_performance_metrics_value
-    ON pggit.performance_metrics (metric_value DESC);
-
-COMMENT ON TABLE pggit.performance_metrics IS 'Performance metrics collected from pgGit operations';
-COMMENT ON COLUMN pggit.performance_metrics.metric_type IS 'Type of metric (ddl_tracking_ms, version_query_ms, etc.)';
-COMMENT ON COLUMN pggit.performance_metrics.metric_value IS 'Measured value (duration in ms, count, etc.)';
+CREATE INDEX IF NOT EXISTS idx_perf_tracking_metrics_value
+    ON pggit.performance_tracking_metrics (metric_value DESC);
 
 -- Function to record performance metrics
+DROP FUNCTION IF EXISTS pggit.record_metric(TEXT, NUMERIC, JSONB) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.record_metric(
     metric_type TEXT,
     metric_value NUMERIC,
@@ -172,11 +173,11 @@ CREATE OR REPLACE FUNCTION pggit.record_metric(
 )
 RETURNS VOID AS $$
 BEGIN
-    INSERT INTO pggit.performance_metrics (metric_type, metric_value, metadata)
+    INSERT INTO pggit.performance_tracking_metrics (metric_type, metric_value, metadata)
     VALUES (metric_type, metric_value, metadata);
 
     -- Keep only last 30 days of metrics
-    DELETE FROM pggit.performance_metrics
+    DELETE FROM pggit.performance_tracking_metrics
     WHERE recorded_at < NOW() - INTERVAL '30 days';
 END;
 $$ LANGUAGE plpgsql;

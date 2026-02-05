@@ -5,6 +5,7 @@
 -- Generates a unique Trinity ID for commits with high performance
 -- Returns: Unique identifier string in format: YYYYMMDDHH24MISSUS-SEQUENCE-RANDOM
 
+DROP FUNCTION IF EXISTS pggit.generate_trinity_id() CASCADE;
 CREATE OR REPLACE FUNCTION pggit.generate_trinity_id() RETURNS TEXT AS $$
 DECLARE
     v_timestamp TEXT;
@@ -43,11 +44,10 @@ CREATE SEQUENCE IF NOT EXISTS pggit.trinity_id_seq START 1;
 -- Performance: < 5ms typical, < 10ms worst case
 -- Concurrency: Safe for high-concurrency scenarios with automatic retry
 
-CREATE OR REPLACE FUNCTION pggit.commit_changes(
-    p_branch_name TEXT,
+DROP FUNCTION IF EXISTS pggit.commit_changes(p_branch_name TEXT,
     p_message TEXT DEFAULT '',
-    p_custom_trinity_id TEXT DEFAULT NULL
-) RETURNS TEXT AS $$
+    p_custom_trinity_id TEXT DEFAULT NULL) CASCADE;
+CREATE OR REPLACE FUNCTION pggit.commit_changes(
 DECLARE
     v_branch_id INTEGER;
     v_trinity_id TEXT;
@@ -136,11 +136,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Performance: < 50ms typical for small tables, scales with table size
 -- Concurrency: Safe - uses standard PostgreSQL table creation locking
 
-CREATE OR REPLACE FUNCTION pggit.create_data_branch(
-    p_table_name TEXT,
+DROP FUNCTION IF EXISTS pggit.create_data_branch(p_table_name TEXT,
     p_from_branch TEXT,
-    p_to_branch TEXT
-) RETURNS TEXT AS $$
+    p_to_branch TEXT) CASCADE;
+CREATE OR REPLACE FUNCTION pggit.create_data_branch(
 DECLARE
     v_branch_table_name TEXT;
     v_table_exists BOOLEAN;
@@ -212,9 +211,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Caching: Relies on underlying pggit caching mechanisms
 -- Thread Safety: Safe for concurrent access
 
+DROP FUNCTION IF EXISTS pggit.calculate_schema_hash(p_table_name TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.calculate_schema_hash(
-    p_table_name TEXT
-) RETURNS TEXT AS $$
 DECLARE
     v_table_exists BOOLEAN;
     v_clean_name TEXT;
@@ -256,9 +254,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 --   p_branch_name: Name of the branch to delete
 -- Returns: VOID
 
+DROP FUNCTION IF EXISTS pggit.delete_branch_simple(p_branch_name TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.delete_branch_simple(
-    p_branch_name TEXT
-) RETURNS VOID AS $$
 DECLARE
     v_branch_id INTEGER;
 BEGIN
@@ -296,14 +293,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 --   p_table_name: Name of the table to get version for
 -- Returns: TABLE with version information (major, minor, patch, full_version)
 
+DROP FUNCTION IF EXISTS pggit.get_version(p_table_name TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.get_version(
-    p_table_name TEXT
-) RETURNS TABLE (
-    major INTEGER,
-    minor INTEGER,
-    patch INTEGER,
-    full_version TEXT
-) AS $$
 DECLARE
     v_exists BOOLEAN;
 BEGIN
@@ -334,17 +325,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 --   p_increment_type: Type of increment ('major', 'minor', 'patch')
 -- Returns: TABLE with new version information (major, minor, patch, full_version)
 
-CREATE OR REPLACE FUNCTION pggit.increment_version(
-    p_current_major INTEGER,
+DROP FUNCTION IF EXISTS pggit.increment_version(p_current_major INTEGER,
     p_current_minor INTEGER,
     p_current_patch INTEGER,
-    p_increment_type TEXT
-) RETURNS TABLE (
-    major INTEGER,
-    minor INTEGER,
-    patch INTEGER,
-    full_version TEXT
-) AS $$
+    p_increment_type TEXT) CASCADE;
+CREATE OR REPLACE FUNCTION pggit.increment_version(
 DECLARE
     v_new_major INTEGER := p_current_major;
     v_new_minor INTEGER := p_current_minor;

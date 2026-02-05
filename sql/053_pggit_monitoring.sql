@@ -5,8 +5,11 @@
 -- PART 1: Performance Metrics Collection
 -- ============================================
 
--- Performance metrics table
-CREATE TABLE IF NOT EXISTS pggit.performance_metrics (
+-- NOTE: performance_metrics table defined in 017_performance_monitoring.sql
+-- This file extends with additional functions and monitoring capabilities
+
+-- Monitoring metrics table for this module
+CREATE TABLE IF NOT EXISTS pggit.monitoring_metrics (
     metric_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     metric_type TEXT NOT NULL,
     metric_value NUMERIC NOT NULL,
@@ -14,17 +17,18 @@ CREATE TABLE IF NOT EXISTS pggit.performance_metrics (
     recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_perf_metrics_type_time
-    ON pggit.performance_metrics(metric_type, recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_monitoring_metrics_type_time
+    ON pggit.monitoring_metrics(metric_type, recorded_at DESC);
 
 -- Record performance metrics
+DROP FUNCTION IF EXISTS pggit.record_metric(TEXT, NUMERIC, JSONB) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.record_metric(
     p_type TEXT,
     p_value NUMERIC,
     p_tags JSONB DEFAULT '{}'
 ) RETURNS VOID AS $$
 BEGIN
-    INSERT INTO pggit.performance_metrics (metric_type, metric_value, tags)
+    INSERT INTO pggit.monitoring_metrics (metric_type, metric_value, tags)
     VALUES (p_type, p_value, p_tags);
 END;
 $$ LANGUAGE plpgsql;
@@ -97,7 +101,7 @@ BEGIN
         CASE WHEN COUNT(*) > 0 THEN 'healthy' ELSE 'warning' END::TEXT,
         format('%s metrics collected in last hour', COUNT(*))::TEXT,
         jsonb_build_object('metrics_count', COUNT(*))
-    FROM pggit.performance_metrics
+    FROM pggit.monitoring_metrics
     WHERE recorded_at > NOW() - INTERVAL '1 hour';
 
 END;
@@ -120,7 +124,7 @@ SELECT
     MAX(metric_value) as max_value,
     PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY metric_value) as p95_value,
     PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY metric_value) as p99_value
-FROM pggit.performance_metrics
+FROM pggit.monitoring_metrics
 WHERE recorded_at > NOW() - INTERVAL '1 hour'
 GROUP BY metric_type;
 
@@ -195,7 +199,7 @@ BEGIN
     -- Performance metrics by type
     FOR v_metric IN
         SELECT metric_type, AVG(metric_value) as avg_val, COUNT(*) as sample_count
-        FROM pggit.performance_metrics
+        FROM pggit.monitoring_metrics
         WHERE recorded_at > NOW() - INTERVAL '5 minutes'
         GROUP BY metric_type
     LOOP
@@ -272,7 +276,7 @@ CREATE OR REPLACE FUNCTION pggit.cleanup_old_metrics(
 DECLARE
     v_deleted INTEGER;
 BEGIN
-    DELETE FROM pggit.performance_metrics
+    DELETE FROM pggit.monitoring_metrics
     WHERE recorded_at < NOW() - (p_retention_days || ' days')::INTERVAL;
 
     GET DIAGNOSTICS v_deleted = ROW_COUNT;
@@ -287,9 +291,9 @@ COMMENT ON FUNCTION pggit.cleanup_old_metrics(INTEGER) IS
 CREATE OR REPLACE VIEW pggit.maintenance_status AS
 SELECT
     'metrics_table_size' as check_name,
-    pg_size_pretty(pg_total_relation_size('pggit.performance_metrics')) as value,
+    pg_size_pretty(pg_total_relation_size('pggit.monitoring_metrics')) as value,
     CASE
-        WHEN pg_total_relation_size('pggit.performance_metrics') > 100*1024*1024 THEN 'warning'
+        WHEN pg_total_relation_size('pggit.monitoring_metrics') > 100*1024*1024 THEN 'warning'
         ELSE 'healthy'
     END as status
 UNION ALL
@@ -300,19 +304,19 @@ SELECT
         WHEN MIN(recorded_at) < NOW() - INTERVAL '90 days' THEN 'warning'
         ELSE 'healthy'
     END as status
-FROM pggit.performance_metrics
+FROM pggit.monitoring_metrics
 UNION ALL
 SELECT
     'metrics_retention_days' as check_name,
     EXTRACT(EPOCH FROM (NOW() - MIN(recorded_at)))/86400 || ' days' as value,
     'info' as status
-FROM pggit.performance_metrics;
+FROM pggit.monitoring_metrics;
 
 COMMENT ON VIEW pggit.maintenance_status IS
 'Maintenance status for monitoring and alerting.';
 
 -- Grant permissions for monitoring
-GRANT SELECT ON pggit.performance_metrics TO PUBLIC;
+GRANT SELECT ON pggit.monitoring_metrics TO PUBLIC;
 GRANT SELECT ON pggit.metrics_summary TO PUBLIC;
 GRANT SELECT ON pggit.system_overview TO PUBLIC;
 GRANT SELECT ON pggit.maintenance_status TO PUBLIC;
