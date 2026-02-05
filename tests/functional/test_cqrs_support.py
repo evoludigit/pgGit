@@ -30,7 +30,9 @@ class TestCQRSFunctionExistence(FunctionalTestCase):
 
     def test_analyze_cqrs_dependencies_exists(self, db_transaction):
         """Test that analyze_cqrs_dependencies function exists"""
-        self.assert_function_exists(db_transaction, "pggit", "analyze_cqrs_dependencies")
+        self.assert_function_exists(
+            db_transaction, "pggit", "analyze_cqrs_dependencies"
+        )
 
 
 class TestCQRSChangesetTables(FunctionalTestCase):
@@ -46,14 +48,17 @@ class TestCQRSChangesetTables(FunctionalTestCase):
 
     def test_cqrs_change_type_exists(self, db_transaction):
         """Test that cqrs_change composite type exists"""
-        result = self.execute_sql(db_transaction, """
+        result = self.execute_sql(
+            db_transaction,
+            """
             SELECT 1 FROM information_schema.domain_udt_usage
             WHERE domain_schema = 'pggit' AND domain_name = 'cqrs_change'
             UNION ALL
             SELECT 1 FROM pg_type
             WHERE typnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'pggit')
             AND typname = 'cqrs_change'
-        """)
+        """,
+        )
 
         # If type exists, we get a result
         assert len(result) > 0 or len(result) == 0, "Type existence check executed"
@@ -68,10 +73,13 @@ class TestAnalyzeCQRSDependencies(FunctionalTestCase):
         builder.create_cqrs_scenario_advanced()
 
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT command_object, query_object, dependency_type, dependency_path
                 FROM pggit.analyze_cqrs_dependencies('command', 'query')
-            """)
+            """,
+            )
 
             # Result can be empty or contain dependencies
             assert isinstance(result, list)
@@ -86,16 +94,18 @@ class TestAnalyzeCQRSDependencies(FunctionalTestCase):
         builder.create_schema("my_query")
 
         # Create a simple table to analyze
-        builder.create_table("my_command", "events", {
-            "id": "SERIAL PRIMARY KEY",
-            "data": "TEXT"
-        })
+        builder.create_table(
+            "my_command", "events", {"id": "SERIAL PRIMARY KEY", "data": "TEXT"}
+        )
 
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT command_object, query_object, dependency_type
                 FROM pggit.analyze_cqrs_dependencies('my_command', 'my_query')
-            """)
+            """,
+            )
 
             assert isinstance(result, list)
         except Exception:
@@ -104,14 +114,17 @@ class TestAnalyzeCQRSDependencies(FunctionalTestCase):
     def test_analyze_dependencies_returns_proper_columns(self, db_transaction):
         """Test that analyze_cqrs_dependencies returns expected columns"""
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT 1 WHERE FALSE
                 UNION ALL
                 SELECT command_object::text, query_object::text,
                        dependency_type::text, dependency_path::text[]
                 FROM pggit.analyze_cqrs_dependencies('command', 'query')
                 LIMIT 0
-            """)
+            """,
+            )
 
             # Query structure is valid
             assert True
@@ -135,9 +148,13 @@ class TestRefreshQuerySide(FunctionalTestCase):
             """)
 
             # Try to refresh it
-            result = self.execute_sql_value(db_transaction, """
+            result = self.execute_sql_value(
+                db_transaction,
+                """
                 SELECT pggit.refresh_query_side(%s, true)
-            """, (f"{schema}.test_view",))
+            """,
+                (f"{schema}.test_view",),
+            )
 
             # If refresh succeeds, result should be null (void return)
             assert result is None or result is not None
@@ -152,13 +169,21 @@ class TestRefreshQuerySide(FunctionalTestCase):
 
         try:
             # This should fail (view doesn't exist) but parameter should be accepted
-            result = self.execute_sql_value(db_transaction, """
+            result = self.execute_sql_value(
+                db_transaction,
+                """
                 SELECT pggit.refresh_query_side(%s, %s)
-            """, (view_name, False))
+            """,
+                (view_name, False),
+            )
         except Exception as e:
             # Expected to fail - but error should be about the view, not the parameters
             error_msg = str(e).lower()
-            assert "parameter" not in error_msg or "view" in error_msg or "relation" in error_msg
+            assert (
+                "parameter" not in error_msg
+                or "view" in error_msg
+                or "relation" in error_msg
+            )
 
 
 class TestCQRSDataOperations(FunctionalTestCase):
@@ -170,24 +195,30 @@ class TestCQRSDataOperations(FunctionalTestCase):
         scenario = builder.create_cqrs_scenario()
 
         # Insert data into command side
-        self.execute_sql(db_transaction, f"""
-            INSERT INTO {scenario['command_table']} (event_type, event_data)
+        self.execute_sql(
+            db_transaction,
+            f"""
+            INSERT INTO {scenario["command_table"]} (event_type, event_data)
             VALUES ('test_event', '{{}}'::jsonb)
-        """)
+        """,
+        )
 
         # Verify data was inserted
-        count = self.get_count(db_transaction, scenario['command_table'])
+        count = self.get_count(db_transaction, scenario["command_table"])
         assert count == 1
 
         # Insert data into query side
-        self.execute_sql(db_transaction, f"""
-            INSERT INTO {scenario['query_table']} (entity_id, count)
+        self.execute_sql(
+            db_transaction,
+            f"""
+            INSERT INTO {scenario["query_table"]} (entity_id, count)
             VALUES (1, 5)
-        """)
+        """,
+        )
 
         # Verify both tables have data
-        count_cmd = self.get_count(db_transaction, scenario['command_table'])
-        count_qry = self.get_count(db_transaction, scenario['query_table'])
+        count_cmd = self.get_count(db_transaction, scenario["command_table"])
+        count_qry = self.get_count(db_transaction, scenario["query_table"])
         assert count_cmd == 1
         assert count_qry == 1
 
@@ -197,16 +228,23 @@ class TestCQRSDataOperations(FunctionalTestCase):
         scenario = builder.create_cqrs_scenario_advanced()
 
         # Verify all expected tables exist
-        self.assert_table_exists(db_transaction, scenario['command_schema'], 'users_cmd')
-        self.assert_table_exists(db_transaction, scenario['command_schema'], 'orders_cmd')
+        self.assert_table_exists(
+            db_transaction, scenario["command_schema"], "users_cmd"
+        )
+        self.assert_table_exists(
+            db_transaction, scenario["command_schema"], "orders_cmd"
+        )
 
         # Insert data
-        self.execute_sql(db_transaction, f"""
-            INSERT INTO {scenario['users_cmd']} (name, email)
+        self.execute_sql(
+            db_transaction,
+            f"""
+            INSERT INTO {scenario["users_cmd"]} (name, email)
             VALUES ('John', 'john@example.com'), ('Jane', 'jane@example.com')
-        """)
+        """,
+        )
 
-        count = self.get_count(db_transaction, scenario['users_cmd'])
+        count = self.get_count(db_transaction, scenario["users_cmd"])
         assert count == 2
 
     def test_cqrs_foreign_key_relationships(self, db_transaction):
@@ -215,17 +253,16 @@ class TestCQRSDataOperations(FunctionalTestCase):
         cmd_schema = builder.create_schema("cmd")
 
         # Create parent table
-        parent = builder.create_table(cmd_schema, "users", {
-            "id": "SERIAL PRIMARY KEY",
-            "name": "TEXT"
-        })
+        parent = builder.create_table(
+            cmd_schema, "users", {"id": "SERIAL PRIMARY KEY", "name": "TEXT"}
+        )
 
         # Create child table with FK (don't use FK for now, just test table creation)
-        child = builder.create_table(cmd_schema, "orders", {
-            "id": "SERIAL PRIMARY KEY",
-            "user_id": "INT",
-            "amount": "DECIMAL(10,2)"
-        })
+        child = builder.create_table(
+            cmd_schema,
+            "orders",
+            {"id": "SERIAL PRIMARY KEY", "user_id": "INT", "amount": "DECIMAL(10,2)"},
+        )
 
         # Verify both tables exist
         self.assert_table_exists(db_transaction, cmd_schema, "users")
@@ -244,28 +281,32 @@ class TestCQRSIntegration(FunctionalTestCase):
         qry = builder.create_schema("qry_workflow")
 
         # 2. Create command-side table
-        cmd_table = builder.create_table(cmd, "events", {
-            "id": "SERIAL PRIMARY KEY",
-            "type": "TEXT",
-            "data": "JSONB"
-        })
+        cmd_table = builder.create_table(
+            cmd, "events", {"id": "SERIAL PRIMARY KEY", "type": "TEXT", "data": "JSONB"}
+        )
 
         # 3. Create query-side table
-        qry_table = builder.create_table(qry, "projections", {
-            "id": "SERIAL PRIMARY KEY",
-            "status": "TEXT",
-            "count": "INT"
-        })
+        qry_table = builder.create_table(
+            qry,
+            "projections",
+            {"id": "SERIAL PRIMARY KEY", "status": "TEXT", "count": "INT"},
+        )
 
         # 4. Insert command-side event
-        self.execute_sql(db_transaction, f"""
+        self.execute_sql(
+            db_transaction,
+            f"""
             INSERT INTO {cmd_table} (type, data) VALUES ('UserCreated', '{{}}'::jsonb)
-        """)
+        """,
+        )
 
         # 5. Create projection on query side
-        self.execute_sql(db_transaction, f"""
+        self.execute_sql(
+            db_transaction,
+            f"""
             INSERT INTO {qry_table} (status, count) VALUES ('active', 1)
-        """)
+        """,
+        )
 
         # 6. Verify data consistency
         cmd_count = self.get_count(db_transaction, cmd_table)
@@ -280,15 +321,21 @@ class TestCQRSIntegration(FunctionalTestCase):
         scenario = builder.create_cqrs_scenario()
 
         # Insert event with timestamp
-        self.execute_sql(db_transaction, f"""
-            INSERT INTO {scenario['command_table']} (event_type, event_data)
+        self.execute_sql(
+            db_transaction,
+            f"""
+            INSERT INTO {scenario["command_table"]} (event_type, event_data)
             VALUES ('created', '{{}}'::jsonb)
-        """)
+        """,
+        )
 
         # Verify timestamp was recorded
-        result = self.execute_sql_one(db_transaction, f"""
-            SELECT timestamp FROM {scenario['command_table']} LIMIT 1
-        """)
+        result = self.execute_sql_one(
+            db_transaction,
+            f"""
+            SELECT timestamp FROM {scenario["command_table"]} LIMIT 1
+        """,
+        )
 
         assert result is not None
         assert result[0] is not None
@@ -303,22 +350,30 @@ class TestCQRSIntegration(FunctionalTestCase):
         builder.create_schema(qry)
 
         # Pattern 1: Command side with events
-        events = builder.create_table(cmd, "events", {
-            "id": "BIGSERIAL PRIMARY KEY",
-            "event_id": "UUID",
-            "type": "VARCHAR(100)",
-            "data": "JSONB",
-            "timestamp": "TIMESTAMP DEFAULT NOW()"
-        })
+        events = builder.create_table(
+            cmd,
+            "events",
+            {
+                "id": "BIGSERIAL PRIMARY KEY",
+                "event_id": "UUID",
+                "type": "VARCHAR(100)",
+                "data": "JSONB",
+                "timestamp": "TIMESTAMP DEFAULT NOW()",
+            },
+        )
 
         # Pattern 2: Query side with denormalized projections
-        projection = builder.create_table(qry, "user_projection", {
-            "id": "BIGSERIAL PRIMARY KEY",
-            "user_id": "UUID",
-            "name": "VARCHAR(255)",
-            "email": "VARCHAR(255)",
-            "last_updated": "TIMESTAMP DEFAULT NOW()"
-        })
+        projection = builder.create_table(
+            qry,
+            "user_projection",
+            {
+                "id": "BIGSERIAL PRIMARY KEY",
+                "user_id": "UUID",
+                "name": "VARCHAR(255)",
+                "email": "VARCHAR(255)",
+                "last_updated": "TIMESTAMP DEFAULT NOW()",
+            },
+        )
 
         # Verify tables support realistic data
         self.assert_table_exists(db_transaction, cmd, "events")
@@ -335,15 +390,20 @@ class TestCQRSEdgeCases(FunctionalTestCase):
 
         # Create large JSON data as valid JSON
         import json
+
         large_data = {f"key{i}": f"value{i}" for i in range(100)}
         large_json = json.dumps(large_data)
 
-        self.execute_sql(db_transaction, f"""
-            INSERT INTO {scenario['command_table']} (event_type, event_data)
+        self.execute_sql(
+            db_transaction,
+            f"""
+            INSERT INTO {scenario["command_table"]} (event_type, event_data)
             VALUES ('test', %s::jsonb)
-        """, (large_json,))
+        """,
+            (large_json,),
+        )
 
-        count = self.get_count(db_transaction, scenario['command_table'])
+        count = self.get_count(db_transaction, scenario["command_table"])
         assert count == 1
 
     def test_cqrs_with_concurrent_table_operations(self, db_transaction):
@@ -353,18 +413,24 @@ class TestCQRSEdgeCases(FunctionalTestCase):
 
         # Insert into both sides
         for i in range(5):
-            self.execute_sql(db_transaction, f"""
-                INSERT INTO {scenario['command_table']} (event_type, event_data)
+            self.execute_sql(
+                db_transaction,
+                f"""
+                INSERT INTO {scenario["command_table"]} (event_type, event_data)
                 VALUES ('event{i}', '{{}}'::jsonb)
-            """)
+            """,
+            )
 
-            self.execute_sql(db_transaction, f"""
-                INSERT INTO {scenario['query_table']} (entity_id, count)
+            self.execute_sql(
+                db_transaction,
+                f"""
+                INSERT INTO {scenario["query_table"]} (entity_id, count)
                 VALUES ({i}, {i})
-            """)
+            """,
+            )
 
-        cmd_count = self.get_count(db_transaction, scenario['command_table'])
-        qry_count = self.get_count(db_transaction, scenario['query_table'])
+        cmd_count = self.get_count(db_transaction, scenario["command_table"])
+        qry_count = self.get_count(db_transaction, scenario["query_table"])
 
         assert cmd_count == 5
         assert qry_count == 5
@@ -375,14 +441,20 @@ class TestCQRSEdgeCases(FunctionalTestCase):
         scenario = builder.create_cqrs_scenario()
 
         # Insert with NULL values
-        self.execute_sql(db_transaction, f"""
-            INSERT INTO {scenario['command_table']} (event_type, event_data)
+        self.execute_sql(
+            db_transaction,
+            f"""
+            INSERT INTO {scenario["command_table"]} (event_type, event_data)
             VALUES ('test', NULL)
-        """)
+        """,
+        )
 
-        result = self.execute_sql_one(db_transaction, f"""
-            SELECT event_data FROM {scenario['command_table']} LIMIT 1
-        """)
+        result = self.execute_sql_one(
+            db_transaction,
+            f"""
+            SELECT event_data FROM {scenario["command_table"]} LIMIT 1
+        """,
+        )
 
         assert result[0] is None
 
@@ -393,13 +465,20 @@ class TestCQRSEdgeCases(FunctionalTestCase):
 
         unicode_str = "Unicode test: 你好 мир 🚀"
 
-        self.execute_sql(db_transaction, f"""
-            INSERT INTO {scenario['command_table']} (event_type, event_data)
+        self.execute_sql(
+            db_transaction,
+            f"""
+            INSERT INTO {scenario["command_table"]} (event_type, event_data)
             VALUES (%s, '{{}}'::jsonb)
-        """, (unicode_str,))
+        """,
+            (unicode_str,),
+        )
 
-        result = self.execute_sql_value(db_transaction, f"""
-            SELECT event_type FROM {scenario['command_table']} LIMIT 1
-        """)
+        result = self.execute_sql_value(
+            db_transaction,
+            f"""
+            SELECT event_type FROM {scenario["command_table"]} LIMIT 1
+        """,
+        )
 
         assert result == unicode_str

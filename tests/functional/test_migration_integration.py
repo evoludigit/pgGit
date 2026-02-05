@@ -123,10 +123,13 @@ class TestFlywaySchemasIntegration(FunctionalTestCase):
             migrations.append(m)
 
         # Verify ordering
-        result = self.execute_sql(db_transaction, """
+        result = self.execute_sql(
+            db_transaction,
+            """
             SELECT installed_rank, version FROM public.flyway_schema_history
             ORDER BY installed_rank
-        """)
+        """,
+        )
 
         for idx, row in enumerate(result):
             assert row[0] == idx + 1
@@ -180,10 +183,14 @@ class TestMigrationGeneration(FunctionalTestCase):
 
         # Try to detect changes
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT object_type, object_name, change_type
                 FROM pggit.detect_schema_changes(%s)
-            """, (scenario["schema"],))
+            """,
+                (scenario["schema"],),
+            )
 
             # Result can be empty or contain changes
             assert isinstance(result, list)
@@ -194,15 +201,19 @@ class TestMigrationGeneration(FunctionalTestCase):
         """Test detecting changes in public schema"""
         builder = MigrationTestBuilder(db_transaction)
         # Create a test table in public schema
-        builder.create_table("public", "test_detect_changes", {
-            "id": "SERIAL PRIMARY KEY",
-            "name": "TEXT"
-        })
+        builder.create_table(
+            "public",
+            "test_detect_changes",
+            {"id": "SERIAL PRIMARY KEY", "name": "TEXT"},
+        )
 
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT COUNT(*) FROM pggit.detect_schema_changes('public')
-            """)
+            """,
+            )
 
             count = result[0][0] if result else 0
             assert count >= 0
@@ -215,9 +226,12 @@ class TestMigrationGeneration(FunctionalTestCase):
         builder.create_migration_scenario()
 
         try:
-            result = self.execute_sql_value(db_transaction, """
+            result = self.execute_sql_value(
+                db_transaction,
+                """
                 SELECT pggit.generate_migration('1.0', 'Test migration')
-            """)
+            """,
+            )
 
             # Should return migration SQL or None
             assert result is None or isinstance(result, str)
@@ -227,9 +241,12 @@ class TestMigrationGeneration(FunctionalTestCase):
     def test_generate_migration_with_version(self, db_transaction):
         """Test generating migration with specific version"""
         try:
-            result = self.execute_sql_value(db_transaction, """
+            result = self.execute_sql_value(
+                db_transaction,
+                """
                 SELECT pggit.generate_migration('2.1.0', 'Feature deployment')
-            """)
+            """,
+            )
 
             assert result is None or isinstance(result, str)
         except Exception:
@@ -242,9 +259,12 @@ class TestMigrationTracking(FunctionalTestCase):
     def test_begin_migration_basic(self, db_transaction):
         """Test beginning a migration"""
         try:
-            result = self.execute_sql_value(db_transaction, """
+            result = self.execute_sql_value(
+                db_transaction,
+                """
                 SELECT pggit.begin_migration(1, 'flyway', 'V1__Initial')
-            """)
+            """,
+            )
 
             # Should return UUID
             assert result is not None
@@ -256,9 +276,13 @@ class TestMigrationTracking(FunctionalTestCase):
         """Test beginning migration with different tool names"""
         for tool in ["flyway", "liquibase", "rails"]:
             try:
-                result = self.execute_sql_value(db_transaction, """
+                result = self.execute_sql_value(
+                    db_transaction,
+                    """
                     SELECT pggit.begin_migration(1, %s, 'Test migration')
-                """, (tool,))
+                """,
+                    (tool,),
+                )
 
                 # Should handle tool name
                 assert result is None or result is not None
@@ -269,15 +293,21 @@ class TestMigrationTracking(FunctionalTestCase):
         """Test ending a migration"""
         try:
             # First begin
-            migration_uuid = self.execute_sql_value(db_transaction, """
+            migration_uuid = self.execute_sql_value(
+                db_transaction,
+                """
                 SELECT pggit.begin_migration(1, 'flyway', 'V1__Test')
-            """)
+            """,
+            )
 
             if migration_uuid:
                 # Then end
-                self.execute_sql(db_transaction, """
+                self.execute_sql(
+                    db_transaction,
+                    """
                     SELECT pggit.end_migration(1, 'abc123', true)
-                """)
+                """,
+                )
         except Exception:
             pass
 
@@ -291,10 +321,13 @@ class TestMigrationValidation(FunctionalTestCase):
         builder.create_flyway_schema_history()
 
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT migration_id, status, message
                 FROM pggit.validate_migrations('flyway')
-            """)
+            """,
+            )
 
             # Result can be empty
             assert isinstance(result, list)
@@ -305,10 +338,14 @@ class TestMigrationValidation(FunctionalTestCase):
         """Test validating migrations with specific tool"""
         try:
             for tool in ["flyway", "liquibase"]:
-                result = self.execute_sql(db_transaction, """
+                result = self.execute_sql(
+                    db_transaction,
+                    """
                     SELECT migration_id, status
                     FROM pggit.validate_migrations(%s)
-                """, (tool,))
+                """,
+                    (tool,),
+                )
 
                 assert isinstance(result, list)
         except Exception:
@@ -323,10 +360,14 @@ class TestMigrationAnalysis(FunctionalTestCase):
         migration_sql = "CREATE TABLE test (id SERIAL PRIMARY KEY, name TEXT)"
 
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT intent, confidence, risk_level
                 FROM pggit.analyze_migration_intent(%s)
-            """, (migration_sql,))
+            """,
+                (migration_sql,),
+            )
 
             # Should return analysis
             assert isinstance(result, list)
@@ -338,10 +379,14 @@ class TestMigrationAnalysis(FunctionalTestCase):
         migration_sql = "ALTER TABLE users DROP COLUMN old_field"
 
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT risk_score, requires_downtime
                 FROM pggit.assess_migration_risk(%s, 'public')
-            """, (migration_sql,))
+            """,
+                (migration_sql,),
+            )
 
             # Should return risk assessment
             assert isinstance(result, list)
@@ -351,10 +396,13 @@ class TestMigrationAnalysis(FunctionalTestCase):
     def test_analyze_migration_impact_basic(self, db_transaction):
         """Test analyzing migration impact"""
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT object_type, object_name, operation, impact_level
                 FROM pggit.analyze_migration_impact(1)
-            """)
+            """,
+            )
 
             assert isinstance(result, list)
         except Exception:
@@ -365,10 +413,14 @@ class TestMigrationAnalysis(FunctionalTestCase):
         drop_sql = "DROP TABLE important_data CASCADE"
 
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT risk_score, rollback_difficulty
                 FROM pggit.assess_migration_risk(%s, 'public')
-            """, (drop_sql,))
+            """,
+                (drop_sql,),
+            )
 
             if result:
                 risk_score = result[0][0]
@@ -382,10 +434,14 @@ class TestMigrationAnalysis(FunctionalTestCase):
         index_sql = "CREATE INDEX idx_users_email ON users(email)"
 
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT risk_score
                 FROM pggit.assess_migration_risk(%s, 'public')
-            """, (index_sql,))
+            """,
+                (index_sql,),
+            )
 
             if result:
                 risk_score = result[0][0]
@@ -415,9 +471,12 @@ class TestMigrationIntegration(FunctionalTestCase):
 
         # 4. Try to validate
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT COUNT(*) FROM pggit.validate_migrations('flyway')
-            """)
+            """,
+            )
             assert result[0][0] >= 0
         except Exception:
             pass
@@ -449,20 +508,31 @@ class TestMigrationIntegration(FunctionalTestCase):
         # Try analysis chain
         try:
             # 1. Detect changes
-            changes = self.execute_sql(db_transaction, """
+            changes = self.execute_sql(
+                db_transaction,
+                """
                 SELECT COUNT(*) FROM pggit.detect_schema_changes(%s)
-            """, (scenario["schema"],))
+            """,
+                (scenario["schema"],),
+            )
 
             # 2. Generate migration
-            migration = self.execute_sql_value(db_transaction, """
+            migration = self.execute_sql_value(
+                db_transaction,
+                """
                 SELECT pggit.generate_migration('1.0', 'Generated')
-            """)
+            """,
+            )
 
             # 3. Assess risk if we have migration SQL
             if migration:
-                risk = self.execute_sql(db_transaction, """
+                risk = self.execute_sql(
+                    db_transaction,
+                    """
                     SELECT risk_score FROM pggit.assess_migration_risk(%s, %s)
-                """, (migration, scenario["schema"]))
+                """,
+                    (migration, scenario["schema"]),
+                )
 
             assert True  # If we got here without exception, workflow works
         except Exception:
@@ -483,10 +553,13 @@ class TestMigrationEdgeCases(FunctionalTestCase):
         migration = builder.insert_flyway_migration("1.0", long_desc)
 
         # Verify it was stored
-        result = self.execute_sql_value(db_transaction, """
+        result = self.execute_sql_value(
+            db_transaction,
+            """
             SELECT description FROM public.flyway_schema_history
             WHERE version = '1.0'
-        """)
+        """,
+        )
 
         assert result is not None
 
@@ -540,9 +613,13 @@ class TestMigrationEdgeCases(FunctionalTestCase):
 
         for sql, _ in test_cases:
             try:
-                result = self.execute_sql(db_transaction, """
+                result = self.execute_sql(
+                    db_transaction,
+                    """
                     SELECT risk_score FROM pggit.assess_migration_risk(%s, 'public')
-                """, (sql,))
+                """,
+                    (sql,),
+                )
 
                 # Should return a risk score
                 if result:

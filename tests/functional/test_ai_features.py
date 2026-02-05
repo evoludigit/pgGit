@@ -19,11 +19,15 @@ class TestAIFunctionExistence(FunctionalTestCase):
 
     def test_analyze_migration_with_ai_exists(self, db_transaction):
         """Test that analyze_migration_with_ai exists"""
-        self.assert_function_exists(db_transaction, "pggit", "analyze_migration_with_ai")
+        self.assert_function_exists(
+            db_transaction, "pggit", "analyze_migration_with_ai"
+        )
 
     def test_analyze_migration_with_ai_enhanced_exists(self, db_transaction):
         """Test that analyze_migration_with_ai_enhanced exists"""
-        self.assert_function_exists(db_transaction, "pggit", "analyze_migration_with_ai_enhanced")
+        self.assert_function_exists(
+            db_transaction, "pggit", "analyze_migration_with_ai_enhanced"
+        )
 
     def test_cache_ml_predictions_exists(self, db_transaction):
         """Test that cache_ml_predictions exists"""
@@ -35,7 +39,9 @@ class TestAIFunctionExistence(FunctionalTestCase):
 
     def test_predict_prefetch_candidates_exists(self, db_transaction):
         """Test that predict_prefetch_candidates exists"""
-        self.assert_function_exists(db_transaction, "pggit", "predict_prefetch_candidates")
+        self.assert_function_exists(
+            db_transaction, "pggit", "predict_prefetch_candidates"
+        )
 
     def test_record_ai_analysis_exists(self, db_transaction):
         """Test that record_ai_analysis exists"""
@@ -47,7 +53,9 @@ class TestAIFunctionExistence(FunctionalTestCase):
 
     def test_update_prediction_accuracy_exists(self, db_transaction):
         """Test that update_prediction_accuracy exists"""
-        self.assert_function_exists(db_transaction, "pggit", "update_prediction_accuracy")
+        self.assert_function_exists(
+            db_transaction, "pggit", "update_prediction_accuracy"
+        )
 
     def test_evaluate_model_accuracy_exists(self, db_transaction):
         """Test that evaluate_model_accuracy exists"""
@@ -87,10 +95,14 @@ class TestAIMigrationAnalysis(FunctionalTestCase):
         scenario = builder.create_ai_scenario()
 
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT intent, confidence, risk_level
                 FROM pggit.analyze_migration_with_ai(%s, %s)
-            """, (scenario['migration_id'], scenario['migration_content']))
+            """,
+                (scenario["migration_id"], scenario["migration_content"]),
+            )
 
             # Should return at least intent/confidence/risk_level
             assert isinstance(result, list)
@@ -103,10 +115,14 @@ class TestAIMigrationAnalysis(FunctionalTestCase):
         scenario = builder.create_ai_scenario()
 
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT intent, confidence, risk_level, size_impact_bytes
                 FROM pggit.analyze_migration_with_ai_enhanced(%s, %s)
-            """, (scenario['migration_id'], scenario['migration_content']))
+            """,
+                (scenario["migration_id"], scenario["migration_content"]),
+            )
 
             # Should include size impact analysis
             assert isinstance(result, list)
@@ -119,10 +135,14 @@ class TestAIMigrationAnalysis(FunctionalTestCase):
         scenario = builder.create_ai_scenario()
 
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT intent, confidence
                 FROM pggit.analyze_migration_with_ai(%s, %s, %s)
-            """, (scenario['migration_id'], scenario['migration_content'], 'flyway'))
+            """,
+                (scenario["migration_id"], scenario["migration_content"], "flyway"),
+            )
 
             assert isinstance(result, list)
         except Exception:
@@ -139,9 +159,9 @@ class TestAIRecording(FunctionalTestCase):
 
         try:
             builder.record_ai_analysis(
-                scenario['migration_id'],
-                scenario['migration_content'],
-                {"result": "success"}
+                scenario["migration_id"],
+                scenario["migration_content"],
+                {"result": "success"},
             )
             assert True
         except Exception:
@@ -152,11 +172,7 @@ class TestAIRecording(FunctionalTestCase):
         builder = AITestBuilder(db_transaction)
 
         try:
-            result = builder.record_ai_prediction(
-                123,
-                {"prediction": "test"},
-                0.85
-            )
+            result = builder.record_ai_prediction(123, {"prediction": "test"}, 0.85)
             assert isinstance(result, dict)
         except Exception:
             pass
@@ -169,9 +185,9 @@ class TestAIRecording(FunctionalTestCase):
             try:
                 scenario = builder.create_ai_scenario()
                 builder.record_ai_analysis(
-                    scenario['migration_id'],
-                    scenario['migration_content'],
-                    {"index": i}
+                    scenario["migration_id"],
+                    scenario["migration_content"],
+                    {"index": i},
                 )
             except Exception:
                 pass
@@ -267,10 +283,7 @@ class TestPredictionAccuracy(FunctionalTestCase):
 
         try:
             result = builder.update_prediction_accuracy(
-                "object_1",
-                "object_2",
-                "object_3",
-                150.5
+                "object_1", "object_2", "object_3", 150.5
             )
             assert isinstance(result, dict)
         except Exception:
@@ -283,10 +296,7 @@ class TestPredictionAccuracy(FunctionalTestCase):
         for i in range(3):
             try:
                 builder.update_prediction_accuracy(
-                    f"object_{i}",
-                    f"predicted_{i}",
-                    f"actual_{i}",
-                    100.0 + i * 10
+                    f"object_{i}", f"predicted_{i}", f"actual_{i}", 100.0 + i * 10
                 )
             except Exception:
                 pass
@@ -317,8 +327,7 @@ class TestAIIntegration(FunctionalTestCase):
         # 2. Record analysis
         try:
             builder.record_ai_analysis(
-                scenario['migration_id'],
-                scenario['migration_content']
+                scenario["migration_id"], scenario["migration_content"]
             )
         except Exception:
             pass
@@ -326,19 +335,14 @@ class TestAIIntegration(FunctionalTestCase):
         # 3. Analyze with AI
         try:
             builder.analyze_migration_with_ai(
-                scenario['migration_id'],
-                scenario['migration_content']
+                scenario["migration_id"], scenario["migration_content"]
             )
         except Exception:
             pass
 
         # 4. Record prediction
         try:
-            builder.record_ai_prediction(
-                123,
-                {"workflow": "complete"},
-                0.9
-            )
+            builder.record_ai_prediction(123, {"workflow": "complete"}, 0.9)
         except Exception:
             pass
 
@@ -352,8 +356,7 @@ class TestAIIntegration(FunctionalTestCase):
         # Analyze with enhanced version
         try:
             analysis = builder.analyze_migration_with_ai_enhanced(
-                scenario['migration_id'],
-                scenario['migration_content']
+                scenario["migration_id"], scenario["migration_content"]
             )
             assert isinstance(analysis, dict)
         except Exception:
@@ -362,10 +365,7 @@ class TestAIIntegration(FunctionalTestCase):
         # Update accuracy metrics
         try:
             builder.update_prediction_accuracy(
-                "test_input",
-                "test_predicted",
-                "test_actual",
-                200.0
+                "test_input", "test_predicted", "test_actual", 200.0
             )
         except Exception:
             pass
@@ -391,10 +391,7 @@ class TestAIIntegration(FunctionalTestCase):
         # 3. Update accuracy
         try:
             builder.update_prediction_accuracy(
-                "test_input",
-                "predicted_output",
-                "actual_output",
-                150.0
+                "test_input", "predicted_output", "actual_output", 150.0
             )
         except Exception:
             pass
@@ -423,12 +420,15 @@ class TestAIDataOperations(FunctionalTestCase):
     def test_ai_decisions_table_structure(self, db_transaction):
         """Test AI decisions table structure"""
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT column_name, data_type
                 FROM information_schema.columns
                 WHERE table_schema = 'pggit' AND table_name = 'ai_decisions'
                 ORDER BY ordinal_position
-            """)
+            """,
+            )
             assert len(result) > 0
         except Exception:
             pass
@@ -436,9 +436,12 @@ class TestAIDataOperations(FunctionalTestCase):
     def test_ml_cache_table_structure(self, db_transaction):
         """Test ML cache table structure"""
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT COUNT(*) FROM pggit.ml_prediction_cache
-            """)
+            """,
+            )
             assert isinstance(result, list)
         except Exception:
             pass
@@ -452,10 +455,13 @@ class TestAIEdgeCases(FunctionalTestCase):
         builder = AITestBuilder(db_transaction)
 
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT intent, confidence
                 FROM pggit.analyze_migration_with_ai('empty_migration', '')
-            """)
+            """,
+            )
             assert isinstance(result, list)
         except Exception:
             pass
@@ -470,10 +476,14 @@ class TestAIEdgeCases(FunctionalTestCase):
         )
 
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT intent, confidence
                 FROM pggit.analyze_migration_with_ai('large_migration', %s)
-            """, (large_content,))
+            """,
+                (large_content,),
+            )
             assert isinstance(result, list)
         except Exception:
             pass
@@ -494,10 +504,14 @@ class TestAIEdgeCases(FunctionalTestCase):
         """
 
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT intent, risk_level
                 FROM pggit.analyze_migration_with_ai('complex_migration', %s)
-            """, (complex_sql,))
+            """,
+                (complex_sql,),
+            )
             assert isinstance(result, list)
         except Exception:
             pass
@@ -537,9 +551,7 @@ class TestAIEdgeCases(FunctionalTestCase):
         builder = AITestBuilder(db_transaction)
 
         try:
-            result = builder.update_prediction_accuracy(
-                "obj_1", "obj_2", "obj_3", 0.0
-            )
+            result = builder.update_prediction_accuracy("obj_1", "obj_2", "obj_3", 0.0)
             assert isinstance(result, dict)
         except Exception:
             pass
@@ -565,10 +577,14 @@ class TestAIEdgeCases(FunctionalTestCase):
         """
 
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT intent, confidence
                 FROM pggit.analyze_migration_with_ai('unicode_migration', %s)
-            """, (unicode_content,))
+            """,
+                (unicode_content,),
+            )
             assert isinstance(result, list)
         except Exception:
             pass
@@ -581,10 +597,14 @@ class TestAIEdgeCases(FunctionalTestCase):
         """
 
         try:
-            result = self.execute_sql(db_transaction, """
+            result = self.execute_sql(
+                db_transaction,
+                """
                 SELECT intent, confidence
                 FROM pggit.analyze_migration_with_ai('special_migration', %s)
-            """, (special_content,))
+            """,
+                (special_content,),
+            )
             assert isinstance(result, list)
         except Exception:
             pass

@@ -62,37 +62,51 @@ class FunctionalTestCase:
 
     def assert_table_exists(self, db_connection, schema: str, table: str):
         """Assert that table exists in schema"""
-        result = self.execute_sql(db_connection, """
+        result = self.execute_sql(
+            db_connection,
+            """
             SELECT 1 FROM information_schema.tables
             WHERE table_schema = %s AND table_name = %s
-        """, (schema, table))
+        """,
+            (schema, table),
+        )
 
-        assert len(result) > 0, \
+        assert len(result) > 0, (
             f"Table {schema}.{table} not found in information_schema"
+        )
 
     def assert_table_not_exists(self, db_connection, schema: str, table: str):
         """Assert that table does not exist"""
-        result = self.execute_sql(db_connection, """
+        result = self.execute_sql(
+            db_connection,
+            """
             SELECT 1 FROM information_schema.tables
             WHERE table_schema = %s AND table_name = %s
-        """, (schema, table))
+        """,
+            (schema, table),
+        )
 
-        assert len(result) == 0, \
+        assert len(result) == 0, (
             f"Table {schema}.{table} should not exist but was found"
+        )
 
     def assert_function_exists(self, db_connection, schema: str, function: str):
         """Assert that function exists"""
-        result = self.execute_sql(db_connection, """
+        result = self.execute_sql(
+            db_connection,
+            """
             SELECT 1 FROM pg_proc p
             JOIN pg_namespace n ON p.pronamespace = n.oid
             WHERE n.nspname = %s AND p.proname = %s
-        """, (schema, function))
+        """,
+            (schema, function),
+        )
 
-        assert len(result) > 0, \
-            f"Function {schema}.{function} not found"
+        assert len(result) > 0, f"Function {schema}.{function} not found"
 
-    def assert_record_count(self, db_connection, table: str, expected: int,
-                           where_clause: str = None):
+    def assert_record_count(
+        self, db_connection, table: str, expected: int, where_clause: str = None
+    ):
         """Assert that table has expected number of records"""
         sql = f"SELECT COUNT(*) FROM {table}"
         if where_clause:
@@ -100,33 +114,41 @@ class FunctionalTestCase:
 
         count = self.execute_sql_value(db_connection, sql)
 
-        assert count == expected, \
+        assert count == expected, (
             f"Table {table}: expected {expected} records, got {count}"
+        )
 
     def assert_record_count_gte(self, db_connection, table: str, min_count: int):
         """Assert that table has at least min_count records"""
         count = self.execute_sql_value(db_connection, f"SELECT COUNT(*) FROM {table}")
 
-        assert count >= min_count, \
+        assert count >= min_count, (
             f"Table {table}: expected >= {min_count} records, got {count}"
+        )
 
     def assert_value_exists(self, db_connection, table: str, column: str, value):
         """Assert that value exists in table column"""
-        result = self.execute_sql(db_connection, f"""
+        result = self.execute_sql(
+            db_connection,
+            f"""
             SELECT 1 FROM {table} WHERE {column} = %s
-        """, (value,))
+        """,
+            (value,),
+        )
 
-        assert len(result) > 0, \
-            f"Value '{value}' not found in {table}.{column}"
+        assert len(result) > 0, f"Value '{value}' not found in {table}.{column}"
 
     def assert_value_not_exists(self, db_connection, table: str, column: str, value):
         """Assert that value does not exist in table column"""
-        result = self.execute_sql(db_connection, f"""
+        result = self.execute_sql(
+            db_connection,
+            f"""
             SELECT 1 FROM {table} WHERE {column} = %s
-        """, (value,))
+        """,
+            (value,),
+        )
 
-        assert len(result) == 0, \
-            f"Value '{value}' should not exist in {table}.{column}"
+        assert len(result) == 0, f"Value '{value}' should not exist in {table}.{column}"
 
     def assert_uuid_valid(self, value):
         """Assert that value is a valid UUID"""
@@ -134,33 +156,52 @@ class FunctionalTestCase:
             pytest.fail("UUID is NULL")
 
         import uuid
+
         try:
             uuid.UUID(str(value))
         except ValueError:
             pytest.fail(f"Invalid UUID format: {value}")
 
-    def assert_status_field(self, db_connection, table: str, key_column: str,
-                           key_value, status_column: str, expected_status: str):
+    def assert_status_field(
+        self,
+        db_connection,
+        table: str,
+        key_column: str,
+        key_value,
+        status_column: str,
+        expected_status: str,
+    ):
         """Assert that record has expected status"""
-        result = self.execute_sql(db_connection, f"""
+        result = self.execute_sql(
+            db_connection,
+            f"""
             SELECT {status_column} FROM {table} WHERE {key_column} = %s
-        """, (key_value,))
+        """,
+            (key_value,),
+        )
 
-        assert len(result) > 0, \
+        assert len(result) > 0, (
             f"Record with {key_column}={key_value} not found in {table}"
+        )
 
         actual_status = result[0][0]
-        assert actual_status == expected_status, \
+        assert actual_status == expected_status, (
             f"Expected {status_column}='{expected_status}', got '{actual_status}'"
+        )
 
     def get_record(self, db_connection, table: str, key_column: str, key_value):
         """Get full record as dict"""
-        result = self.execute_sql_one(db_connection, f"""
+        result = self.execute_sql_one(
+            db_connection,
+            f"""
             SELECT * FROM {table} WHERE {key_column} = %s
-        """, (key_value,))
+        """,
+            (key_value,),
+        )
 
-        assert result is not None, \
+        assert result is not None, (
             f"Record with {key_column}={key_value} not found in {table}"
+        )
 
         # Get column names
         cursor = db_connection.execute(f"SELECT 1 FROM {table} LIMIT 1")
@@ -184,39 +225,59 @@ class FunctionalTestCase:
         """Create test schema"""
         self.execute_sql(db_connection, f"CREATE SCHEMA IF NOT EXISTS {schema_name}")
 
-    def create_test_table(self, db_connection, table_name: str,
-                         schema_name: str = "public", with_rows: int = 0):
+    def create_test_table(
+        self,
+        db_connection,
+        table_name: str,
+        schema_name: str = "public",
+        with_rows: int = 0,
+    ):
         """Create simple test table"""
         full_name = f"{schema_name}.{table_name}"
-        self.execute_sql(db_connection, f"""
+        self.execute_sql(
+            db_connection,
+            f"""
             CREATE TABLE IF NOT EXISTS {full_name} (
                 id SERIAL PRIMARY KEY,
                 data TEXT,
                 created_at TIMESTAMP DEFAULT NOW()
             )
-        """)
+        """,
+        )
 
         if with_rows > 0:
             for i in range(with_rows):
-                self.execute_sql(db_connection, f"""
+                self.execute_sql(
+                    db_connection,
+                    f"""
                     INSERT INTO {full_name} (data) VALUES ('Row {i}')
-                """)
+                """,
+                )
 
         return full_name
 
-    def create_test_function(self, db_connection, function_name: str,
-                            schema_name: str = "public", params: str = "",
-                            returns: str = "text", body: str = "RETURN 'test'"):
+    def create_test_function(
+        self,
+        db_connection,
+        function_name: str,
+        schema_name: str = "public",
+        params: str = "",
+        returns: str = "text",
+        body: str = "RETURN 'test'",
+    ):
         """Create simple test function"""
         full_name = f"{schema_name}.{function_name}"
-        self.execute_sql(db_connection, f"""
+        self.execute_sql(
+            db_connection,
+            f"""
             CREATE OR REPLACE FUNCTION {full_name}({params})
             RETURNS {returns} AS $$
             BEGIN
                 {body};
             END;
             $$ LANGUAGE plpgsql;
-        """)
+        """,
+        )
 
         return full_name
 
