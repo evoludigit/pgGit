@@ -21,16 +21,16 @@ import time
 class TestJobQueue:
     """Test job queue operations."""
 
-    def test_enqueue_job(self, db, pggit_installed):
+    def test_enqueue_job(self, db_e2e, pggit_installed):
         """Test enqueueing a backup job."""
         # Create commit and backup
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message)
             VALUES ('test-commit-queue', 1, 'Queue test')
             ON CONFLICT (hash) DO NOTHING
         """)
 
-        backup_id = db.execute_returning("""
+        backup_id = db_e2e.execute_returning("""
             SELECT pggit.register_backup(
                 'queue-test-backup',
                 'full',
@@ -41,7 +41,7 @@ class TestJobQueue:
         """)
 
         # Enqueue job
-        job_id = db.execute_returning("""
+        job_id = db_e2e.execute_returning("""
             SELECT pggit.enqueue_backup_job(
                 %s::UUID,
                 'echo "test command"',
@@ -55,7 +55,7 @@ class TestJobQueue:
         print(f"✓ Enqueued job: {job_id[0]}")
 
         # Verify job exists
-        result = db.execute_returning("""
+        result = db_e2e.execute_returning("""
             SELECT status, command, tool, max_attempts
             FROM pggit.backup_jobs
             WHERE job_id = %s
@@ -66,16 +66,16 @@ class TestJobQueue:
         assert result[2] == 'custom'
         assert result[3] == 3
 
-    def test_get_next_job(self, db, pggit_installed):
+    def test_get_next_job(self, db_e2e, pggit_installed):
         """Test getting next job from queue."""
         # Create commit and backup
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message)
             VALUES ('test-commit-next', 1, 'Next job test')
             ON CONFLICT (hash) DO NOTHING
         """)
 
-        backup_id = db.execute_returning("""
+        backup_id = db_e2e.execute_returning("""
             SELECT pggit.register_backup(
                 'next-job-test',
                 'full',
@@ -86,7 +86,7 @@ class TestJobQueue:
         """)
 
         # Enqueue job
-        job_id = db.execute_returning("""
+        job_id = db_e2e.execute_returning("""
             SELECT pggit.enqueue_backup_job(
                 %s::UUID,
                 'echo "next job test"',
@@ -95,7 +95,7 @@ class TestJobQueue:
         """, backup_id[0])
 
         # Get next job
-        job = db.execute("""
+        job = db_e2e.execute("""
             SELECT job_id, backup_id, command, tool, attempts
             FROM pggit.get_next_backup_job('test-worker-1')
         """)
@@ -108,22 +108,22 @@ class TestJobQueue:
         print(f"✓ Got next job: {job[0][0]}")
 
         # Verify status changed to running
-        status = db.execute_returning("""
+        status = db_e2e.execute_returning("""
             SELECT status FROM pggit.backup_jobs WHERE job_id = %s
         """, job_id[0])
 
         assert status[0] == 'running'
 
-    def test_complete_job(self, db, pggit_installed):
+    def test_complete_job(self, db_e2e, pggit_installed):
         """Test marking job as completed."""
         # Create commit, backup, and job
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message)
             VALUES ('test-commit-complete-job', 1, 'Complete job test')
             ON CONFLICT (hash) DO NOTHING
         """)
 
-        backup_id = db.execute_returning("""
+        backup_id = db_e2e.execute_returning("""
             SELECT pggit.register_backup(
                 'complete-job-test',
                 'full',
@@ -133,7 +133,7 @@ class TestJobQueue:
             )
         """)
 
-        job_id = db.execute_returning("""
+        job_id = db_e2e.execute_returning("""
             SELECT pggit.enqueue_backup_job(
                 %s::UUID,
                 'echo "complete test"',
@@ -142,12 +142,12 @@ class TestJobQueue:
         """, backup_id[0])
 
         # Get the job (marks as running)
-        db.execute("""
+        db_e2e.execute("""
             SELECT * FROM pggit.get_next_backup_job('test-worker')
         """)
 
         # Complete it
-        result = db.execute_returning("""
+        result = db_e2e.execute_returning("""
             SELECT pggit.complete_backup_job(%s::UUID, 'Job output here')
         """, job_id[0])
 
@@ -155,7 +155,7 @@ class TestJobQueue:
         print(f"✓ Completed job: {job_id[0]}")
 
         # Verify status
-        status = db.execute_returning("""
+        status = db_e2e.execute_returning("""
             SELECT status, completed_at IS NOT NULL
             FROM pggit.backup_jobs
             WHERE job_id = %s
@@ -164,16 +164,16 @@ class TestJobQueue:
         assert status[0] == 'completed'
         assert status[1] is True  # completed_at should be set
 
-    def test_fail_job_with_retry(self, db, pggit_installed):
+    def test_fail_job_with_retry(self, db_e2e, pggit_installed):
         """Test marking job as failed with retry."""
         # Create commit, backup, and job
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message)
             VALUES ('test-commit-fail-retry', 1, 'Fail retry test')
             ON CONFLICT (hash) DO NOTHING
         """)
 
-        backup_id = db.execute_returning("""
+        backup_id = db_e2e.execute_returning("""
             SELECT pggit.register_backup(
                 'fail-retry-test',
                 'full',
@@ -183,7 +183,7 @@ class TestJobQueue:
             )
         """)
 
-        job_id = db.execute_returning("""
+        job_id = db_e2e.execute_returning("""
             SELECT pggit.enqueue_backup_job(
                 %s::UUID,
                 'echo "fail retry test"',
@@ -193,17 +193,17 @@ class TestJobQueue:
         """, backup_id[0])
 
         # Get job (attempt 1)
-        db.execute("""
+        db_e2e.execute("""
             SELECT * FROM pggit.get_next_backup_job('test-worker')
         """)
 
         # Fail it
-        db.execute("""
+        db_e2e.execute("""
             SELECT pggit.fail_backup_job(%s::UUID, 'Test error message', 1)
         """, job_id[0])
 
         # Verify status and retry schedule
-        result = db.execute_returning("""
+        result = db_e2e.execute_returning("""
             SELECT status, attempts, next_retry_at IS NOT NULL, last_error
             FROM pggit.backup_jobs
             WHERE job_id = %s
@@ -216,16 +216,16 @@ class TestJobQueue:
 
         print("✓ Job failed with retry scheduled")
 
-    def test_fail_job_max_retries(self, db, pggit_installed):
+    def test_fail_job_max_retries(self, db_e2e, pggit_installed):
         """Test job failure after max retries."""
         # Create commit, backup, and job
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message)
             VALUES ('test-commit-max-retry', 1, 'Max retry test')
             ON CONFLICT (hash) DO NOTHING
         """)
 
-        backup_id = db.execute_returning("""
+        backup_id = db_e2e.execute_returning("""
             SELECT pggit.register_backup(
                 'max-retry-test',
                 'full',
@@ -235,7 +235,7 @@ class TestJobQueue:
             )
         """)
 
-        job_id = db.execute_returning("""
+        job_id = db_e2e.execute_returning("""
             SELECT pggit.enqueue_backup_job(
                 %s::UUID,
                 'echo "max retry test"',
@@ -245,15 +245,15 @@ class TestJobQueue:
         """, backup_id[0])
 
         # Attempt 1: Get and fail
-        db.execute("SELECT * FROM pggit.get_next_backup_job('test-worker')")
-        db.execute("SELECT pggit.fail_backup_job(%s::UUID, 'Attempt 1 failed', 0)", job_id[0])
+        db_e2e.execute("SELECT * FROM pggit.get_next_backup_job('test-worker')")
+        db_e2e.execute("SELECT pggit.fail_backup_job(%s::UUID, 'Attempt 1 failed', 0)", job_id[0])
 
         # Attempt 2: Get and fail (max retries reached)
-        db.execute("SELECT * FROM pggit.get_next_backup_job('test-worker')")
-        db.execute("SELECT pggit.fail_backup_job(%s::UUID, 'Attempt 2 failed', 0)", job_id[0])
+        db_e2e.execute("SELECT * FROM pggit.get_next_backup_job('test-worker')")
+        db_e2e.execute("SELECT pggit.fail_backup_job(%s::UUID, 'Attempt 2 failed', 0)", job_id[0])
 
         # Verify permanently failed
-        result = db.execute_returning("""
+        result = db_e2e.execute_returning("""
             SELECT status, attempts, completed_at IS NOT NULL
             FROM pggit.backup_jobs
             WHERE job_id = %s
@@ -264,7 +264,7 @@ class TestJobQueue:
         assert result[2] is True  # completed_at set when permanently failed
 
         # Verify backup also marked as failed
-        backup_status = db.execute_returning("""
+        backup_status = db_e2e.execute_returning("""
             SELECT status, error_message
             FROM pggit.backups
             WHERE backup_id = %s
@@ -279,23 +279,23 @@ class TestJobQueue:
 class TestAutomatedBackups:
     """Test automated backup functions."""
 
-    def test_backup_pgbackrest(self, db, pggit_installed):
+    def test_backup_pgbackrest(self, db_e2e, pggit_installed):
         """Test automated pgBackRest backup."""
         # Create commit
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message)
             VALUES ('test-commit-pgbackrest', 1, 'pgBackRest test')
             ON CONFLICT (hash) DO NOTHING
         """)
 
-        db.execute("""
+        db_e2e.execute("""
             UPDATE pggit.branches
             SET head_commit_hash = 'test-commit-pgbackrest'
             WHERE name = 'main'
         """)
 
         # Trigger automated backup
-        backup_id = db.execute_returning("""
+        backup_id = db_e2e.execute_returning("""
             SELECT pggit.backup_pgbackrest(
                 'full',
                 'main',
@@ -308,7 +308,7 @@ class TestAutomatedBackups:
         print(f"✓ Created pgBackRest backup: {backup_id[0]}")
 
         # Verify backup was registered
-        backup = db.execute_returning("""
+        backup = db_e2e.execute_returning("""
             SELECT backup_name, backup_type, backup_tool, status, commit_hash
             FROM pggit.backups
             WHERE backup_id = %s
@@ -321,7 +321,7 @@ class TestAutomatedBackups:
         assert backup[4] == 'test-commit-pgbackrest'
 
         # Verify job was enqueued
-        job = db.execute("""
+        job = db_e2e.execute("""
             SELECT job_id, command, tool, status
             FROM pggit.backup_jobs
             WHERE backup_id = %s
@@ -334,23 +334,23 @@ class TestAutomatedBackups:
         assert job[0][2] == 'pgbackrest'
         assert job[0][3] == 'queued'
 
-    def test_backup_barman(self, db, pggit_installed):
+    def test_backup_barman(self, db_e2e, pggit_installed):
         """Test automated Barman backup."""
         # Create commit
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message)
             VALUES ('test-commit-barman', 1, 'Barman test')
             ON CONFLICT (hash) DO NOTHING
         """)
 
-        db.execute("""
+        db_e2e.execute("""
             UPDATE pggit.branches
             SET head_commit_hash = 'test-commit-barman'
             WHERE name = 'main'
         """)
 
         # Trigger automated backup
-        backup_id = db.execute_returning("""
+        backup_id = db_e2e.execute_returning("""
             SELECT pggit.backup_barman(
                 'prod-server',
                 'main',
@@ -362,7 +362,7 @@ class TestAutomatedBackups:
         print(f"✓ Created Barman backup: {backup_id[0]}")
 
         # Verify backup
-        backup = db.execute_returning("""
+        backup = db_e2e.execute_returning("""
             SELECT backup_name, backup_tool, status
             FROM pggit.backups
             WHERE backup_id = %s
@@ -373,7 +373,7 @@ class TestAutomatedBackups:
         assert backup[2] == 'in_progress'
 
         # Verify job
-        job = db.execute("""
+        job = db_e2e.execute("""
             SELECT command, tool
             FROM pggit.backup_jobs
             WHERE backup_id = %s
@@ -384,23 +384,23 @@ class TestAutomatedBackups:
         assert '--wait' in job[0][0]
         assert job[0][1] == 'barman'
 
-    def test_backup_pg_dump(self, db, pggit_installed):
+    def test_backup_pg_dump(self, db_e2e, pggit_installed):
         """Test automated pg_dump backup."""
         # Create commit
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message)
             VALUES ('test-commit-pgdump', 1, 'pg_dump test')
             ON CONFLICT (hash) DO NOTHING
         """)
 
-        db.execute("""
+        db_e2e.execute("""
             UPDATE pggit.branches
             SET head_commit_hash = 'test-commit-pgdump'
             WHERE name = 'main'
         """)
 
         # Trigger automated backup
-        backup_id = db.execute_returning("""
+        backup_id = db_e2e.execute_returning("""
             SELECT pggit.backup_pg_dump(
                 'main',
                 'public',
@@ -414,7 +414,7 @@ class TestAutomatedBackups:
         print(f"✓ Created pg_dump backup: {backup_id[0]}")
 
         # Verify backup
-        backup = db.execute_returning("""
+        backup = db_e2e.execute_returning("""
             SELECT backup_name, backup_type, backup_tool, location
             FROM pggit.backups
             WHERE backup_id = %s
@@ -426,7 +426,7 @@ class TestAutomatedBackups:
         assert backup[3].startswith('file:///tmp/backups/')
 
         # Verify job
-        job = db.execute("""
+        job = db_e2e.execute("""
             SELECT command
             FROM pggit.backup_jobs
             WHERE backup_id = %s
@@ -442,16 +442,16 @@ class TestAutomatedBackups:
 class TestJobMonitoring:
     """Test job monitoring and views."""
 
-    def test_backup_job_queue_view(self, db, pggit_installed):
+    def test_backup_job_queue_view(self, db_e2e, pggit_installed):
         """Test backup job queue monitoring view."""
         # Create some test jobs
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message)
             VALUES ('test-commit-monitor', 1, 'Monitor test')
             ON CONFLICT (hash) DO NOTHING
         """)
 
-        backup_id = db.execute_returning("""
+        backup_id = db_e2e.execute_returning("""
             SELECT pggit.register_backup(
                 'monitor-test',
                 'full',
@@ -461,7 +461,7 @@ class TestJobMonitoring:
             )
         """)
 
-        job_id = db.execute_returning("""
+        job_id = db_e2e.execute_returning("""
             SELECT pggit.enqueue_backup_job(
                 %s::UUID,
                 'echo "monitor test"',
@@ -470,7 +470,7 @@ class TestJobMonitoring:
         """, backup_id[0])
 
         # Query monitoring view
-        view_data = db.execute("""
+        view_data = db_e2e.execute("""
             SELECT job_id, backup_name, tool, status, job_state, attempts
             FROM pggit.backup_job_queue
             WHERE job_id = %s
@@ -486,16 +486,16 @@ class TestJobMonitoring:
 
         print("✓ Job queue monitoring view works correctly")
 
-    def test_job_queue_states(self, db, pggit_installed):
+    def test_job_queue_states(self, db_e2e, pggit_installed):
         """Test different job states in monitoring view."""
         # Create test data
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message)
             VALUES ('test-commit-states', 1, 'States test')
             ON CONFLICT (hash) DO NOTHING
         """)
 
-        backup_id = db.execute_returning("""
+        backup_id = db_e2e.execute_returning("""
             SELECT pggit.register_backup(
                 'states-test',
                 'full',
@@ -505,28 +505,28 @@ class TestJobMonitoring:
             )
         """)
 
-        job_id = db.execute_returning("""
+        job_id = db_e2e.execute_returning("""
             SELECT pggit.enqueue_backup_job(%s::UUID, 'echo test', 'custom', 3)
         """, backup_id[0])
 
         # Check initial state (queued -> ready)
-        state = db.execute_returning("""
+        state = db_e2e.execute_returning("""
             SELECT job_state FROM pggit.backup_job_queue WHERE job_id = %s
         """, job_id[0])
         assert state[0] == 'ready'
 
         # Get job (running -> in_progress)
-        db.execute("SELECT * FROM pggit.get_next_backup_job('test-worker')")
+        db_e2e.execute("SELECT * FROM pggit.get_next_backup_job('test-worker')")
 
-        state = db.execute_returning("""
+        state = db_e2e.execute_returning("""
             SELECT job_state FROM pggit.backup_job_queue WHERE job_id = %s
         """, job_id[0])
         assert state[0] == 'in_progress'
 
         # Fail job (failed + retries left -> will_retry)
-        db.execute("SELECT pggit.fail_backup_job(%s::UUID, 'Test error', 60)", job_id[0])
+        db_e2e.execute("SELECT pggit.fail_backup_job(%s::UUID, 'Test error', 60)", job_id[0])
 
-        state = db.execute_returning("""
+        state = db_e2e.execute_returning("""
             SELECT job_state, attempts FROM pggit.backup_job_queue WHERE job_id = %s
         """, job_id[0])
         assert state[0] == 'will_retry'
@@ -538,20 +538,20 @@ class TestJobMonitoring:
 class TestErrorHandling:
     """Test error handling and edge cases."""
 
-    def test_backup_invalid_branch(self, db, pggit_installed):
+    def test_backup_invalid_branch(self, db_e2e, pggit_installed):
         """Test that backup with invalid branch fails gracefully."""
         with pytest.raises(Exception) as exc_info:
-            db.execute("""
+            db_e2e.execute("""
                 SELECT pggit.backup_pgbackrest('full', 'nonexistent-branch')
             """)
 
         assert 'not found' in str(exc_info.value).lower()
         print("✓ Correctly rejected invalid branch")
 
-    def test_backup_branch_no_commits(self, db, pggit_installed):
+    def test_backup_branch_no_commits(self, db_e2e, pggit_installed):
         """Test backup on branch with no commits fails."""
         # Create branch without commits
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.branches (name, head_commit_hash)
             VALUES ('empty-branch', NULL)
             ON CONFLICT (name) DO UPDATE
@@ -559,23 +559,23 @@ class TestErrorHandling:
         """)
 
         with pytest.raises(Exception) as exc_info:
-            db.execute("""
+            db_e2e.execute("""
                 SELECT pggit.backup_pgbackrest('full', 'empty-branch')
             """)
 
         assert 'no commits' in str(exc_info.value).lower()
         print("✓ Correctly rejected branch with no commits")
 
-    def test_concurrent_job_fetch(self, db, pggit_installed):
+    def test_concurrent_job_fetch(self, db_e2e, pggit_installed):
         """Test that SKIP LOCKED prevents concurrent job fetching."""
         # Create job
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message)
             VALUES ('test-commit-concurrent', 1, 'Concurrent test')
             ON CONFLICT (hash) DO NOTHING
         """)
 
-        backup_id = db.execute_returning("""
+        backup_id = db_e2e.execute_returning("""
             SELECT pggit.register_backup(
                 'concurrent-test',
                 'full',
@@ -585,35 +585,35 @@ class TestErrorHandling:
             )
         """)
 
-        job_id = db.execute_returning("""
+        job_id = db_e2e.execute_returning("""
             SELECT pggit.enqueue_backup_job(%s::UUID, 'echo test', 'custom')
         """, backup_id[0])
 
         # Worker 1 gets the job
-        job1 = db.execute("""
+        job1 = db_e2e.execute("""
             SELECT job_id FROM pggit.get_next_backup_job('worker-1')
         """)
         assert len(job1) == 1
         assert job1[0][0] == job_id[0]
 
         # Worker 2 should NOT get the same job (SKIP LOCKED)
-        job2 = db.execute("""
+        job2 = db_e2e.execute("""
             SELECT job_id FROM pggit.get_next_backup_job('worker-2')
         """)
         assert len(job2) == 0
 
         print("✓ Concurrent job fetching prevented by SKIP LOCKED")
 
-    def test_exponential_backoff(self, db, pggit_installed):
+    def test_exponential_backoff(self, db_e2e, pggit_installed):
         """Test exponential backoff for retry delays."""
         # Create job
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message)
             VALUES ('test-commit-backoff', 1, 'Backoff test')
             ON CONFLICT (hash) DO NOTHING
         """)
 
-        backup_id = db.execute_returning("""
+        backup_id = db_e2e.execute_returning("""
             SELECT pggit.register_backup(
                 'backoff-test',
                 'full',
@@ -623,15 +623,15 @@ class TestErrorHandling:
             )
         """)
 
-        job_id = db.execute_returning("""
+        job_id = db_e2e.execute_returning("""
             SELECT pggit.enqueue_backup_job(%s::UUID, 'echo test', 'custom', 5)
         """, backup_id[0])
 
         # Attempt 1: Fail with 60 second base delay
-        db.execute("SELECT * FROM pggit.get_next_backup_job('worker')")
-        db.execute("SELECT pggit.fail_backup_job(%s::UUID, 'Error 1', 60)", job_id[0])
+        db_e2e.execute("SELECT * FROM pggit.get_next_backup_job('worker')")
+        db_e2e.execute("SELECT pggit.fail_backup_job(%s::UUID, 'Error 1', 60)", job_id[0])
 
-        delay1 = db.execute_returning("""
+        delay1 = db_e2e.execute_returning("""
             SELECT EXTRACT(EPOCH FROM (next_retry_at - CURRENT_TIMESTAMP))
             FROM pggit.backup_jobs WHERE job_id = %s
         """, job_id[0])
@@ -640,17 +640,17 @@ class TestErrorHandling:
         assert 50 < delay1[0] < 70
 
         # Wait for retry window and force immediate retry by setting next_retry_at to past
-        db.execute("""
+        db_e2e.execute("""
             UPDATE pggit.backup_jobs
             SET next_retry_at = CURRENT_TIMESTAMP - INTERVAL '1 second'
             WHERE job_id = %s
         """, job_id[0])
 
         # Attempt 2: Exponential backoff (2^1 * 60 = 120)
-        db.execute("SELECT * FROM pggit.get_next_backup_job('worker')")
-        db.execute("SELECT pggit.fail_backup_job(%s::UUID, 'Error 2', 60)", job_id[0])
+        db_e2e.execute("SELECT * FROM pggit.get_next_backup_job('worker')")
+        db_e2e.execute("SELECT pggit.fail_backup_job(%s::UUID, 'Error 2', 60)", job_id[0])
 
-        delay2 = db.execute_returning("""
+        delay2 = db_e2e.execute_returning("""
             SELECT EXTRACT(EPOCH FROM (next_retry_at - CURRENT_TIMESTAMP))
             FROM pggit.backup_jobs WHERE job_id = %s
         """, job_id[0])
@@ -664,29 +664,29 @@ class TestErrorHandling:
 class TestIntegration:
     """Integration tests for complete workflows."""
 
-    def test_full_backup_workflow(self, db, pggit_installed):
+    def test_full_backup_workflow(self, db_e2e, pggit_installed):
         """Test complete backup workflow: schedule -> execute -> complete."""
         # Setup
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message)
             VALUES ('test-commit-workflow', 1, 'Workflow test')
             ON CONFLICT (hash) DO NOTHING
         """)
 
-        db.execute("""
+        db_e2e.execute("""
             UPDATE pggit.branches
             SET head_commit_hash = 'test-commit-workflow'
             WHERE name = 'main'
         """)
 
         # 1. Schedule backup
-        backup_id = db.execute_returning("""
+        backup_id = db_e2e.execute_returning("""
             SELECT pggit.backup_pgbackrest('full', 'main')
         """)
         print(f"1. Scheduled backup: {backup_id[0]}")
 
         # 2. Get job (simulating worker)
-        job = db.execute("""
+        job = db_e2e.execute("""
             SELECT job_id, command FROM pggit.get_next_backup_job('integration-worker')
         """)
         assert len(job) == 1
@@ -694,19 +694,19 @@ class TestIntegration:
         print(f"2. Worker got job: {job_id}")
 
         # 3. Simulate successful execution
-        db.execute("""
+        db_e2e.execute("""
             SELECT pggit.complete_backup_job(%s::UUID, 'Backup completed successfully')
         """, job_id)
         print("3. Job marked as completed")
 
         # 4. Complete backup
-        db.execute("""
+        db_e2e.execute("""
             SELECT pggit.complete_backup(%s::UUID, 1000000, 500000, 'gzip')
         """, backup_id[0])
         print("4. Backup marked as completed")
 
         # 5. Verify final state
-        backup_status = db.execute_returning("""
+        backup_status = db_e2e.execute_returning("""
             SELECT b.status, b.backup_size, j.status
             FROM pggit.backups b
             JOIN pggit.backup_jobs j ON b.backup_id = j.backup_id
