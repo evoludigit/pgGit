@@ -5,7 +5,25 @@
 \set ECHO all
 \set ON_ERROR_STOP on
 
+-- Clean up any leftover schemas from previous test runs
+DROP SCHEMA IF EXISTS pggit_base CASCADE;
+DROP SCHEMA IF EXISTS pggit_branch_feature_price_update CASCADE;
+DROP SCHEMA IF EXISTS "pggit_branch_feature_cow-test" CASCADE;
+DROP SCHEMA IF EXISTS pggit_branch_feature_customer_update CASCADE;
+DROP SCHEMA IF EXISTS pggit_branch_branch_1 CASCADE;
+DROP SCHEMA IF EXISTS pggit_branch_branch_2 CASCADE;
+DROP SCHEMA IF EXISTS pggit_branch_snapshot_before_migration CASCADE;
+DROP SCHEMA IF EXISTS pggit_branch_feature_cow_test CASCADE;
+
 BEGIN;
+
+-- Additional cleanup within transaction (in case previous tests left things)
+DROP TABLE IF EXISTS public.test_products CASCADE;
+DROP TABLE IF EXISTS public.test_large_data CASCADE;
+DROP TABLE IF EXISTS public.customers CASCADE;
+DROP TABLE IF EXISTS public.orders CASCADE;
+DROP VIEW IF EXISTS public.test_products CASCADE;
+DROP VIEW IF EXISTS public.test_large_data CASCADE;
 
 -- Test Setup
 DO $$
