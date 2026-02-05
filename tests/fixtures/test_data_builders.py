@@ -429,9 +429,18 @@ class MigrationTestBuilder(BaseTestBuilder):
         """Create migration test scenario"""
         schema = self.create_schema("test_migrations")
 
+        # Create a table to migrate
+        table = self.create_table(schema, "users", {
+            "id": "SERIAL PRIMARY KEY",
+            "name": "TEXT NOT NULL",
+            "email": "TEXT",
+            "created_at": "TIMESTAMP DEFAULT NOW()"
+        })
+
         return {
             "schema": schema,
-            "migrations": []
+            "migrations": [],
+            "table": table
         }
 
     def create_flyway_schema_history(self) -> str:
@@ -474,6 +483,129 @@ class MigrationTestBuilder(BaseTestBuilder):
             "description": description,
             "rank": rank
         }
+
+    def create_liquibase_databasechangelog(self) -> str:
+        """Create Liquibase databasechangelog table"""
+        table_name = "public.databasechangelog"
+        self.execute(f"""
+            CREATE TABLE IF NOT EXISTS {table_name} (
+                id VARCHAR(255) NOT NULL,
+                author VARCHAR(255) NOT NULL,
+                filename VARCHAR(255) NOT NULL,
+                dateexecuted TIMESTAMP NOT NULL,
+                orderexecuted INT NOT NULL,
+                exectype VARCHAR(10) NOT NULL,
+                md5sum VARCHAR(35),
+                description VARCHAR(255),
+                comments VARCHAR(255),
+                tag VARCHAR(255),
+                liquibase VARCHAR(20),
+                contexts VARCHAR(255),
+                labels VARCHAR(255),
+                deployment_id VARCHAR(10),
+                PRIMARY KEY (id, author, filename)
+            )
+        """)
+        return table_name
+
+    def insert_liquibase_migration(self, changelog_id: str, author: str,
+                                  filename: str, description: str = None) -> dict:
+        """Insert Liquibase migration record"""
+        self.execute("""
+            INSERT INTO public.databasechangelog
+            (id, author, filename, dateexecuted, orderexecuted, exectype, description)
+            VALUES (%s, %s, %s, NOW(), 1, 'EXECUTED', %s)
+        """, (changelog_id, author, filename, description or "Migration"))
+
+        return {
+            "changelog_id": changelog_id,
+            "author": author,
+            "filename": filename,
+            "description": description
+        }
+
+    def create_migration_history_record(self, migration_name: str,
+                                       status: str = "completed") -> dict:
+        """Create a migration history record in pggit"""
+        # Insert into pggit.migrations if table exists
+        try:
+            result = self.execute("""
+                INSERT INTO pggit.migrations (version, description, up_script, down_script, checksum)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
+            """, (migration_name, f"Migration {migration_name}", "SELECT 1", "SELECT 1", "abc123"))
+
+            row = result.fetchone()
+            migration_id = row[0] if row else None
+
+            return {
+                "migration_name": migration_name,
+                "migration_id": migration_id,
+                "status": status,
+                "tracked": migration_id is not None
+            }
+        except Exception:
+            # Table might not exist or have different schema
+            return {
+                "migration_name": migration_name,
+                "migration_id": None,
+                "status": status,
+                "tracked": False
+            }
+
+    def detect_schema_changes(self, schema: str = "public") -> dict:
+        """Detect schema changes"""
+        try:
+            result = self.execute("""
+                SELECT object_type, object_name, change_type, change_severity
+                FROM pggit.detect_schema_changes(%s)
+            """, (schema,))
+
+            changes = []
+            for row in result.fetchall():
+                changes.append({
+                    "object_type": row[0],
+                    "object_name": row[1],
+                    "change_type": row[2],
+                    "change_severity": row[3]
+                })
+
+            return {
+                "schema": schema,
+                "changes": changes,
+                "change_count": len(changes)
+            }
+        except Exception:
+            return {
+                "schema": schema,
+                "changes": [],
+                "change_count": 0
+            }
+
+    def generate_migration(self, version: str = None,
+                          description: str = None) -> dict:
+        """Generate a migration"""
+        try:
+            result = self.execute("""
+                SELECT pggit.generate_migration(%s, %s)
+            """, (version, description))
+
+            migration_sql = result.fetchone()[0] if result.fetchone() else None
+
+            return {
+                "version": version or "auto",
+                "description": description or "Auto-generated",
+                "migration_sql": migration_sql,
+                "generated": migration_sql is not None
+            }
+        except Exception as e:
+            return {
+                "version": version or "auto",
+                "description": description or "Auto-generated",
+                "migration_sql": None,
+                "generated": False,
+                "error": str(e)
+            }
 
 
 class ConflictTestBuilder(BaseTestBuilder):
