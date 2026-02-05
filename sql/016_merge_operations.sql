@@ -49,7 +49,12 @@ CREATE TABLE IF NOT EXISTS pggit.merge_conflicts (
     conflict_type text NOT NULL,
     source_definition text,
     target_definition text,
+    branch_a_value jsonb,
+    branch_b_value jsonb,
     resolution text DEFAULT NULL,
+    resolution_strategy text,
+    resolved_value jsonb,
+    auto_resolved boolean DEFAULT false,
     resolved_at timestamp,
     resolved_by text,
     resolution_notes text,
@@ -526,7 +531,7 @@ GRANT SELECT, INSERT ON pggit.merge_history TO PUBLIC;
 GRANT SELECT, INSERT ON pggit.merge_conflicts TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.detect_conflicts(text, text) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.merge(text, text, text) TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.resolve_conflict(uuid, text, text, text) TO PUBLIC;
+GRANT EXECUTE ON FUNCTION pggit.resolve_conflict(uuid, integer, text, text) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.get_merge_status(uuid) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.abort_merge(uuid, text) TO PUBLIC;
 
