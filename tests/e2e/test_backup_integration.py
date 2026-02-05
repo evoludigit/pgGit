@@ -789,7 +789,7 @@ class TestBackupVerifications:
         verif_id = db_e2e.execute_returning("""
             INSERT INTO pggit.backup_verifications
             (backup_id, verification_type, status, details)
-            VALUES (%s, 'checksum', 'passed', '{"checksum": "abc123"}'::jsonb)
+            VALUES (%s, 'checksum', 'completed', '{"checksum": "abc123"}'::jsonb)
             RETURNING verification_id
         """, backup_id[0])
 
@@ -804,7 +804,7 @@ class TestBackupVerifications:
 
         assert len(verifs) == 1
         assert verifs[0][0] == 'checksum'
-        assert verifs[0][1] == 'passed'
+        assert verifs[0][1] == 'completed'
         assert verifs[0][2] == 'abc123'
         print("✓ Backup verification recorded successfully")
 
