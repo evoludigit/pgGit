@@ -1,0 +1,29 @@
+# Development and Testing Dependencies
+# Used by CI/CD workflows for E2E testing and coverage analysis
+
+# Core Testing Framework
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+pytest-timeout>=2.2.0
+pytest-xdist>=3.5.0
+pytest-html>=4.1.0
+pytest-cov>=4.1.0
+
+# Database & Connection Management
+psycopg[pool]>=3.1.0
+psycopg>=3.1.0
+
+# Code Quality & Linting
+ruff>=0.1.0
+
+# Coverage & Reporting
+coverage[toml]>=6.5.0
+
+# Process & System Utilities
+psutil>=5.9.0
+
+# Docker Support (for E2E tests)
+docker>=7.0.0
+
+# Property-Based Testing (Chaos tests)
+hypothesis>=6.100.0
