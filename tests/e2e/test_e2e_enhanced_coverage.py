@@ -17,60 +17,60 @@ from psycopg import connect
 class TestE2EErrorHandlingValidation:
     """Test error handling and validation scenarios"""
 
-    def test_duplicate_branch_creation_fails(self, db, pggit_installed):
+    def test_duplicate_branch_creation_fails(self, db_e2e, pggit_installed):
         """Test that duplicate branch names are rejected"""
         # Create first branch
-        db.execute("INSERT INTO pggit.branches (name) VALUES (%s)", "duplicate-test")
+        db_e2e.execute("INSERT INTO pggit.branches (name) VALUES (%s)", "duplicate-test")
 
         # Attempt duplicate (should fail)
         with pytest.raises(Exception):  # Unique constraint violation
-            db.execute(
+            db_e2e.execute(
                 "INSERT INTO pggit.branches (name) VALUES (%s)", "duplicate-test"
             )
 
-    def test_invalid_branch_name_validation(self, db, pggit_installed):
+    def test_invalid_branch_name_validation(self, db_e2e, pggit_installed):
         """Test branch name validation"""
         # Test empty name
         with pytest.raises(Exception):
-            db.execute("INSERT INTO pggit.branches (name) VALUES (%s)", "")
+            db_e2e.execute("INSERT INTO pggit.branches (name) VALUES (%s)", "")
 
         # Test NULL name
         with pytest.raises(Exception):
-            db.execute("INSERT INTO pggit.branches (name) VALUES (%s)", None)
+            db_e2e.execute("INSERT INTO pggit.branches (name) VALUES (%s)", None)
 
-    def test_null_commit_message_handling(self, db, pggit_installed):
+    def test_null_commit_message_handling(self, db_e2e, pggit_installed):
         """Test NULL commit message handling"""
-        main_branch = db.execute_returning(
+        main_branch = db_e2e.execute_returning(
             "SELECT id FROM pggit.branches WHERE name = 'main'"
         )
 
         # NULL message should be allowed (optional)
-        db.execute(
+        db_e2e.execute(
             "INSERT INTO pggit.commits (branch_id, message) VALUES (%s, %s)",
             main_branch[0],
             None,
         )
 
         # Verify commit was created with NULL message
-        result = db.execute_returning(
+        result = db_e2e.execute_returning(
             "SELECT message FROM pggit.commits WHERE message IS NULL LIMIT 1"
         )
         assert result is not None, "NULL message handling failed"
 
-    def test_missing_foreign_key_reference(self, db, pggit_installed):
+    def test_missing_foreign_key_reference(self, db_e2e, pggit_installed):
         """Test missing foreign key references"""
         # Try to create commit with non-existent branch ID
         with pytest.raises(Exception):
-            db.execute(
+            db_e2e.execute(
                 "INSERT INTO pggit.commits (branch_id, message) VALUES (%s, %s)",
                 99999,
                 "Invalid branch reference",
             )
 
-    def test_constraint_violation_rollback(self, db, pggit_installed):
+    def test_constraint_violation_rollback(self, db_e2e, pggit_installed):
         """Test that constraint violations rollback properly"""
-        db.execute("DROP TABLE IF EXISTS public.constraint_test CASCADE")
-        db.execute(
+        db_e2e.execute("DROP TABLE IF EXISTS public.constraint_test CASCADE")
+        db_e2e.execute(
             """
             CREATE TABLE public.constraint_test (
                 id SERIAL PRIMARY KEY,
@@ -80,25 +80,25 @@ class TestE2EErrorHandlingValidation:
         )
 
         # Insert valid row
-        db.execute(
+        db_e2e.execute(
             "INSERT INTO public.constraint_test (email) VALUES (%s)", "user@test.com"
         )
 
         # Try to insert duplicate
         with pytest.raises(Exception):
-            db.execute(
+            db_e2e.execute(
                 "INSERT INTO public.constraint_test (email) VALUES (%s)",
                 "user@test.com",
             )
 
         # Rollback the failed transaction
-        db.rollback()
+        db_e2e.rollback()
 
         # Verify only one row exists
-        result = db.execute("SELECT COUNT(*) FROM public.constraint_test")
+        result = db_e2e.execute("SELECT COUNT(*) FROM public.constraint_test")
         assert result[0][0] == 1, "Rollback failed - duplicate inserted"
 
-    def test_large_data_payload_handling(self, db, pggit_installed):
+    def test_large_data_payload_handling(self, db_e2e, pggit_installed):
         """Test handling of large data payloads"""
         # Create snapshot with large metadata
         large_metadata = json.dumps(
@@ -108,7 +108,7 @@ class TestE2EErrorHandlingValidation:
             }
         )
 
-        result = db.execute_returning(
+        result = db_e2e.execute_returning(
             """
             SELECT snapshot_id FROM pggit.create_temporal_snapshot(
                 %s, 1, %s
@@ -120,22 +120,22 @@ class TestE2EErrorHandlingValidation:
 
         assert result is not None, "Large data handling failed"
 
-    def test_oversized_table_name_handling(self, db, pggit_installed):
+    def test_oversized_table_name_handling(self, db_e2e, pggit_installed):
         """Test handling of extremely long table names"""
         # PostgreSQL max identifier is 63 chars
         long_name = "t" * 63
 
-        db.execute(f"CREATE TABLE public.{long_name} (id SERIAL PRIMARY KEY)")
+        db_e2e.execute(f"CREATE TABLE public.{long_name} (id SERIAL PRIMARY KEY)")
 
-        result = db.execute_returning(
+        result = db_e2e.execute_returning(
             f"SELECT 1 FROM information_schema.tables WHERE table_name = %s",
             long_name,
         )
         assert result is not None, "Long table name handling failed"
 
-    def test_special_characters_in_data(self, db, pggit_installed):
+    def test_special_characters_in_data(self, db_e2e, pggit_installed):
         """Test handling of special characters in data"""
-        db.execute(
+        db_e2e.execute(
             """
             CREATE TABLE public.special_chars (
                 id SERIAL PRIMARY KEY,
@@ -146,17 +146,17 @@ class TestE2EErrorHandlingValidation:
 
         special_data = "'; DROP TABLE users; --\n\r\t\"'<script>"
 
-        db.execute("INSERT INTO public.special_chars (data) VALUES (%s)", special_data)
+        db_e2e.execute("INSERT INTO public.special_chars (data) VALUES (%s)", special_data)
 
-        result = db.execute_returning(
+        result = db_e2e.execute_returning(
             "SELECT data FROM public.special_chars WHERE id = 1"
         )
 
         assert result[0] == special_data, "Special character handling failed"
 
-    def test_concurrent_constraint_violation_handling(self, db, pggit_installed):
+    def test_concurrent_constraint_violation_handling(self, db_e2e, pggit_installed):
         """Test concurrent constraint violations"""
-        db.execute(
+        db_e2e.execute(
             """
             CREATE TABLE public.concurrent_constraints (
                 id SERIAL PRIMARY KEY,
@@ -166,14 +166,14 @@ class TestE2EErrorHandlingValidation:
         )
 
         # First insert succeeds
-        db.execute(
+        db_e2e.execute(
             "INSERT INTO public.concurrent_constraints (code) VALUES (%s)",
             "UNIQUE-CODE",
         )
 
         # Second attempt should fail
         with pytest.raises(Exception):
-            db.execute(
+            db_e2e.execute(
                 "INSERT INTO public.concurrent_constraints (code) VALUES (%s)",
                 "UNIQUE-CODE",
             )
@@ -189,7 +189,7 @@ class TestE2EConcurrencyScenarios:
                "For production use, applications manage their own connection pools.",
         strict=False
     )
-    def test_parallel_branch_creation(self, db, pggit_installed):
+    def test_parallel_branch_creation(self, db_e2e, pggit_installed):
         """Test creating multiple branches in parallel"""
         branch_names = [f"parallel-{i}" for i in range(10)]
         created_branches = []
@@ -200,7 +200,7 @@ class TestE2EConcurrencyScenarios:
                 print(f"Thread {threading.current_thread().name} creating branch {name}")
                 conn = db.connect()  # Explicitly get thread-local connection
                 print(f"Thread {threading.current_thread().name} got connection: {conn}")
-                db.execute("INSERT INTO pggit.branches (name) VALUES (%s)", name)
+                db_e2e.execute("INSERT INTO pggit.branches (name) VALUES (%s)", name)
                 conn.commit()  # Explicitly commit the transaction
                 print(f"Thread {threading.current_thread().name} inserted {name}")
                 return name
@@ -208,7 +208,7 @@ class TestE2EConcurrencyScenarios:
                 print(f"Thread {threading.current_thread().name} error: {e}")
                 errors.append(f"{name}: {str(e)}")
                 if hasattr(db, 'rollback'):
-                    db.rollback()
+                    db_e2e.rollback()
                 return None
 
         with ThreadPoolExecutor(max_workers=5) as executor:
@@ -227,14 +227,14 @@ class TestE2EConcurrencyScenarios:
         db.conn.commit()
 
         # Verify all exist in database
-        result = db.execute(
+        result = db_e2e.execute(
             "SELECT COUNT(*) FROM pggit.branches WHERE name LIKE %s", ("parallel-%",)
         )
         assert result[0][0] == 10, f"Not all parallel branches created. Found {result[0][0]} branches"
 
-    def test_concurrent_commits_same_branch(self, db, pggit_installed):
+    def test_concurrent_commits_same_branch(self, db_e2e, pggit_installed):
         """Test concurrent commits to the same branch"""
-        main_branch = db.execute_returning(
+        main_branch = db_e2e.execute_returning(
             "SELECT id FROM pggit.branches WHERE name = 'main'"
         )
 
@@ -243,7 +243,7 @@ class TestE2EConcurrencyScenarios:
 
         def create_commit(msg):
             try:
-                db.execute(
+                db_e2e.execute(
                     "INSERT INTO pggit.commits (branch_id, message) VALUES (%s, %s)",
                     main_branch[0],
                     msg,
@@ -257,7 +257,7 @@ class TestE2EConcurrencyScenarios:
             results = [f.result() for f in as_completed(futures)]
 
         # Verify all commits created
-        final_count = db.execute(
+        final_count = db_e2e.execute(
             "SELECT COUNT(*) FROM pggit.commits WHERE branch_id = %s",
             main_branch[0],
         )
@@ -268,7 +268,7 @@ class TestE2EConcurrencyScenarios:
                "This is a test infrastructure limitation, not a pgGit bug.",
         strict=False
     )
-    def test_parallel_table_creation_and_insert(self, db, pggit_installed):
+    def test_parallel_table_creation_and_insert(self, db_e2e, pggit_installed):
         """Test concurrent table creation and inserts"""
         table_names = [f"parallel_table_{i}" for i in range(5)]
         created_tables = []
@@ -277,7 +277,7 @@ class TestE2EConcurrencyScenarios:
         def create_and_insert(table_name):
             try:
                 conn = db.connect()
-                db.execute(
+                db_e2e.execute(
                     f"""
                     CREATE TABLE public.{table_name} (
                         id SERIAL PRIMARY KEY,
@@ -286,7 +286,7 @@ class TestE2EConcurrencyScenarios:
                     """
                 )
 
-                db.execute(
+                db_e2e.execute(
                     f"INSERT INTO public.{table_name} (value) VALUES (%s)", "test-data"
                 )
                 conn.commit()  # Explicitly commit
@@ -294,7 +294,7 @@ class TestE2EConcurrencyScenarios:
             except Exception as e:
                 errors.append(f"{table_name}: {str(e)}")
                 if hasattr(db, 'rollback'):
-                    db.rollback()
+                    db_e2e.rollback()
                 return None
 
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -309,7 +309,7 @@ class TestE2EConcurrencyScenarios:
         db.conn.commit()
 
         # Verify tables exist
-        result = db.execute(
+        result = db_e2e.execute(
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name LIKE %s",
             ("parallel_table_%",),
         )
@@ -320,7 +320,7 @@ class TestE2EConcurrencyScenarios:
                "This is a test infrastructure limitation, not a pgGit bug.",
         strict=False
     )
-    def test_concurrent_snapshot_creation(self, db, pggit_installed):
+    def test_concurrent_snapshot_creation(self, db_e2e, pggit_installed):
         """Test creating multiple snapshots concurrently"""
         snapshot_names = [f"concurrent-snapshot-{i}" for i in range(5)]
         created_snapshots = []
@@ -329,7 +329,7 @@ class TestE2EConcurrencyScenarios:
         def create_snapshot(name):
             try:
                 conn = db.connect()
-                result = db.execute_returning(
+                result = db_e2e.execute_returning(
                     """
                     SELECT snapshot_id FROM pggit.create_temporal_snapshot(%s, 1, %s)
                     """,
@@ -341,7 +341,7 @@ class TestE2EConcurrencyScenarios:
             except Exception as e:
                 errors.append(f"{name}: {str(e)}")
                 if hasattr(db, 'rollback'):
-                    db.rollback()
+                    db_e2e.rollback()
                 return None
 
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -358,7 +358,7 @@ class TestE2EConcurrencyScenarios:
         db.conn.commit()
 
         # Verify snapshots created
-        result = db.execute(
+        result = db_e2e.execute(
             "SELECT COUNT(*) FROM pggit.temporal_snapshots WHERE snapshot_name LIKE %s",
             ("concurrent-snapshot-%",),
         )
@@ -368,9 +368,9 @@ class TestE2EConcurrencyScenarios:
 class TestE2EDataIntegrity:
     """Test data consistency and integrity across operations"""
 
-    def test_foreign_key_constraint_enforcement(self, db, pggit_installed):
+    def test_foreign_key_constraint_enforcement(self, db_e2e, pggit_installed):
         """Test foreign key constraints"""
-        db.execute(
+        db_e2e.execute(
             """
             CREATE TABLE public.fk_parent (
                 id SERIAL PRIMARY KEY,
@@ -379,7 +379,7 @@ class TestE2EDataIntegrity:
             """
         )
 
-        db.execute(
+        db_e2e.execute(
             """
             CREATE TABLE public.fk_child (
                 id SERIAL PRIMARY KEY,
@@ -389,18 +389,18 @@ class TestE2EDataIntegrity:
         )
 
         # Insert parent
-        db.execute("INSERT INTO public.fk_parent (name) VALUES (%s)", "parent1")
+        db_e2e.execute("INSERT INTO public.fk_parent (name) VALUES (%s)", "parent1")
 
         # Insert valid child
-        db.execute("INSERT INTO public.fk_child (parent_id) VALUES (%s)", 1)
+        db_e2e.execute("INSERT INTO public.fk_child (parent_id) VALUES (%s)", 1)
 
         # Try invalid child (non-existent parent)
         with pytest.raises(Exception):
-            db.execute("INSERT INTO public.fk_child (parent_id) VALUES (%s)", 999)
+            db_e2e.execute("INSERT INTO public.fk_child (parent_id) VALUES (%s)", 999)
 
-    def test_cascade_delete_behavior(self, db, pggit_installed):
+    def test_cascade_delete_behavior(self, db_e2e, pggit_installed):
         """Test cascade delete propagation"""
-        db.execute(
+        db_e2e.execute(
             """
             CREATE TABLE public.cascade_parent (
                 id SERIAL PRIMARY KEY
@@ -408,7 +408,7 @@ class TestE2EDataIntegrity:
             """
         )
 
-        db.execute(
+        db_e2e.execute(
             """
             CREATE TABLE public.cascade_child (
                 id SERIAL PRIMARY KEY,
@@ -418,25 +418,25 @@ class TestE2EDataIntegrity:
         )
 
         # Insert parent and child
-        db.execute("INSERT INTO public.cascade_parent DEFAULT VALUES")
-        db.execute("INSERT INTO public.cascade_child (parent_id) VALUES (%s)", 1)
+        db_e2e.execute("INSERT INTO public.cascade_parent DEFAULT VALUES")
+        db_e2e.execute("INSERT INTO public.cascade_child (parent_id) VALUES (%s)", 1)
 
         # Delete parent
-        db.execute("DELETE FROM public.cascade_parent WHERE id = %s", 1)
+        db_e2e.execute("DELETE FROM public.cascade_parent WHERE id = %s", 1)
 
         # Verify child was cascade deleted
-        result = db.execute("SELECT COUNT(*) FROM public.cascade_child")
+        result = db_e2e.execute("SELECT COUNT(*) FROM public.cascade_child")
         assert result[0][0] == 0, "Cascade delete failed"
 
-    def test_version_number_sequence_integrity(self, db, pggit_installed):
+    def test_version_number_sequence_integrity(self, db_e2e, pggit_installed):
         """Test version number sequences"""
-        main_branch = db.execute_returning(
+        main_branch = db_e2e.execute_returning(
             "SELECT id FROM pggit.branches WHERE name = 'main'"
         )
 
         # Create commits with version increments
         for i in range(10):
-            db.execute(
+            db_e2e.execute(
                 """
                 INSERT INTO pggit.commits (branch_id, message)
                 VALUES (%s, %s)
@@ -446,7 +446,7 @@ class TestE2EDataIntegrity:
             )
 
         # Verify sequence - count commits created
-        results = db.execute(
+        results = db_e2e.execute(
             "SELECT COUNT(*) FROM pggit.commits WHERE branch_id = %s",
             main_branch[0],
         )
@@ -454,10 +454,10 @@ class TestE2EDataIntegrity:
         commit_count = results[0][0] if results else 0
         assert commit_count >= 10, f"Expected at least 10 commits, got {commit_count}"
 
-    def test_branch_isolation_data_consistency(self, db, pggit_installed):
+    def test_branch_isolation_data_consistency(self, db_e2e, pggit_installed):
         """Test that branches maintain isolated data"""
         # Create table
-        db.execute(
+        db_e2e.execute(
             """
             CREATE TABLE public.isolation_test (
                 id SERIAL PRIMARY KEY,
@@ -468,37 +468,37 @@ class TestE2EDataIntegrity:
         )
 
         # Create two branches
-        db.execute("INSERT INTO pggit.branches (name) VALUES (%s)", "iso-branch-1")
-        db.execute("INSERT INTO pggit.branches (name) VALUES (%s)", "iso-branch-2")
+        db_e2e.execute("INSERT INTO pggit.branches (name) VALUES (%s)", "iso-branch-1")
+        db_e2e.execute("INSERT INTO pggit.branches (name) VALUES (%s)", "iso-branch-2")
 
-        branch1 = db.execute_returning(
+        branch1 = db_e2e.execute_returning(
             "SELECT id FROM pggit.branches WHERE name = 'iso-branch-1'"
         )
-        branch2 = db.execute_returning(
+        branch2 = db_e2e.execute_returning(
             "SELECT id FROM pggit.branches WHERE name = 'iso-branch-2'"
         )
 
         # Insert different data per branch
-        db.execute(
+        db_e2e.execute(
             "INSERT INTO public.isolation_test (branch_id, value) VALUES (%s, %s)",
             branch1[0],
             "branch1-data",
         )
 
-        db.execute(
+        db_e2e.execute(
             "INSERT INTO public.isolation_test (branch_id, value) VALUES (%s, %s)",
             branch2[0],
             "branch2-data",
         )
 
         # Verify isolation
-        result1 = db.execute(
+        result1 = db_e2e.execute(
             "SELECT COUNT(*) FROM public.isolation_test WHERE branch_id = %s AND value = %s",
             branch1[0],
             "branch1-data",
         )
 
-        result2 = db.execute(
+        result2 = db_e2e.execute(
             "SELECT COUNT(*) FROM public.isolation_test WHERE branch_id = %s AND value = %s",
             branch2[0],
             "branch2-data",
@@ -506,9 +506,9 @@ class TestE2EDataIntegrity:
 
         assert result1[0][0] == 1 and result2[0][0] == 1, "Branch isolation failed"
 
-    def test_transaction_atomicity(self, db, pggit_installed):
+    def test_transaction_atomicity(self, db_e2e, pggit_installed):
         """Test transaction atomicity"""
-        db.execute(
+        db_e2e.execute(
             """
             CREATE TABLE public.atomic_test (
                 id SERIAL PRIMARY KEY,
@@ -519,18 +519,18 @@ class TestE2EDataIntegrity:
 
         # Multi-row insert in transaction
         for i in range(5):
-            db.execute(
+            db_e2e.execute(
                 "INSERT INTO public.atomic_test (sequence) VALUES (%s)",
                 i,
             )
 
         # Verify all inserted
-        result = db.execute("SELECT COUNT(*) FROM public.atomic_test")
+        result = db_e2e.execute("SELECT COUNT(*) FROM public.atomic_test")
         assert result[0][0] == 5, "Transaction atomicity failed"
 
-    def test_timestamp_accuracy(self, db, pggit_installed):
+    def test_timestamp_accuracy(self, db_e2e, pggit_installed):
         """Test timestamp accuracy and ordering"""
-        db.execute(
+        db_e2e.execute(
             """
             CREATE TABLE public.timestamp_test (
                 id SERIAL PRIMARY KEY,
@@ -541,11 +541,11 @@ class TestE2EDataIntegrity:
 
         before = datetime.utcnow()
 
-        db.execute("INSERT INTO public.timestamp_test DEFAULT VALUES")
+        db_e2e.execute("INSERT INTO public.timestamp_test DEFAULT VALUES")
 
         after = datetime.utcnow()
 
-        result = db.execute_returning(
+        result = db_e2e.execute_returning(
             "SELECT created_at FROM public.timestamp_test ORDER BY id DESC LIMIT 1"
         )
 
@@ -558,10 +558,10 @@ class TestE2EDataIntegrity:
 class TestE2EAdvancedFeatures:
     """Test advanced pgGit features"""
 
-    def test_temporal_diff_single_field_change(self, db, pggit_installed):
+    def test_temporal_diff_single_field_change(self, db_e2e, pggit_installed):
         """Test temporal diff with single field change"""
         # Create two snapshots
-        snap1 = db.execute_returning(
+        snap1 = db_e2e.execute_returning(
             """
             SELECT snapshot_id FROM pggit.create_temporal_snapshot(
                 'diff-test-1', 1, 'First state'
@@ -569,7 +569,7 @@ class TestE2EAdvancedFeatures:
             """
         )
 
-        snap2 = db.execute_returning(
+        snap2 = db_e2e.execute_returning(
             """
             SELECT snapshot_id FROM pggit.create_temporal_snapshot(
                 'diff-test-2', 1, 'Second state'
@@ -578,7 +578,7 @@ class TestE2EAdvancedFeatures:
         )
 
         # Record changes
-        db.execute(
+        db_e2e.execute(
             """
             SELECT pggit.record_temporal_change(
                 %s, 'public', 'test_table', 'INSERT', 'row-1',
@@ -589,7 +589,7 @@ class TestE2EAdvancedFeatures:
             json.dumps({"id": 1, "name": "Alice", "age": 30}),
         )
 
-        db.execute(
+        db_e2e.execute(
             """
             SELECT pggit.record_temporal_change(
                 %s, 'public', 'test_table', 'UPDATE', 'row-1',
@@ -602,19 +602,19 @@ class TestE2EAdvancedFeatures:
         )
 
         # Verify changelog exists
-        result = db.execute(
+        result = db_e2e.execute(
             "SELECT COUNT(*) FROM pggit.temporal_changelog WHERE table_name = 'test_table'"
         )
 
         assert result[0][0] >= 2, "Temporal changelog not recorded"
 
-    def test_ml_pattern_learning_from_sequences(self, db, pggit_installed):
+    def test_ml_pattern_learning_from_sequences(self, db_e2e, pggit_installed):
         """Test ML pattern learning from access sequences"""
         # Create repeating access pattern
         pattern = ["obj-1", "obj-2", "obj-3"] * 3
 
         for obj in pattern:
-            db.execute(
+            db_e2e.execute(
                 """
                 INSERT INTO pggit.access_patterns (object_name, access_type, response_time_ms)
                 VALUES (%s, %s, %s)
@@ -625,7 +625,7 @@ class TestE2EAdvancedFeatures:
             )
 
         # Learn patterns
-        result = db.execute_returning(
+        result = db_e2e.execute_returning(
             "SELECT pattern_id FROM pggit.learn_access_patterns(%s, %s)",
             2,  # object_id
             "READ",  # operation_type
@@ -634,13 +634,13 @@ class TestE2EAdvancedFeatures:
         # Should have learned patterns (at least some)
         assert result is not None, "Pattern learning failed"
 
-    def test_conflict_semantic_analysis(self, db, pggit_installed):
+    def test_conflict_semantic_analysis(self, db_e2e, pggit_installed):
         """Test semantic conflict analysis"""
         base_data = json.dumps({"id": 1, "name": "Alice"})
         source_data = json.dumps({"id": 1, "name": "Alice", "age": 30})
         target_data = json.dumps({"id": 1, "name": "Alice", "email": "alice@test.com"})
 
-        result = db.execute_returning(
+        result = db_e2e.execute_returning(
             """
             SELECT type, severity FROM pggit.analyze_semantic_conflict(
                 %s, %s, %s
@@ -657,11 +657,11 @@ class TestE2EAdvancedFeatures:
             "non_overlapping_modification",
         ], "Invalid conflict type"
 
-    def test_access_pattern_recording(self, db, pggit_installed):
+    def test_access_pattern_recording(self, db_e2e, pggit_installed):
         """Test recording access patterns"""
         # Record multiple access patterns
         for i in range(5):
-            db.execute(
+            db_e2e.execute(
                 """
                 INSERT INTO pggit.access_patterns (object_name, access_type, response_time_ms)
                 VALUES (%s, %s, %s)
@@ -672,16 +672,16 @@ class TestE2EAdvancedFeatures:
             )
 
         # Verify recording
-        result = db.execute("SELECT COUNT(*) FROM pggit.access_patterns")
+        result = db_e2e.execute("SELECT COUNT(*) FROM pggit.access_patterns")
         assert result[0][0] >= 5, "Access pattern recording failed"
 
 
 class TestE2EPerformance:
     """Test performance and scalability"""
 
-    def test_bulk_insert_performance(self, db, pggit_installed):
+    def test_bulk_insert_performance(self, db_e2e, pggit_installed):
         """Test bulk insert performance"""
-        db.execute(
+        db_e2e.execute(
             """
             CREATE TABLE public.perf_test (
                 id SERIAL PRIMARY KEY,
@@ -694,7 +694,7 @@ class TestE2EPerformance:
 
         # Bulk insert 1000 rows
         for i in range(1000):
-            db.execute("INSERT INTO public.perf_test (data) VALUES (%s)", f"row-{i}")
+            db_e2e.execute("INSERT INTO public.perf_test (data) VALUES (%s)", f"row-{i}")
 
         elapsed = time.time() - start
 
@@ -702,13 +702,13 @@ class TestE2EPerformance:
         assert elapsed < 10, f"Bulk insert took too long: {elapsed}s"
 
         # Verify all inserted
-        result = db.execute("SELECT COUNT(*) FROM public.perf_test")
+        result = db_e2e.execute("SELECT COUNT(*) FROM public.perf_test")
         assert result[0][0] == 1000, "Not all rows inserted"
 
-    def test_query_performance_with_indexes(self, db, pggit_installed):
+    def test_query_performance_with_indexes(self, db_e2e, pggit_installed):
         """Test query performance uses indexes"""
         # Create indexed table
-        db.execute(
+        db_e2e.execute(
             """
             CREATE TABLE public.indexed_table (
                 id SERIAL PRIMARY KEY,
@@ -717,11 +717,11 @@ class TestE2EPerformance:
             """
         )
 
-        db.execute("CREATE INDEX idx_status ON public.indexed_table(status)")
+        db_e2e.execute("CREATE INDEX idx_status ON public.indexed_table(status)")
 
         # Insert rows
         for i in range(100):
-            db.execute(
+            db_e2e.execute(
                 "INSERT INTO public.indexed_table (status) VALUES (%s)",
                 "active" if i % 2 == 0 else "inactive",
             )
@@ -729,7 +729,7 @@ class TestE2EPerformance:
         start = time.time()
 
         # Query should use index
-        result = db.execute(
+        result = db_e2e.execute(
             "SELECT COUNT(*) FROM public.indexed_table WHERE status = 'active'"
         )
 
@@ -739,9 +739,9 @@ class TestE2EPerformance:
         assert elapsed < 0.1, f"Indexed query too slow: {elapsed}s"
         assert result[0][0] == 50, "Query result incorrect"
 
-    def test_large_commit_payload_performance(self, db, pggit_installed):
+    def test_large_commit_payload_performance(self, db_e2e, pggit_installed):
         """Test performance with large commit payloads"""
-        main_branch = db.execute_returning(
+        main_branch = db_e2e.execute_returning(
             "SELECT id FROM pggit.branches WHERE name = 'main'"
         )
 
@@ -756,7 +756,7 @@ class TestE2EPerformance:
 
         start = time.time()
 
-        db.execute(
+        db_e2e.execute(
             """
             INSERT INTO pggit.commits (branch_id, message, metadata)
             VALUES (%s, %s, %s)
@@ -771,15 +771,15 @@ class TestE2EPerformance:
         # Should handle large payloads efficiently
         assert elapsed < 1.0, f"Large payload commit too slow: {elapsed}s"
 
-    def test_concurrent_query_performance(self, db, pggit_installed):
+    def test_concurrent_query_performance(self, db_e2e, pggit_installed):
         """Test query performance under concurrent load"""
         # Setup data
-        db.execute(
+        db_e2e.execute(
             "CREATE TABLE public.concurrent_query_test (id SERIAL PRIMARY KEY, value INTEGER)"
         )
 
         for i in range(100):
-            db.execute(
+            db_e2e.execute(
                 "INSERT INTO public.concurrent_query_test (value) VALUES (%s)",
                 i,
             )
@@ -787,7 +787,7 @@ class TestE2EPerformance:
         # Concurrent queries
         def run_query():
             try:
-                result = db.execute("SELECT COUNT(*) FROM public.concurrent_query_test")
+                result = db_e2e.execute("SELECT COUNT(*) FROM public.concurrent_query_test")
                 return result[0][0] == 100
             except Exception:
                 return False

@@ -22,9 +22,9 @@ import pytest
 class TestTableDDL:
     """Table DDL operations tracking."""
 
-    def test_track_create_table(self, db, pggit_installed):
+    def test_track_create_table(self, db_e2e, pggit_installed):
         """Test CREATE TABLE is tracked."""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE users (
                 id SERIAL PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -33,7 +33,7 @@ class TestTableDDL:
         """)
 
         # Verify table exists
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT tablename FROM pg_tables
             WHERE tablename = 'users' AND schemaname = 'public'
         """)
@@ -41,52 +41,52 @@ class TestTableDDL:
         assert result[0][0] == 'users'
 
         # Verify trackable by pgGit
-        version = db.execute("SELECT * FROM pggit.get_version('users')")
+        version = db_e2e.execute("SELECT * FROM pggit.get_version('users')")
         # Function should execute without error
 
         # Cleanup
-        db.execute("DROP TABLE users")
+        db_e2e.execute("DROP TABLE users")
         print("✓ CREATE TABLE tracked")
 
-    def test_track_alter_table_add_column(self, db, pggit_installed):
+    def test_track_alter_table_add_column(self, db_e2e, pggit_installed):
         """Test ALTER TABLE ADD COLUMN is tracked."""
-        db.execute("CREATE TABLE alter_test (id INT)")
+        db_e2e.execute("CREATE TABLE alter_test (id INT)")
 
         # Get initial column count
-        cols_before = db.execute("""
+        cols_before = db_e2e.execute("""
             SELECT COUNT(*) FROM information_schema.columns
             WHERE table_name = 'alter_test'
         """)
 
         # Add column
-        db.execute("ALTER TABLE alter_test ADD COLUMN name TEXT")
+        db_e2e.execute("ALTER TABLE alter_test ADD COLUMN name TEXT")
 
         # Verify column added
-        cols_after = db.execute("""
+        cols_after = db_e2e.execute("""
             SELECT COUNT(*) FROM information_schema.columns
             WHERE table_name = 'alter_test'
         """)
         assert cols_after[0][0] > cols_before[0][0], "Column not added"
 
         # Check history (may be empty if auto-tracking disabled)
-        history = db.execute("""
+        history = db_e2e.execute("""
             SELECT COUNT(*) FROM pggit.get_history('alter_test')
         """)
         # Function should execute without error
 
         # Cleanup
-        db.execute("DROP TABLE alter_test")
+        db_e2e.execute("DROP TABLE alter_test")
         print("✓ ALTER TABLE ADD COLUMN tracked")
 
-    def test_track_alter_table_drop_column(self, db, pggit_installed):
+    def test_track_alter_table_drop_column(self, db_e2e, pggit_installed):
         """Test ALTER TABLE DROP COLUMN is tracked."""
-        db.execute("CREATE TABLE drop_col_test (id INT, name TEXT, email TEXT)")
+        db_e2e.execute("CREATE TABLE drop_col_test (id INT, name TEXT, email TEXT)")
 
         # Drop column
-        db.execute("ALTER TABLE drop_col_test DROP COLUMN email")
+        db_e2e.execute("ALTER TABLE drop_col_test DROP COLUMN email")
 
         # Verify column gone
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'drop_col_test'
@@ -97,21 +97,21 @@ class TestTableDDL:
         assert 'id' in columns and 'name' in columns, "Wrong columns dropped"
 
         # Cleanup
-        db.execute("DROP TABLE drop_col_test")
+        db_e2e.execute("DROP TABLE drop_col_test")
         print("✓ ALTER TABLE DROP COLUMN tracked")
 
-    def test_track_alter_table_rename_column(self, db, pggit_installed):
+    def test_track_alter_table_rename_column(self, db_e2e, pggit_installed):
         """Test ALTER TABLE RENAME COLUMN is tracked."""
-        db.execute("CREATE TABLE rename_col_test (id INT, old_name TEXT)")
+        db_e2e.execute("CREATE TABLE rename_col_test (id INT, old_name TEXT)")
 
         # Rename column
-        db.execute("""
+        db_e2e.execute("""
             ALTER TABLE rename_col_test
             RENAME COLUMN old_name TO new_name
         """)
 
         # Verify rename
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'rename_col_test'
@@ -122,24 +122,24 @@ class TestTableDDL:
         assert 'old_name' not in columns, "Old column still exists"
 
         # Cleanup
-        db.execute("DROP TABLE rename_col_test")
+        db_e2e.execute("DROP TABLE rename_col_test")
         print("✓ ALTER TABLE RENAME COLUMN tracked")
 
-    def test_track_alter_table_change_type(self, db, pggit_installed):
+    def test_track_alter_table_change_type(self, db_e2e, pggit_installed):
         """Test ALTER TABLE ALTER COLUMN TYPE is tracked."""
-        db.execute("CREATE TABLE type_change_test (id INT, value TEXT)")
+        db_e2e.execute("CREATE TABLE type_change_test (id INT, value TEXT)")
 
         # Insert test data
-        db.execute("INSERT INTO type_change_test (id, value) VALUES (1, '42')")
+        db_e2e.execute("INSERT INTO type_change_test (id, value) VALUES (1, '42')")
 
         # Change type
-        db.execute("""
+        db_e2e.execute("""
             ALTER TABLE type_change_test
             ALTER COLUMN value TYPE INTEGER USING value::INTEGER
         """)
 
         # Verify type changed
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT data_type
             FROM information_schema.columns
             WHERE table_name = 'type_change_test'
@@ -149,19 +149,19 @@ class TestTableDDL:
         assert result[0][0] == 'integer', "Column type not changed"
 
         # Verify data integrity
-        data = db.execute("SELECT value FROM type_change_test WHERE id = 1")
+        data = db_e2e.execute("SELECT value FROM type_change_test WHERE id = 1")
         assert data[0][0] == 42, "Data corrupted during type change"
 
         # Cleanup
-        db.execute("DROP TABLE type_change_test")
+        db_e2e.execute("DROP TABLE type_change_test")
         print("✓ ALTER TABLE ALTER TYPE tracked")
 
-    def test_track_drop_table(self, db, pggit_installed):
+    def test_track_drop_table(self, db_e2e, pggit_installed):
         """Test DROP TABLE is tracked."""
-        db.execute("CREATE TABLE drop_test (id INT, data TEXT)")
+        db_e2e.execute("CREATE TABLE drop_test (id INT, data TEXT)")
 
         # Verify exists
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT tablename
             FROM pg_tables
             WHERE tablename = 'drop_test'
@@ -169,10 +169,10 @@ class TestTableDDL:
         assert result, "Table not created"
 
         # Drop table
-        db.execute("DROP TABLE drop_test")
+        db_e2e.execute("DROP TABLE drop_test")
 
         # Verify gone
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT tablename
             FROM pg_tables
             WHERE tablename = 'drop_test'
@@ -180,42 +180,42 @@ class TestTableDDL:
         assert not result, "Table not dropped"
         print("✓ DROP TABLE tracked")
 
-    def test_track_alter_table_add_constraint(self, db, pggit_installed):
+    def test_track_alter_table_add_constraint(self, db_e2e, pggit_installed):
         """Test ALTER TABLE ADD CONSTRAINT is tracked."""
-        db.execute("CREATE TABLE constraint_test (id INT, email TEXT)")
+        db_e2e.execute("CREATE TABLE constraint_test (id INT, email TEXT)")
 
         # Add unique constraint
-        db.execute("""
+        db_e2e.execute("""
             ALTER TABLE constraint_test
             ADD CONSTRAINT unique_email UNIQUE (email)
         """)
 
         # Verify constraint works
-        db.execute("INSERT INTO constraint_test VALUES (1, 'test@example.com')")
+        db_e2e.execute("INSERT INTO constraint_test VALUES (1, 'test@example.com')")
 
         with pytest.raises(Exception) as exc:
-            db.execute("INSERT INTO constraint_test VALUES (2, 'test@example.com')")
+            db_e2e.execute("INSERT INTO constraint_test VALUES (2, 'test@example.com')")
 
         assert 'unique' in str(exc.value).lower() or 'duplicate' in str(exc.value).lower()
 
         # Rollback failed transaction before cleanup
-        db.rollback()
+        db_e2e.rollback()
 
         # Cleanup
-        db.execute("DROP TABLE constraint_test")
+        db_e2e.execute("DROP TABLE constraint_test")
         print("✓ ALTER TABLE ADD CONSTRAINT tracked")
 
 
 class TestIndexDDL:
     """Index DDL operations tracking."""
 
-    def test_track_create_index(self, db, pggit_installed):
+    def test_track_create_index(self, db_e2e, pggit_installed):
         """Test CREATE INDEX is tracked."""
-        db.execute("CREATE TABLE idx_test (id INT, name TEXT, email TEXT)")
-        db.execute("CREATE INDEX idx_test_name ON idx_test(name)")
+        db_e2e.execute("CREATE TABLE idx_test (id INT, name TEXT, email TEXT)")
+        db_e2e.execute("CREATE INDEX idx_test_name ON idx_test(name)")
 
         # Verify index exists
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT indexname
             FROM pg_indexes
             WHERE indexname = 'idx_test_name'
@@ -225,36 +225,36 @@ class TestIndexDDL:
         assert result[0][0] == 'idx_test_name'
 
         # Cleanup
-        db.execute("DROP TABLE idx_test CASCADE")
+        db_e2e.execute("DROP TABLE idx_test CASCADE")
         print("✓ CREATE INDEX tracked")
 
-    def test_track_create_unique_index(self, db, pggit_installed):
+    def test_track_create_unique_index(self, db_e2e, pggit_installed):
         """Test CREATE UNIQUE INDEX is tracked."""
-        db.execute("CREATE TABLE unique_idx_test (id INT, email TEXT)")
-        db.execute("CREATE UNIQUE INDEX idx_unique_email ON unique_idx_test(email)")
+        db_e2e.execute("CREATE TABLE unique_idx_test (id INT, email TEXT)")
+        db_e2e.execute("CREATE UNIQUE INDEX idx_unique_email ON unique_idx_test(email)")
 
         # Verify unique constraint works
-        db.execute("INSERT INTO unique_idx_test (id, email) VALUES (1, 'test@example.com')")
+        db_e2e.execute("INSERT INTO unique_idx_test (id, email) VALUES (1, 'test@example.com')")
 
         with pytest.raises(Exception) as exc:
-            db.execute("INSERT INTO unique_idx_test (id, email) VALUES (2, 'test@example.com')")
+            db_e2e.execute("INSERT INTO unique_idx_test (id, email) VALUES (2, 'test@example.com')")
 
         assert 'unique' in str(exc.value).lower() or 'duplicate' in str(exc.value).lower()
 
         # Rollback failed transaction before cleanup
-        db.rollback()
+        db_e2e.rollback()
 
         # Cleanup
-        db.execute("DROP TABLE unique_idx_test CASCADE")
+        db_e2e.execute("DROP TABLE unique_idx_test CASCADE")
         print("✓ CREATE UNIQUE INDEX tracked")
 
-    def test_track_create_multicolumn_index(self, db, pggit_installed):
+    def test_track_create_multicolumn_index(self, db_e2e, pggit_installed):
         """Test CREATE INDEX on multiple columns."""
-        db.execute("CREATE TABLE multi_idx_test (a INT, b INT, c TEXT)")
-        db.execute("CREATE INDEX idx_multi ON multi_idx_test(a, b)")
+        db_e2e.execute("CREATE TABLE multi_idx_test (a INT, b INT, c TEXT)")
+        db_e2e.execute("CREATE INDEX idx_multi ON multi_idx_test(a, b)")
 
         # Verify index exists
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT indexname, indexdef
             FROM pg_indexes
             WHERE indexname = 'idx_multi'
@@ -264,16 +264,16 @@ class TestIndexDDL:
         assert 'a' in result[0][1] and 'b' in result[0][1], "Index columns wrong"
 
         # Cleanup
-        db.execute("DROP TABLE multi_idx_test CASCADE")
+        db_e2e.execute("DROP TABLE multi_idx_test CASCADE")
         print("✓ CREATE multi-column INDEX tracked")
 
-    def test_track_drop_index(self, db, pggit_installed):
+    def test_track_drop_index(self, db_e2e, pggit_installed):
         """Test DROP INDEX is tracked."""
-        db.execute("CREATE TABLE drop_idx_test (id INT, name TEXT)")
-        db.execute("CREATE INDEX idx_drop_test ON drop_idx_test(name)")
+        db_e2e.execute("CREATE TABLE drop_idx_test (id INT, name TEXT)")
+        db_e2e.execute("CREATE INDEX idx_drop_test ON drop_idx_test(name)")
 
         # Verify exists
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT indexname
             FROM pg_indexes
             WHERE indexname = 'idx_drop_test'
@@ -281,10 +281,10 @@ class TestIndexDDL:
         assert result, "Index not created"
 
         # Drop index
-        db.execute("DROP INDEX idx_drop_test")
+        db_e2e.execute("DROP INDEX idx_drop_test")
 
         # Verify gone
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT indexname
             FROM pg_indexes
             WHERE indexname = 'idx_drop_test'
@@ -292,127 +292,127 @@ class TestIndexDDL:
         assert not result, "Index not dropped"
 
         # Cleanup
-        db.execute("DROP TABLE drop_idx_test")
+        db_e2e.execute("DROP TABLE drop_idx_test")
         print("✓ DROP INDEX tracked")
 
 
 class TestViewDDL:
     """View DDL operations tracking."""
 
-    def test_track_create_view(self, db, pggit_installed):
+    def test_track_create_view(self, db_e2e, pggit_installed):
         """Test CREATE VIEW is tracked."""
-        db.execute("CREATE TABLE base_table (id INT, value TEXT)")
-        db.execute("INSERT INTO base_table VALUES (1, 'test')")
+        db_e2e.execute("CREATE TABLE base_table (id INT, value TEXT)")
+        db_e2e.execute("INSERT INTO base_table VALUES (1, 'test')")
 
-        db.execute("CREATE VIEW v_base AS SELECT * FROM base_table")
+        db_e2e.execute("CREATE VIEW v_base AS SELECT * FROM base_table")
 
         # Verify view works
-        result = db.execute("SELECT * FROM v_base")
+        result = db_e2e.execute("SELECT * FROM v_base")
         assert result, "View not working"
         assert result[0] == (1, 'test')
 
         # Cleanup
-        db.execute("DROP VIEW v_base")
-        db.execute("DROP TABLE base_table")
+        db_e2e.execute("DROP VIEW v_base")
+        db_e2e.execute("DROP TABLE base_table")
         print("✓ CREATE VIEW tracked")
 
-    def test_track_create_view_with_where(self, db, pggit_installed):
+    def test_track_create_view_with_where(self, db_e2e, pggit_installed):
         """Test CREATE VIEW with WHERE clause."""
-        db.execute("CREATE TABLE products (id INT, price DECIMAL, active BOOLEAN)")
-        db.execute("INSERT INTO products VALUES (1, 10.00, true), (2, 20.00, false)")
+        db_e2e.execute("CREATE TABLE products (id INT, price DECIMAL, active BOOLEAN)")
+        db_e2e.execute("INSERT INTO products VALUES (1, 10.00, true), (2, 20.00, false)")
 
-        db.execute("""
+        db_e2e.execute("""
             CREATE VIEW v_active_products AS
             SELECT * FROM products WHERE active = true
         """)
 
         # Verify view filtering works
-        result = db.execute("SELECT COUNT(*) FROM v_active_products")
+        result = db_e2e.execute("SELECT COUNT(*) FROM v_active_products")
         assert result[0][0] == 1, "View filtering failed"
 
         # Cleanup
-        db.execute("DROP VIEW v_active_products")
-        db.execute("DROP TABLE products")
+        db_e2e.execute("DROP VIEW v_active_products")
+        db_e2e.execute("DROP TABLE products")
         print("✓ CREATE VIEW with WHERE tracked")
 
-    def test_track_create_materialized_view(self, db, pggit_installed):
+    def test_track_create_materialized_view(self, db_e2e, pggit_installed):
         """Test CREATE MATERIALIZED VIEW is tracked."""
-        db.execute("CREATE TABLE mv_base (id INT, data TEXT)")
-        db.execute("INSERT INTO mv_base VALUES (1, 'materialized')")
+        db_e2e.execute("CREATE TABLE mv_base (id INT, data TEXT)")
+        db_e2e.execute("INSERT INTO mv_base VALUES (1, 'materialized')")
 
-        db.execute("""
+        db_e2e.execute("""
             CREATE MATERIALIZED VIEW mv_test
             AS SELECT * FROM mv_base
         """)
 
         # Verify materialized view
-        result = db.execute("SELECT * FROM mv_test")
+        result = db_e2e.execute("SELECT * FROM mv_test")
         assert result, "Materialized view not working"
         assert result[0] == (1, 'materialized')
 
         # Cleanup
-        db.execute("DROP MATERIALIZED VIEW mv_test")
-        db.execute("DROP TABLE mv_base")
+        db_e2e.execute("DROP MATERIALIZED VIEW mv_test")
+        db_e2e.execute("DROP TABLE mv_base")
         print("✓ CREATE MATERIALIZED VIEW tracked")
 
-    def test_track_refresh_materialized_view(self, db, pggit_installed):
+    def test_track_refresh_materialized_view(self, db_e2e, pggit_installed):
         """Test REFRESH MATERIALIZED VIEW is tracked."""
-        db.execute("CREATE TABLE refresh_base (id INT, value TEXT)")
-        db.execute("INSERT INTO refresh_base VALUES (1, 'old')")
+        db_e2e.execute("CREATE TABLE refresh_base (id INT, value TEXT)")
+        db_e2e.execute("INSERT INTO refresh_base VALUES (1, 'old')")
 
-        db.execute("""
+        db_e2e.execute("""
             CREATE MATERIALIZED VIEW mv_refresh
             AS SELECT * FROM refresh_base
         """)
 
         # Update base table
-        db.execute("UPDATE refresh_base SET value = 'new'")
+        db_e2e.execute("UPDATE refresh_base SET value = 'new'")
 
         # Refresh materialized view
-        db.execute("REFRESH MATERIALIZED VIEW mv_refresh")
+        db_e2e.execute("REFRESH MATERIALIZED VIEW mv_refresh")
 
         # Verify refresh
-        result = db.execute("SELECT value FROM mv_refresh WHERE id = 1")
+        result = db_e2e.execute("SELECT value FROM mv_refresh WHERE id = 1")
         assert result[0][0] == 'new', "Materialized view not refreshed"
 
         # Cleanup
-        db.execute("DROP MATERIALIZED VIEW mv_refresh")
-        db.execute("DROP TABLE refresh_base")
+        db_e2e.execute("DROP MATERIALIZED VIEW mv_refresh")
+        db_e2e.execute("DROP TABLE refresh_base")
         print("✓ REFRESH MATERIALIZED VIEW tracked")
 
-    def test_track_drop_view(self, db, pggit_installed):
+    def test_track_drop_view(self, db_e2e, pggit_installed):
         """Test DROP VIEW is tracked."""
-        db.execute("CREATE TABLE view_base (id INT)")
-        db.execute("CREATE VIEW v_drop_test AS SELECT * FROM view_base")
+        db_e2e.execute("CREATE TABLE view_base (id INT)")
+        db_e2e.execute("CREATE VIEW v_drop_test AS SELECT * FROM view_base")
 
         # Verify exists
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT viewname FROM pg_views
             WHERE viewname = 'v_drop_test'
         """)
         assert result, "View not created"
 
         # Drop view
-        db.execute("DROP VIEW v_drop_test")
+        db_e2e.execute("DROP VIEW v_drop_test")
 
         # Verify gone
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT viewname FROM pg_views
             WHERE viewname = 'v_drop_test'
         """)
         assert not result, "View not dropped"
 
         # Cleanup
-        db.execute("DROP TABLE view_base")
+        db_e2e.execute("DROP TABLE view_base")
         print("✓ DROP VIEW tracked")
 
 
 class TestFunctionDDL:
     """Function and Procedure DDL operations tracking."""
 
-    def test_track_create_function(self, db, pggit_installed):
+    def test_track_create_function(self, db_e2e, pggit_installed):
         """Test CREATE FUNCTION is tracked."""
-        db.execute("""
+        db_e2e.execute("""
             CREATE FUNCTION add_numbers(a INT, b INT) RETURNS INT AS $$
             BEGIN
                 RETURN a + b;
@@ -421,16 +421,16 @@ class TestFunctionDDL:
         """)
 
         # Test function works
-        result = db.execute("SELECT add_numbers(2, 3)")
+        result = db_e2e.execute("SELECT add_numbers(2, 3)")
         assert result[0][0] == 5, "Function not working"
 
         # Cleanup
-        db.execute("DROP FUNCTION add_numbers")
+        db_e2e.execute("DROP FUNCTION add_numbers")
         print("✓ CREATE FUNCTION tracked")
 
-    def test_track_create_function_with_default(self, db, pggit_installed):
+    def test_track_create_function_with_default(self, db_e2e, pggit_installed):
         """Test CREATE FUNCTION with default parameters."""
-        db.execute("""
+        db_e2e.execute("""
             CREATE FUNCTION greet(name TEXT DEFAULT 'World') RETURNS TEXT AS $$
             BEGIN
                 RETURN 'Hello, ' || name || '!';
@@ -439,23 +439,23 @@ class TestFunctionDDL:
         """)
 
         # Test with default
-        result = db.execute("SELECT greet()")
+        result = db_e2e.execute("SELECT greet()")
         assert result[0][0] == 'Hello, World!', "Default parameter failed"
 
         # Test with argument
-        result = db.execute("SELECT greet('Alice')")
+        result = db_e2e.execute("SELECT greet('Alice')")
         assert result[0][0] == 'Hello, Alice!', "Function argument failed"
 
         # Cleanup
-        db.execute("DROP FUNCTION greet")
+        db_e2e.execute("DROP FUNCTION greet")
         print("✓ CREATE FUNCTION with defaults tracked")
 
-    def test_track_create_procedure(self, db, pggit_installed):
+    def test_track_create_procedure(self, db_e2e, pggit_installed):
         """Test CREATE PROCEDURE is tracked (PG 11+)."""
-        db.execute("CREATE TABLE proc_test (counter INT DEFAULT 0)")
-        db.execute("INSERT INTO proc_test VALUES (0)")
+        db_e2e.execute("CREATE TABLE proc_test (counter INT DEFAULT 0)")
+        db_e2e.execute("INSERT INTO proc_test VALUES (0)")
 
-        db.execute("""
+        db_e2e.execute("""
             CREATE PROCEDURE increment_counter() AS $$
             BEGIN
                 UPDATE proc_test SET counter = counter + 1;
@@ -464,20 +464,20 @@ class TestFunctionDDL:
         """)
 
         # Call procedure
-        db.execute("CALL increment_counter()")
+        db_e2e.execute("CALL increment_counter()")
 
         # Verify
-        result = db.execute("SELECT counter FROM proc_test")
+        result = db_e2e.execute("SELECT counter FROM proc_test")
         assert result[0][0] == 1, "Procedure not working"
 
         # Cleanup
-        db.execute("DROP PROCEDURE increment_counter")
-        db.execute("DROP TABLE proc_test")
+        db_e2e.execute("DROP PROCEDURE increment_counter")
+        db_e2e.execute("DROP TABLE proc_test")
         print("✓ CREATE PROCEDURE tracked")
 
-    def test_track_drop_function(self, db, pggit_installed):
+    def test_track_drop_function(self, db_e2e, pggit_installed):
         """Test DROP FUNCTION is tracked."""
-        db.execute("""
+        db_e2e.execute("""
             CREATE FUNCTION temp_func() RETURNS INT AS $$
             BEGIN
                 RETURN 42;
@@ -486,15 +486,15 @@ class TestFunctionDDL:
         """)
 
         # Verify function works
-        result = db.execute("SELECT temp_func()")
+        result = db_e2e.execute("SELECT temp_func()")
         assert result[0][0] == 42
 
         # Drop function
-        db.execute("DROP FUNCTION temp_func")
+        db_e2e.execute("DROP FUNCTION temp_func")
 
         # Verify dropped
         with pytest.raises(Exception) as exc:
-            db.execute("SELECT temp_func()")
+            db_e2e.execute("SELECT temp_func()")
 
         assert 'does not exist' in str(exc.value).lower() or 'function' in str(exc.value).lower()
         print("✓ DROP FUNCTION tracked")
@@ -503,9 +503,9 @@ class TestFunctionDDL:
 class TestTypeDDL:
     """Type DDL operations tracking."""
 
-    def test_track_create_composite_type(self, db, pggit_installed):
+    def test_track_create_composite_type(self, db_e2e, pggit_installed):
         """Test CREATE TYPE (composite) is tracked."""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TYPE address AS (
                 street TEXT,
                 city TEXT,
@@ -514,89 +514,89 @@ class TestTypeDDL:
         """)
 
         # Use the type
-        db.execute("CREATE TABLE location_test (id INT, addr address)")
-        db.execute("""
+        db_e2e.execute("CREATE TABLE location_test (id INT, addr address)")
+        db_e2e.execute("""
             INSERT INTO location_test
             VALUES (1, ROW('123 Main St', 'Portland', '97201')::address)
         """)
 
         # Verify
-        result = db.execute("SELECT (addr).city FROM location_test WHERE id = 1")
+        result = db_e2e.execute("SELECT (addr).city FROM location_test WHERE id = 1")
         assert result[0][0] == 'Portland', "Composite type not working"
 
         # Cleanup
-        db.execute("DROP TABLE location_test")
-        db.execute("DROP TYPE address")
+        db_e2e.execute("DROP TABLE location_test")
+        db_e2e.execute("DROP TYPE address")
         print("✓ CREATE TYPE (composite) tracked")
 
-    def test_track_create_enum(self, db, pggit_installed):
+    def test_track_create_enum(self, db_e2e, pggit_installed):
         """Test CREATE TYPE (enum) is tracked."""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TYPE status_enum AS ENUM ('pending', 'active', 'archived')
         """)
 
         # Use enum
-        db.execute("CREATE TABLE status_test (id INT, status status_enum)")
-        db.execute("INSERT INTO status_test VALUES (1, 'active')")
+        db_e2e.execute("CREATE TABLE status_test (id INT, status status_enum)")
+        db_e2e.execute("INSERT INTO status_test VALUES (1, 'active')")
 
         # Verify
-        result = db.execute("SELECT status FROM status_test WHERE id = 1")
+        result = db_e2e.execute("SELECT status FROM status_test WHERE id = 1")
         assert result[0][0] == 'active', "Enum type not working"
 
         # Test enum constraint
         with pytest.raises(Exception) as exc:
-            db.execute("INSERT INTO status_test VALUES (2, 'invalid')")
+            db_e2e.execute("INSERT INTO status_test VALUES (2, 'invalid')")
 
         assert 'invalid input' in str(exc.value).lower() or 'enum' in str(exc.value).lower()
 
         # Rollback failed transaction before cleanup
-        db.rollback()
+        db_e2e.rollback()
 
         # Cleanup
-        db.execute("DROP TABLE status_test")
-        db.execute("DROP TYPE status_enum")
+        db_e2e.execute("DROP TABLE status_test")
+        db_e2e.execute("DROP TYPE status_enum")
         print("✓ CREATE TYPE (enum) tracked")
 
-    def test_track_create_domain(self, db, pggit_installed):
+    def test_track_create_domain(self, db_e2e, pggit_installed):
         """Test CREATE DOMAIN is tracked."""
         # Use simpler regex to avoid psycopg placeholder issues with %+
-        db.execute("""
+        db_e2e.execute("""
             CREATE DOMAIN email_address AS TEXT
             CHECK (VALUE ~* '^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$')
         """)
 
         # Use domain
-        db.execute("CREATE TABLE user_emails (id INT, email email_address)")
-        db.execute("INSERT INTO user_emails VALUES (1, 'test@example.com')")
+        db_e2e.execute("CREATE TABLE user_emails (id INT, email email_address)")
+        db_e2e.execute("INSERT INTO user_emails VALUES (1, 'test@example.com')")
 
         # Verify valid email works
-        result = db.execute("SELECT email FROM user_emails WHERE id = 1")
+        result = db_e2e.execute("SELECT email FROM user_emails WHERE id = 1")
         assert result[0][0] == 'test@example.com'
 
         # Verify constraint
         with pytest.raises(Exception) as exc:
-            db.execute("INSERT INTO user_emails VALUES (2, 'invalid-email')")
+            db_e2e.execute("INSERT INTO user_emails VALUES (2, 'invalid-email')")
 
         assert 'violates check constraint' in str(exc.value).lower() or 'domain' in str(exc.value).lower()
 
         # Rollback failed transaction before cleanup
-        db.rollback()
+        db_e2e.rollback()
 
         # Cleanup
-        db.execute("DROP TABLE user_emails")
-        db.execute("DROP DOMAIN email_address")
+        db_e2e.execute("DROP TABLE user_emails")
+        db_e2e.execute("DROP DOMAIN email_address")
         print("✓ CREATE DOMAIN tracked")
 
 
 class TestTriggerDDL:
     """Trigger DDL operations tracking."""
 
-    def test_track_create_trigger(self, db, pggit_installed):
+    def test_track_create_trigger(self, db_e2e, pggit_installed):
         """Test CREATE TRIGGER is tracked."""
-        db.execute("CREATE TABLE trigger_test (id INT, updated_at TIMESTAMP)")
+        db_e2e.execute("CREATE TABLE trigger_test (id INT, updated_at TIMESTAMP)")
 
         # Create trigger function
-        db.execute("""
+        db_e2e.execute("""
             CREATE FUNCTION update_timestamp() RETURNS TRIGGER AS $$
             BEGIN
                 NEW.updated_at = NOW();
@@ -606,28 +606,28 @@ class TestTriggerDDL:
         """)
 
         # Create trigger
-        db.execute("""
+        db_e2e.execute("""
             CREATE TRIGGER trg_update_timestamp
             BEFORE INSERT OR UPDATE ON trigger_test
             FOR EACH ROW EXECUTE FUNCTION update_timestamp()
         """)
 
         # Test trigger
-        db.execute("INSERT INTO trigger_test (id) VALUES (1)")
-        result = db.execute("SELECT updated_at FROM trigger_test WHERE id = 1")
+        db_e2e.execute("INSERT INTO trigger_test (id) VALUES (1)")
+        result = db_e2e.execute("SELECT updated_at FROM trigger_test WHERE id = 1")
 
         assert result[0][0] is not None, "Trigger not working"
 
         # Cleanup
-        db.execute("DROP TABLE trigger_test CASCADE")
-        db.execute("DROP FUNCTION update_timestamp")
+        db_e2e.execute("DROP TABLE trigger_test CASCADE")
+        db_e2e.execute("DROP FUNCTION update_timestamp")
         print("✓ CREATE TRIGGER tracked")
 
-    def test_track_trigger_before_insert(self, db, pggit_installed):
+    def test_track_trigger_before_insert(self, db_e2e, pggit_installed):
         """Test BEFORE INSERT trigger."""
-        db.execute("CREATE TABLE audit_test (id INT, created_by TEXT)")
+        db_e2e.execute("CREATE TABLE audit_test (id INT, created_by TEXT)")
 
-        db.execute("""
+        db_e2e.execute("""
             CREATE FUNCTION set_creator() RETURNS TRIGGER AS $$
             BEGIN
                 NEW.created_by = CURRENT_USER;
@@ -636,27 +636,27 @@ class TestTriggerDDL:
             $$ LANGUAGE plpgsql
         """)
 
-        db.execute("""
+        db_e2e.execute("""
             CREATE TRIGGER trg_set_creator
             BEFORE INSERT ON audit_test
             FOR EACH ROW EXECUTE FUNCTION set_creator()
         """)
 
         # Test trigger
-        db.execute("INSERT INTO audit_test (id) VALUES (1)")
-        result = db.execute("SELECT created_by FROM audit_test WHERE id = 1")
+        db_e2e.execute("INSERT INTO audit_test (id) VALUES (1)")
+        result = db_e2e.execute("SELECT created_by FROM audit_test WHERE id = 1")
         assert result[0][0] is not None, "Trigger creator not set"
 
         # Cleanup
-        db.execute("DROP TABLE audit_test CASCADE")
-        db.execute("DROP FUNCTION set_creator")
+        db_e2e.execute("DROP TABLE audit_test CASCADE")
+        db_e2e.execute("DROP FUNCTION set_creator")
         print("✓ BEFORE INSERT trigger tracked")
 
-    def test_track_drop_trigger(self, db, pggit_installed):
+    def test_track_drop_trigger(self, db_e2e, pggit_installed):
         """Test DROP TRIGGER is tracked."""
-        db.execute("CREATE TABLE drop_trigger_test (id INT)")
+        db_e2e.execute("CREATE TABLE drop_trigger_test (id INT)")
 
-        db.execute("""
+        db_e2e.execute("""
             CREATE FUNCTION noop_trigger() RETURNS TRIGGER AS $$
             BEGIN
                 RETURN NEW;
@@ -664,14 +664,14 @@ class TestTriggerDDL:
             $$ LANGUAGE plpgsql
         """)
 
-        db.execute("""
+        db_e2e.execute("""
             CREATE TRIGGER trg_noop
             BEFORE INSERT ON drop_trigger_test
             FOR EACH ROW EXECUTE FUNCTION noop_trigger()
         """)
 
         # Verify exists
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT tgname
             FROM pg_trigger
             WHERE tgname = 'trg_noop'
@@ -679,10 +679,10 @@ class TestTriggerDDL:
         assert result, "Trigger not created"
 
         # Drop trigger
-        db.execute("DROP TRIGGER trg_noop ON drop_trigger_test")
+        db_e2e.execute("DROP TRIGGER trg_noop ON drop_trigger_test")
 
         # Verify gone
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT tgname
             FROM pg_trigger
             WHERE tgname = 'trg_noop'
@@ -690,8 +690,8 @@ class TestTriggerDDL:
         assert not result, "Trigger not dropped"
 
         # Cleanup
-        db.execute("DROP TABLE drop_trigger_test")
-        db.execute("DROP FUNCTION noop_trigger")
+        db_e2e.execute("DROP TABLE drop_trigger_test")
+        db_e2e.execute("DROP FUNCTION noop_trigger")
         print("✓ DROP TRIGGER tracked")
 
 

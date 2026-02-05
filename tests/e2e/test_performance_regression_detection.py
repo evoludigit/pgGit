@@ -23,13 +23,13 @@ from datetime import datetime
 class TestE2EPerformanceRegressionDetection:
     """Test performance regression detection."""
 
-    def test_regression_in_branch_creation_speed(self, db, pggit_installed):
+    def test_regression_in_branch_creation_speed(self, db_e2e, pggit_installed):
         """Test regression detection in branch creation performance"""
         # Establish baseline
         baseline_times = []
         for i in range(3):
             start = time.time()
-            db.execute_returning(
+            db_e2e.execute_returning(
                 "INSERT INTO pggit.branches (name) VALUES (%s) RETURNING id",
                 f"perf-baseline-{i}",
             )
@@ -41,7 +41,7 @@ class TestE2EPerformanceRegressionDetection:
         test_times = []
         for i in range(3):
             start = time.time()
-            db.execute_returning(
+            db_e2e.execute_returning(
                 "INSERT INTO pggit.branches (name) VALUES (%s) RETURNING id",
                 f"perf-test-{i}",
             )
@@ -56,13 +56,13 @@ class TestE2EPerformanceRegressionDetection:
             f"Branch creation regressed: baseline={baseline_avg:.4f}s, current={test_avg:.4f}s"
         )
 
-    def test_regression_in_merge_performance(self, db, pggit_installed):
+    def test_regression_in_merge_performance(self, db_e2e, pggit_installed):
         """Test regression detection in merge performance"""
-        main_id = db.execute_returning(
+        main_id = db_e2e.execute_returning(
             "SELECT id FROM pggit.branches WHERE name = 'main'"
         )[0]
 
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.perf_merge_test (
                 id INTEGER PRIMARY KEY,
                 data TEXT
@@ -70,13 +70,13 @@ class TestE2EPerformanceRegressionDetection:
         """)
 
         # Create test branches
-        branch1 = db.execute_returning(
+        branch1 = db_e2e.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('perf-merge-1') RETURNING id"
         )[0]
 
         # Insert baseline data
         for i in range(100):
-            db.execute(
+            db_e2e.execute(
                 "INSERT INTO public.perf_merge_test (id, data) VALUES (%s, %s)",
                 i,
                 f"data-{i}",
@@ -84,7 +84,7 @@ class TestE2EPerformanceRegressionDetection:
 
         # Baseline merge time
         baseline_start = time.time()
-        db.execute_returning(
+        db_e2e.execute_returning(
             "SELECT pggit.merge_branches(%s, %s, %s)",
             main_id,
             branch1,
@@ -93,12 +93,12 @@ class TestE2EPerformanceRegressionDetection:
         baseline_time = time.time() - baseline_start
 
         # Test merge time (should be similar)
-        branch2 = db.execute_returning(
+        branch2 = db_e2e.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('perf-merge-2') RETURNING id"
         )[0]
 
         test_start = time.time()
-        db.execute_returning(
+        db_e2e.execute_returning(
             "SELECT pggit.merge_branches(%s, %s, %s)", main_id, branch2, "Test merge"
         )
         test_time = time.time() - test_start
@@ -110,9 +110,9 @@ class TestE2EPerformanceRegressionDetection:
             f"Merge regressed: baseline={baseline_time:.4f}s, current={test_time:.4f}s"
         )
 
-    def test_regression_in_snapshot_creation(self, db, pggit_installed):
+    def test_regression_in_snapshot_creation(self, db_e2e, pggit_installed):
         """Test regression detection in snapshot creation"""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.perf_snapshot (
                 id INTEGER PRIMARY KEY,
                 data TEXT
@@ -122,16 +122,16 @@ class TestE2EPerformanceRegressionDetection:
         # Baseline snapshot creation
         baseline_times = []
         for j in range(3):
-            db.execute("DELETE FROM public.perf_snapshot")
+            db_e2e.execute("DELETE FROM public.perf_snapshot")
             for i in range(50):
-                db.execute(
+                db_e2e.execute(
                     "INSERT INTO public.perf_snapshot (id, data) VALUES (%s, %s)",
                     i,
                     f"data-{i}",
                 )
 
             start = time.time()
-            db.execute_returning(
+            db_e2e.execute_returning(
                 "SELECT pggit.create_temporal_snapshot('perf_snapshot', 1, %s)",
                 json.dumps({"iteration": j}),
             )
@@ -143,7 +143,7 @@ class TestE2EPerformanceRegressionDetection:
         test_times = []
         for j in range(3, 6):
             start = time.time()
-            db.execute_returning(
+            db_e2e.execute_returning(
                 "SELECT pggit.create_temporal_snapshot('perf_snapshot', 1, %s)",
                 json.dumps({"iteration": j}),
             )
@@ -158,9 +158,9 @@ class TestE2EPerformanceRegressionDetection:
             f"Snapshot creation regressed: baseline={baseline_avg:.4f}s, current={test_avg:.4f}s"
         )
 
-    def test_regression_in_temporal_queries(self, db, pggit_installed):
+    def test_regression_in_temporal_queries(self, db_e2e, pggit_installed):
         """Test regression detection in temporal query performance"""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.perf_temporal (
                 id INTEGER PRIMARY KEY,
                 data TEXT,
@@ -170,7 +170,7 @@ class TestE2EPerformanceRegressionDetection:
 
         # Insert test data
         for i in range(100):
-            db.execute(
+            db_e2e.execute(
                 "INSERT INTO public.perf_temporal (id, data) VALUES (%s, %s)",
                 i,
                 f"data-{i}",
@@ -180,7 +180,7 @@ class TestE2EPerformanceRegressionDetection:
         baseline_times = []
         for _ in range(5):
             start = time.time()
-            db.execute(
+            db_e2e.execute(
                 "SELECT pggit.query_historical_data('public.perf_temporal', %s, NULL)",
                 datetime.now().isoformat(),
             )
@@ -192,7 +192,7 @@ class TestE2EPerformanceRegressionDetection:
         test_times = []
         for _ in range(5):
             start = time.time()
-            db.execute(
+            db_e2e.execute(
                 "SELECT pggit.query_historical_data('public.perf_temporal', %s, NULL)",
                 datetime.now().isoformat(),
             )

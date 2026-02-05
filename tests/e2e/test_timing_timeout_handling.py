@@ -24,18 +24,18 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 class TestE2ETimingTimeoutHandling:
     """Test timeout and long-running operation handling."""
 
-    def test_long_running_merge_stability(self, db, pggit_installed):
+    def test_long_running_merge_stability(self, db_e2e, pggit_installed):
         """Test merge stability during long operations"""
-        main_id = db.execute_returning(
+        main_id = db_e2e.execute_returning(
             "SELECT id FROM pggit.branches WHERE name = 'main'"
         )[0]
 
-        long_branch = db.execute_returning(
+        long_branch = db_e2e.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('long-merge-branch') RETURNING id"
         )[0]
 
         # Create large dataset
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.long_merge_test (
                 id INTEGER PRIMARY KEY,
                 data TEXT,
@@ -46,7 +46,7 @@ class TestE2ETimingTimeoutHandling:
         # Insert 1000 rows to simulate long operation
         start_time = time.time()
         for i in range(1000):
-            db.execute(
+            db_e2e.execute(
                 "INSERT INTO public.long_merge_test (id, data) VALUES (%s, %s)",
                 i,
                 f"data-{i}" * 10,  # Larger payload
@@ -55,7 +55,7 @@ class TestE2ETimingTimeoutHandling:
 
         # Merge should complete without timeout
         merge_start = time.time()
-        result = db.execute_returning(
+        result = db_e2e.execute_returning(
             "SELECT pggit.merge_branches(%s, %s, %s)",
             main_id,
             long_branch,
@@ -66,9 +66,9 @@ class TestE2ETimingTimeoutHandling:
         assert result[0] is not None, "Long merge should complete"
         assert merge_time < 30, "Merge should complete within 30 seconds"
 
-    def test_timeout_handling_in_bulk_operations(self, db, pggit_installed):
+    def test_timeout_handling_in_bulk_operations(self, db_e2e, pggit_installed):
         """Test timeout handling in bulk insert operations"""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.timeout_bulk (
                 id INTEGER PRIMARY KEY,
                 value TEXT,
@@ -92,7 +92,7 @@ class TestE2ETimingTimeoutHandling:
 
                 for i in range(batch_size):
                     row_id = batch * batch_size + i
-                    db.execute(
+                    db_e2e.execute(
                         "INSERT INTO public.timeout_bulk (id, value) VALUES (%s, %s)",
                         row_id,
                         f"value-{row_id}",
@@ -104,12 +104,12 @@ class TestE2ETimingTimeoutHandling:
 
         finally:
             # Verify inserted data
-            count = db.execute("SELECT COUNT(*) FROM public.timeout_bulk")[0][0]
+            count = db_e2e.execute("SELECT COUNT(*) FROM public.timeout_bulk")[0][0]
             assert count > 0, "Some inserts should succeed even with timeout"
 
-    def test_concurrent_operation_timeout_isolation(self, db, pggit_installed):
+    def test_concurrent_operation_timeout_isolation(self, db_e2e, pggit_installed):
         """Test timeout isolation between concurrent operations"""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.timeout_isolation (
                 id INTEGER PRIMARY KEY,
                 operation_id INTEGER,
@@ -121,7 +121,7 @@ class TestE2ETimingTimeoutHandling:
 
         def long_operation(op_id, duration_ms):
             try:
-                db.execute(
+                db_e2e.execute(
                     "INSERT INTO public.timeout_isolation (id, operation_id, status) VALUES (%s, %s, %s)",
                     op_id,
                     op_id,
@@ -130,7 +130,7 @@ class TestE2ETimingTimeoutHandling:
 
                 time.sleep(duration_ms / 1000.0)
 
-                db.execute(
+                db_e2e.execute(
                     "UPDATE public.timeout_isolation SET status = %s WHERE operation_id = %s",
                     "completed",
                     op_id,
@@ -157,9 +157,9 @@ class TestE2ETimingTimeoutHandling:
             "Most operations should complete without timeout"
         )
 
-    def test_transaction_cleanup_after_timeout(self, db, pggit_installed):
+    def test_transaction_cleanup_after_timeout(self, db_e2e, pggit_installed):
         """Test cleanup after transaction timeout"""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.cleanup_test (
                 id INTEGER PRIMARY KEY,
                 state TEXT
@@ -167,11 +167,11 @@ class TestE2ETimingTimeoutHandling:
         """)
 
         # Start transaction
-        db.execute("INSERT INTO public.cleanup_test (id, state) VALUES (1, 'started')")
+        db_e2e.execute("INSERT INTO public.cleanup_test (id, state) VALUES (1, 'started')")
 
         # Simulate long-running operation that times out
         try:
-            db.execute(
+            db_e2e.execute(
                 "UPDATE public.cleanup_test SET state = %s WHERE id = 1", "processing"
             )
             time.sleep(0.1)
@@ -181,20 +181,20 @@ class TestE2ETimingTimeoutHandling:
             pass
 
         # Verify table is still accessible after error
-        result = db.execute("SELECT COUNT(*) FROM public.cleanup_test")
+        result = db_e2e.execute("SELECT COUNT(*) FROM public.cleanup_test")
         assert result[0][0] > 0, "Table should be accessible after timeout"
 
-    def test_distributed_transaction_timeout(self, db, pggit_installed):
+    def test_distributed_transaction_timeout(self, db_e2e, pggit_installed):
         """Test handling of distributed transaction timeout scenarios"""
-        main_id = db.execute_returning(
+        main_id = db_e2e.execute_returning(
             "SELECT id FROM pggit.branches WHERE name = 'main'"
         )[0]
 
-        branch1 = db.execute_returning(
+        branch1 = db_e2e.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('timeout-branch-1') RETURNING id"
         )[0]
 
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.distributed_timeout (
                 id INTEGER PRIMARY KEY,
                 branch_id INTEGER,
@@ -203,21 +203,21 @@ class TestE2ETimingTimeoutHandling:
         """)
 
         # Insert across branches
-        db.execute(
+        db_e2e.execute(
             "INSERT INTO public.distributed_timeout (id, branch_id, data) VALUES (1, %s, 'main-data')",
             main_id,
         )
-        db.execute(
+        db_e2e.execute(
             "INSERT INTO public.distributed_timeout (id, branch_id, data) VALUES (2, %s, 'branch-data')",
             branch1,
         )
 
         # Both inserts should be queryable
-        main_data = db.execute(
+        main_data = db_e2e.execute(
             "SELECT COUNT(*) FROM public.distributed_timeout WHERE branch_id = %s",
             main_id,
         )
-        branch_data = db.execute(
+        branch_data = db_e2e.execute(
             "SELECT COUNT(*) FROM public.distributed_timeout WHERE branch_id = %s",
             branch1,
         )

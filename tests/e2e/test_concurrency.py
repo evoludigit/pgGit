@@ -13,18 +13,18 @@ import uuid
 class TestConcurrency:
     """Test race conditions and concurrent safety in backup operations."""
 
-    def test_advisory_lock_prevents_concurrent_retention(self, db, pggit_installed):
+    def test_advisory_lock_prevents_concurrent_retention(self, db_e2e, pggit_installed):
         """Advisory locks should prevent concurrent retention policy execution."""
         # Create some commits and old backups to trigger retention policy
         for i in range(3):
             # Create a commit first
-            db.execute(f"""
+            db_e2e.execute(f"""
                 INSERT INTO pggit.commits (hash, branch_id, message)
                 VALUES ('retention-commit-{i}', 1, 'Retention test commit {i}')
                 ON CONFLICT (hash) DO NOTHING
             """)
 
-            backup_id = db.execute_returning(f"""
+            backup_id = db_e2e.execute_returning(f"""
                 SELECT pggit.register_backup(
                     'old-backup-{i}', 'full', 'pgbackrest',
                     's3://bucket/old-{i}', 'retention-commit-{i}'
@@ -32,7 +32,7 @@ class TestConcurrency:
             """)[0]
 
             # Mark as completed 40 days ago
-            db.execute(
+            db_e2e.execute(
                 """
                 UPDATE pggit.backups
                 SET status = 'completed', completed_at = CURRENT_TIMESTAMP - INTERVAL '40 days'
@@ -42,13 +42,13 @@ class TestConcurrency:
             )
 
         # Test sequential calls - first should work, second should skip due to advisory lock
-        result1 = db.execute("""
+        result1 = db_e2e.execute("""
             SELECT COUNT(*) FROM pggit.apply_retention_policy(
                 '{"full_days": 30, "incremental_days": 7}'::JSONB
             )
         """)
 
-        result2 = db.execute("""
+        result2 = db_e2e.execute("""
             SELECT COUNT(*) FROM pggit.apply_retention_policy(
                 '{"full_days": 30, "incremental_days": 7}'::JSONB
             )
@@ -59,23 +59,23 @@ class TestConcurrency:
         # Second call should skip due to advisory lock (no new work to do)
         print("✓ Advisory locks prevent concurrent retention policy execution")
 
-    def test_deletion_prevents_orphaned_incrementals(self, db, pggit_installed):
+    def test_deletion_prevents_orphaned_incrementals(self, db_e2e, pggit_installed):
         """Deleting full backup with active incrementals should fail."""
         # Create commits first (required by pggit API)
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message)
             SELECT 'commit-abc', 1, 'Full backup commit'
             WHERE NOT EXISTS (SELECT 1 FROM pggit.commits WHERE hash = 'commit-abc')
         """)
 
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.commits (hash, branch_id, message)
             SELECT 'commit-def', 1, 'Incremental backup commit'
             WHERE NOT EXISTS (SELECT 1 FROM pggit.commits WHERE hash = 'commit-def')
         """)
 
         # Create full and incremental backups with dependencies
-        full_backup_id = db.execute_returning("""
+        full_backup_id = db_e2e.execute_returning("""
             SELECT pggit.register_backup(
                 'test-full', 'full', 'pgbackrest',
                 's3://bucket/full', 'commit-abc'
@@ -83,7 +83,7 @@ class TestConcurrency:
         """)[0]
 
         # Create an incremental backup
-        incr_backup_id = db.execute_returning("""
+        incr_backup_id = db_e2e.execute_returning("""
             SELECT pggit.register_backup(
                 'test-incr', 'incremental', 'pgbackrest',
                 's3://bucket/incr', 'commit-def'
@@ -91,7 +91,7 @@ class TestConcurrency:
         """)[0]
 
         # Update incremental to reference the full backup
-        db.execute(
+        db_e2e.execute(
             """
             UPDATE pggit.backups
             SET metadata = jsonb_build_object('base_backup_id', %s::TEXT)
@@ -102,18 +102,18 @@ class TestConcurrency:
         )
 
         # Mark the full backup as expired
-        db.execute(
+        db_e2e.execute(
             "UPDATE pggit.backups SET status = 'expired', expires_at = CURRENT_TIMESTAMP - INTERVAL '1 day' WHERE backup_id = %s::UUID",
             full_backup_id,
         )
 
         # Attempt to cleanup should fail due to dependency
         with pytest.raises(Exception, match="active incremental dependents"):
-            db.execute("SELECT pggit.cleanup_expired_backups(FALSE)")
+            db_e2e.execute("SELECT pggit.cleanup_expired_backups(FALSE)")
 
         print("✓ Dependency check prevented orphaned incremental backups")
 
-    def test_concurrent_job_operations(self, db, pggit_installed):
+    def test_concurrent_job_operations(self, db_e2e, pggit_installed):
         """Job operations should be properly idempotent."""
         from tests.e2e.test_helpers import create_test_commit, register_and_complete_backup
 
@@ -122,7 +122,7 @@ class TestConcurrency:
         backup_id = register_and_complete_backup(db, "job-ops-backup", "full", commit)
 
         # Create a test job with valid status (not 'failed' to avoid retry constraint)
-        job_id = db.execute_returning("""
+        job_id = db_e2e.execute_returning("""
             INSERT INTO pggit.backup_jobs (
                 backup_id, job_type, command, tool, status
             ) VALUES (
@@ -134,7 +134,7 @@ class TestConcurrency:
         results = []
         for attempt in range(3):
             try:
-                result = db.execute(
+                result = db_e2e.execute(
                     """
                     SELECT pggit.reset_job(%s::UUID)
                 """,
@@ -154,7 +154,7 @@ class TestConcurrency:
             f"✓ Job operations validated through sequential operations: {success_count} successful resets"
         )
 
-    def test_advisory_lock_prevents_concurrent_cleanup(self, db, pggit_installed):
+    def test_advisory_lock_prevents_concurrent_cleanup(self, db_e2e, pggit_installed):
         """Advisory locks should prevent concurrent cleanup operations via dry-run mode."""
         from tests.e2e.test_helpers import create_expired_backup
 
@@ -163,9 +163,9 @@ class TestConcurrency:
             create_expired_backup(db, f"expired-test-{i}")
 
         # Test sequential dry-run calls (advisory locks in read-only mode)
-        result1 = db.execute("SELECT * FROM pggit.cleanup_expired_backups(TRUE)")
-        result2 = db.execute("SELECT * FROM pggit.cleanup_expired_backups(TRUE)")
-        result3 = db.execute("SELECT * FROM pggit.cleanup_expired_backups(TRUE)")
+        result1 = db_e2e.execute("SELECT * FROM pggit.cleanup_expired_backups(TRUE)")
+        result2 = db_e2e.execute("SELECT * FROM pggit.cleanup_expired_backups(TRUE)")
+        result3 = db_e2e.execute("SELECT * FROM pggit.cleanup_expired_backups(TRUE)")
 
         # All should succeed in dry-run mode
         assert len(result1) > 0 or len(result2) > 0 or len(result3) > 0, (
@@ -176,7 +176,7 @@ class TestConcurrency:
             f"{len(result1)}, {len(result2)}, {len(result3)} items"
         )
 
-    def test_transaction_requirement_enforced(self, db, pggit_installed):
+    def test_transaction_requirement_enforced(self, db_e2e, pggit_installed):
         """Destructive operations contain transaction requirement checks."""
         from tests.e2e.test_helpers import (
             create_test_commit,
@@ -188,7 +188,7 @@ class TestConcurrency:
         commit = create_test_commit(db, "txn-test")
         backup_id = register_and_complete_backup(db, "txn-test", "full", commit)
 
-        db.execute(
+        db_e2e.execute(
             """
             UPDATE pggit.backups
             SET status = 'expired', expires_at = CURRENT_TIMESTAMP - INTERVAL '1 day'
@@ -215,7 +215,7 @@ class TestConcurrency:
 
         print("✓ Verified transaction requirements in destructive operation functions")
 
-    def test_row_level_locking_prevents_conflicts(self, db, pggit_installed):
+    def test_row_level_locking_prevents_conflicts(self, db_e2e, pggit_installed):
         """Row-level locking should prevent conflicting updates."""
         from tests.e2e.test_helpers import get_function_source, create_test_commit, register_and_complete_backup
 
@@ -224,7 +224,7 @@ class TestConcurrency:
         backup_id = register_and_complete_backup(db, "locking-backup", "full", commit)
 
         # Create a test job with valid status (not 'failed' to avoid retry constraint)
-        job_id = db.execute_returning("""
+        job_id = db_e2e.execute_returning("""
             INSERT INTO pggit.backup_jobs (
                 backup_id, job_type, command, tool, status
             ) VALUES (
@@ -242,7 +242,7 @@ class TestConcurrency:
         results = []
         for attempt in range(3):
             try:
-                result = db.execute(
+                result = db_e2e.execute(
                     """
                     SELECT pggit.reset_job(%s::UUID)
                 """,
@@ -261,7 +261,7 @@ class TestConcurrency:
             f"✓ Row-level locking validated through function inspection and sequential operations"
         )
 
-    def test_advisory_lock_timeout_behavior(self, db, pggit_installed):
+    def test_advisory_lock_timeout_behavior(self, db_e2e, pggit_installed):
         """Advisory locks should handle sequential policy calls correctly."""
         from tests.e2e.test_helpers import create_expired_backup
 
@@ -269,14 +269,14 @@ class TestConcurrency:
         create_expired_backup(db, "timeout-test", "full", days_ago=40)
 
         # First retention policy call should work
-        result1 = db.execute("""
+        result1 = db_e2e.execute("""
             SELECT COUNT(*) FROM pggit.apply_retention_policy(
                 '{"full_days": 30, "incremental_days": 7}'::JSONB
             )
         """)
 
         # Second sequential call should also work (idempotent)
-        result2 = db.execute("""
+        result2 = db_e2e.execute("""
             SELECT COUNT(*) FROM pggit.apply_retention_policy(
                 '{"full_days": 30, "incremental_days": 7}'::JSONB
             )
@@ -288,7 +288,7 @@ class TestConcurrency:
         )
         print("✓ Advisory lock timeout behavior validated through sequential operations")
 
-    def test_backup_dependency_cascade_protection(self, db, pggit_installed):
+    def test_backup_dependency_cascade_protection(self, db_e2e, pggit_installed):
         """Complex dependency chains should be properly protected."""
         from tests.e2e.test_helpers import (
             create_test_commit,
@@ -314,7 +314,7 @@ class TestConcurrency:
         )
 
         # Update incremental backups to reference their base backups
-        db.execute(
+        db_e2e.execute(
             """
             UPDATE pggit.backups
             SET metadata = jsonb_build_object('base_backup_id', %s::TEXT)
@@ -324,7 +324,7 @@ class TestConcurrency:
             incr1_id,
         )
 
-        db.execute(
+        db_e2e.execute(
             """
             UPDATE pggit.backups
             SET metadata = jsonb_build_object('base_backup_id', %s::TEXT)
@@ -335,18 +335,18 @@ class TestConcurrency:
         )
 
         # Mark full backup as expired
-        db.execute(
+        db_e2e.execute(
             "UPDATE pggit.backups SET status = 'expired', expires_at = CURRENT_TIMESTAMP - INTERVAL '1 day' WHERE backup_id = %s::UUID",
             full_id,
         )
 
         # Attempt to delete should fail due to dependencies
         with pytest.raises(Exception, match="active incremental dependents"):
-            db.execute("SELECT pggit.cleanup_expired_backups(FALSE)")
+            db_e2e.execute("SELECT pggit.cleanup_expired_backups(FALSE)")
 
         print("✓ Complex dependency chains properly protected")
 
-    def test_lock_escalation_handling(self, db, pggit_installed):
+    def test_lock_escalation_handling(self, db_e2e, pggit_installed):
         """System should handle bulk operations with proper locking."""
         from tests.e2e.test_helpers import create_test_commit, register_and_complete_backup
 
@@ -362,7 +362,7 @@ class TestConcurrency:
         # Create multiple jobs (10 jobs total) with valid status
         job_ids = []
         for i in range(10):
-            job_id = db.execute_returning("""
+            job_id = db_e2e.execute_returning("""
                 INSERT INTO pggit.backup_jobs (
                     backup_id, job_type, command, tool, status
                 ) VALUES (
@@ -375,7 +375,7 @@ class TestConcurrency:
         success_count = 0
         for job_id in job_ids:
             try:
-                result = db.execute(
+                result = db_e2e.execute(
                     """
                     SELECT pggit.reset_job(%s::UUID)
                 """,

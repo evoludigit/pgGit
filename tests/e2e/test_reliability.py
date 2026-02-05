@@ -7,17 +7,17 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 class TestReliability:
     """Test reliability features: idempotency, error handling, audit logging."""
 
-    def test_retention_policy_idempotent(self, db, pggit_installed):
+    def test_retention_policy_idempotent(self, db_e2e, pggit_installed):
         """Retention policy should be idempotent - running twice produces same result."""
         # Create commits and backups
         for i in range(3):
-            db.execute(f"""
+            db_e2e.execute(f"""
                 INSERT INTO pggit.commits (hash, branch_id, message)
                 VALUES ('retention-commit-{i}', 1, 'Retention test commit {i}')
                 ON CONFLICT (hash) DO NOTHING
             """)
 
-            backup_id = db.execute_returning(f"""
+            backup_id = db_e2e.execute_returning(f"""
                 SELECT pggit.register_backup(
                     'retention-backup-{i}', 'full', 'pgbackrest',
                     's3://bucket/retention-{i}', 'retention-commit-{i}'
@@ -25,7 +25,7 @@ class TestReliability:
             """)[0]
 
             # Mark as completed 40 days ago
-            db.execute(
+            db_e2e.execute(
                 """
                 UPDATE pggit.backups
                 SET status = 'completed', completed_at = CURRENT_TIMESTAMP - INTERVAL '40 days'
@@ -35,14 +35,14 @@ class TestReliability:
             )
 
         # Run retention policy first time
-        result1 = db.execute("""
+        result1 = db_e2e.execute("""
             SELECT backup_id, backup_name, reason
             FROM pggit.apply_retention_policy('{"full_days": 30, "incremental_days": 7}'::JSONB)
             ORDER BY backup_id
         """)
 
         # Run retention policy second time - should return empty (idempotent)
-        result2 = db.execute("""
+        result2 = db_e2e.execute("""
             SELECT backup_id, backup_name, reason
             FROM pggit.apply_retention_policy('{"full_days": 30, "incremental_days": 7}'::JSONB)
             ORDER BY backup_id
@@ -53,7 +53,7 @@ class TestReliability:
         assert len(result2) == 0, "Second retention run should be empty (idempotent)"
 
         # Verify backups were actually marked with consistent timestamps
-        marked_backups = db.execute("""
+        marked_backups = db_e2e.execute("""
             SELECT backup_id, expires_at
             FROM pggit.backups
             WHERE status = 'expired' AND expires_at IS NOT NULL
@@ -65,13 +65,13 @@ class TestReliability:
         )
         print("✓ Retention policy is idempotent - same results on multiple runs")
 
-    def test_verify_backup_idempotent(self, db, pggit_installed):
+    def test_verify_backup_idempotent(self, db_e2e, pggit_installed):
         """Backup verification should be idempotent - function logic is designed for idempotency."""
         # Test that the function contains the idempotency check logic
         # We can't easily test the full flow due to transaction issues, but we can verify
         # the implementation contains the necessary idempotency logic
 
-        function_result = db.execute("""
+        function_result = db_e2e.execute("""
             SELECT pg_get_functiondef(oid)
             FROM pg_proc
             WHERE proname = 'verify_backup'
@@ -98,10 +98,10 @@ class TestReliability:
 
         print("✓ Backup verification contains idempotency logic")
 
-    def test_reset_job_idempotent(self, db, pggit_installed):
+    def test_reset_job_idempotent(self, db_e2e, pggit_installed):
         """Job reset should be idempotent - don't reset already queued jobs."""
         # Test the idempotency logic by checking that the function contains the necessary checks
-        function_result = db.execute("""
+        function_result = db_e2e.execute("""
             SELECT pg_get_functiondef(oid)
             FROM pg_proc
             WHERE proname = 'reset_job'
@@ -129,10 +129,10 @@ class TestReliability:
 
         print("✓ Job reset contains idempotency logic")
 
-    def test_audit_logging_captures_operations(self, db, pggit_installed):
+    def test_audit_logging_captures_operations(self, db_e2e, pggit_installed):
         """Audit logging should capture all operations with proper metadata."""
         # Check if audit table exists
-        table_exists = db.execute("""
+        table_exists = db_e2e.execute("""
             SELECT COUNT(*) FROM information_schema.tables
             WHERE table_schema = 'pggit' AND table_name = 'operation_audit'
         """)[0][0]
@@ -141,17 +141,17 @@ class TestReliability:
             pytest.skip("operation_audit table not installed in test environment")
 
         # Clear any existing audit logs for clean test
-        db.execute(
+        db_e2e.execute(
             "DELETE FROM pggit.operation_audit WHERE operation_name = 'cleanup_expired_backups'"
         )
 
         # Perform an operation that gets audited
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT COUNT(*) FROM pggit.cleanup_expired_backups(TRUE)
         """)
 
         # Check audit log
-        audit_records = db.execute("""
+        audit_records = db_e2e.execute("""
             SELECT operation_name, operation_type, success, parameters, rows_affected, duration_ms
             FROM pggit.operation_audit
             WHERE operation_name = 'cleanup_expired_backups'
@@ -171,12 +171,12 @@ class TestReliability:
 
         print("✓ Audit logging captures operation details correctly")
 
-    def test_audit_logging_captures_failures(self, db, pggit_installed):
+    def test_audit_logging_captures_failures(self, db_e2e, pggit_installed):
         """Audit logging should capture operation successes and failures."""
         from tests.e2e.test_helpers import create_expired_backup, get_function_source
 
         # Check if audit table exists
-        table_exists = db.execute("""
+        table_exists = db_e2e.execute("""
             SELECT COUNT(*) FROM information_schema.tables
             WHERE table_schema = 'pggit' AND table_name = 'operation_audit'
         """)[0][0]
@@ -185,7 +185,7 @@ class TestReliability:
             pytest.skip("operation_audit table not installed in test environment")
 
         # Clear audit logs
-        db.execute(
+        db_e2e.execute(
             "DELETE FROM pggit.operation_audit WHERE operation_name = 'cleanup_expired_backups'"
         )
 
@@ -193,12 +193,12 @@ class TestReliability:
         create_expired_backup(db, "audit-test")
 
         # Execute cleanup in dry-run mode (will succeed)
-        db.execute("""
+        db_e2e.execute("""
             SELECT pggit.cleanup_expired_backups(TRUE)
         """)
 
         # Check that an audit record was created for the successful operation
-        audit_records = db.execute("""
+        audit_records = db_e2e.execute("""
             SELECT success, error_code, error_message
             FROM pggit.operation_audit
             WHERE operation_name = 'cleanup_expired_backups'
@@ -219,13 +219,13 @@ class TestReliability:
             )
             print("✓ Verified exception handling in audit logging function")
 
-    def test_transaction_requirement_enforced(self, db, pggit_installed):
+    def test_transaction_requirement_enforced(self, db_e2e, pggit_installed):
         """Transaction requirements are enforced at the function level."""
         # Test that the function correctly identifies when it's not in a transaction
         # We can't easily test the actual transaction requirement without complex setup,
         # but we can verify the logic exists in the function
 
-        function_result = db.execute("""
+        function_result = db_e2e.execute("""
             SELECT pg_get_functiondef(oid)
             FROM pg_proc
             WHERE proname = 'cleanup_expired_backups'
@@ -246,11 +246,11 @@ class TestReliability:
 
         print("✓ Transaction requirement enforcement logic is present in functions")
 
-    def test_error_message_quality(self, db, pggit_installed):
+    def test_error_message_quality(self, db_e2e, pggit_installed):
         """Error messages should be clear and actionable."""
         # Test NULL parameter error - this should work regardless of transaction state
         try:
-            db.execute("SELECT pggit.get_worker_stats(NULL, 24)")
+            db_e2e.execute("SELECT pggit.get_worker_stats(NULL, 24)")
         except Exception as e:
             error_msg = str(e).lower()
             assert "null" in error_msg or "cannot be null" in error_msg, (
@@ -263,7 +263,7 @@ class TestReliability:
         # Test range error - test the validation logic rather than actual execution
         # since previous test might have aborted the transaction
         try:
-            function_result = db.execute("""
+            function_result = db_e2e.execute("""
                 SELECT pg_get_functiondef(oid)
                 FROM pg_proc
                 WHERE proname = 'get_backup_stats'
@@ -292,10 +292,10 @@ class TestReliability:
 
         print("✓ Error messages are clear and actionable")
 
-    def test_audit_log_data_integrity(self, db, pggit_installed):
+    def test_audit_log_data_integrity(self, db_e2e, pggit_installed):
         """Audit log should maintain data integrity and relationships."""
         # Check if audit table exists
-        table_exists = db.execute("""
+        table_exists = db_e2e.execute("""
             SELECT COUNT(*) FROM information_schema.tables
             WHERE table_schema = 'pggit' AND table_name = 'operation_audit'
         """)[0][0]
@@ -304,7 +304,7 @@ class TestReliability:
             pytest.skip("operation_audit table not installed in test environment")
 
         # Clear and perform operations
-        db.execute("DELETE FROM pggit.operation_audit")
+        db_e2e.execute("DELETE FROM pggit.operation_audit")
 
         # Perform several operations
         operations = [
@@ -314,10 +314,10 @@ class TestReliability:
         ]
 
         for op in operations:
-            db.execute(op)
+            db_e2e.execute(op)
 
         # Verify audit log integrity
-        audit_records = db.execute("""
+        audit_records = db_e2e.execute("""
             SELECT operation_name, success, started_at, completed_at, duration_ms
             FROM pggit.operation_audit
             ORDER BY started_at
@@ -334,10 +334,10 @@ class TestReliability:
 
         print("✓ Audit log maintains data integrity")
 
-    def test_structured_error_codes_defined(self, db, pggit_installed):
+    def test_structured_error_codes_defined(self, db_e2e, pggit_installed):
         """Structured error codes table should be properly populated."""
         # Check if error codes table exists
-        table_exists = db.execute("""
+        table_exists = db_e2e.execute("""
             SELECT COUNT(*) FROM information_schema.tables
             WHERE table_schema = 'pggit_errors' AND table_name = 'error_codes'
         """)[0][0]
@@ -345,7 +345,7 @@ class TestReliability:
         if table_exists == 0:
             pytest.skip("error_codes table not installed in test environment")
 
-        error_codes = db.execute("""
+        error_codes = db_e2e.execute("""
             SELECT error_code, sqlstate, severity, description
             FROM pggit_errors.error_codes
             ORDER BY error_code
@@ -368,12 +368,12 @@ class TestReliability:
 
         print("✓ Structured error codes table is properly defined")
 
-    def test_audit_log_performance_impact(self, db, pggit_installed):
+    def test_audit_log_performance_impact(self, db_e2e, pggit_installed):
         """Audit logging should not significantly impact performance."""
         import time
 
         # Check if audit table exists
-        table_exists = db.execute("""
+        table_exists = db_e2e.execute("""
             SELECT COUNT(*) FROM information_schema.tables
             WHERE table_schema = 'pggit' AND table_name = 'operation_audit'
         """)[0][0]
@@ -382,12 +382,12 @@ class TestReliability:
             pytest.skip("operation_audit table not installed in test environment")
 
         # Clear audit logs
-        db.execute("DELETE FROM pggit.operation_audit")
+        db_e2e.execute("DELETE FROM pggit.operation_audit")
 
         # Measure time for audited operation
         start_time = time.time()
         for _ in range(10):
-            db.execute("SELECT COUNT(*) FROM pggit.cleanup_expired_backups(TRUE)")
+            db_e2e.execute("SELECT COUNT(*) FROM pggit.cleanup_expired_backups(TRUE)")
         audited_time = time.time() - start_time
 
         # Should complete reasonably quickly (less than 5 seconds for 10 operations)
@@ -396,7 +396,7 @@ class TestReliability:
         )
 
         # Should have created audit records
-        audit_count = db.execute("""
+        audit_count = db_e2e.execute("""
             SELECT COUNT(*) FROM pggit.operation_audit
             WHERE operation_name = 'cleanup_expired_backups'
         """)[0][0]
@@ -407,19 +407,19 @@ class TestReliability:
             f"✓ Audit logging performance impact: {audited_time:.2f}s for 10 operations"
         )
 
-    def test_operation_consistency_under_load(self, db, pggit_installed):
+    def test_operation_consistency_under_load(self, db_e2e, pggit_installed):
         """Operations should remain consistent under concurrent load."""
         # Create multiple test backups
         backup_ids = []
         for i in range(3):
             # Create commits and backups
-            db.execute(f"""
+            db_e2e.execute(f"""
                 INSERT INTO pggit.commits (hash, branch_id, message)
                 VALUES ('consistency-commit-{i}', 1, 'Consistency test {i}')
                 ON CONFLICT (hash) DO NOTHING
             """)
 
-            backup_id = db.execute_returning(f"""
+            backup_id = db_e2e.execute_returning(f"""
                 SELECT pggit.register_backup(
                     'consistency-backup-{i}', 'full', 'pgbackrest',
                     's3://bucket/consistency-{i}', 'consistency-commit-{i}'
@@ -429,7 +429,7 @@ class TestReliability:
             backup_ids.append(backup_id)
 
             # Mark as completed long ago
-            db.execute(
+            db_e2e.execute(
                 """
                 UPDATE pggit.backups
                 SET status = 'completed', completed_at = CURRENT_TIMESTAMP - INTERVAL '100 days'
@@ -441,7 +441,7 @@ class TestReliability:
         # Run retention policy multiple times concurrently (simulated)
         results = []
         for i in range(3):
-            result = db.execute("""
+            result = db_e2e.execute("""
                 SELECT COUNT(*) FROM pggit.apply_retention_policy(
                     '{"full_days": 30, "incremental_days": 7}'::JSONB
                 )
@@ -458,13 +458,13 @@ class TestReliability:
 
         print("✓ Operations remain consistent under load with idempotency")
 
-    def test_dependency_check_logic(self, db, pggit_installed):
+    def test_dependency_check_logic(self, db_e2e, pggit_installed):
         """Dependency check logic correctly identifies backup relationships."""
         # Test the dependency check SQL logic without requiring actual backup creation
         # We'll test that the logic structure is correct by examining the query
 
         # Check that the cleanup function contains the dependency check logic
-        function_result = db.execute("""
+        function_result = db_e2e.execute("""
             SELECT pg_get_functiondef(oid)
             FROM pg_proc
             WHERE proname = 'cleanup_expired_backups'
