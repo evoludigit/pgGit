@@ -130,6 +130,18 @@ class PooledDatabaseFixture:
             except Exception:
                 pass  # Connection might already be closed
 
+    def rollback(self):
+        """Rollback any failed transaction using a temporary connection from pool.
+
+        This method allows tests to rollback after catching exceptions,
+        without requiring access to a persistent connection object.
+        """
+        with self.get_connection() as conn:
+            try:
+                conn.rollback()
+            except Exception:
+                pass  # Connection might already be in failed state
+
     def health_check(self) -> bool:
         """Verify pool is working and can execute queries.
 

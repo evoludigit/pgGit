@@ -220,6 +220,7 @@ BEGIN
         SET status = 'failed',
             completed_at = CURRENT_TIMESTAMP,
             last_error = p_error,
+            next_retry_at = NULL,
             metadata = metadata || jsonb_build_object(
                 'permanently_failed', true,
                 'final_error', p_error

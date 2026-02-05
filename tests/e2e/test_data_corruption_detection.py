@@ -162,7 +162,7 @@ class TestReferentialIntegrity:
             assert False, "FK constraint should prevent invalid branch_id"
         except Exception as e:
             # Expected: FK constraint violation
-            db.conn.rollback()
+            db.rollback()
             assert "foreign key" in str(e).lower() or "violates" in str(e).lower(), \
                    "Should get FK constraint error"
 
@@ -208,7 +208,7 @@ class TestReferentialIntegrity:
             assert False, "FK constraint should prevent invalid parent_id"
         except Exception as e:
             # Expected: FK constraint violation
-            db.conn.rollback()
+            db.rollback()
             assert "foreign key" in str(e).lower() or "violates" in str(e).lower(), \
                    "Should get FK constraint error"
 
@@ -259,7 +259,7 @@ class TestReferentialIntegrity:
             assert False, "FK constraint should prevent invalid dependent_id"
         except Exception as e:
             # Expected: FK constraint violation
-            db.conn.rollback()
+            db.rollback()
             assert "foreign key" in str(e).lower() or "violates" in str(e).lower(), \
                    "Should get FK constraint error"
 
@@ -381,7 +381,7 @@ class TestStateConsistency:
             assert False, "Should not allow duplicate objects"
         except Exception:
             # Constraint properly prevented duplicate - this is expected
-            db.conn.rollback()
+            db.rollback()
 
         # Detection query: Find potential duplicates
         duplicates = db.execute("""
@@ -409,11 +409,11 @@ class TestDataTypeIntegrity:
                 "invalid-status-branch", "INVALID_STATUS"
             )
             # If this succeeds, enum constraint is broken
-            db.conn.rollback()
+            db.rollback()
             assert False, "Should reject invalid enum value"
         except Exception as e:
             # Expected: enum constraint violation
-            db.conn.rollback()
+            db.rollback()
             assert "invalid input value for enum" in str(e).lower() or \
                    "type pggit.branch_status" in str(e).lower(), \
                    "Should get enum constraint error"
@@ -429,11 +429,11 @@ class TestDataTypeIntegrity:
                 "VALUES (%s, %s, %s, %s)",
                 "INVALID_OBJECT_TYPE", "public", "test_obj", main_id
             )
-            db.conn.rollback()
+            db.rollback()
             assert False, "Should reject invalid object_type"
         except Exception as e:
             # Expected: enum constraint violation
-            db.conn.rollback()
+            db.rollback()
             assert "invalid input value for enum" in str(e).lower() or \
                    "type pggit.object_type" in str(e).lower(), \
                    "Should get enum constraint error"
@@ -451,11 +451,11 @@ class TestDataTypeIntegrity:
                 "VALUES (%s, %s, %s, %s)",
                 "TABLE", None, "test_table", main_id
             )
-            db.conn.rollback()
+            db.rollback()
             assert False, "Should reject NULL in schema_name"
         except Exception as e:
             # Expected: NOT NULL constraint violation
-            db.conn.rollback()
+            db.rollback()
             assert "null value" in str(e).lower() or "not null" in str(e).lower(), \
                    "Should get NOT NULL constraint error"
 
@@ -465,11 +465,11 @@ class TestDataTypeIntegrity:
                 "INSERT INTO pggit.commits (branch_id, message) VALUES (%s, %s)",
                 None, "Test message"
             )
-            db.conn.rollback()
+            db.rollback()
             assert False, "Should reject NULL in branch_id"
         except Exception as e:
             # Expected: NOT NULL constraint violation
-            db.conn.rollback()
+            db.rollback()
             assert "null value" in str(e).lower() or "not null" in str(e).lower(), \
                    "Should get NOT NULL constraint error"
 

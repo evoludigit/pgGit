@@ -87,7 +87,7 @@ class TestBasicDependencies:
                "FK constraint not enforced"
 
         # Rollback failed transaction before cleanup
-        db.conn.rollback()
+        db.rollback()
 
         # Cleanup
         db.execute("DROP TABLE child")

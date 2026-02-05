@@ -616,7 +616,7 @@ class TestE2EFullWorkflow:
         except Exception:
             # Expected - constraint violation
             # Rollback the failed transaction
-            db.conn.rollback()
+            db.rollback()
 
         # Insert different email (should succeed)
         db.execute(

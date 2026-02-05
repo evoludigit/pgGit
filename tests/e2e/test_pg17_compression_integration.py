@@ -439,7 +439,7 @@ class TestCompressionEdgeCases:
             db.execute("ALTER TABLE invalid_compress ALTER COLUMN data SET COMPRESSION invalid")
 
         # Rollback the failed transaction
-        db.conn.rollback()
+        db.rollback()
 
         # Error should mention invalid compression method
         error_msg = str(exc.value).lower()
