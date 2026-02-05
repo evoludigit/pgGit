@@ -199,7 +199,7 @@ class TestTableDDL:
         assert 'unique' in str(exc.value).lower() or 'duplicate' in str(exc.value).lower()
 
         # Rollback failed transaction before cleanup
-        db.conn.rollback()
+        db.rollback()
 
         # Cleanup
         db.execute("DROP TABLE constraint_test")
@@ -242,7 +242,7 @@ class TestIndexDDL:
         assert 'unique' in str(exc.value).lower() or 'duplicate' in str(exc.value).lower()
 
         # Rollback failed transaction before cleanup
-        db.conn.rollback()
+        db.rollback()
 
         # Cleanup
         db.execute("DROP TABLE unique_idx_test CASCADE")
@@ -550,7 +550,7 @@ class TestTypeDDL:
         assert 'invalid input' in str(exc.value).lower() or 'enum' in str(exc.value).lower()
 
         # Rollback failed transaction before cleanup
-        db.conn.rollback()
+        db.rollback()
 
         # Cleanup
         db.execute("DROP TABLE status_test")
@@ -580,7 +580,7 @@ class TestTypeDDL:
         assert 'violates check constraint' in str(exc.value).lower() or 'domain' in str(exc.value).lower()
 
         # Rollback failed transaction before cleanup
-        db.conn.rollback()
+        db.rollback()
 
         # Cleanup
         db.execute("DROP TABLE user_emails")

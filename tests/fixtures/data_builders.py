@@ -211,7 +211,7 @@ class TableBuilder:
             )
         except Exception:
             # Table might already exist
-            self.db.conn.rollback()
+            self.db.rollback()
 
         return full_name
 
@@ -246,7 +246,7 @@ class TableBuilder:
             self.db.execute(f"CREATE TABLE {full_name} ({column_defs})")
         except Exception:
             # Table might already exist
-            self.db.conn.rollback()
+            self.db.rollback()
 
         return full_name
 
@@ -283,7 +283,7 @@ class TableBuilder:
                 count += 1
             except Exception:
                 # Continue on error
-                self.db.conn.rollback()
+                self.db.rollback()
 
         return count
 

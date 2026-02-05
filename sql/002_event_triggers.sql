@@ -253,7 +253,7 @@ BEGIN
                 v_metadata := jsonb_build_object(
                     'oid', v_object.objid
                 );
-                
+
                 v_object_id := pggit.ensure_object(
                     'FUNCTION'::pggit.object_type,
                     v_schema_name,
@@ -261,7 +261,22 @@ BEGIN
                     NULL,
                     v_metadata
                 );
-                
+
+            WHEN 'type' THEN
+                -- Track custom types (ENUM, DOMAIN, composite types)
+                v_metadata := jsonb_build_object(
+                    'oid', v_object.objid,
+                    'object_identity', v_object.object_identity
+                );
+
+                v_object_id := pggit.ensure_object(
+                    'TYPE'::pggit.object_type,
+                    v_schema_name,
+                    v_object_name,
+                    NULL,
+                    v_metadata
+                );
+
             ELSE
                 CONTINUE; -- Skip unsupported object types
         END CASE;

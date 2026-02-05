@@ -92,7 +92,7 @@ class TestE2EErrorHandlingValidation:
             )
 
         # Rollback the failed transaction
-        db.conn.rollback()
+        db.rollback()
 
         # Verify only one row exists
         result = db.execute("SELECT COUNT(*) FROM public.constraint_test")
@@ -207,8 +207,8 @@ class TestE2EConcurrencyScenarios:
             except Exception as e:
                 print(f"Thread {threading.current_thread().name} error: {e}")
                 errors.append(f"{name}: {str(e)}")
-                if hasattr(db, 'conn') and db.conn:
-                    db.conn.rollback()
+                if hasattr(db, 'rollback'):
+                    db.rollback()
                 return None
 
         with ThreadPoolExecutor(max_workers=5) as executor:
@@ -293,8 +293,8 @@ class TestE2EConcurrencyScenarios:
                 return table_name
             except Exception as e:
                 errors.append(f"{table_name}: {str(e)}")
-                if hasattr(db, 'conn') and db.conn:
-                    db.conn.rollback()
+                if hasattr(db, 'rollback'):
+                    db.rollback()
                 return None
 
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -340,8 +340,8 @@ class TestE2EConcurrencyScenarios:
                 return result[0] if result else None
             except Exception as e:
                 errors.append(f"{name}: {str(e)}")
-                if hasattr(db, 'conn') and db.conn:
-                    db.conn.rollback()
+                if hasattr(db, 'rollback'):
+                    db.rollback()
                 return None
 
         with ThreadPoolExecutor(max_workers=3) as executor:

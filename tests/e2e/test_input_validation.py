@@ -449,7 +449,7 @@ class TestMigrationInputValidation:
             db.execute("SELECT pggit.apply_migration(%s)", malicious_version)
 
         # Rollback the failed transaction before verification
-        db.conn.rollback()
+        db.rollback()
 
         # Should fail because version not found (SQL injection didn't work)
         # Verify migrations table still exists
