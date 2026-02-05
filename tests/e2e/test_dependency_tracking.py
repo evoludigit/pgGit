@@ -109,12 +109,9 @@ class TestBasicDependencies:
                'constraint' in str(exc.value).lower(), \
                "FK constraint not enforced"
 
-        # Rollback failed transaction before cleanup
-        db_e2e.rollback()
-
-        # Cleanup
-        db_e2e.execute("DROP TABLE child")
-        db_e2e.execute("DROP TABLE parent")
+        # Note: Transaction is aborted after the failed DELETE
+        # The fixture will handle cleanup on test end, so we don't need explicit cleanup
+        # Just verify that we got the expected FK constraint error
         print("✓ Foreign key dependency tracked and enforced")
 
     def test_function_table_dependency(self, db_e2e, pggit_installed):
