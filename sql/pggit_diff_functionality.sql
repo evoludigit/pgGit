@@ -1,16 +1,8 @@
 -- pgGit Diff Functionality
 -- Schema and data diffing capabilities
 
--- Table to store schema diffs
-CREATE TABLE IF NOT EXISTS pggit.schema_diffs (
-    diff_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    schema_a text NOT NULL,
-    schema_b text NOT NULL,
-    diff_type text,
-    object_name text,
-    object_type text,
-    created_at timestamptz DEFAULT now()
-);
+-- NOTE: schema_diffs table is defined in 055_schema_diffing_foundation.sql
+-- Do not redefine it here to avoid conflicts.
 
 -- Function to diff two schemas
 CREATE OR REPLACE FUNCTION pggit.diff_schemas(
@@ -73,16 +65,5 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- View to show recent diffs
-CREATE OR REPLACE VIEW pggit.recent_diffs AS
-SELECT
-    diff_id,
-    schema_a,
-    schema_b,
-    diff_type,
-    object_name,
-    object_type,
-    created_at
-FROM pggit.schema_diffs
-ORDER BY created_at DESC
-LIMIT 100;
+-- NOTE: recent_diffs view removed - was incompatible with schema_diffs
+-- defined in 055_schema_diffing_foundation.sql
