@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS pggit.ai_accuracy_metrics (
     f1_score DECIMAL(5,4),
     confidence_calibration DECIMAL(5,4),
     calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    EXCLUDE USING gist (model_version WITH =, prediction_type WITH =, time_period WITH &&)
+    UNIQUE(model_version, prediction_type, time_period)
 );
 
 CREATE TABLE IF NOT EXISTS pggit.ai_model_performance (
