@@ -99,6 +99,10 @@ markers = [
     "requires_pg17: mark test as requiring PostgreSQL 17+",
     "e2e: mark test as end-to-end integration test",
     "integration: mark test as integration test",
+    "db_unit: mark test as unit test with atomic transaction isolation",
+    "db_integration: mark test as integration test with savepoint isolation",
+    "db_e2e: mark test as end-to-end test with realistic PostgreSQL",
+    "db_load: mark test as load test with no automatic cleanup",
 ]
 
 [tool.hypothesis]
