@@ -23,9 +23,9 @@ import pytest
 class TestTemporalSnapshotManagement:
     """Test temporal snapshot creation and listing."""
 
-    def test_create_temporal_snapshot_basic(self, db, pggit_installed):
+    def test_create_temporal_snapshot_basic(self, db_e2e, pggit_installed):
         """Test basic temporal snapshot creation."""
-        result = db.execute_returning("""
+        result = db_e2e.execute_returning("""
             SELECT snapshot_id, name, created_at
             FROM pggit.create_temporal_snapshot(
                 'test-snapshot-basic',
@@ -42,11 +42,11 @@ class TestTemporalSnapshotManagement:
 
         print(f"✓ Created snapshot: {snapshot_id} named '{name}'")
 
-    def test_create_multiple_snapshots(self, db, pggit_installed):
+    def test_create_multiple_snapshots(self, db_e2e, pggit_installed):
         """Test creating multiple snapshots."""
         snapshots = []
         for i in range(3):
-            result = db.execute_returning("""
+            result = db_e2e.execute_returning("""
                 SELECT snapshot_id FROM pggit.create_temporal_snapshot(
                     %s, 1, %s
                 )
@@ -57,18 +57,18 @@ class TestTemporalSnapshotManagement:
         assert len(set(snapshots)) == 3, "All snapshot IDs should be unique"
         print(f"✓ Created {len(snapshots)} unique snapshots")
 
-    def test_list_temporal_snapshots(self, db, pggit_installed):
+    def test_list_temporal_snapshots(self, db_e2e, pggit_installed):
         """Test listing temporal snapshots."""
         # Create test snapshots
         for i in range(2):
-            db.execute_returning("""
+            db_e2e.execute_returning("""
                 SELECT snapshot_id FROM pggit.create_temporal_snapshot(
                     %s, 1, %s
                 )
             """, f'list-test-{i}', f'Test snapshot {i}')
 
         # List snapshots
-        snapshots = db.execute("""
+        snapshots = db_e2e.execute("""
             SELECT snapshot_id, snapshot_name, description
             FROM pggit.list_temporal_snapshots()
         """)
@@ -77,10 +77,10 @@ class TestTemporalSnapshotManagement:
         assert len(snapshots) >= 2, f"Should have at least 2 snapshots, got {len(snapshots)}"
         print(f"✓ Listed {len(snapshots)} snapshots")
 
-    def test_snapshot_with_branch_association(self, db, pggit_installed):
+    def test_snapshot_with_branch_association(self, db_e2e, pggit_installed):
         """Test creating snapshot associated with specific branch."""
         # Create snapshot for branch 1
-        result = db.execute_returning("""
+        result = db_e2e.execute_returning("""
             SELECT snapshot_id FROM pggit.create_temporal_snapshot(
                 'branch-snapshot', 1, 'Snapshot for specific branch'
             )
@@ -89,7 +89,7 @@ class TestTemporalSnapshotManagement:
         assert result is not None, "Branch-associated snapshot should be created"
 
         # List snapshots for branch 1
-        branch_snapshots = db.execute("""
+        branch_snapshots = db_e2e.execute("""
             SELECT snapshot_id FROM pggit.list_temporal_snapshots(
                 p_branch_id := 1
             )
@@ -102,10 +102,10 @@ class TestTemporalSnapshotManagement:
 class TestHistoricalDataQueries:
     """Test querying historical data using new function signatures."""
 
-    def test_query_historical_data_new_signature(self, db, pggit_installed):
+    def test_query_historical_data_new_signature(self, db_e2e, pggit_installed):
         """Test query_historical_data with new (schema, table, timestamp_iso) signature."""
         # Create test table
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE IF NOT EXISTS public.historical_test (
                 id SERIAL PRIMARY KEY,
                 value TEXT
@@ -113,10 +113,10 @@ class TestHistoricalDataQueries:
         """)
 
         # Insert test data
-        db.execute("INSERT INTO public.historical_test (value) VALUES ('test')")
+        db_e2e.execute("INSERT INTO public.historical_test (value) VALUES ('test')")
 
         # Create snapshot
-        snap_result = db.execute_returning("""
+        snap_result = db_e2e.execute_returning("""
             SELECT snapshot_id, created_at FROM pggit.create_temporal_snapshot(
                 'query-test', 1, 'Test data'
             )
@@ -124,7 +124,7 @@ class TestHistoricalDataQueries:
         snapshot_id, created_at = snap_result
 
         # Manually insert a record into temporal_changelog for this snapshot
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.temporal_changelog
             (snapshot_id, table_schema, table_name, operation, new_data, row_id)
             VALUES (%s, 'public', 'historical_test', 'INSERT',
@@ -132,7 +132,7 @@ class TestHistoricalDataQueries:
         """, snapshot_id)
 
         # Query historical data using NEW signature (schema, table, timestamp_iso)
-        historical_data = db.execute("""
+        historical_data = db_e2e.execute("""
             SELECT row_data, change_type FROM pggit.query_historical_data(
                 'public', 'historical_test', %s
             )
@@ -142,14 +142,14 @@ class TestHistoricalDataQueries:
         print(f"✓ Queried historical data with new signature: {len(historical_data)} records")
 
         # Cleanup
-        db.execute("DROP TABLE IF EXISTS public.historical_test")
+        db_e2e.execute("DROP TABLE IF EXISTS public.historical_test")
 
-    def test_get_table_state_at_time_new_signature(self, db, pggit_installed):
+    def test_get_table_state_at_time_new_signature(self, db_e2e, pggit_installed):
         """Test get_table_state_at_time with new (schema, table, timestamp_iso) signature."""
         # Note: This function currently returns empty result set (placeholder implementation)
         # but we test that it accepts the correct signature
 
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT * FROM pggit.get_table_state_at_time(
                 'public', 'test_table', %s
             )
@@ -163,10 +163,10 @@ class TestHistoricalDataQueries:
 class TestPointInTimeRecovery:
     """Test PITR functionality with new function signature."""
 
-    def test_restore_table_new_signature(self, db, pggit_installed):
+    def test_restore_table_new_signature(self, db_e2e, pggit_installed):
         """Test restore_table_to_point_in_time with new (schema, table, timestamp_iso) signature."""
         # Create test table
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE IF NOT EXISTS public.pitr_test (
                 id SERIAL PRIMARY KEY,
                 value TEXT
@@ -174,7 +174,7 @@ class TestPointInTimeRecovery:
         """)
 
         # Test the new signature
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT rows_restored, success FROM pggit.restore_table_to_point_in_time(
                 'public', 'pitr_test', %s
             )
@@ -186,16 +186,16 @@ class TestPointInTimeRecovery:
         print(f"✓ PITR new signature works (restored {rows_restored} rows)")
 
         # Cleanup
-        db.execute("DROP TABLE IF EXISTS public.pitr_test")
+        db_e2e.execute("DROP TABLE IF EXISTS public.pitr_test")
 
 
 class TestTemporalDiff:
     """Test temporal diff functionality."""
 
-    def test_temporal_diff_basic(self, db, pggit_installed):
+    def test_temporal_diff_basic(self, db_e2e, pggit_installed):
         """Test temporal_diff function with full table name."""
         # Create test table
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE IF NOT EXISTS public.diff_test (
                 id SERIAL PRIMARY KEY,
                 value TEXT
@@ -203,7 +203,7 @@ class TestTemporalDiff:
         """)
 
         # Create two snapshots at different times
-        snap1_result = db.execute_returning("""
+        snap1_result = db_e2e.execute_returning("""
             SELECT snapshot_id, created_at FROM pggit.create_temporal_snapshot(
                 'diff-1', 1, 'State 1'
             )
@@ -211,14 +211,14 @@ class TestTemporalDiff:
         snap1_id, snap1_time = snap1_result
 
         # Record some changes in changelog
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.temporal_changelog
             (snapshot_id, table_schema, table_name, operation, new_data, row_id)
             VALUES (%s, 'public', 'diff_test', 'INSERT',
                     '{"id": 1, "value": "old"}', '1')
         """, snap1_id)
 
-        snap2_result = db.execute_returning("""
+        snap2_result = db_e2e.execute_returning("""
             SELECT snapshot_id, created_at FROM pggit.create_temporal_snapshot(
                 'diff-2', 1, 'State 2'
             )
@@ -226,7 +226,7 @@ class TestTemporalDiff:
         snap2_id, snap2_time = snap2_result
 
         # Record updated data
-        db.execute("""
+        db_e2e.execute("""
             INSERT INTO pggit.temporal_changelog
             (snapshot_id, table_schema, table_name, operation, new_data, row_id)
             VALUES (%s, 'public', 'diff_test', 'UPDATE',
@@ -234,7 +234,7 @@ class TestTemporalDiff:
         """, snap2_id)
 
         # Get temporal diff (note: function signature is (table_name TEXT, time_a TIMESTAMP, time_b TIMESTAMP))
-        diff_result = db.execute("""
+        diff_result = db_e2e.execute("""
             SELECT row_id, changed FROM pggit.temporal_diff(
                 %s::TEXT, %s::TIMESTAMP, %s::TIMESTAMP
             )
@@ -244,16 +244,16 @@ class TestTemporalDiff:
         print(f"✓ Temporal diff executed: {len(diff_result)} changes detected")
 
         # Cleanup
-        db.execute("DROP TABLE IF EXISTS public.diff_test")
+        db_e2e.execute("DROP TABLE IF EXISTS public.diff_test")
 
 
 class TestTemporalChangeRecording:
     """Test manual temporal change recording."""
 
-    def test_record_temporal_change_insert(self, db, pggit_installed):
+    def test_record_temporal_change_insert(self, db_e2e, pggit_installed):
         """Test recording INSERT change."""
         # Create snapshot
-        result = db.execute_returning("""
+        result = db_e2e.execute_returning("""
             SELECT snapshot_id FROM pggit.create_temporal_snapshot(
                 'record-test', 1, 'Recording test'
             )
@@ -261,7 +261,7 @@ class TestTemporalChangeRecording:
         snapshot_id = result[0]  # execute_returning returns tuple (value,) for single column
 
         # Record a change (note parameter order: snapshot_id, schema, table, operation, row_id, old_data, new_data)
-        change_result = db.execute_returning("""
+        change_result = db_e2e.execute_returning("""
             SELECT pggit.record_temporal_change(
                 %s::UUID, 'public', 'test_table', 'INSERT', '1',
                 NULL, '{"id": 1, "value": "test"}'::jsonb
@@ -276,10 +276,10 @@ class TestTemporalChangeRecording:
 class TestTemporalDataExport:
     """Test temporal data export functionality."""
 
-    def test_export_temporal_data_basic(self, db, pggit_installed):
+    def test_export_temporal_data_basic(self, db_e2e, pggit_installed):
         """Test exporting temporal data for a snapshot."""
         # Create snapshot
-        result = db.execute_returning("""
+        result = db_e2e.execute_returning("""
             SELECT snapshot_id FROM pggit.create_temporal_snapshot(
                 'export-test', 1, 'Export test'
             )
@@ -287,7 +287,7 @@ class TestTemporalDataExport:
         snapshot_id = result[0]  # execute_returning returns tuple (value,) for single column
 
         # Export data
-        export_result = db.execute("""
+        export_result = db_e2e.execute("""
             SELECT export_format, record_count, exported_at FROM pggit.export_temporal_data(%s::UUID)
         """, snapshot_id)
 
@@ -301,9 +301,9 @@ class TestTemporalDataExport:
 class TestTemporalIndexManagement:
     """Test temporal index maintenance."""
 
-    def test_rebuild_temporal_indexes(self, db, pggit_installed):
+    def test_rebuild_temporal_indexes(self, db_e2e, pggit_installed):
         """Test rebuilding temporal indexes."""
-        result = db.execute("""
+        result = db_e2e.execute("""
             SELECT index_name, rebuilt FROM pggit.rebuild_temporal_indexes()
         """)
 
@@ -319,9 +319,9 @@ class TestTemporalIndexManagement:
 class TestTemporalEdgeCases:
     """Test edge cases and error handling."""
 
-    def test_snapshot_with_null_description(self, db, pggit_installed):
+    def test_snapshot_with_null_description(self, db_e2e, pggit_installed):
         """Test creating snapshot with NULL description."""
-        result = db.execute_returning("""
+        result = db_e2e.execute_returning("""
             SELECT snapshot_id, name FROM pggit.create_temporal_snapshot(
                 'null-desc-test', 1, NULL
             )
@@ -332,18 +332,18 @@ class TestTemporalEdgeCases:
         assert snapshot_id is not None, "Snapshot ID should be generated"
         print("✓ Handles NULL description gracefully")
 
-    def test_list_snapshots_with_limit(self, db, pggit_installed):
+    def test_list_snapshots_with_limit(self, db_e2e, pggit_installed):
         """Test listing snapshots with limit parameter."""
         # Create multiple snapshots
         for i in range(5):
-            db.execute_returning("""
+            db_e2e.execute_returning("""
                 SELECT snapshot_id FROM pggit.create_temporal_snapshot(
                     %s, 1, %s
                 )
             """, f'limit-test-{i}', f'Snapshot {i}')
 
         # List with limit
-        limited_results = db.execute("""
+        limited_results = db_e2e.execute("""
             SELECT snapshot_id FROM pggit.list_temporal_snapshots(
                 p_limit := 3
             )
@@ -356,20 +356,20 @@ class TestTemporalEdgeCases:
 class TestMultiTableConsistency:
     """Test temporal consistency across multiple tables."""
 
-    def test_consistent_snapshot_creation(self, db, pggit_installed):
+    def test_consistent_snapshot_creation(self, db_e2e, pggit_installed):
         """Test creating snapshot captures consistent state."""
         # Create two tables
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE IF NOT EXISTS public.tt_table_a (id SERIAL PRIMARY KEY, value TEXT);
             CREATE TABLE IF NOT EXISTS public.tt_table_b (id SERIAL PRIMARY KEY, value TEXT);
         """)
 
         # Insert data
-        db.execute("INSERT INTO public.tt_table_a (value) VALUES ('a1')")
-        db.execute("INSERT INTO public.tt_table_b (value) VALUES ('b1')")
+        db_e2e.execute("INSERT INTO public.tt_table_a (value) VALUES ('a1')")
+        db_e2e.execute("INSERT INTO public.tt_table_b (value) VALUES ('b1')")
 
         # Create snapshot
-        snap_result = db.execute_returning("""
+        snap_result = db_e2e.execute_returning("""
             SELECT snapshot_id, created_at FROM pggit.create_temporal_snapshot(
                 'multi-table-test', 1, 'Consistent state'
             )
@@ -380,4 +380,4 @@ class TestMultiTableConsistency:
         print(f"✓ Created consistent snapshot {snapshot_id} at {created_at}")
 
         # Cleanup
-        db.execute("DROP TABLE IF EXISTS public.tt_table_a, public.tt_table_b")
+        db_e2e.execute("DROP TABLE IF EXISTS public.tt_table_a, public.tt_table_b")

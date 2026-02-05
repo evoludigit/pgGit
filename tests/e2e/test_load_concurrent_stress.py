@@ -23,14 +23,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 class TestE2EConcurrentLoadStress:
     """Test concurrent load stress scenarios."""
 
-    def test_50_concurrent_branch_operations(self, db, pggit_installed):
+    def test_50_concurrent_branch_operations(self, db_e2e, pggit_installed):
         """Test 50 concurrent branch operations"""
         created_branches = []
         failed_operations = []
 
         def create_branch(i):
             try:
-                branch_id = db.execute_returning(
+                branch_id = db_e2e.execute_returning(
                     "INSERT INTO pggit.branches (name) VALUES (%s) RETURNING id",
                     f"stress-50-{i}",
                 )[0]
@@ -58,9 +58,9 @@ class TestE2EConcurrentLoadStress:
             f"No more than 10 failures acceptable, got {len(failed_operations)}"
         )
 
-    def test_100_concurrent_commits(self, db, pggit_installed):
+    def test_100_concurrent_commits(self, db_e2e, pggit_installed):
         """Test 100 concurrent commits to same branch"""
-        main_id = db.execute_returning(
+        main_id = db_e2e.execute_returning(
             "SELECT id FROM pggit.branches WHERE name = 'main'"
         )[0]
 
@@ -69,7 +69,7 @@ class TestE2EConcurrentLoadStress:
 
         def create_commit(i):
             try:
-                commit_id = db.execute_returning(
+                commit_id = db_e2e.execute_returning(
                     "INSERT INTO pggit.commits (branch_id, message) VALUES (%s, %s) RETURNING id",
                     main_id,
                     f"concurrent-commit-{i}",
@@ -95,9 +95,9 @@ class TestE2EConcurrentLoadStress:
             "All commit IDs should be unique"
         )
 
-    def test_contention_under_high_write_load(self, db, pggit_installed):
+    def test_contention_under_high_write_load(self, db_e2e, pggit_installed):
         """Test system under contention with high write load"""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.high_write_load (
                 id INTEGER PRIMARY KEY,
                 thread_id INTEGER,
@@ -112,7 +112,7 @@ class TestE2EConcurrentLoadStress:
         def high_write(thread_id):
             try:
                 for i in range(10):
-                    db.execute(
+                    db_e2e.execute(
                         "INSERT INTO public.high_write_load (id, thread_id, value) VALUES (%s, %s, %s)",
                         thread_id * 1000 + i,
                         thread_id,
@@ -134,12 +134,12 @@ class TestE2EConcurrentLoadStress:
         )
 
         # Verify all data was inserted
-        total_rows = db.execute("SELECT COUNT(*) FROM public.high_write_load")[0][0]
+        total_rows = db_e2e.execute("SELECT COUNT(*) FROM public.high_write_load")[0][0]
         assert total_rows > 0, "Data should be inserted under high load"
 
-    def test_recovery_from_resource_exhaustion(self, db, pggit_installed):
+    def test_recovery_from_resource_exhaustion(self, db_e2e, pggit_installed):
         """Test recovery after resource exhaustion"""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.recovery_test (
                 id INTEGER PRIMARY KEY,
                 data TEXT
@@ -149,7 +149,7 @@ class TestE2EConcurrentLoadStress:
         # Create heavy load
         try:
             for i in range(5000):
-                db.execute(
+                db_e2e.execute(
                     "INSERT INTO public.recovery_test (id, data) VALUES (%s, %s)",
                     i,
                     "x" * 100,  # Moderate size
@@ -159,11 +159,11 @@ class TestE2EConcurrentLoadStress:
             pass
 
         # System should recover - simple query should work
-        result = db.execute("SELECT COUNT(*) FROM public.recovery_test")
+        result = db_e2e.execute("SELECT COUNT(*) FROM public.recovery_test")
         assert result[0][0] > 0, "System should recover and still be queryable"
 
         # New operations should work
-        new_branch = db.execute_returning(
+        new_branch = db_e2e.execute_returning(
             "INSERT INTO pggit.branches (name) VALUES ('recovery-branch') RETURNING id"
         )[0]
         assert new_branch is not None, "New operations should work after recovery"

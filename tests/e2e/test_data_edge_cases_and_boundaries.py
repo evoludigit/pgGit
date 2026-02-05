@@ -34,9 +34,9 @@ from decimal import Decimal
 class TestEdgeCasesAndBoundaries:
     """Test edge cases and boundary conditions."""
 
-    def test_empty_branch_merge_handling(self, db, pggit_installed):
+    def test_empty_branch_merge_handling(self, db_e2e, pggit_installed):
         """Test handling empty tables."""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.empty_test (
                 id INTEGER PRIMARY KEY,
                 data TEXT
@@ -44,17 +44,17 @@ class TestEdgeCasesAndBoundaries:
         """)
 
         # Verify table exists but is empty
-        count = db.execute("SELECT COUNT(*) FROM public.empty_test")[0][0]
+        count = db_e2e.execute("SELECT COUNT(*) FROM public.empty_test")[0][0]
         assert count == 0, "Empty table should have no rows"
 
         # Verify we can insert into empty table
-        db.execute("INSERT INTO public.empty_test VALUES (1, 'first-insert')")
-        count = db.execute("SELECT COUNT(*) FROM public.empty_test")[0][0]
+        db_e2e.execute("INSERT INTO public.empty_test VALUES (1, 'first-insert')")
+        count = db_e2e.execute("SELECT COUNT(*) FROM public.empty_test")[0][0]
         assert count == 1, "Insert into empty table should succeed"
 
-    def test_null_values_in_data_branching(self, db, pggit_installed):
+    def test_null_values_in_data_branching(self, db_e2e, pggit_installed):
         """Test NULL value handling in branched data."""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.null_test (
                 id INTEGER PRIMARY KEY,
                 name TEXT,
@@ -63,13 +63,13 @@ class TestEdgeCasesAndBoundaries:
         """)
 
         # Insert data with NULLs
-        db.execute(
+        db_e2e.execute(
             "INSERT INTO public.null_test (id, name, value) VALUES (%s, %s, %s)",
             1,
             None,
             None,
         )
-        db.execute(
+        db_e2e.execute(
             "INSERT INTO public.null_test (id, name, value) VALUES (%s, %s, %s)",
             2,
             "test",
@@ -77,44 +77,44 @@ class TestEdgeCasesAndBoundaries:
         )
 
         # Query should return NULLs unchanged
-        result = db.execute("SELECT * FROM public.null_test WHERE id = 1")
+        result = db_e2e.execute("SELECT * FROM public.null_test WHERE id = 1")
         assert result[0] == (1, None, None), "NULL values not preserved"
 
         # Verify other row
-        result2 = db.execute("SELECT * FROM public.null_test WHERE id = 2")
+        result2 = db_e2e.execute("SELECT * FROM public.null_test WHERE id = 2")
         assert result2[0] == (2, "test", None), (
             "Mixed NULL/non-NULL values not preserved"
         )
 
-    def test_single_row_table_versioning(self, db, pggit_installed):
+    def test_single_row_table_versioning(self, db_e2e, pggit_installed):
         """Test versioning a single-row table."""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.single_row (
                 id INTEGER PRIMARY KEY,
                 config TEXT,
                 version INTEGER DEFAULT 1
             )
         """)
-        db.execute("INSERT INTO public.single_row VALUES (1, 'config-v1', 1)")
+        db_e2e.execute("INSERT INTO public.single_row VALUES (1, 'config-v1', 1)")
 
         # Verify initial state
-        result = db.execute("SELECT * FROM public.single_row WHERE id = 1")
+        result = db_e2e.execute("SELECT * FROM public.single_row WHERE id = 1")
         assert result[0] == (1, "config-v1", 1), (
             "Initial single-row insert should succeed"
         )
 
         # Update
-        db.execute(
+        db_e2e.execute(
             "UPDATE public.single_row SET config = 'config-v2', version = 2 WHERE id = 1"
         )
 
         # Verify update
-        result = db.execute("SELECT * FROM public.single_row WHERE id = 1")
+        result = db_e2e.execute("SELECT * FROM public.single_row WHERE id = 1")
         assert result[0] == (1, "config-v2", 2), "Single-row update should succeed"
 
-    def test_very_long_commit_messages(self, db, pggit_installed):
+    def test_very_long_commit_messages(self, db_e2e, pggit_installed):
         """Test handling of very long commit messages."""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.long_message_test (
                 id INTEGER PRIMARY KEY,
                 message TEXT
@@ -124,19 +124,19 @@ class TestEdgeCasesAndBoundaries:
         # 10KB message
         long_message = "x" * 10000
 
-        db.execute(
+        db_e2e.execute(
             "INSERT INTO public.long_message_test (id, message) VALUES (%s, %s)",
             1,
             long_message,
         )
 
         # Verify retrieval
-        result = db.execute("SELECT message FROM public.long_message_test WHERE id = 1")
+        result = db_e2e.execute("SELECT message FROM public.long_message_test WHERE id = 1")
         assert len(result[0][0]) == 10000, "Long message should be preserved"
 
-    def test_special_chars_in_branch_names(self, db, pggit_installed):
+    def test_special_chars_in_branch_names(self, db_e2e, pggit_installed):
         """Test special characters in table names."""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.special_char_test (
                 id INTEGER PRIMARY KEY,
                 name TEXT
@@ -151,21 +151,21 @@ class TestEdgeCasesAndBoundaries:
         ]
 
         for i, name in enumerate(special_names, 1):
-            db.execute(
+            db_e2e.execute(
                 "INSERT INTO public.special_char_test (id, name) VALUES (%s, %s)",
                 i,
                 name,
             )
 
             # Verify retrieval
-            result = db.execute(
+            result = db_e2e.execute(
                 "SELECT name FROM public.special_char_test WHERE id = %s", i
             )
             assert result[0][0] == name, f"Name '{name}' not preserved"
 
-    def test_unicode_data_handling(self, db, pggit_installed):
+    def test_unicode_data_handling(self, db_e2e, pggit_installed):
         """Test Unicode data in tables."""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.unicode_test (
                 id INTEGER PRIMARY KEY,
                 text TEXT
@@ -180,32 +180,32 @@ class TestEdgeCasesAndBoundaries:
         ]
 
         for i, value in enumerate(unicode_values, 1):
-            db.execute(
+            db_e2e.execute(
                 "INSERT INTO public.unicode_test (id, text) VALUES (%s, %s)", i, value
             )
 
         # Verify all unicode preserved
-        results = db.execute("SELECT text FROM public.unicode_test ORDER BY id")
+        results = db_e2e.execute("SELECT text FROM public.unicode_test ORDER BY id")
         for i, (text,) in enumerate(results):
             assert text == unicode_values[i], f"Unicode value {i} not preserved"
 
-    def test_zero_length_data_payload(self, db, pggit_installed):
+    def test_zero_length_data_payload(self, db_e2e, pggit_installed):
         """Test zero-length data payloads."""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.empty_string_test (
                 id INTEGER PRIMARY KEY,
                 text TEXT
             )
         """)
 
-        db.execute("INSERT INTO public.empty_string_test VALUES (1, '')")
+        db_e2e.execute("INSERT INTO public.empty_string_test VALUES (1, '')")
 
-        result = db.execute("SELECT text FROM public.empty_string_test WHERE id = 1")
+        result = db_e2e.execute("SELECT text FROM public.empty_string_test WHERE id = 1")
         assert result[0][0] == "", "Empty string should be preserved"
 
-    def test_maximum_version_number_handling(self, db, pggit_installed):
+    def test_maximum_version_number_handling(self, db_e2e, pggit_installed):
         """Test handling of version numbers approaching limits."""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.version_limit_test (
                 id INTEGER PRIMARY KEY,
                 version_num INTEGER
@@ -214,19 +214,19 @@ class TestEdgeCasesAndBoundaries:
 
         # Large version number (not quite max integer)
         large_version = 2147483647  # max INT32
-        db.execute(
+        db_e2e.execute(
             "INSERT INTO public.version_limit_test VALUES (1, %s)", large_version
         )
 
-        result = db.execute(
+        result = db_e2e.execute(
             "SELECT version_num FROM public.version_limit_test WHERE id = 1"
         )
         assert result[0][0] == large_version, "Large version number not preserved"
 
-    def test_deeply_nested_conflicts(self, db, pggit_installed):
+    def test_deeply_nested_conflicts(self, db_e2e, pggit_installed):
         """Test deeply nested data structures."""
         # Create nested data structure
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.nested_conflict (
                 id INTEGER PRIMARY KEY,
                 level_1 TEXT,
@@ -235,43 +235,43 @@ class TestEdgeCasesAndBoundaries:
             )
         """)
 
-        db.execute("INSERT INTO public.nested_conflict VALUES (1, 'a', 'b', 'c')")
+        db_e2e.execute("INSERT INTO public.nested_conflict VALUES (1, 'a', 'b', 'c')")
 
         # Verify structure can be queried
-        result = db.execute("SELECT * FROM public.nested_conflict WHERE id = 1")
+        result = db_e2e.execute("SELECT * FROM public.nested_conflict WHERE id = 1")
         assert result[0] == (1, "a", "b", "c"), "Nested structure insert should succeed"
 
         # Test updates at different levels
-        db.execute(
+        db_e2e.execute(
             "UPDATE public.nested_conflict SET level_2 = 'b_modified' WHERE id = 1"
         )
-        result = db.execute("SELECT * FROM public.nested_conflict WHERE id = 1")
+        result = db_e2e.execute("SELECT * FROM public.nested_conflict WHERE id = 1")
         assert result[0][2] == "b_modified", "Level-2 update should succeed"
 
-        db.execute(
+        db_e2e.execute(
             "UPDATE public.nested_conflict SET level_3 = 'c_modified' WHERE id = 1"
         )
-        result = db.execute("SELECT * FROM public.nested_conflict WHERE id = 1")
+        result = db_e2e.execute("SELECT * FROM public.nested_conflict WHERE id = 1")
         assert result[0][3] == "c_modified", "Level-3 update should succeed"
 
-    def test_duplicate_snapshot_creation(self, db, pggit_installed):
+    def test_duplicate_snapshot_creation(self, db_e2e, pggit_installed):
         """Test duplicate data handling."""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.duplicate_snap (
                 id INTEGER PRIMARY KEY,
                 value TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        db.execute("INSERT INTO public.duplicate_snap (id, value) VALUES (1, 'data')")
+        db_e2e.execute("INSERT INTO public.duplicate_snap (id, value) VALUES (1, 'data')")
 
         # Verify unique constraint on id
-        result = db.execute("SELECT COUNT(*) FROM public.duplicate_snap WHERE id = 1")
+        result = db_e2e.execute("SELECT COUNT(*) FROM public.duplicate_snap WHERE id = 1")
         assert result[0][0] == 1, "One record should exist"
 
         # Try to insert duplicate - should fail due to constraint
         try:
-            db.execute(
+            db_e2e.execute(
                 "INSERT INTO public.duplicate_snap (id, value) VALUES (1, 'data2')"
             )
             # If we get here, PK constraint didn't work
@@ -282,12 +282,12 @@ class TestEdgeCasesAndBoundaries:
             pass
 
         # Verify original data still exists
-        result = db.execute("SELECT value FROM public.duplicate_snap WHERE id = 1")
+        result = db_e2e.execute("SELECT value FROM public.duplicate_snap WHERE id = 1")
         assert result[0][0] == "data", "Original data should be preserved"
 
-    def test_conflicting_temporal_intervals(self, db, pggit_installed):
+    def test_conflicting_temporal_intervals(self, db_e2e, pggit_installed):
         """Test handling time-based data updates."""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.temporal_conflict (
                 id INTEGER PRIMARY KEY,
                 data TEXT,
@@ -296,31 +296,31 @@ class TestEdgeCasesAndBoundaries:
             )
         """)
 
-        db.execute(
+        db_e2e.execute(
             "INSERT INTO public.temporal_conflict (id, data) VALUES (1, 'initial')"
         )
         # Verify initial insert
-        result = db.execute("SELECT data FROM public.temporal_conflict WHERE id = 1")
+        result = db_e2e.execute("SELECT data FROM public.temporal_conflict WHERE id = 1")
         assert result[0][0] == "initial", "Initial insert should succeed"
 
         # Update data
-        db.execute(
+        db_e2e.execute(
             "UPDATE public.temporal_conflict SET data = 'updated', updated_at = NOW() WHERE id = 1"
         )
-        result = db.execute("SELECT data FROM public.temporal_conflict WHERE id = 1")
+        result = db_e2e.execute("SELECT data FROM public.temporal_conflict WHERE id = 1")
         assert result[0][0] == "updated", "Update should succeed"
 
         # Verify timestamps are different
-        result = db.execute(
+        result = db_e2e.execute(
             "SELECT created_at, updated_at FROM public.temporal_conflict WHERE id = 1"
         )
         assert result[0][0] is not None and result[0][1] is not None, (
             "Timestamps should be set"
         )
 
-    def test_missing_temporal_changelog_entries(self, db, pggit_installed):
+    def test_missing_temporal_changelog_entries(self, db_e2e, pggit_installed):
         """Test handling audit trail for data changes."""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.missing_changelog (
                 id INTEGER PRIMARY KEY,
                 value TEXT,
@@ -328,30 +328,30 @@ class TestEdgeCasesAndBoundaries:
             )
         """)
 
-        db.execute(
+        db_e2e.execute(
             "INSERT INTO public.missing_changelog VALUES (1, 'test', 'INSERT: initial')"
         )
 
         # Verify audit trail is recorded
-        result = db.execute(
+        result = db_e2e.execute(
             "SELECT change_log FROM public.missing_changelog WHERE id = 1"
         )
         assert result[0][0] == "INSERT: initial", "Changelog should be recorded"
 
         # Update with new log entry
-        db.execute(
+        db_e2e.execute(
             "UPDATE public.missing_changelog SET value = 'updated', change_log = 'UPDATE: modified' WHERE id = 1"
         )
-        result = db.execute(
+        result = db_e2e.execute(
             "SELECT change_log FROM public.missing_changelog WHERE id = 1"
         )
         assert result[0][0] == "UPDATE: modified", (
             "Updated changelog should be recorded"
         )
 
-    def test_pattern_learning_with_single_observation(self, db, pggit_installed):
+    def test_pattern_learning_with_single_observation(self, db_e2e, pggit_installed):
         """Test learning from minimal data."""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.pattern_test (
                 id INTEGER PRIMARY KEY,
                 operation TEXT,
@@ -360,15 +360,15 @@ class TestEdgeCasesAndBoundaries:
         """)
 
         # Record single access pattern
-        db.execute("INSERT INTO public.pattern_test (id, operation) VALUES (1, 'READ')")
+        db_e2e.execute("INSERT INTO public.pattern_test (id, operation) VALUES (1, 'READ')")
 
         # Verify pattern recorded
-        result = db.execute("SELECT operation FROM public.pattern_test WHERE id = 1")
+        result = db_e2e.execute("SELECT operation FROM public.pattern_test WHERE id = 1")
         assert result[0][0] == "READ", "Pattern should be recorded"
 
-    def test_prediction_accuracy_with_no_history(self, db, pggit_installed):
+    def test_prediction_accuracy_with_no_history(self, db_e2e, pggit_installed):
         """Test predictions when no historical data exists."""
-        db.execute("""
+        db_e2e.execute("""
             CREATE TABLE public.prediction_test (
                 id INTEGER PRIMARY KEY,
                 object_id INTEGER,
@@ -377,15 +377,15 @@ class TestEdgeCasesAndBoundaries:
         """)
 
         # Empty table - no historical predictions yet
-        count = db.execute("SELECT COUNT(*) FROM public.prediction_test")
+        count = db_e2e.execute("SELECT COUNT(*) FROM public.prediction_test")
         assert count[0][0] == 0, "Prediction table should start empty"
 
         # Insert a prediction
-        db.execute(
+        db_e2e.execute(
             "INSERT INTO public.prediction_test (id, object_id, confidence) VALUES (1, 1, 0.95)"
         )
 
-        result = db.execute("SELECT * FROM public.prediction_test WHERE object_id = 1")
+        result = db_e2e.execute("SELECT * FROM public.prediction_test WHERE object_id = 1")
         assert float(result[0][2]) == 0.95, "Prediction should be stored"
 
 
