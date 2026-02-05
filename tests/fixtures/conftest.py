@@ -6,6 +6,7 @@ from tests.e2e.conftest import (  # noqa: F401
     pggit_installed,
     e2e_pool,
     db,
+    db_setup,
     db_unit,
     db_integration,
     db_e2e,
