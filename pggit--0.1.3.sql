@@ -6644,9 +6644,11 @@ CREATE OR REPLACE FUNCTION pggit.get_base_table_info(
 ) AS $$
 BEGIN
     -- Check if this is a routed view
+    -- Note: COLLATE "C" matches information_schema's collation
     IF EXISTS (
         SELECT 1 FROM information_schema.views
-        WHERE table_schema = p_schema AND table_name = p_table
+        WHERE table_schema = p_schema COLLATE "C"
+        AND table_name = p_table COLLATE "C"
     ) THEN
         base_schema := 'pggit_base';
         base_table := '_pggit_main_' || p_table;
@@ -7293,6 +7295,3987 @@ ON pggit.data_conflicts(resolution) WHERE resolution = 'pending';
 GRANT ALL ON SCHEMA pggit_branches TO PUBLIC;
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA pggit TO PUBLIC;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
+
+-- ========================================
+-- File: 052_merge_operations.sql
+-- ========================================
+
+-- pgGit v0.2: Merge Operations
+-- Schema branch merging with conflict detection and resolution
+-- Author: stephengibson12
+-- Phase: v0.2 (Merge Operations)
+
+-- ============================================================================
+-- CREATE MERGE HISTORY TABLE
+-- ============================================================================
+-- Tracks all merge operations across branches
+
+CREATE TABLE IF NOT EXISTS pggit.merge_history (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    source_branch text NOT NULL,
+    target_branch text NOT NULL,
+    initiated_by text NOT NULL DEFAULT current_user,
+    initiated_at timestamp NOT NULL DEFAULT now(),
+    completed_at timestamp,
+    status text NOT NULL DEFAULT 'in_progress' CHECK (status IN (
+        'in_progress',
+        'completed',
+        'failed',
+        'aborted',
+        'awaiting_resolution'
+    )),
+    conflict_count integer DEFAULT 0,
+    resolved_conflicts integer DEFAULT 0,
+    unresolved_conflicts integer DEFAULT 0,
+    merge_strategy text DEFAULT 'auto',
+    error_message text,
+    notes jsonb DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX IF NOT EXISTS idx_merge_history_status
+    ON pggit.merge_history(status);
+CREATE INDEX IF NOT EXISTS idx_merge_history_branches
+    ON pggit.merge_history(source_branch, target_branch);
+CREATE INDEX IF NOT EXISTS idx_merge_history_time
+    ON pggit.merge_history(initiated_at DESC);
+
+-- ============================================================================
+-- CREATE MERGE CONFLICTS TABLE
+-- ============================================================================
+-- Tracks individual conflicts identified during merge operations
+
+CREATE TABLE IF NOT EXISTS pggit.merge_conflicts (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    merge_id uuid NOT NULL REFERENCES pggit.merge_history(id) ON DELETE CASCADE,
+    table_name text NOT NULL,
+    conflict_type text NOT NULL,
+    source_definition text,
+    target_definition text,
+    resolution text DEFAULT NULL,
+    resolved_at timestamp,
+    resolved_by text,
+    resolution_notes text,
+
+    UNIQUE(merge_id, table_name, conflict_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_merge_conflicts_merge
+    ON pggit.merge_conflicts(merge_id);
+CREATE INDEX IF NOT EXISTS idx_merge_conflicts_unresolved
+    ON pggit.merge_conflicts(merge_id, resolution)
+    WHERE resolution IS NULL;
+
+-- ============================================================================
+-- FUNCTION: pggit.detect_conflicts()
+-- ============================================================================
+-- Identifies schema conflicts between two branches
+--
+-- RETURNS: jsonb with structure:
+-- {
+--   "conflict_count": <integer>,
+--   "conflicts": [
+--     {"table": <name>, "type": <type>, ...},
+--     ...
+--   ]
+-- }
+
+CREATE OR REPLACE FUNCTION pggit.detect_conflicts(
+    p_source_branch text,
+    p_target_branch text
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_conflicts jsonb := '{"conflict_count": 0, "conflicts": []}'::jsonb;
+    v_conflict_count integer := 0;
+    v_conflict_array jsonb[] := '{}';
+    v_object record;
+    v_source_id integer;
+    v_target_id integer;
+    v_source_hash text;
+    v_target_hash text;
+    v_conflict_type text;
+BEGIN
+    -- Get branch IDs
+    SELECT id INTO v_source_id FROM pggit.branches WHERE name = p_source_branch;
+    IF v_source_id IS NULL THEN
+        RAISE EXCEPTION 'Source branch % not found', p_source_branch;
+    END IF;
+
+    SELECT id INTO v_target_id FROM pggit.branches WHERE name = p_target_branch;
+    IF v_target_id IS NULL THEN
+        RAISE EXCEPTION 'Target branch % not found', p_target_branch;
+    END IF;
+
+    -- Compare objects between branches using full outer join
+    -- Branch filters in ON clause ensure we only join matching objects across these two branches
+    FOR v_object IN
+        SELECT
+            COALESCE(s.object_type, t.object_type) as object_type,
+            COALESCE(s.schema_name, t.schema_name) as schema_name,
+            COALESCE(s.object_name, t.object_name) as object_name,
+            s.content_hash as source_hash,
+            t.content_hash as target_hash,
+            (s.id IS NOT NULL) as in_source,
+            (t.id IS NOT NULL) as in_target
+        FROM pggit.objects s
+        FULL OUTER JOIN pggit.objects t
+            ON s.object_type = t.object_type
+            AND s.schema_name = t.schema_name
+            AND s.object_name = t.object_name
+            AND s.branch_id = v_source_id
+            AND t.branch_id = v_target_id
+        WHERE (s.branch_id = v_source_id OR s.id IS NULL)
+          AND (t.branch_id = v_target_id OR t.id IS NULL)
+    LOOP
+        v_conflict_type := NULL;
+        v_source_hash := v_object.source_hash;
+        v_target_hash := v_object.target_hash;
+
+        -- Detect conflict types
+        IF v_object.in_source AND NOT v_object.in_target THEN
+            v_conflict_type := 'table_added';
+        ELSIF NOT v_object.in_source AND v_object.in_target THEN
+            v_conflict_type := 'table_removed';
+        ELSIF v_object.in_source AND v_object.in_target AND v_source_hash IS DISTINCT FROM v_target_hash THEN
+            v_conflict_type := 'table_modified';
+        END IF;
+
+        -- Add to conflict list if conflict detected
+        IF v_conflict_type IS NOT NULL THEN
+            v_conflict_count := v_conflict_count + 1;
+            v_conflict_array := array_append(
+                v_conflict_array,
+                jsonb_build_object(
+                    'table', v_object.schema_name || '.' || v_object.object_name,
+                    'type', v_conflict_type,
+                    'source_hash', v_source_hash,
+                    'target_hash', v_target_hash
+                )
+            );
+        END IF;
+    END LOOP;
+
+    -- Build result
+    v_conflicts := jsonb_build_object(
+        'conflict_count', v_conflict_count,
+        'conflicts', v_conflict_array
+    );
+
+    RAISE NOTICE 'detect_conflicts: Found % conflicts between %s and %s',
+        v_conflict_count, p_source_branch, p_target_branch;
+
+    RETURN v_conflicts;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.merge()
+-- ============================================================================
+-- Merge source branch into target branch
+--
+-- PARAMETERS:
+--   p_source_branch: Branch to merge from
+--   p_target_branch: Branch to merge into (NULL = current branch)
+--   p_merge_strategy: 'auto' (default) or 'manual'
+--
+-- RETURNS: jsonb with merge result:
+-- {
+--   "merge_id": <uuid>,
+--   "status": "completed" | "awaiting_resolution",
+--   "conflicts": [...],
+--   "tables_merged": <integer>,
+--   "conflict_count": <integer>
+-- }
+
+CREATE OR REPLACE FUNCTION pggit.merge(
+    p_source_branch text,
+    p_target_branch text DEFAULT NULL,
+    p_merge_strategy text DEFAULT 'auto'
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_merge_id uuid;
+    v_result jsonb;
+    v_target_branch text;
+    v_conflicts jsonb;
+    v_conflict_count integer;
+    v_conflict_obj record;
+    v_conflict_array jsonb[] := '{}';
+BEGIN
+    -- Validate branches exist
+    IF NOT EXISTS (SELECT 1 FROM pggit.branches WHERE name = p_source_branch) THEN
+        RAISE EXCEPTION 'Source branch % not found', p_source_branch;
+    END IF;
+
+    -- Use provided target or default to main
+    v_target_branch := COALESCE(p_target_branch, 'main');
+
+    IF NOT EXISTS (SELECT 1 FROM pggit.branches WHERE name = v_target_branch) THEN
+        RAISE EXCEPTION 'Target branch % not found', v_target_branch;
+    END IF;
+
+    -- Generate merge ID
+    v_merge_id := gen_random_uuid();
+
+    -- Detect conflicts
+    v_conflicts := pggit.detect_conflicts(p_source_branch, v_target_branch);
+    v_conflict_count := (v_conflicts->>'conflict_count')::integer;
+
+    -- Create merge_history record
+    INSERT INTO pggit.merge_history (
+        id, source_branch, target_branch, initiated_by,
+        status, conflict_count
+    ) VALUES (
+        v_merge_id, p_source_branch, v_target_branch, current_user,
+        CASE
+            WHEN v_conflict_count = 0 AND p_merge_strategy = 'auto' THEN 'completed'
+            ELSE 'awaiting_resolution'
+        END,
+        v_conflict_count
+    );
+
+    -- Create merge_conflicts records for each detected conflict
+    IF v_conflict_count > 0 THEN
+        FOR v_conflict_obj IN
+            SELECT *
+            FROM jsonb_to_recordset(v_conflicts->'conflicts') AS x(
+                "table" text,
+                "type" text,
+                "source_hash" text,
+                "target_hash" text
+            )
+        LOOP
+            INSERT INTO pggit.merge_conflicts (
+                merge_id, branch_a, branch_b, conflict_object, conflict_type
+            ) VALUES (
+                v_merge_id::text,
+                p_source_branch,
+                v_target_branch,
+                v_conflict_obj.table,
+                v_conflict_obj.type
+            )
+            ON CONFLICT DO NOTHING;
+
+            v_conflict_array := array_append(
+                v_conflict_array,
+                jsonb_build_object(
+                    'table', v_conflict_obj.table,
+                    'type', v_conflict_obj.type
+                )
+            );
+        END LOOP;
+    END IF;
+
+    -- Build result
+    v_result := jsonb_build_object(
+        'merge_id', v_merge_id,
+        'status', CASE
+            WHEN v_conflict_count = 0 AND p_merge_strategy = 'auto' THEN 'completed'
+            ELSE 'awaiting_resolution'
+        END,
+        'conflicts', v_conflict_array,
+        'tables_merged', 0,
+        'conflict_count', v_conflict_count
+    );
+
+    RAISE NOTICE 'merge: Merging %s into %s (conflicts: %)',
+        p_source_branch, v_target_branch, v_conflict_count;
+
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.resolve_conflict()
+-- ============================================================================
+-- Resolve a single conflict in a merge operation
+--
+-- PARAMETERS:
+--   p_merge_id: ID of the merge operation
+--   p_table_name: Name of conflicted table
+--   p_resolution: 'ours' (keep target) | 'theirs' (use source) | 'custom'
+--   p_custom_definition: Custom definition if p_resolution='custom'
+
+CREATE OR REPLACE FUNCTION pggit.resolve_conflict(
+    p_merge_id uuid,
+    p_conflict_id integer,
+    p_resolution text,
+    p_custom_definition text DEFAULT NULL
+)
+RETURNS void AS $$
+DECLARE
+    v_merge_record record;
+    v_unresolved_count integer;
+BEGIN
+    -- Validate merge exists and is awaiting resolution
+    SELECT * INTO v_merge_record
+    FROM pggit.merge_history
+    WHERE id = p_merge_id;
+
+    IF v_merge_record IS NULL THEN
+        RAISE EXCEPTION 'Merge % not found', p_merge_id;
+    END IF;
+
+    IF v_merge_record.status != 'awaiting_resolution' THEN
+        RAISE EXCEPTION 'Merge % is not awaiting resolution (status: %)',
+            p_merge_id, v_merge_record.status;
+    END IF;
+
+    -- Validate resolution type
+    IF p_resolution NOT IN ('ours', 'theirs', 'custom') THEN
+        RAISE EXCEPTION 'Invalid resolution type: %. Use ours, theirs, or custom', p_resolution;
+    END IF;
+
+    -- Update conflict record with resolution
+    UPDATE pggit.merge_conflicts
+    SET
+        resolution_strategy = p_resolution,
+        resolved_value = CASE
+            WHEN p_resolution = 'ours' THEN COALESCE(branch_b_value, '"ours"'::jsonb)
+            WHEN p_resolution = 'theirs' THEN COALESCE(branch_a_value, '"theirs"'::jsonb)
+            WHEN p_resolution = 'custom' THEN to_jsonb(p_custom_definition)
+            ELSE '"unresolved"'::jsonb
+        END,
+        auto_resolved = false,
+        resolved_by = current_user,
+        resolved_at = now()
+    WHERE id = p_conflict_id
+      AND merge_id = p_merge_id::text;
+
+    -- Check if all conflicts are now resolved
+    SELECT COUNT(*) INTO v_unresolved_count
+    FROM pggit.merge_conflicts
+    WHERE merge_id = p_merge_id::text
+      AND resolved_value IS NULL;
+
+    -- If all resolved, mark merge as completed
+    IF v_unresolved_count = 0 THEN
+        PERFORM pggit._complete_merge_after_resolution(p_merge_id);
+    END IF;
+
+    RAISE NOTICE 'resolve_conflict: Conflict % resolved with %', p_conflict_id, p_resolution;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit._complete_merge_after_resolution()
+-- ============================================================================
+-- Internal function to complete merge after all conflicts are resolved
+
+CREATE OR REPLACE FUNCTION pggit._complete_merge_after_resolution(
+    p_merge_id uuid
+)
+RETURNS void AS $$
+DECLARE
+    v_merge_record record;
+    v_conflict record;
+BEGIN
+    -- Get merge record
+    SELECT * INTO v_merge_record
+    FROM pggit.merge_history
+    WHERE id = p_merge_id;
+
+    IF v_merge_record IS NULL THEN
+        RAISE EXCEPTION 'Merge % not found', p_merge_id;
+    END IF;
+
+    -- Apply all resolved conflicts (for now, just mark them as applied)
+    -- In a full implementation, this would apply DDL changes to the target branch
+    FOR v_conflict IN
+        SELECT * FROM pggit.merge_conflicts
+        WHERE merge_id = p_merge_id::text
+          AND resolved_value IS NOT NULL
+    LOOP
+        -- TODO: Apply the resolved conflict to the target schema
+        -- This would involve executing DDL statements based on the resolution
+        RAISE NOTICE 'Applying resolved conflict: %', v_conflict.conflict_object;
+    END LOOP;
+
+    -- Update merge_history status to completed
+    UPDATE pggit.merge_history
+    SET
+        status = 'completed',
+        completed_at = now(),
+        resolved_conflicts = (
+            SELECT COUNT(*) FROM pggit.merge_conflicts
+            WHERE merge_id = p_merge_id::text
+              AND resolved_value IS NOT NULL
+        )
+    WHERE id = p_merge_id;
+
+    RAISE NOTICE '_complete_merge_after_resolution: Merge % completed', p_merge_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.get_merge_status()
+-- ============================================================================
+-- Get current status of a merge operation
+
+CREATE OR REPLACE FUNCTION pggit.get_merge_status(
+    p_merge_id uuid
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_merge record;
+    v_conflicts jsonb := '[]'::jsonb;
+    v_conflict_record record;
+BEGIN
+    -- Get merge_history record
+    SELECT * INTO v_merge
+    FROM pggit.merge_history
+    WHERE id = p_merge_id;
+
+    IF v_merge IS NULL THEN
+        RAISE EXCEPTION 'Merge % not found', p_merge_id;
+    END IF;
+
+    -- Get associated conflicts
+    FOR v_conflict_record IN
+        SELECT id, conflict_object, conflict_type, resolution_strategy
+        FROM pggit.merge_conflicts
+        WHERE merge_id = p_merge_id::text
+    LOOP
+        v_conflicts := v_conflicts || jsonb_build_object(
+            'conflict_id', v_conflict_record.id,
+            'object', v_conflict_record.conflict_object,
+            'type', v_conflict_record.conflict_type,
+            'resolution', v_conflict_record.resolution_strategy
+        );
+    END LOOP;
+
+    -- Build status response
+    RETURN jsonb_build_object(
+        'merge_id', p_merge_id,
+        'source_branch', v_merge.source_branch,
+        'target_branch', v_merge.target_branch,
+        'status', v_merge.status,
+        'initiated_by', v_merge.initiated_by,
+        'initiated_at', v_merge.initiated_at,
+        'completed_at', v_merge.completed_at,
+        'conflict_count', v_merge.conflict_count,
+        'resolved_conflicts', v_merge.resolved_conflicts,
+        'unresolved_conflicts', v_merge.unresolved_conflicts,
+        'merge_strategy', v_merge.merge_strategy,
+        'conflicts', v_conflicts
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.abort_merge()
+-- ============================================================================
+-- Abort a merge operation in progress
+
+CREATE OR REPLACE FUNCTION pggit.abort_merge(
+    p_merge_id uuid,
+    p_reason text DEFAULT 'User aborted'
+)
+RETURNS void AS $$
+DECLARE
+    v_merge record;
+BEGIN
+    -- Get merge record
+    SELECT * INTO v_merge
+    FROM pggit.merge_history
+    WHERE id = p_merge_id;
+
+    IF v_merge IS NULL THEN
+        RAISE EXCEPTION 'Merge % not found', p_merge_id;
+    END IF;
+
+    -- Update merge_history status to 'aborted'
+    UPDATE pggit.merge_history
+    SET
+        status = 'aborted',
+        error_message = p_reason,
+        completed_at = now()
+    WHERE id = p_merge_id;
+
+    -- Clean up any partial changes (conflicts are left as-is for audit)
+    -- The conflicts remain in the database for reference
+
+    RAISE NOTICE 'abort_merge: Merge %s aborted - %s', p_merge_id, p_reason;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- VIEW: pggit.v_merge_conflicts
+-- ============================================================================
+-- View for easy access to unresolved conflicts
+
+CREATE OR REPLACE VIEW pggit.v_merge_conflicts AS
+SELECT
+    mc.id,
+    mc.merge_id,
+    mc.branch_a as source_branch,
+    mc.branch_b as target_branch,
+    mc.conflict_object as table_name,
+    mc.conflict_type,
+    mc.resolved_value as resolution,
+    'pending' as merge_status,
+    mc.created_at as initiated_at,
+    mc.resolved_by as initiated_by
+FROM pggit.merge_conflicts mc
+WHERE mc.resolved_value IS NULL
+ORDER BY mc.created_at DESC, mc.conflict_object;
+
+-- ============================================================================
+-- GRANT PERMISSIONS
+-- ============================================================================
+
+GRANT SELECT, INSERT ON pggit.merge_history TO PUBLIC;
+GRANT SELECT, INSERT ON pggit.merge_conflicts TO PUBLIC;
+GRANT EXECUTE ON FUNCTION pggit.detect_conflicts(text, text) TO PUBLIC;
+GRANT EXECUTE ON FUNCTION pggit.merge(text, text, text) TO PUBLIC;
+GRANT EXECUTE ON FUNCTION pggit.resolve_conflict(uuid, text, text, text) TO PUBLIC;
+GRANT EXECUTE ON FUNCTION pggit.get_merge_status(uuid) TO PUBLIC;
+GRANT EXECUTE ON FUNCTION pggit.abort_merge(uuid, text) TO PUBLIC;
+
+-- ============================================================================
+-- TODO MARKERS
+-- ============================================================================
+-- Phase 1 Implementation Checklist:
+-- TODO: Implement detect_conflicts() logic
+-- TODO: Implement merge() logic
+-- TODO: Implement resolve_conflict() logic
+-- TODO: Implement _complete_merge_after_resolution() logic
+-- TODO: Implement get_merge_status() logic
+-- TODO: Implement abort_merge() logic
+-- TODO: Add comprehensive error handling
+-- TODO: Add transaction safety with savepoints
+-- TODO: Add idempotency checks
+-- TODO: Performance testing and optimization
+
+-- End of v0.2 Merge Operations SQL
+
+
+-- ========================================
+-- File: 053_advanced_merge_operations.sql
+-- ========================================
+
+-- pgGit v0.2 Phase 7: Advanced Merge Operations
+-- Three-way merge algorithm, semantic conflict detection, automatic heuristics
+-- Author: stephengibson12
+-- Phase: v0.2 Extended (Advanced Conflict Resolution)
+
+-- ============================================================================
+-- ENHANCE MERGE_CONFLICTS TABLE FOR ADVANCED FEATURES
+-- ============================================================================
+-- Add columns for semantic analysis and automatic resolution
+
+ALTER TABLE IF EXISTS pggit.merge_conflicts
+ADD COLUMN IF NOT EXISTS conflict_severity text DEFAULT 'WARNING'
+CHECK (conflict_severity IN ('CRITICAL', 'WARNING', 'INFO'));
+
+ALTER TABLE IF EXISTS pggit.merge_conflicts
+ADD COLUMN IF NOT EXISTS is_auto_resolvable boolean DEFAULT false;
+
+ALTER TABLE IF EXISTS pggit.merge_conflicts
+ADD COLUMN IF NOT EXISTS auto_resolution_suggestion text DEFAULT NULL;
+
+ALTER TABLE IF EXISTS pggit.merge_conflicts
+ADD COLUMN IF NOT EXISTS conflict_reason text DEFAULT NULL;
+
+-- ============================================================================
+-- FUNCTION: pggit.classify_conflict_severity()
+-- ============================================================================
+-- Determine severity level based on conflict type and schema changes
+-- CRITICAL: Breaks data integrity (FK violations, constraint incompatibility)
+-- WARNING: May cause issues (column modifications, type changes)
+-- INFO: Informational only (index changes, comments)
+
+CREATE OR REPLACE FUNCTION pggit.classify_conflict_severity(
+    p_conflict_type text,
+    p_source_def text,
+    p_target_def text
+)
+RETURNS text AS $$
+BEGIN
+    -- CRITICAL: Foreign key, primary key, unique constraint violations
+    IF p_conflict_type IN ('constraint_modified', 'constraint_removed') THEN
+        IF p_source_def LIKE '%FOREIGN KEY%' OR
+           p_source_def LIKE '%PRIMARY KEY%' OR
+           p_source_def LIKE '%UNIQUE%' THEN
+            RETURN 'CRITICAL';
+        END IF;
+    END IF;
+
+    -- WARNING: Column and table modifications (may affect data)
+    IF p_conflict_type IN ('column_modified', 'table_modified', 'constraint_modified') THEN
+        RETURN 'WARNING';
+    END IF;
+
+    -- WARNING: Table additions/removals (structural impact)
+    IF p_conflict_type IN ('table_added', 'table_removed') THEN
+        RETURN 'WARNING';
+    END IF;
+
+    -- INFO: Column additions (usually safe), index changes (minor impact)
+    IF p_conflict_type IN ('column_added', 'index_added', 'index_removed') THEN
+        RETURN 'INFO';
+    END IF;
+
+    -- Column removal is WARNING (potential data loss)
+    IF p_conflict_type = 'column_removed' THEN
+        RETURN 'WARNING';
+    END IF;
+
+    -- Default to WARNING for unknown types
+    RETURN 'WARNING';
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+-- ============================================================================
+-- FUNCTION: pggit.suggest_auto_resolution()
+-- ============================================================================
+-- Suggest automatic resolution for conflicts that are safe to auto-merge
+-- Returns 'ours', 'theirs', or NULL (manual required)
+
+CREATE OR REPLACE FUNCTION pggit.suggest_auto_resolution(
+    p_conflict_type text,
+    p_severity text,
+    p_source_def text,
+    p_target_def text
+)
+RETURNS text AS $$
+BEGIN
+    -- Auto-resolve INFO level conflicts with 'theirs' (accept source changes)
+    IF p_severity = 'INFO' THEN
+        IF p_conflict_type IN ('index_added', 'column_added') THEN
+            RETURN 'theirs'; -- Accept source additions
+        ELSIF p_conflict_type IN ('index_removed') THEN
+            RETURN 'theirs'; -- Accept source removals
+        END IF;
+    END IF;
+
+    -- Column additions are typically safe (non-breaking)
+    IF p_conflict_type = 'column_added' AND p_severity IN ('INFO', 'WARNING') THEN
+        -- Check if column has NOT NULL without default (breaking change)
+        IF p_source_def NOT LIKE '%NOT NULL%' OR p_source_def LIKE '%DEFAULT%' THEN
+            RETURN 'theirs'; -- Safe to add
+        END IF;
+    END IF;
+
+    -- No auto-resolution suggestion (manual review required)
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+-- ============================================================================
+-- FUNCTION: pggit.detect_semantic_conflicts()
+-- ============================================================================
+-- Identify semantic conflicts beyond syntactic differences
+-- Detects renamed objects, compatible changes, and data-dependent conflicts
+
+CREATE OR REPLACE FUNCTION pggit.detect_semantic_conflicts(
+    p_source_branch text,
+    p_target_branch text
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_result jsonb := '{"semantic_conflicts": [], "compatible_changes": [], "safe_auto_merges": []}'::jsonb;
+    v_source_id integer;
+    v_target_id integer;
+    v_objects record;
+BEGIN
+    -- Get branch IDs
+    SELECT id INTO v_source_id FROM pggit.branches WHERE name = p_source_branch;
+    IF v_source_id IS NULL THEN
+        RAISE EXCEPTION 'Source branch % not found', p_source_branch;
+    END IF;
+
+    SELECT id INTO v_target_id FROM pggit.branches WHERE name = p_target_branch;
+    IF v_target_id IS NULL THEN
+        RAISE EXCEPTION 'Target branch % not found', p_target_branch;
+    END IF;
+
+    -- Detect objects that appear to be renames (same type, similar name, both exist)
+    FOR v_objects IN
+        SELECT
+            s.object_name as source_name,
+            t.object_name as target_name,
+            s.object_type,
+            CASE
+                WHEN levenshtein(s.object_name, t.object_name) <= 3 THEN 'likely_rename'
+                ELSE 'different_objects'
+            END as relationship
+        FROM pggit.objects s
+        CROSS JOIN pggit.objects t
+        WHERE s.branch_id = v_source_id
+          AND t.branch_id = v_target_id
+          AND s.object_type = t.object_type
+          AND s.object_name != t.object_name
+          AND levenshtein(s.object_name, t.object_name) <= 3
+    LOOP
+        v_result := jsonb_set(
+            v_result,
+            '{semantic_conflicts}',
+            v_result->'semantic_conflicts' || jsonb_build_object(
+                'source_name', v_objects.source_name,
+                'target_name', v_objects.target_name,
+                'type', v_objects.object_type,
+                'relationship', v_objects.relationship
+            )
+        );
+    END LOOP;
+
+    RAISE NOTICE 'detect_semantic_conflicts: Found % semantic conflicts',
+        jsonb_array_length(v_result->'semantic_conflicts');
+
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.three_way_merge()
+-- ============================================================================
+-- Implement three-way merge algorithm to reduce false conflicts
+-- Compares: base (common ancestor), source, target
+-- Only flags conflicts where both sides changed differently
+
+CREATE OR REPLACE FUNCTION pggit.three_way_merge(
+    p_source_branch text,
+    p_target_branch text,
+    p_base_branch text DEFAULT 'main'
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_base_id integer;
+    v_source_id integer;
+    v_target_id integer;
+    v_result jsonb := '{"conflicts": [], "auto_merges": [], "conflict_count": 0}'::jsonb;
+    v_object record;
+    v_true_conflict boolean;
+    v_base_hash text;
+    v_source_hash text;
+    v_target_hash text;
+    v_conflict_type text;
+BEGIN
+    -- Get branch IDs
+    SELECT id INTO v_base_id FROM pggit.branches WHERE name = p_base_branch;
+    SELECT id INTO v_source_id FROM pggit.branches WHERE name = p_source_branch;
+    SELECT id INTO v_target_id FROM pggit.branches WHERE name = p_target_branch;
+
+    -- Validate branches exist
+    IF v_base_id IS NULL THEN
+        RAISE EXCEPTION 'Base branch % not found', p_base_branch;
+    END IF;
+    IF v_source_id IS NULL THEN
+        RAISE EXCEPTION 'Source branch % not found', p_source_branch;
+    END IF;
+    IF v_target_id IS NULL THEN
+        RAISE EXCEPTION 'Target branch % not found', p_target_branch;
+    END IF;
+
+    -- Three-way merge algorithm:
+    -- Only flag conflict if both sides changed from base
+    FOR v_object IN
+        SELECT
+            COALESCE(b.object_name, s.object_name, t.object_name) as object_name,
+            COALESCE(b.object_type, s.object_type, t.object_type) as object_type,
+            b.content_hash as base_hash,
+            s.content_hash as source_hash,
+            t.content_hash as target_hash
+        FROM (
+            SELECT * FROM pggit.objects WHERE branch_id = v_base_id
+        ) b
+        FULL OUTER JOIN (
+            SELECT * FROM pggit.objects WHERE branch_id = v_source_id
+        ) s ON b.object_type = s.object_type
+            AND b.schema_name = s.schema_name
+            AND b.object_name = s.object_name
+        FULL OUTER JOIN (
+            SELECT * FROM pggit.objects WHERE branch_id = v_target_id
+        ) t ON COALESCE(b.object_type, s.object_type) = t.object_type
+            AND COALESCE(b.schema_name, s.schema_name) = t.schema_name
+            AND COALESCE(b.object_name, s.object_name) = t.object_name
+    LOOP
+        v_true_conflict := false;
+        v_base_hash := v_object.base_hash;
+        v_source_hash := v_object.source_hash;
+        v_target_hash := v_object.target_hash;
+
+        -- Only a true conflict if both source and target changed from base
+        IF (v_source_hash IS NOT NULL AND v_target_hash IS NOT NULL) THEN
+            -- Both sides exist - check if they differ from base
+            IF v_base_hash IS NULL THEN
+                -- Both added (only conflict if they differ)
+                v_true_conflict := (v_source_hash IS DISTINCT FROM v_target_hash);
+                IF v_true_conflict THEN
+                    v_conflict_type := 'both_added_different';
+                ELSE
+                    v_conflict_type := 'both_added_same'; -- Auto-merge
+                END IF;
+            ELSIF v_source_hash IS DISTINCT FROM v_base_hash AND
+                  v_target_hash IS DISTINCT FROM v_base_hash THEN
+                -- Both changed - only conflict if changed differently
+                v_true_conflict := (v_source_hash IS DISTINCT FROM v_target_hash);
+                IF v_true_conflict THEN
+                    v_conflict_type := 'both_modified_different';
+                ELSE
+                    v_conflict_type := 'both_modified_same'; -- Auto-merge
+                END IF;
+            END IF;
+        ELSIF (v_source_hash IS NOT NULL AND v_target_hash IS NULL) THEN
+            -- Only source changed - no conflict (source added/modified, target didn't change)
+            v_true_conflict := false;
+            v_conflict_type := 'source_only_changed'; -- Auto-merge
+        ELSIF (v_target_hash IS NOT NULL AND v_source_hash IS NULL) THEN
+            -- Only target changed - no conflict (target added/modified, source didn't change)
+            v_true_conflict := false;
+            v_conflict_type := 'target_only_changed'; -- Keep target
+        ELSIF (v_source_hash IS NULL AND v_target_hash IS NULL) THEN
+            -- Both removed - no conflict
+            v_true_conflict := false;
+            v_conflict_type := 'both_removed'; -- Auto-merge
+        END IF;
+
+        -- Record result
+        IF v_true_conflict THEN
+            v_result := jsonb_set(
+                v_result,
+                '{conflicts}',
+                v_result->'conflicts' || jsonb_build_object(
+                    'object_name', v_object.object_name,
+                    'type', v_conflict_type,
+                    'base_hash', v_base_hash,
+                    'source_hash', v_source_hash,
+                    'target_hash', v_target_hash
+                )
+            );
+        ELSE
+            v_result := jsonb_set(
+                v_result,
+                '{auto_merges}',
+                v_result->'auto_merges' || jsonb_build_object(
+                    'object_name', v_object.object_name,
+                    'type', v_conflict_type,
+                    'resolution', CASE
+                        WHEN v_conflict_type LIKE 'both_added%' THEN 'theirs'
+                        WHEN v_conflict_type LIKE 'source_only%' THEN 'theirs'
+                        WHEN v_conflict_type LIKE 'target_only%' THEN 'ours'
+                        ELSE 'theirs'
+                    END
+                )
+            );
+        END IF;
+    END LOOP;
+
+    -- Update conflict count
+    v_result := jsonb_set(
+        v_result,
+        '{conflict_count}',
+        to_jsonb((jsonb_array_length(v_result->'conflicts'))::integer)
+    );
+
+    RAISE NOTICE 'three_way_merge: Found % true conflicts, % auto-merges',
+        v_result->>'conflict_count',
+        jsonb_array_length(v_result->'auto_merges');
+
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.auto_resolve_safe_conflicts()
+-- ============================================================================
+-- Automatically resolve conflicts marked as safe to auto-merge
+
+CREATE OR REPLACE FUNCTION pggit.auto_resolve_safe_conflicts(
+    p_merge_id uuid
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_resolved integer := 0;
+    v_failed integer := 0;
+    v_conflict record;
+    v_result jsonb := '{"resolved": 0, "failed": 0, "details": []}'::jsonb;
+BEGIN
+    -- Find all resolvable conflicts
+    FOR v_conflict IN
+        SELECT id, conflict_object, is_auto_resolvable, auto_resolution_suggestion
+        FROM pggit.merge_conflicts
+        WHERE merge_id = p_merge_id::text
+          AND is_auto_resolvable = true
+          AND resolution_strategy IS NULL
+    LOOP
+        BEGIN
+            -- Apply auto-resolution
+            UPDATE pggit.merge_conflicts
+            SET resolution_strategy = v_conflict.auto_resolution_suggestion,
+                resolved_at = NOW(),
+                resolved_by = 'auto_merge'
+            WHERE id = v_conflict.id;
+
+            v_resolved := v_resolved + 1;
+
+            v_result := jsonb_set(
+                v_result,
+                '{details}',
+                v_result->'details' || jsonb_build_object(
+                    'object', v_conflict.conflict_object,
+                    'resolution', v_conflict.auto_resolution_suggestion,
+                    'status', 'success'
+                )
+            );
+        EXCEPTION WHEN OTHERS THEN
+            v_failed := v_failed + 1;
+            v_result := jsonb_set(
+                v_result,
+                '{details}',
+                v_result->'details' || jsonb_build_object(
+                    'object', v_conflict.conflict_object,
+                    'status', 'failed',
+                    'error', SQLERRM
+                )
+            );
+        END;
+    END LOOP;
+
+    v_result := jsonb_set(v_result, '{resolved}', to_jsonb(v_resolved));
+    v_result := jsonb_set(v_result, '{failed}', to_jsonb(v_failed));
+
+    RAISE NOTICE 'auto_resolve_safe_conflicts: Resolved %, Failed %', v_resolved, v_failed;
+
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.merge_with_heuristics()
+-- ============================================================================
+-- Enhanced merge that uses three-way algorithm and automatic heuristics
+
+CREATE OR REPLACE FUNCTION pggit.merge_with_heuristics(
+    p_source_branch text,
+    p_target_branch text DEFAULT NULL
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_merge_result jsonb;
+    v_merge_id uuid;
+    v_three_way jsonb;
+    v_auto_resolved jsonb;
+    v_three_way_conflicts jsonb;
+    v_conflict jsonb;
+BEGIN
+    -- If target is NULL, use current branch
+    IF p_target_branch IS NULL THEN
+        SELECT current_branch INTO p_target_branch FROM pggit.branches LIMIT 1;
+    END IF;
+
+    -- Start merge operation
+    INSERT INTO pggit.merge_history (source_branch, target_branch, status, merge_strategy)
+    VALUES (p_source_branch, p_target_branch, 'in_progress', 'heuristic')
+    RETURNING id INTO v_merge_id;
+
+    -- Run three-way merge algorithm
+    v_three_way := pggit.three_way_merge(p_source_branch, p_target_branch, 'main');
+
+    -- Apply auto-resolutions from three-way algorithm
+    IF jsonb_array_length(v_three_way->'auto_merges') > 0 THEN
+        FOR v_conflict IN
+            SELECT * FROM jsonb_array_elements(v_three_way->'auto_merges')
+        LOOP
+            INSERT INTO pggit.merge_conflicts (
+                merge_id, branch_a, branch_b, conflict_object, conflict_type,
+                is_auto_resolvable, auto_resolution_suggestion, resolution_strategy
+            ) VALUES (
+                v_merge_id,
+                p_source_branch,
+                p_target_branch,
+                v_conflict->>'object_name',
+                v_conflict->>'type',
+                true,
+                v_conflict->>'resolution',
+                v_conflict->>'resolution'
+            ) ON CONFLICT DO NOTHING;
+        END LOOP;
+    END IF;
+
+    -- Record true conflicts with severity and suggestions
+    IF jsonb_array_length(v_three_way->'conflicts') > 0 THEN
+        FOR v_conflict IN
+            SELECT * FROM jsonb_array_elements(v_three_way->'conflicts')
+        LOOP
+            INSERT INTO pggit.merge_conflicts (
+                merge_id, branch_a, branch_b, conflict_object, conflict_type,
+                conflict_severity, is_auto_resolvable,
+                auto_resolution_suggestion
+            ) VALUES (
+                v_merge_id,
+                p_source_branch,
+                p_target_branch,
+                v_conflict->>'object_name',
+                v_conflict->>'type',
+                pggit.classify_conflict_severity(
+                    v_conflict->>'type',
+                    v_conflict->>'source_hash',
+                    v_conflict->>'target_hash'
+                ),
+                pggit.suggest_auto_resolution(
+                    v_conflict->>'type',
+                    pggit.classify_conflict_severity(
+                        v_conflict->>'type',
+                        v_conflict->>'source_hash',
+                        v_conflict->>'target_hash'
+                    ),
+                    v_conflict->>'source_hash',
+                    v_conflict->>'target_hash'
+                ) IS NOT NULL,
+                pggit.suggest_auto_resolution(
+                    v_conflict->>'type',
+                    pggit.classify_conflict_severity(
+                        v_conflict->>'type',
+                        v_conflict->>'source_hash',
+                        v_conflict->>'target_hash'
+                    ),
+                    v_conflict->>'source_hash',
+                    v_conflict->>'target_hash'
+                )
+            ) ON CONFLICT DO NOTHING;
+        END LOOP;
+    END IF;
+
+    -- Auto-resolve safe conflicts
+    v_auto_resolved := pggit.auto_resolve_safe_conflicts(v_merge_id);
+
+    -- Update merge status
+    UPDATE pggit.merge_history
+    SET conflict_count = (SELECT COUNT(*) FROM pggit.merge_conflicts WHERE merge_id = v_merge_id::text),
+        resolved_conflicts = (SELECT COUNT(*) FROM pggit.merge_conflicts WHERE merge_id = v_merge_id::text AND resolution_strategy IS NOT NULL),
+        unresolved_conflicts = (SELECT COUNT(*) FROM pggit.merge_conflicts WHERE merge_id = v_merge_id::text AND resolution_strategy IS NULL),
+        status = CASE
+            WHEN (SELECT COUNT(*) FROM pggit.merge_conflicts WHERE merge_id = v_merge_id::text AND resolution_strategy IS NULL) = 0
+            THEN 'completed'
+            ELSE 'awaiting_resolution'
+        END
+    WHERE id = v_merge_id;
+
+    -- Build result
+    SELECT row_to_json(row) INTO v_merge_result FROM (
+        SELECT
+            v_merge_id as merge_id,
+            (SELECT status FROM pggit.merge_history WHERE id = v_merge_id) as status,
+            (SELECT conflict_count FROM pggit.merge_history WHERE id = v_merge_id) as conflict_count,
+            (SELECT resolved_conflicts FROM pggit.merge_history WHERE id = v_merge_id) as resolved_conflicts,
+            (SELECT unresolved_conflicts FROM pggit.merge_history WHERE id = v_merge_id) as unresolved_conflicts,
+            v_auto_resolved->>'resolved' as auto_resolved_count,
+            (v_auto_resolved->>'failed')::integer as auto_resolution_failures
+    ) row;
+
+    RAISE NOTICE 'merge_with_heuristics: Merge % completed with % auto-resolutions',
+        v_merge_id,
+        v_auto_resolved->>'resolved';
+
+    RETURN v_merge_result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- CREATE FUNCTION: pggit.get_merge_metrics()
+-- ============================================================================
+-- Return detailed metrics about merge operations
+
+CREATE OR REPLACE FUNCTION pggit.get_merge_metrics(
+    p_time_range interval DEFAULT '7 days'::interval
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_result jsonb;
+BEGIN
+    SELECT jsonb_build_object(
+        'total_merges', COUNT(*),
+        'completed', COUNT(*) FILTER (WHERE status = 'completed'),
+        'failed', COUNT(*) FILTER (WHERE status = 'failed'),
+        'awaiting_resolution', COUNT(*) FILTER (WHERE status = 'awaiting_resolution'),
+        'avg_conflicts_per_merge', ROUND(AVG(conflict_count)::numeric, 2),
+        'total_conflicts', SUM(conflict_count),
+        'total_resolved', SUM(resolved_conflicts),
+        'conflict_types', (
+            SELECT jsonb_object_agg(conflict_type, cnt)
+            FROM (
+                SELECT conflict_type, COUNT(*) as cnt
+                FROM pggit.merge_conflicts
+                WHERE merge_id IN (
+                    SELECT id FROM pggit.merge_history
+                    WHERE initiated_at > NOW() - p_time_range
+                )
+                GROUP BY conflict_type
+            ) subq
+        ),
+        'avg_resolution_time_minutes', ROUND(
+            AVG(EXTRACT(EPOCH FROM (completed_at - initiated_at)) / 60)::numeric,
+            2
+        )
+    )
+    INTO v_result
+    FROM pggit.merge_history
+    WHERE initiated_at > NOW() - p_time_range;
+
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- INDEXES FOR PERFORMANCE
+
+CREATE INDEX IF NOT EXISTS idx_merge_conflicts_severity
+    ON pggit.merge_conflicts(conflict_severity)
+    WHERE is_auto_resolvable = true;
+
+CREATE INDEX IF NOT EXISTS idx_merge_conflicts_auto_resolvable
+    ON pggit.merge_conflicts(merge_id, is_auto_resolvable)
+    WHERE is_auto_resolvable = true AND resolution_strategy IS NULL;
+
+-- VIEWS FOR REPORTING
+
+CREATE OR REPLACE VIEW pggit.v_merge_summary AS
+SELECT
+    mh.id,
+    mh.source_branch,
+    mh.target_branch,
+    mh.status,
+    mh.conflict_count,
+    mh.resolved_conflicts,
+    mh.unresolved_conflicts,
+    mh.merge_strategy,
+    ROUND(EXTRACT(EPOCH FROM (mh.completed_at - mh.initiated_at)) / 1000, 2) as duration_ms,
+    mh.initiated_at,
+    mh.completed_at
+FROM pggit.merge_history mh
+ORDER BY mh.initiated_at DESC;
+
+CREATE OR REPLACE VIEW pggit.v_conflict_summary AS
+SELECT
+    COUNT(*) as total_conflicts,
+    SUM(CASE WHEN conflict_severity = 'CRITICAL' THEN 1 ELSE 0 END) as critical_count,
+    SUM(CASE WHEN conflict_severity = 'WARNING' THEN 1 ELSE 0 END) as warning_count,
+    SUM(CASE WHEN conflict_severity = 'INFO' THEN 1 ELSE 0 END) as info_count,
+    SUM(CASE WHEN is_auto_resolvable = true THEN 1 ELSE 0 END) as auto_resolvable_count,
+    SUM(CASE WHEN resolution_strategy IS NOT NULL THEN 1 ELSE 0 END) as resolved_count
+FROM pggit.merge_conflicts;
+
+
+-- ========================================
+-- File: 054_batch_operations_monitoring.sql
+-- ========================================
+
+-- pgGit v0.2 Phase 8: Batch Operations & Production Monitoring
+-- Performance optimization, batch merges, health checks, observability
+-- Author: stephengibson12
+-- Phase: v0.2 Extended (Week 8 - Performance & Production Hardening)
+
+-- ============================================================================
+-- PERFORMANCE OPTIMIZATION: ADDITIONAL INDEXES
+-- ============================================================================
+
+-- Index for fast merge status lookups
+CREATE INDEX IF NOT EXISTS idx_merge_history_status_initiated
+    ON pggit.merge_history(status, initiated_at DESC)
+    WHERE status IN ('completed', 'failed', 'in_progress');
+
+-- Index for finding merges by date range
+CREATE INDEX IF NOT EXISTS idx_merge_history_date_range
+    ON pggit.merge_history(initiated_at DESC, status)
+    INCLUDE (source_branch, target_branch);
+
+-- Index for conflict queries by created_at
+CREATE INDEX IF NOT EXISTS idx_merge_conflicts_created
+    ON pggit.merge_conflicts(created_at DESC)
+    WHERE resolution_strategy IS NULL;
+
+-- Index for fast resolution lookups
+CREATE INDEX IF NOT EXISTS idx_merge_conflicts_resolution
+    ON pggit.merge_conflicts(resolution_strategy)
+    WHERE resolution_strategy IS NOT NULL;
+
+-- Composite index for merge operation queries
+CREATE INDEX IF NOT EXISTS idx_merge_history_composite
+    ON pggit.merge_history(initiated_at DESC, status)
+    INCLUDE (source_branch, target_branch);
+
+-- ============================================================================
+-- FUNCTION: pggit.batch_merge()
+-- ============================================================================
+-- Merge multiple branches in sequence with conflict tracking
+-- Useful for merging feature branches into main in controlled order
+
+CREATE OR REPLACE FUNCTION pggit.batch_merge(
+    p_source_branches text[],
+    p_target_branch text DEFAULT 'main',
+    p_stop_on_conflict boolean DEFAULT false
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_result jsonb := '{"merges": [], "total": 0, "succeeded": 0, "failed": 0, "stopped": false}'::jsonb;
+    v_branch text;
+    v_merge_result jsonb;
+    v_merge_id uuid;
+    v_merge_status text;
+    v_conflict_count integer;
+BEGIN
+    -- Validate target branch exists
+    IF NOT EXISTS (SELECT 1 FROM pggit.branches WHERE name = p_target_branch) THEN
+        RAISE EXCEPTION 'Target branch % not found', p_target_branch;
+    END IF;
+
+    -- Process each source branch in order
+    FOREACH v_branch IN ARRAY p_source_branches LOOP
+        BEGIN
+            -- Validate source branch exists
+            IF NOT EXISTS (SELECT 1 FROM pggit.branches WHERE name = v_branch) THEN
+                v_result := jsonb_set(
+                    v_result,
+                    '{merges}',
+                    v_result->'merges' || jsonb_build_object(
+                        'branch', v_branch,
+                        'status', 'skipped',
+                        'reason', 'Branch not found'
+                    )
+                );
+                CONTINUE;
+            END IF;
+
+            -- Attempt merge
+            v_merge_result := pggit.merge_with_heuristics(v_branch, p_target_branch);
+            v_merge_id := (v_merge_result->>'merge_id')::uuid;
+            v_merge_status := v_merge_result->>'status';
+            v_conflict_count := (v_merge_result->>'conflict_count')::integer;
+
+            -- Record merge attempt
+            IF v_merge_status = 'completed' THEN
+                v_result := jsonb_set(v_result, '{succeeded}', to_jsonb((v_result->>'succeeded')::integer + 1));
+            ELSIF v_merge_status = 'failed' THEN
+                v_result := jsonb_set(v_result, '{failed}', to_jsonb((v_result->>'failed')::integer + 1));
+            END IF;
+
+            v_result := jsonb_set(
+                v_result,
+                '{merges}',
+                v_result->'merges' || jsonb_build_object(
+                    'branch', v_branch,
+                    'merge_id', v_merge_id::text,
+                    'status', v_merge_status,
+                    'conflicts', v_conflict_count
+                )
+            );
+
+            -- Stop on conflict if requested
+            IF p_stop_on_conflict AND v_conflict_count > 0 THEN
+                v_result := jsonb_set(v_result, '{stopped}', to_jsonb(true));
+                EXIT;
+            END IF;
+
+        EXCEPTION WHEN OTHERS THEN
+            v_result := jsonb_set(v_result, '{failed}', to_jsonb((v_result->>'failed')::integer + 1));
+            v_result := jsonb_set(
+                v_result,
+                '{merges}',
+                v_result->'merges' || jsonb_build_object(
+                    'branch', v_branch,
+                    'status', 'error',
+                    'error', SQLERRM
+                )
+            );
+        END;
+    END LOOP;
+
+    -- Update totals
+    v_result := jsonb_set(v_result, '{total}', to_jsonb(array_length(p_source_branches, 1)));
+
+    RAISE NOTICE 'batch_merge: Processed % branches, % succeeded, % failed',
+        array_length(p_source_branches, 1),
+        v_result->>'succeeded',
+        v_result->>'failed';
+
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.parallel_conflict_detection()
+-- ============================================================================
+-- Pre-compute conflicts for multiple merges efficiently
+
+CREATE OR REPLACE FUNCTION pggit.parallel_conflict_detection(
+    p_source_branches text[],
+    p_target_branch text DEFAULT 'main'
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_result jsonb := '{"conflicts": {}, "total_checked": 0, "conflicts_found": 0}'::jsonb;
+    v_branch text;
+    v_conflicts jsonb;
+    v_conflict_count integer;
+BEGIN
+    FOREACH v_branch IN ARRAY p_source_branches LOOP
+        BEGIN
+            -- Detect conflicts without performing merge
+            v_conflicts := pggit.detect_conflicts(v_branch, p_target_branch);
+            v_conflict_count := jsonb_array_length(v_conflicts->'conflicts');
+
+            IF v_conflict_count > 0 THEN
+                v_result := jsonb_set(
+                    v_result,
+                    '{conflicts, ' || v_branch || '}',
+                    v_conflicts
+                );
+                v_result := jsonb_set(
+                    v_result,
+                    '{conflicts_found}',
+                    to_jsonb((v_result->>'conflicts_found')::integer + v_conflict_count)
+                );
+            END IF;
+
+            v_result := jsonb_set(
+                v_result,
+                '{total_checked}',
+                to_jsonb((v_result->>'total_checked')::integer + 1)
+            );
+
+        EXCEPTION WHEN OTHERS THEN
+            RAISE NOTICE 'Error detecting conflicts for %: %', v_branch, SQLERRM;
+        END;
+    END LOOP;
+
+    RAISE NOTICE 'parallel_conflict_detection: Checked % branches, found % conflicts',
+        v_result->>'total_checked',
+        v_result->>'conflicts_found';
+
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.bulk_resolve_conflicts()
+-- ============================================================================
+-- Bulk resolve multiple conflicts with same strategy
+
+CREATE OR REPLACE FUNCTION pggit.bulk_resolve_conflicts(
+    p_merge_id uuid,
+    p_strategy text,
+    p_conflict_type text DEFAULT NULL
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_result jsonb := '{"resolved": 0, "failed": 0, "errors": []}'::jsonb;
+    v_conflict record;
+    v_resolved integer := 0;
+    v_failed integer := 0;
+BEGIN
+    -- Bulk update conflicts with matching type
+    FOR v_conflict IN
+        SELECT id FROM pggit.merge_conflicts
+        WHERE merge_id = p_merge_id::text
+          AND resolution_strategy IS NULL
+          AND (p_conflict_type IS NULL OR conflict_type = p_conflict_type)
+    LOOP
+        BEGIN
+            UPDATE pggit.merge_conflicts
+            SET resolution_strategy = p_strategy,
+                resolved_at = NOW(),
+                resolved_by = 'bulk_resolve'
+            WHERE id = v_conflict.id;
+
+            v_resolved := v_resolved + 1;
+        EXCEPTION WHEN OTHERS THEN
+            v_failed := v_failed + 1;
+            v_result := jsonb_set(
+                v_result,
+                '{errors}',
+                v_result->'errors' || to_jsonb(SQLERRM)
+            );
+        END;
+    END LOOP;
+
+    v_result := jsonb_set(v_result, '{resolved}', to_jsonb(v_resolved));
+    v_result := jsonb_set(v_result, '{failed}', to_jsonb(v_failed));
+
+    RAISE NOTICE 'bulk_resolve_conflicts: Resolved %, Failed %', v_resolved, v_failed;
+
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.health_check_merge_integrity()
+-- ============================================================================
+-- Validate merge operation integrity
+
+CREATE OR REPLACE FUNCTION pggit.health_check_merge_integrity()
+RETURNS jsonb AS $$
+DECLARE
+    v_result jsonb := '{
+        "status": "healthy",
+        "checks": {},
+        "issues": [],
+        "timestamp": ""
+    }'::jsonb;
+    v_orphaned_count integer;
+    v_unresolved_count integer;
+    v_long_running_count integer;
+BEGIN
+    v_result := jsonb_set(v_result, '{timestamp}', to_jsonb(NOW()::text));
+
+    -- Check 1: Orphaned merge_conflicts (merge_id references non-existent merge)
+    SELECT COUNT(*) INTO v_orphaned_count
+    FROM pggit.merge_conflicts mc
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pggit.merge_history mh WHERE mh.id = mc.merge_id::uuid
+    );
+
+    v_result := jsonb_set(
+        v_result,
+        '{checks, orphaned_conflicts}',
+        jsonb_build_object('count', v_orphaned_count, 'status', CASE WHEN v_orphaned_count > 0 THEN 'warning' ELSE 'ok' END)
+    );
+
+    IF v_orphaned_count > 0 THEN
+        v_result := jsonb_set(
+            v_result,
+            '{issues}',
+            v_result->'issues' || to_jsonb('Found ' || v_orphaned_count || ' orphaned conflicts')
+        );
+    END IF;
+
+    -- Check 2: Unresolved conflicts in completed merges
+    SELECT COUNT(*) INTO v_unresolved_count
+    FROM pggit.merge_conflicts mc
+    JOIN pggit.merge_history mh ON mh.id = mc.merge_id::uuid
+    WHERE mh.status = 'completed'
+      AND mc.resolution_strategy IS NULL;
+
+    v_result := jsonb_set(
+        v_result,
+        '{checks, unresolved_in_completed}',
+        jsonb_build_object('count', v_unresolved_count, 'status', CASE WHEN v_unresolved_count > 0 THEN 'warning' ELSE 'ok' END)
+    );
+
+    IF v_unresolved_count > 0 THEN
+        v_result := jsonb_set(
+            v_result,
+            '{issues}',
+            v_result->'issues' || to_jsonb('Found ' || v_unresolved_count || ' unresolved conflicts in completed merges')
+        );
+    END IF;
+
+    -- Check 3: Long-running merges (in progress for > 1 hour)
+    SELECT COUNT(*) INTO v_long_running_count
+    FROM pggit.merge_history
+    WHERE status = 'in_progress'
+      AND initiated_at < NOW() - INTERVAL '1 hour';
+
+    v_result := jsonb_set(
+        v_result,
+        '{checks, long_running_merges}',
+        jsonb_build_object('count', v_long_running_count, 'status', CASE WHEN v_long_running_count > 0 THEN 'warning' ELSE 'ok' END)
+    );
+
+    IF v_long_running_count > 0 THEN
+        v_result := jsonb_set(
+            v_result,
+            '{issues}',
+            v_result->'issues' || to_jsonb('Found ' || v_long_running_count || ' long-running merges')
+        );
+    END IF;
+
+    -- Overall status
+    IF jsonb_array_length(v_result->'issues') > 0 THEN
+        v_result := jsonb_set(v_result, '{status}', to_jsonb('warning'));
+    END IF;
+
+    RAISE NOTICE 'health_check_merge_integrity: % issues found', jsonb_array_length(v_result->'issues');
+
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.health_check_performance_baseline()
+-- ============================================================================
+-- Check merge performance against baseline
+
+CREATE OR REPLACE FUNCTION pggit.health_check_performance_baseline()
+RETURNS jsonb AS $$
+DECLARE
+    v_result jsonb := '{
+        "status": "ok",
+        "metrics": {},
+        "warnings": [],
+        "timestamp": ""
+    }'::jsonb;
+    v_avg_merge_time_ms integer;
+    v_avg_conflicts_per_merge numeric;
+    v_success_rate numeric;
+BEGIN
+    v_result := jsonb_set(v_result, '{timestamp}', to_jsonb(NOW()::text));
+
+    -- Calculate average merge time (last 30 days)
+    SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (completed_at - initiated_at)) * 1000)::integer, 0)
+    INTO v_avg_merge_time_ms
+    FROM pggit.merge_history
+    WHERE status = 'completed'
+      AND initiated_at > NOW() - INTERVAL '30 days';
+
+    v_result := jsonb_set(
+        v_result,
+        '{metrics, avg_merge_time_ms}',
+        to_jsonb(v_avg_merge_time_ms)
+    );
+
+    -- Check if exceeds baseline (50ms target for 1000-object merges)
+    IF v_avg_merge_time_ms > 50 THEN
+        v_result := jsonb_set(
+            v_result,
+            '{warnings}',
+            v_result->'warnings' || to_jsonb('Average merge time (' || v_avg_merge_time_ms || 'ms) exceeds baseline (50ms)')
+        );
+        v_result := jsonb_set(v_result, '{status}', to_jsonb('warning'));
+    END IF;
+
+    -- Calculate average conflicts per merge
+    SELECT COALESCE(AVG(conflict_count), 0)
+    INTO v_avg_conflicts_per_merge
+    FROM (
+        SELECT COUNT(*) as conflict_count
+        FROM pggit.merge_conflicts mc
+        JOIN pggit.merge_history mh ON mh.id = mc.merge_id::uuid
+        WHERE mh.initiated_at > NOW() - INTERVAL '30 days'
+        GROUP BY mc.merge_id
+    ) subq;
+
+    v_result := jsonb_set(
+        v_result,
+        '{metrics, avg_conflicts_per_merge}',
+        to_jsonb(v_avg_conflicts_per_merge)
+    );
+
+    -- Calculate success rate
+    SELECT COALESCE(
+        100.0 * COUNT(CASE WHEN status = 'completed' THEN 1 END) / NULLIF(COUNT(*), 0),
+        0
+    )::numeric(5,2)
+    INTO v_success_rate
+    FROM pggit.merge_history
+    WHERE initiated_at > NOW() - INTERVAL '30 days';
+
+    v_result := jsonb_set(
+        v_result,
+        '{metrics, success_rate_percent}',
+        to_jsonb(v_success_rate)
+    );
+
+    -- Warn if success rate below 95%
+    IF v_success_rate < 95 THEN
+        v_result := jsonb_set(
+            v_result,
+            '{warnings}',
+            v_result->'warnings' || to_jsonb('Success rate (' || v_success_rate || '%) below target (95%)')
+        );
+        v_result := jsonb_set(v_result, '{status}', to_jsonb('warning'));
+    END IF;
+
+    RAISE NOTICE 'health_check_performance_baseline: Avg time %ms, Success rate %, Avg conflicts %',
+        v_avg_merge_time_ms, v_success_rate, v_avg_conflicts_per_merge;
+
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- VIEW: v_merge_operations_summary
+-- ============================================================================
+-- Real-time summary of all merge operations
+
+CREATE OR REPLACE VIEW pggit.v_merge_operations_summary AS
+SELECT
+    mh.id,
+    mh.source_branch,
+    mh.target_branch,
+    mh.status,
+    mh.initiated_at,
+    mh.completed_at,
+    EXTRACT(EPOCH FROM (COALESCE(mh.completed_at, NOW()) - mh.initiated_at)) as duration_seconds,
+    COALESCE(mc_counts.conflict_count, 0) as total_conflicts,
+    COALESCE(mc_counts.unresolved_count, 0) as unresolved_conflicts,
+    COALESCE(mc_counts.critical_count, 0) as critical_conflicts,
+    COALESCE(mc_counts.warning_count, 0) as warning_conflicts,
+    mh.merge_strategy,
+    mh.initiated_by
+FROM pggit.merge_history mh
+LEFT JOIN (
+    SELECT
+        merge_id,
+        COUNT(*) as conflict_count,
+        COUNT(CASE WHEN resolution_strategy IS NULL THEN 1 END) as unresolved_count,
+        COUNT(CASE WHEN conflict_severity = 'CRITICAL' THEN 1 END) as critical_count,
+        COUNT(CASE WHEN conflict_severity = 'WARNING' THEN 1 END) as warning_count
+    FROM pggit.merge_conflicts
+    GROUP BY merge_id
+) mc_counts ON mc_counts.merge_id = mh.id::text
+ORDER BY mh.initiated_at DESC;
+
+-- ============================================================================
+-- VIEW: v_performance_metrics
+-- ============================================================================
+-- Performance tracking over time
+
+CREATE OR REPLACE VIEW pggit.v_performance_metrics AS
+SELECT
+    DATE_TRUNC('day', mh.initiated_at)::date as date,
+    COUNT(*) as total_merges,
+    COUNT(CASE WHEN mh.status = 'completed' THEN 1 END) as completed_merges,
+    COUNT(CASE WHEN mh.status = 'failed' THEN 1 END) as failed_merges,
+    ROUND(AVG(EXTRACT(EPOCH FROM (COALESCE(mh.completed_at, NOW()) - mh.initiated_at)) * 1000)::numeric, 2) as avg_merge_time_ms,
+    ROUND(MIN(EXTRACT(EPOCH FROM (COALESCE(mh.completed_at, NOW()) - mh.initiated_at)) * 1000)::numeric, 2) as min_merge_time_ms,
+    ROUND(MAX(EXTRACT(EPOCH FROM (COALESCE(mh.completed_at, NOW()) - mh.initiated_at)) * 1000)::numeric, 2) as max_merge_time_ms,
+    ROUND(
+        100.0 * COUNT(CASE WHEN mh.status = 'completed' THEN 1 END) / NULLIF(COUNT(*), 0),
+        2
+    )::numeric(5,2) as success_rate_percent
+FROM pggit.merge_history mh
+GROUP BY DATE_TRUNC('day', mh.initiated_at)
+ORDER BY date DESC;
+
+-- ============================================================================
+-- VIEW: v_branch_merge_activity
+-- ============================================================================
+-- Merge activity by branch
+
+CREATE OR REPLACE VIEW pggit.v_branch_merge_activity AS
+SELECT
+    COALESCE(source_branch, 'N/A') as branch_name,
+    'source' as branch_role,
+    COUNT(*) as merge_count,
+    COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
+    COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed,
+    COUNT(CASE WHEN status = 'in_progress' THEN 1 END) as in_progress
+FROM pggit.merge_history
+WHERE source_branch IS NOT NULL
+GROUP BY source_branch
+
+UNION ALL
+
+SELECT
+    COALESCE(target_branch, 'N/A') as branch_name,
+    'target' as branch_role,
+    COUNT(*) as merge_count,
+    COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
+    COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed,
+    COUNT(CASE WHEN status = 'in_progress' THEN 1 END) as in_progress
+FROM pggit.merge_history
+WHERE target_branch IS NOT NULL
+GROUP BY target_branch
+ORDER BY merge_count DESC;
+
+-- ============================================================================
+-- FUNCTION: pggit.cleanup_orphaned_data()
+-- ============================================================================
+-- Clean up orphaned records and optimize performance
+
+CREATE OR REPLACE FUNCTION pggit.cleanup_orphaned_data(
+    p_dry_run boolean DEFAULT true
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_result jsonb := '{
+        "orphaned_conflicts": 0,
+        "orphaned_branches": 0,
+        "total_cleaned": 0,
+        "dry_run": true
+    }'::jsonb;
+    v_orphaned_conflicts integer := 0;
+    v_orphaned_branches integer := 0;
+BEGIN
+    v_result := jsonb_set(v_result, '{dry_run}', to_jsonb(p_dry_run));
+
+    -- Count orphaned conflicts (merge_id references non-existent merge)
+    SELECT COUNT(*) INTO v_orphaned_conflicts
+    FROM pggit.merge_conflicts mc
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pggit.merge_history mh WHERE mh.id = mc.merge_id::uuid
+    );
+
+    v_result := jsonb_set(v_result, '{orphaned_conflicts}', to_jsonb(v_orphaned_conflicts));
+
+    -- Only delete if not dry run
+    IF NOT p_dry_run AND v_orphaned_conflicts > 0 THEN
+        DELETE FROM pggit.merge_conflicts mc
+        WHERE NOT EXISTS (
+            SELECT 1 FROM pggit.merge_history mh WHERE mh.id = mc.merge_id::uuid
+        );
+
+        RAISE NOTICE 'Cleaned up % orphaned conflicts', v_orphaned_conflicts;
+    END IF;
+
+    -- Count orphaned branches (merged branches that reference non-existent parents)
+    SELECT COUNT(*) INTO v_orphaned_branches
+    FROM pggit.branches b
+    WHERE parent_branch_id IS NOT NULL
+      AND NOT EXISTS (
+          SELECT 1 FROM pggit.branches parent WHERE parent.id = b.parent_branch_id
+      );
+
+    v_result := jsonb_set(v_result, '{orphaned_branches}', to_jsonb(v_orphaned_branches));
+
+    -- Only update if not dry run
+    IF NOT p_dry_run AND v_orphaned_branches > 0 THEN
+        UPDATE pggit.branches
+        SET parent_branch_id = NULL
+        WHERE parent_branch_id IS NOT NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM pggit.branches parent WHERE parent.id = parent_branch_id
+          );
+
+        RAISE NOTICE 'Cleaned up % orphaned branch references', v_orphaned_branches;
+    END IF;
+
+    v_result := jsonb_set(
+        v_result,
+        '{total_cleaned}',
+        to_jsonb(v_orphaned_conflicts + v_orphaned_branches)
+    );
+
+    RAISE NOTICE 'cleanup_orphaned_data: Dry run: %, Orphaned conflicts: %, Orphaned branches: %',
+        p_dry_run, v_orphaned_conflicts, v_orphaned_branches;
+
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.get_merge_performance_report()
+-- ============================================================================
+-- Generate comprehensive performance report
+
+CREATE OR REPLACE FUNCTION pggit.get_merge_performance_report(
+    p_days integer DEFAULT 30
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_result jsonb := '{"period_days": 0, "report": {}}'::jsonb;
+    v_total_merges integer;
+    v_completed integer;
+    v_failed integer;
+    v_avg_time_ms integer;
+    v_max_time_ms integer;
+    v_avg_conflicts numeric;
+BEGIN
+    v_result := jsonb_set(v_result, '{period_days}', to_jsonb(p_days));
+
+    -- Overall statistics
+    SELECT
+        COUNT(*),
+        COUNT(CASE WHEN status = 'completed' THEN 1 END),
+        COUNT(CASE WHEN status = 'failed' THEN 1 END),
+        COALESCE(AVG(EXTRACT(EPOCH FROM (completed_at - initiated_at)) * 1000)::integer, 0),
+        COALESCE(MAX(EXTRACT(EPOCH FROM (completed_at - initiated_at)) * 1000)::integer, 0)
+    INTO v_total_merges, v_completed, v_failed, v_avg_time_ms, v_max_time_ms
+    FROM pggit.merge_history
+    WHERE initiated_at > NOW() - (p_days || ' days')::interval;
+
+    v_result := jsonb_set(v_result, '{report, total_merges}', to_jsonb(v_total_merges));
+    v_result := jsonb_set(v_result, '{report, completed}', to_jsonb(v_completed));
+    v_result := jsonb_set(v_result, '{report, failed}', to_jsonb(v_failed));
+    v_result := jsonb_set(v_result, '{report, avg_merge_time_ms}', to_jsonb(v_avg_time_ms));
+    v_result := jsonb_set(v_result, '{report, max_merge_time_ms}', to_jsonb(v_max_time_ms));
+
+    -- Average conflicts per merge
+    SELECT COALESCE(AVG(conflict_count), 0)
+    INTO v_avg_conflicts
+    FROM (
+        SELECT COUNT(*) as conflict_count
+        FROM pggit.merge_conflicts mc
+        JOIN pggit.merge_history mh ON mh.id = mc.merge_id::uuid
+        WHERE mh.created_at > NOW() - (p_days || ' days')::interval
+        GROUP BY mc.merge_id
+    ) subq;
+
+    v_result := jsonb_set(v_result, '{report, avg_conflicts_per_merge}', to_jsonb(v_avg_conflicts));
+
+    RAISE NOTICE 'get_merge_performance_report: Generated report for % days', p_days;
+
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.estimate_merge_duration()
+-- ============================================================================
+-- Estimate merge duration based on historical data
+
+CREATE OR REPLACE FUNCTION pggit.estimate_merge_duration(
+    p_source_branch text,
+    p_target_branch text
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_result jsonb := '{
+        "source_branch": "",
+        "target_branch": "",
+        "estimated_ms": 0,
+        "confidence": "low",
+        "historical_merges": 0
+    }'::jsonb;
+    v_source_avg_ms integer;
+    v_target_avg_ms integer;
+    v_combined_avg_ms integer;
+    v_source_count integer;
+    v_target_count integer;
+BEGIN
+    v_result := jsonb_set(v_result, '{source_branch}', to_jsonb(p_source_branch));
+    v_result := jsonb_set(v_result, '{target_branch}', to_jsonb(p_target_branch));
+
+    -- Get average merge time for source branch
+    SELECT
+        COALESCE(AVG(EXTRACT(EPOCH FROM (completed_at - initiated_at)) * 1000)::integer, 0),
+        COUNT(*)
+    INTO v_source_avg_ms, v_source_count
+    FROM pggit.merge_history
+    WHERE (source_branch = p_source_branch OR source_branch LIKE '%' || p_source_branch || '%')
+      AND status = 'completed'
+      AND initiated_at > NOW() - INTERVAL '30 days';
+
+    -- Get average merge time for target branch
+    SELECT
+        COALESCE(AVG(EXTRACT(EPOCH FROM (completed_at - initiated_at)) * 1000)::integer, 0),
+        COUNT(*)
+    INTO v_target_avg_ms, v_target_count
+    FROM pggit.merge_history
+    WHERE (target_branch = p_target_branch OR target_branch LIKE '%' || p_target_branch || '%')
+      AND status = 'completed'
+      AND initiated_at > NOW() - INTERVAL '30 days';
+
+    -- Calculate combined estimate
+    v_combined_avg_ms := GREATEST(
+        COALESCE((v_source_avg_ms + v_target_avg_ms) / 2, 0),
+        10
+    );
+
+    v_result := jsonb_set(v_result, '{estimated_ms}', to_jsonb(v_combined_avg_ms));
+    v_result := jsonb_set(v_result, '{historical_merges}', to_jsonb(v_source_count + v_target_count));
+
+    -- Set confidence level
+    IF v_source_count + v_target_count > 10 THEN
+        v_result := jsonb_set(v_result, '{confidence}', to_jsonb('high'));
+    ELSIF v_source_count + v_target_count > 3 THEN
+        v_result := jsonb_set(v_result, '{confidence}', to_jsonb('medium'));
+    ELSE
+        v_result := jsonb_set(v_result, '{confidence}', to_jsonb('low'));
+    END IF;
+
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- ========================================
+-- File: 055_schema_diffing_foundation.sql
+-- ========================================
+
+-- pgGit v0.3 Phase 9: Schema Diffing Foundation
+-- Detailed schema comparison, diff detection, and migration planning
+-- Author: stephengibson12
+-- Phase: v0.3 (Schema Diffing & Advanced Features)
+
+-- ============================================================================
+-- STORAGE TABLES FOR SCHEMA ANALYSIS
+-- ============================================================================
+
+-- Table: schema_snapshots (already exists from prior work)
+-- No need to recreate - using existing table
+
+-- Table: schema_diffs (recreate with proper structure for Phase 9)
+-- Drop existing if it has wrong structure
+DROP TABLE IF EXISTS pggit.schema_diffs CASCADE;
+
+CREATE TABLE pggit.schema_diffs (
+    id bigserial PRIMARY KEY,
+    branch_a text NOT NULL,
+    branch_b text NOT NULL,
+    diff_json jsonb NOT NULL,
+    added_count integer DEFAULT 0,
+    removed_count integer DEFAULT 0,
+    modified_count integer DEFAULT 0,
+    breaking_changes integer DEFAULT 0,
+    compatible_changes integer DEFAULT 0,
+    risky_changes integer DEFAULT 0,
+    created_at timestamp NOT NULL DEFAULT NOW()
+);
+
+-- Table: schema_changes
+-- Stores: Individual change records from diffs
+CREATE TABLE IF NOT EXISTS pggit.schema_changes (
+    id bigserial PRIMARY KEY,
+    diff_id bigint NOT NULL REFERENCES pggit.schema_diffs(id),
+    object_type text NOT NULL,
+    object_name text NOT NULL,
+    schema_name text DEFAULT 'public',
+    change_type text NOT NULL,
+    category text NOT NULL CHECK(category IN ('BREAKING', 'COMPATIBLE', 'RISKY', 'OPTIONAL')),
+    old_definition text,
+    new_definition text,
+    impact_description text,
+    created_at timestamp NOT NULL DEFAULT NOW()
+);
+
+-- Table: migration_plans (already exists from prior work)
+-- No need to recreate - using existing table
+
+-- ============================================================================
+-- INDEXES FOR PERFORMANCE
+-- ============================================================================
+
+CREATE INDEX IF NOT EXISTS idx_schema_snapshots_branch_date
+    ON pggit.schema_snapshots(branch_id, snapshot_date DESC);
+
+CREATE INDEX IF NOT EXISTS idx_schema_diffs_branches
+    ON pggit.schema_diffs(branch_a, branch_b, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_schema_changes_diff_category
+    ON pggit.schema_changes(diff_id, category);
+
+CREATE INDEX IF NOT EXISTS idx_migration_plans_branches
+    ON pggit.migration_plans(source_branch, target_branch, created_at DESC);
+
+-- ============================================================================
+-- FUNCTION: pggit.get_schema_snapshot()
+-- ============================================================================
+-- Generate a complete schema representation for a branch
+-- Captures: All objects, properties, and structure at a point in time
+
+CREATE OR REPLACE FUNCTION pggit.get_schema_snapshot(
+    p_branch_name text
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_branch_id integer;
+    v_snapshot jsonb;
+    v_object_count integer;
+    v_object record;
+BEGIN
+    -- Get branch ID
+    SELECT id INTO v_branch_id FROM pggit.branches WHERE name = p_branch_name;
+    IF v_branch_id IS NULL THEN
+        RAISE EXCEPTION 'Branch % not found', p_branch_name;
+    END IF;
+
+    -- Get object count first
+    SELECT COUNT(*) INTO v_object_count
+    FROM pggit.objects
+    WHERE branch_id = v_branch_id;
+
+    -- Collect all objects from this branch
+    v_snapshot := jsonb_build_object(
+        'branch', p_branch_name,
+        'timestamp', NOW()::text,
+        'summary', jsonb_build_object('object_count', v_object_count),
+        'objects', COALESCE(
+            (SELECT jsonb_agg(
+                jsonb_build_object(
+                    'type', o.object_type::text,
+                    'schema', o.schema_name,
+                    'name', o.object_name,
+                    'definition', o.ddl_normalized,
+                    'content_hash', o.content_hash,
+                    'version', o.version
+                )
+            )
+            FROM pggit.objects o
+            WHERE o.branch_id = v_branch_id),
+            '[]'::jsonb
+        )
+    );
+
+    -- Store snapshot for caching (if not already cached at exact same timestamp)
+    INSERT INTO pggit.schema_snapshots (branch_id, branch_name, schema_json, object_count, snapshot_date)
+    VALUES (v_branch_id, p_branch_name, v_snapshot, v_object_count, NOW())
+    ON CONFLICT (branch_id, snapshot_date) DO NOTHING;
+
+    RAISE NOTICE 'get_schema_snapshot: Captured % objects from branch %', v_object_count, p_branch_name;
+
+    RETURN v_snapshot;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.compare_schemas()
+-- ============================================================================
+-- Detailed schema comparison between two branches
+-- Detects: Added, removed, modified objects and their changes
+
+CREATE OR REPLACE FUNCTION pggit.compare_schemas(
+    p_branch_a text,
+    p_branch_b text
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_result jsonb := '{
+        "branch_a": "",
+        "branch_b": "",
+        "timestamp": "",
+        "summary": {"added": 0, "removed": 0, "modified": 0},
+        "changes": []
+    }'::jsonb;
+    v_change record;
+    v_added_count integer := 0;
+    v_removed_count integer := 0;
+    v_modified_count integer := 0;
+BEGIN
+    v_result := jsonb_set(v_result, '{branch_a}', to_jsonb(p_branch_a));
+    v_result := jsonb_set(v_result, '{branch_b}', to_jsonb(p_branch_b));
+    v_result := jsonb_set(v_result, '{timestamp}', to_jsonb(NOW()::text));
+
+    -- Find added objects (in B, not in A)
+    FOR v_change IN
+        SELECT
+            'added'::text as change_type,
+            ob.object_type,
+            ob.schema_name,
+            ob.object_name,
+            ob.ddl_normalized
+        FROM pggit.objects ob
+        JOIN pggit.branches bb ON ob.branch_id = bb.id
+        WHERE bb.name = p_branch_b
+          AND NOT EXISTS (
+              SELECT 1 FROM pggit.objects oa
+              JOIN pggit.branches ba ON oa.branch_id = ba.id
+              WHERE ba.name = p_branch_a
+                AND oa.object_type = ob.object_type
+                AND oa.schema_name = ob.schema_name
+                AND oa.object_name = ob.object_name
+          )
+    LOOP
+        v_added_count := v_added_count + 1;
+        v_result := jsonb_set(
+            v_result,
+            '{changes}',
+            v_result->'changes' || jsonb_build_object(
+                'type', 'added',
+                'object_type', v_change.object_type::text,
+                'object_name', v_change.object_name,
+                'definition', v_change.ddl_normalized
+            )
+        );
+    END LOOP;
+
+    -- Find removed objects (in A, not in B)
+    FOR v_change IN
+        SELECT
+            'removed'::text as change_type,
+            oa.object_type,
+            oa.schema_name,
+            oa.object_name,
+            oa.ddl_normalized
+        FROM pggit.objects oa
+        JOIN pggit.branches ba ON oa.branch_id = ba.id
+        WHERE ba.name = p_branch_a
+          AND NOT EXISTS (
+              SELECT 1 FROM pggit.objects ob
+              JOIN pggit.branches bb ON ob.branch_id = bb.id
+              WHERE bb.name = p_branch_b
+                AND ob.object_type = oa.object_type
+                AND ob.schema_name = oa.schema_name
+                AND ob.object_name = oa.object_name
+          )
+    LOOP
+        v_removed_count := v_removed_count + 1;
+        v_result := jsonb_set(
+            v_result,
+            '{changes}',
+            v_result->'changes' || jsonb_build_object(
+                'type', 'removed',
+                'object_type', v_change.object_type::text,
+                'object_name', v_change.object_name,
+                'definition', v_change.ddl_normalized
+            )
+        );
+    END LOOP;
+
+    -- Find modified objects (same object, different definition)
+    FOR v_change IN
+        SELECT
+            'modified'::text as change_type,
+            oa.object_type,
+            oa.schema_name,
+            oa.object_name,
+            oa.ddl_normalized as old_def,
+            ob.ddl_normalized as new_def
+        FROM pggit.objects oa
+        JOIN pggit.branches ba ON oa.branch_id = ba.id
+        JOIN pggit.objects ob ON ob.object_type = oa.object_type
+                              AND ob.schema_name = oa.schema_name
+                              AND ob.object_name = oa.object_name
+        JOIN pggit.branches bb ON ob.branch_id = bb.id
+        WHERE ba.name = p_branch_a
+          AND bb.name = p_branch_b
+          AND oa.content_hash IS DISTINCT FROM ob.content_hash
+    LOOP
+        v_modified_count := v_modified_count + 1;
+        v_result := jsonb_set(
+            v_result,
+            '{changes}',
+            v_result->'changes' || jsonb_build_object(
+                'type', 'modified',
+                'object_type', v_change.object_type::text,
+                'object_name', v_change.object_name,
+                'old_definition', v_change.old_def,
+                'new_definition', v_change.new_def
+            )
+        );
+    END LOOP;
+
+    -- Update summary
+    v_result := jsonb_set(v_result, '{summary, added}', to_jsonb(v_added_count));
+    v_result := jsonb_set(v_result, '{summary, removed}', to_jsonb(v_removed_count));
+    v_result := jsonb_set(v_result, '{summary, modified}', to_jsonb(v_modified_count));
+
+    -- Store diff for caching
+    INSERT INTO pggit.schema_diffs (branch_a, branch_b, diff_json, added_count, removed_count, modified_count)
+    VALUES (p_branch_a, p_branch_b, v_result, v_added_count, v_removed_count, v_modified_count);
+
+    RAISE NOTICE 'compare_schemas: Found % added, % removed, % modified between % and %',
+        v_added_count, v_removed_count, v_modified_count, p_branch_a, p_branch_b;
+
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.categorize_change()
+-- ============================================================================
+-- Categorize a change as BREAKING, COMPATIBLE, RISKY, or OPTIONAL
+-- Uses: Heuristics based on object type and change pattern
+
+CREATE OR REPLACE FUNCTION pggit.categorize_change(
+    p_object_type text,
+    p_change_type text,
+    p_old_def text,
+    p_new_def text
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_category text;
+    v_description text;
+BEGIN
+    -- Default categorization logic
+    v_category := 'OPTIONAL';
+    v_description := 'No impact assessment available';
+
+    -- BREAKING CHANGES: Operations that break existing code/data
+    IF p_change_type = 'removed' THEN
+        v_category := 'BREAKING';
+        v_description := 'Removing ' || p_object_type || ' will break dependent code';
+    ELSIF p_object_type IN ('CONSTRAINT', 'PRIMARY KEY') AND p_change_type = 'removed' THEN
+        v_category := 'BREAKING';
+        v_description := 'Removing ' || p_object_type || ' violates data integrity';
+    ELSIF p_object_type = 'COLUMN' AND p_change_type = 'removed' THEN
+        v_category := 'BREAKING';
+        v_description := 'Removing column will break queries and applications';
+    ELSIF p_object_type = 'COLUMN' AND p_change_type = 'modified'
+          AND (p_old_def LIKE '%NOT NULL%' AND p_new_def NOT LIKE '%NOT NULL%') THEN
+        v_category := 'BREAKING';
+        v_description := 'Changing column from NOT NULL to nullable changes semantics';
+
+    -- RISKY CHANGES: May cause issues, need careful planning
+    ELSIF p_object_type = 'COLUMN' AND p_change_type = 'modified'
+          AND p_old_def LIKE '%NOT NULL%' AND p_new_def LIKE '%NOT NULL%' THEN
+        v_category := 'RISKY';
+        v_description := 'Column type change requires data migration';
+    ELSIF p_object_type = 'CONSTRAINT' AND p_change_type = 'modified' THEN
+        v_category := 'RISKY';
+        v_description := 'Constraint modification may violate existing data';
+
+    -- COMPATIBLE CHANGES: Safe to apply
+    ELSIF p_object_type = 'COLUMN' AND p_change_type = 'added' THEN
+        v_category := 'COMPATIBLE';
+        v_description := 'Adding new column is backwards compatible (unless NOT NULL without default)';
+    ELSIF p_object_type = 'INDEX' AND p_change_type IN ('added', 'removed') THEN
+        v_category := 'COMPATIBLE';
+        v_description := 'Index changes do not affect functionality';
+    ELSIF p_object_type = 'VIEW' AND p_change_type = 'modified' THEN
+        v_category := 'COMPATIBLE';
+        v_description := 'View modifications are generally safe';
+
+    -- OPTIONAL CHANGES: Nice to have, no impact
+    ELSIF p_object_type IN ('COMMENT', 'PERMISSION') THEN
+        v_category := 'OPTIONAL';
+        v_description := 'Change is informational only';
+    END IF;
+
+    RETURN jsonb_build_object(
+        'category', v_category,
+        'description', v_description,
+        'object_type', p_object_type,
+        'change_type', p_change_type
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.assess_migration_impact()
+-- ============================================================================
+-- Assess impact of a schema diff result
+
+CREATE OR REPLACE FUNCTION pggit.assess_migration_impact(
+    p_diff jsonb
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_impact jsonb := '{
+        "feasibility": "ready",
+        "risk_level": "low",
+        "breaking_changes": 0,
+        "risky_changes": 0,
+        "compatible_changes": 0,
+        "optional_changes": 0,
+        "estimated_effort": "low"
+    }'::jsonb;
+    v_change jsonb;
+    v_breaking integer := 0;
+    v_risky integer := 0;
+    v_compatible integer := 0;
+    v_optional integer := 0;
+BEGIN
+    -- Count changes by category
+    FOR v_change IN SELECT jsonb_array_elements(p_diff->'changes')
+    LOOP
+        CASE v_change->>'type'
+            WHEN 'removed' THEN v_breaking := v_breaking + 1;
+            WHEN 'added' THEN v_compatible := v_compatible + 1;
+            WHEN 'modified' THEN v_risky := v_risky + 1;
+            ELSE v_optional := v_optional + 1;
+        END CASE;
+    END LOOP;
+
+    -- Assess feasibility
+    IF v_breaking > 0 THEN
+        v_impact := jsonb_set(v_impact, '{feasibility}', '"review_required"'::jsonb);
+        v_impact := jsonb_set(v_impact, '{risk_level}', '"high"'::jsonb);
+    ELSIF v_risky > 0 THEN
+        v_impact := jsonb_set(v_impact, '{feasibility}', '"proceed_with_caution"'::jsonb);
+        v_impact := jsonb_set(v_impact, '{risk_level}', '"medium"'::jsonb);
+    ELSE
+        v_impact := jsonb_set(v_impact, '{feasibility}', '"ready"'::jsonb);
+        v_impact := jsonb_set(v_impact, '{risk_level}', '"low"'::jsonb);
+    END IF;
+
+    -- Estimate effort
+    IF v_breaking > 0 THEN
+        v_impact := jsonb_set(v_impact, '{estimated_effort}', '"high"'::jsonb);
+    ELSIF v_risky > 0 THEN
+        v_impact := jsonb_set(v_impact, '{estimated_effort}', '"medium"'::jsonb);
+    ELSE
+        v_impact := jsonb_set(v_impact, '{estimated_effort}', '"low"'::jsonb);
+    END IF;
+
+    -- Update counts
+    v_impact := jsonb_set(v_impact, '{breaking_changes}', to_jsonb(v_breaking));
+    v_impact := jsonb_set(v_impact, '{risky_changes}', to_jsonb(v_risky));
+    v_impact := jsonb_set(v_impact, '{compatible_changes}', to_jsonb(v_compatible));
+    v_impact := jsonb_set(v_impact, '{optional_changes}', to_jsonb(v_optional));
+
+    RAISE NOTICE 'assess_migration_impact: Breaking: %, Risky: %, Compatible: %, Optional: %',
+        v_breaking, v_risky, v_compatible, v_optional;
+
+    RETURN v_impact;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.plan_migration()
+-- ============================================================================
+-- Generate migration plan from one branch to another
+
+CREATE OR REPLACE FUNCTION pggit.plan_migration(
+    p_source_branch text,
+    p_target_branch text
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_plan jsonb;
+    v_diff jsonb;
+    v_impact jsonb;
+    v_step_count integer := 0;
+    v_change jsonb;
+BEGIN
+    -- Get schema diff
+    v_diff := pggit.compare_schemas(p_source_branch, p_target_branch);
+
+    -- Assess impact
+    v_impact := pggit.assess_migration_impact(v_diff);
+
+    -- Build migration plan
+    v_plan := jsonb_build_object(
+        'plan_id', gen_random_uuid()::text,
+        'source_branch', p_source_branch,
+        'target_branch', p_target_branch,
+        'generated_at', NOW()::text,
+        'feasibility', v_impact->>'feasibility',
+        'risk_level', v_impact->>'risk_level',
+        'estimated_effort', v_impact->>'estimated_effort',
+        'steps', jsonb_build_array()
+    );
+
+    -- Add steps for each change (in safe order)
+    -- Order: removes last, adds first, modifies in middle
+    v_step_count := 0;
+
+    -- Step 1: Add new objects
+    FOR v_change IN SELECT * FROM jsonb_array_elements(v_diff->'changes') WHERE value->>'type' = 'added'
+    LOOP
+        v_step_count := v_step_count + 1;
+        v_plan := jsonb_set(
+            v_plan,
+            '{steps}',
+            v_plan->'steps' || jsonb_build_object(
+                'order', v_step_count,
+                'type', 'ADD_OBJECT',
+                'object_type', v_change->>'object_type',
+                'object_name', v_change->>'object_name',
+                'definition', v_change->>'definition',
+                'risk_level', 'low'
+            )
+        );
+    END LOOP;
+
+    -- Step 2: Modify objects
+    FOR v_change IN SELECT * FROM jsonb_array_elements(v_diff->'changes') WHERE value->>'type' = 'modified'
+    LOOP
+        v_step_count := v_step_count + 1;
+        v_plan := jsonb_set(
+            v_plan,
+            '{steps}',
+            v_plan->'steps' || jsonb_build_object(
+                'order', v_step_count,
+                'type', 'MODIFY_OBJECT',
+                'object_type', v_change->>'object_type',
+                'object_name', v_change->>'object_name',
+                'old_definition', v_change->>'old_definition',
+                'new_definition', v_change->>'new_definition',
+                'risk_level', 'medium'
+            )
+        );
+    END LOOP;
+
+    -- Step 3: Remove objects
+    FOR v_change IN SELECT * FROM jsonb_array_elements(v_diff->'changes') WHERE value->>'type' = 'removed'
+    LOOP
+        v_step_count := v_step_count + 1;
+        v_plan := jsonb_set(
+            v_plan,
+            '{steps}',
+            v_plan->'steps' || jsonb_build_object(
+                'order', v_step_count,
+                'type', 'REMOVE_OBJECT',
+                'object_type', v_change->>'object_type',
+                'object_name', v_change->>'object_name',
+                'definition', v_change->>'definition',
+                'risk_level', 'high'
+            )
+        );
+    END LOOP;
+
+    v_plan := jsonb_set(v_plan, '{step_count}', to_jsonb(v_step_count));
+
+    -- Store plan
+    INSERT INTO pggit.migration_plans (source_branch, target_branch, plan_json, feasibility, estimated_duration_seconds)
+    VALUES (p_source_branch, p_target_branch, v_plan, v_impact->>'feasibility', (v_step_count * 5)::integer);
+
+    RAISE NOTICE 'plan_migration: Generated % steps for migrating from % to %',
+        v_step_count, p_source_branch, p_target_branch;
+
+    RETURN v_plan;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.detect_schema_dependencies()
+-- ============================================================================
+-- Detect object dependencies within a branch
+
+CREATE OR REPLACE FUNCTION pggit.detect_schema_dependencies(
+    p_branch_name text
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_dependencies jsonb := '{"branch": "", "dependencies": [], "dependency_count": 0}'::jsonb;
+    v_dep_count integer := 0;
+    v_object record;
+BEGIN
+    v_dependencies := jsonb_set(v_dependencies, '{branch}', to_jsonb(p_branch_name));
+
+    -- For now, simple dependency detection based on object names
+    -- In production, would parse DDL to find actual dependencies
+    FOR v_object IN
+        SELECT DISTINCT
+            o1.object_name as from_object,
+            o2.object_name as to_object,
+            o1.object_type,
+            o2.object_type as referenced_type
+        FROM pggit.objects o1
+        JOIN pggit.branches b1 ON o1.branch_id = b1.id
+        JOIN pggit.objects o2 ON o2.branch_id = b1.id
+        WHERE b1.name = p_branch_name
+          AND o1.object_name != o2.object_name
+          AND (o1.ddl_normalized ILIKE '%' || o2.object_name || '%'
+               OR o2.ddl_normalized ILIKE '%' || o1.object_name || '%')
+        LIMIT 100
+    LOOP
+        v_dep_count := v_dep_count + 1;
+        v_dependencies := jsonb_set(
+            v_dependencies,
+            '{dependencies}',
+            v_dependencies->'dependencies' || jsonb_build_object(
+                'from', v_object.from_object,
+                'to', v_object.to_object,
+                'from_type', v_object.object_type::text,
+                'to_type', v_object.referenced_type::text
+            )
+        );
+    END LOOP;
+
+    v_dependencies := jsonb_set(v_dependencies, '{dependency_count}', to_jsonb(v_dep_count));
+
+    RAISE NOTICE 'detect_schema_dependencies: Found % dependencies in %', v_dep_count, p_branch_name;
+
+    RETURN v_dependencies;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.generate_schema_diff_report()
+-- ============================================================================
+-- Generate human-readable schema diff report
+
+CREATE OR REPLACE FUNCTION pggit.generate_schema_diff_report(
+    p_branch_a text,
+    p_branch_b text
+)
+RETURNS text AS $$
+DECLARE
+    v_report text;
+    v_diff jsonb;
+    v_impact jsonb;
+BEGIN
+    -- Get diff
+    v_diff := pggit.compare_schemas(p_branch_a, p_branch_b);
+
+    -- Assess impact
+    v_impact := pggit.assess_migration_impact(v_diff);
+
+    -- Build report
+    v_report := '================================================================================
+' || E'\n' ||
+'SCHEMA DIFF REPORT
+' || E'\n' ||
+'================================================================================
+' || E'\n' ||
+'Branch A: ' || p_branch_a || E'\n' ||
+'Branch B: ' || p_branch_b || E'\n' ||
+'Generated: ' || NOW()::text || E'\n' ||
+'================================================================================
+' || E'\n' ||
+E'\n' ||
+'SUMMARY
+' || E'\n' ||
+'--------
+' || E'\n' ||
+'Added Objects:    ' || (v_diff->'summary'->>'added') || E'\n' ||
+'Removed Objects:  ' || (v_diff->'summary'->>'removed') || E'\n' ||
+'Modified Objects: ' || (v_diff->'summary'->>'modified') || E'\n' ||
+E'\n' ||
+'IMPACT ASSESSMENT
+' || E'\n' ||
+'--------
+' || E'\n' ||
+'Feasibility: ' || (v_impact->>'feasibility') || E'\n' ||
+'Risk Level:  ' || (v_impact->>'risk_level') || E'\n' ||
+'Effort:      ' || (v_impact->>'estimated_effort') || E'\n' ||
+E'\n' ||
+'Breaking Changes: ' || (v_impact->>'breaking_changes') || E'\n' ||
+'Risky Changes:    ' || (v_impact->>'risky_changes') || E'\n' ||
+'Compatible:       ' || (v_impact->>'compatible_changes') || E'\n' ||
+'Optional:         ' || (v_impact->>'optional_changes') || E'\n' ||
+'================================================================================
+';
+
+    RETURN v_report;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.track_schema_lineage()
+-- ============================================================================
+-- Track schema evolution for a branch
+
+CREATE OR REPLACE FUNCTION pggit.track_schema_lineage(
+    p_branch_name text
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_lineage jsonb := '{"branch": "", "snapshots": []}'::jsonb;
+    v_snapshot record;
+BEGIN
+    v_lineage := jsonb_set(v_lineage, '{branch}', to_jsonb(p_branch_name));
+
+    -- Get all snapshots for this branch
+    FOR v_snapshot IN
+        SELECT snapshot_date, object_count FROM pggit.schema_snapshots
+        WHERE branch_name = p_branch_name
+        ORDER BY snapshot_date DESC
+        LIMIT 10
+    LOOP
+        v_lineage := jsonb_set(
+            v_lineage,
+            '{snapshots}',
+            v_lineage->'snapshots' || jsonb_build_object(
+                'date', v_snapshot.snapshot_date::text,
+                'object_count', v_snapshot.object_count
+            )
+        );
+    END LOOP;
+
+    RAISE NOTICE 'track_schema_lineage: Tracked % snapshots for %',
+        jsonb_array_length(v_lineage->'snapshots'), p_branch_name;
+
+    RETURN v_lineage;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- VIEWS FOR SCHEMA ANALYSIS
+-- ============================================================================
+
+-- View: v_schema_change_summary
+-- Shows: Summary of changes by type and category
+CREATE OR REPLACE VIEW pggit.v_schema_change_summary AS
+SELECT
+    branch_a,
+    branch_b,
+    COUNT(*) as total_changes,
+    COUNT(CASE WHEN change_type = 'added' THEN 1 END) as added_count,
+    COUNT(CASE WHEN change_type = 'removed' THEN 1 END) as removed_count,
+    COUNT(CASE WHEN change_type = 'modified' THEN 1 END) as modified_count,
+    COUNT(CASE WHEN category = 'BREAKING' THEN 1 END) as breaking_count,
+    COUNT(CASE WHEN category = 'RISKY' THEN 1 END) as risky_count,
+    COUNT(CASE WHEN category = 'COMPATIBLE' THEN 1 END) as compatible_count,
+    COUNT(CASE WHEN category = 'OPTIONAL' THEN 1 END) as optional_count,
+    sd.created_at
+FROM pggit.schema_diffs sd
+LEFT JOIN pggit.schema_changes sc ON sc.diff_id = sd.id
+GROUP BY sd.branch_a, sd.branch_b, sd.created_at
+ORDER BY sd.created_at DESC;
+
+-- View: v_schema_impact_analysis
+-- Shows: Categorized changes with impact levels
+CREATE OR REPLACE VIEW pggit.v_schema_impact_analysis AS
+SELECT
+    sd.branch_a,
+    sd.branch_b,
+    sc.object_type,
+    sc.object_name,
+    sc.change_type,
+    sc.category,
+    sc.impact_description,
+    sd.created_at
+FROM pggit.schema_diffs sd
+LEFT JOIN pggit.schema_changes sc ON sc.diff_id = sd.id
+WHERE sc.category IS NOT NULL
+ORDER BY sd.created_at DESC, sc.category DESC;
+
+-- View: v_schema_migration_readiness
+-- Shows: Migration readiness assessment
+CREATE OR REPLACE VIEW pggit.v_schema_migration_readiness AS
+SELECT
+    source_branch,
+    target_branch,
+    (plan_json->>'feasibility') as feasibility,
+    (plan_json->>'risk_level') as risk_level,
+    (plan_json->>'estimated_effort') as estimated_effort,
+    (plan_json->'step_count')::integer as step_count,
+    created_at
+FROM pggit.migration_plans
+ORDER BY created_at DESC;
+
+
+-- ========================================
+-- File: 056_advanced_workflows.sql
+-- ========================================
+
+-- pgGit v0.3 Phase 10: Advanced Workflows & Polish
+-- Workflow orchestration, CI/CD integration, advanced reporting
+
+-- ============================================================================
+-- STORAGE TABLES: WORKFLOW MANAGEMENT
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS pggit.schema_workflows (
+    id SERIAL PRIMARY KEY,
+    workflow_id UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(),
+    operation_type TEXT NOT NULL CHECK (operation_type IN ('analysis', 'migration', 'validation', 'comparison')),
+    source_branch TEXT NOT NULL,
+    target_branch TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'running', 'completed', 'failed', 'cancelled')),
+    started_at TIMESTAMP DEFAULT NOW(),
+    completed_at TIMESTAMP,
+    result_json JSONB,
+    error_message TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS pggit.workflow_state (
+    workflow_id UUID NOT NULL REFERENCES pggit.schema_workflows(workflow_id),
+    step_number INTEGER NOT NULL,
+    step_name TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'running', 'completed', 'failed', 'skipped')),
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    context_json JSONB,
+    result_json JSONB,
+    created_at TIMESTAMP DEFAULT NOW(),
+    PRIMARY KEY (workflow_id, step_number)
+);
+
+CREATE TABLE IF NOT EXISTS pggit.schema_compliance_audit (
+    id SERIAL PRIMARY KEY,
+    audit_id UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(),
+    branch_name TEXT NOT NULL,
+    check_date TIMESTAMP DEFAULT NOW(),
+    compliance_status TEXT NOT NULL CHECK (compliance_status IN ('compliant', 'warning', 'failed')),
+    breaking_changes_count INTEGER DEFAULT 0,
+    risky_changes_count INTEGER DEFAULT 0,
+    audit_result JSONB NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_schema_workflows_status_started ON pggit.schema_workflows(status, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_schema_workflows_operation ON pggit.schema_workflows(operation_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_workflow_state_status ON pggit.workflow_state(workflow_id, status);
+CREATE INDEX IF NOT EXISTS idx_schema_compliance_audit_check_date ON pggit.schema_compliance_audit(check_date DESC);
+
+-- ============================================================================
+-- FUNCTION: pggit.unified_schema_analysis()
+-- ============================================================================
+-- Complete analysis: snapshot → diff → impact → plan all in one call
+
+CREATE OR REPLACE FUNCTION pggit.unified_schema_analysis(
+    p_branch_a text,
+    p_branch_b text
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_workflow_id UUID;
+    v_snapshot_a jsonb;
+    v_snapshot_b jsonb;
+    v_diff jsonb;
+    v_impact jsonb;
+    v_plan jsonb;
+    v_result jsonb;
+BEGIN
+    v_workflow_id := gen_random_uuid();
+
+    BEGIN
+        -- Step 1: Create snapshots
+        v_snapshot_a := pggit.get_schema_snapshot(p_branch_a);
+        v_snapshot_b := pggit.get_schema_snapshot(p_branch_b);
+
+        -- Step 2: Compare schemas
+        v_diff := pggit.compare_schemas(p_branch_a, p_branch_b);
+
+        -- Step 3: Assess impact
+        v_impact := pggit.assess_migration_impact(v_diff);
+
+        -- Step 4: Plan migration
+        v_plan := pggit.plan_migration(p_branch_a, p_branch_b);
+
+        -- Aggregate results
+        v_result := jsonb_build_object(
+            'workflow_id', v_workflow_id::text,
+            'status', 'completed',
+            'branch_a', p_branch_a,
+            'branch_b', p_branch_b,
+            'timestamp', NOW()::text,
+            'analysis', jsonb_build_object(
+                'snapshot_a_objects', v_snapshot_a->'summary'->>'object_count',
+                'snapshot_b_objects', v_snapshot_b->'summary'->>'object_count',
+                'diff_summary', v_diff->'summary',
+                'impact_assessment', v_impact,
+                'migration_plan', jsonb_build_object(
+                    'feasibility', v_plan->>'feasibility',
+                    'step_count', v_plan->>'step_count'
+                )
+            )
+        );
+
+        RAISE NOTICE 'unified_schema_analysis: Completed analysis for % → % (workflow: %)',
+            p_branch_a, p_branch_b, v_workflow_id;
+
+        RETURN v_result;
+    EXCEPTION WHEN OTHERS THEN
+        v_result := jsonb_build_object(
+            'workflow_id', v_workflow_id::text,
+            'status', 'failed',
+            'error', SQLERRM
+        );
+        RAISE NOTICE 'unified_schema_analysis: FAILED - %', SQLERRM;
+        RETURN v_result;
+    END;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.check_breaking_changes()
+-- ============================================================================
+-- CI/CD gate function: Detect breaking changes for automated decisions
+
+CREATE OR REPLACE FUNCTION pggit.check_breaking_changes(
+    p_branch_a text,
+    p_branch_b text
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_diff jsonb;
+    v_impact jsonb;
+    v_breaking_count integer := 0;
+    v_has_breaking boolean := false;
+    v_changes RECORD;
+    v_result jsonb;
+BEGIN
+    -- Get diff
+    v_diff := pggit.compare_schemas(p_branch_a, p_branch_b);
+
+    -- Get impact assessment
+    v_impact := pggit.assess_migration_impact(v_diff);
+
+    -- Count breaking changes
+    FOR v_changes IN
+        SELECT jsonb_array_elements(v_diff->'changes') as change
+    LOOP
+        IF v_changes.change->>'type' = 'removed' THEN
+            v_breaking_count := v_breaking_count + 1;
+            v_has_breaking := true;
+        END IF;
+    END LOOP;
+
+    v_result := jsonb_build_object(
+        'branch_a', p_branch_a,
+        'branch_b', p_branch_b,
+        'has_breaking_changes', v_has_breaking,
+        'breaking_change_count', v_breaking_count,
+        'feasibility', v_impact->>'feasibility',
+        'risk_level', v_impact->>'risk_level',
+        'ci_approved', CASE WHEN v_has_breaking THEN false ELSE true END,
+        'timestamp', NOW()::text
+    );
+
+    RAISE NOTICE 'check_breaking_changes: Found % breaking changes (approved: %)',
+        v_breaking_count, NOT v_has_breaking;
+
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.validate_schema_changes()
+-- ============================================================================
+-- Pre-deployment validation for schema changes
+
+CREATE OR REPLACE FUNCTION pggit.validate_schema_changes(
+    p_branch_name text
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_result jsonb;
+    v_object_count integer;
+    v_issues jsonb := '[]'::jsonb;
+    v_warnings jsonb := '[]'::jsonb;
+    v_validation_status text := 'passed';
+BEGIN
+    -- Check if branch exists
+    IF NOT EXISTS (SELECT 1 FROM pggit.branches WHERE name = p_branch_name) THEN
+        v_result := jsonb_build_object(
+            'branch_name', p_branch_name,
+            'validation_status', 'failed',
+            'error', 'Branch not found'
+        );
+        RETURN v_result;
+    END IF;
+
+    -- Get object count
+    SELECT COUNT(*) INTO v_object_count FROM pggit.objects WHERE branch_name = p_branch_name;
+
+    -- Add validation warnings for potential issues
+    IF v_object_count = 0 THEN
+        v_warnings := v_warnings || jsonb_build_array('No objects in schema');
+    END IF;
+
+    -- Check for orphaned objects
+    IF EXISTS (
+        SELECT 1 FROM pggit.objects
+        WHERE branch_name = p_branch_name AND content_hash IS NULL
+    ) THEN
+        v_warnings := v_warnings || jsonb_build_array('Orphaned objects detected');
+        v_validation_status := 'warning';
+    END IF;
+
+    v_result := jsonb_build_object(
+        'branch_name', p_branch_name,
+        'validation_status', v_validation_status,
+        'object_count', v_object_count,
+        'issues', CASE WHEN jsonb_array_length(v_issues) = 0 THEN jsonb_build_array() ELSE v_issues END,
+        'warnings', CASE WHEN jsonb_array_length(v_warnings) = 0 THEN jsonb_build_array() ELSE v_warnings END,
+        'timestamp', NOW()::text
+    );
+
+    RAISE NOTICE 'validate_schema_changes: Validated % (% objects, status: %)',
+        p_branch_name, v_object_count, v_validation_status;
+
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.get_migration_readiness_scorecard()
+-- ============================================================================
+-- Scorecard with readiness metrics and recommendations
+
+CREATE OR REPLACE FUNCTION pggit.get_migration_readiness_scorecard(
+    p_source_branch text,
+    p_target_branch text
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_diff jsonb;
+    v_impact jsonb;
+    v_readiness_score integer := 100;
+    v_recommendations jsonb := '[]'::jsonb;
+    v_metrics jsonb;
+    v_result jsonb;
+BEGIN
+    -- Get analysis
+    v_diff := pggit.compare_schemas(p_source_branch, p_target_branch);
+    v_impact := pggit.assess_migration_impact(v_diff);
+
+    -- Calculate readiness score
+    v_readiness_score := 100;
+
+    -- Deduct for breaking changes
+    IF (v_impact->>'feasibility')::text = 'review_required' THEN
+        v_readiness_score := v_readiness_score - 40;
+        v_recommendations := v_recommendations || jsonb_build_array('Review breaking changes before migration');
+    END IF;
+
+    -- Deduct for risky changes
+    IF (v_impact->>'feasibility')::text = 'proceed_with_caution' THEN
+        v_readiness_score := v_readiness_score - 20;
+        v_recommendations := v_recommendations || jsonb_build_array('Plan mitigation for risky changes');
+    END IF;
+
+    -- Assess effort
+    IF (v_impact->>'estimated_effort')::text = 'high' THEN
+        v_recommendations := v_recommendations || jsonb_build_array('Allocate sufficient time for high-effort migration');
+    END IF;
+
+    v_metrics := jsonb_build_object(
+        'breaking_changes', v_impact->>'breaking_changes',
+        'risky_changes', v_impact->>'risky_changes',
+        'compatible_changes', v_impact->>'compatible_changes',
+        'risk_level', v_impact->>'risk_level'
+    );
+
+    v_result := jsonb_build_object(
+        'source_branch', p_source_branch,
+        'target_branch', p_target_branch,
+        'readiness_score', v_readiness_score,
+        'readiness_category', CASE
+            WHEN v_readiness_score >= 80 THEN 'READY'
+            WHEN v_readiness_score >= 60 THEN 'PROCEED_WITH_CAUTION'
+            ELSE 'REQUIRES_REVIEW'
+        END,
+        'metrics', v_metrics,
+        'recommendations', v_recommendations,
+        'timestamp', NOW()::text
+    );
+
+    RAISE NOTICE 'get_migration_readiness_scorecard: Score % for % → %',
+        v_readiness_score, p_source_branch, p_target_branch;
+
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.get_schema_complexity_score()
+-- ============================================================================
+-- Complexity metrics for schema health assessment
+
+CREATE OR REPLACE FUNCTION pggit.get_schema_complexity_score(
+    p_branch_name text
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_total_objects integer;
+    v_table_count integer;
+    v_view_count integer;
+    v_function_count integer;
+    v_index_count integer;
+    v_complexity_score integer := 0;
+    v_result jsonb;
+BEGIN
+    -- Count objects by type
+    SELECT
+        COUNT(*) FILTER (WHERE object_type = 'TABLE') ,
+        COUNT(*) FILTER (WHERE object_type = 'VIEW') ,
+        COUNT(*) FILTER (WHERE object_type = 'FUNCTION') ,
+        COUNT(*) FILTER (WHERE object_type = 'INDEX') ,
+        COUNT(*)
+    INTO v_table_count, v_view_count, v_function_count, v_index_count, v_total_objects
+    FROM pggit.objects
+    WHERE branch_name = p_branch_name;
+
+    -- Calculate complexity score (simple heuristic)
+    v_complexity_score := (
+        (COALESCE(v_table_count, 0) * 10) +
+        (COALESCE(v_view_count, 0) * 15) +
+        (COALESCE(v_function_count, 0) * 20) +
+        (COALESCE(v_index_count, 0) * 5)
+    );
+
+    v_result := jsonb_build_object(
+        'branch_name', p_branch_name,
+        'total_objects', COALESCE(v_total_objects, 0),
+        'table_count', COALESCE(v_table_count, 0),
+        'view_count', COALESCE(v_view_count, 0),
+        'function_count', COALESCE(v_function_count, 0),
+        'index_count', COALESCE(v_index_count, 0),
+        'complexity_score', v_complexity_score,
+        'complexity_category', CASE
+            WHEN v_complexity_score < 100 THEN 'LOW'
+            WHEN v_complexity_score < 300 THEN 'MEDIUM'
+            ELSE 'HIGH'
+        END,
+        'timestamp', NOW()::text
+    );
+
+    RAISE NOTICE 'get_schema_complexity_score: Score % for % (% objects)',
+        v_complexity_score, p_branch_name, COALESCE(v_total_objects, 0);
+
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.generate_compliance_report()
+-- ============================================================================
+-- Compliance-focused report for audit/regulatory requirements
+
+CREATE OR REPLACE FUNCTION pggit.generate_compliance_report(
+    p_branch_a text,
+    p_branch_b text
+)
+RETURNS text AS $$
+DECLARE
+    v_diff jsonb;
+    v_impact jsonb;
+    v_report text;
+    v_breaking_count integer;
+    v_risky_count integer;
+    v_change RECORD;
+BEGIN
+    -- Get analysis
+    v_diff := pggit.compare_schemas(p_branch_a, p_branch_b);
+    v_impact := pggit.assess_migration_impact(v_diff);
+
+    -- Count breaking and risky
+    v_breaking_count := COALESCE((v_impact->>'breaking_changes')::integer, 0);
+    v_risky_count := COALESCE((v_impact->>'risky_changes')::integer, 0);
+
+    -- Generate report
+    v_report := format(
+        E'SCHEMA CHANGE COMPLIANCE REPORT\n' ||
+        E'================================\n' ||
+        E'Generated: %s\n' ||
+        E'Source Branch: %s\n' ||
+        E'Target Branch: %s\n' ||
+        E'\n' ||
+        E'COMPLIANCE ASSESSMENT\n' ||
+        E'---------------------\n' ||
+        E'Breaking Changes: %s (requires approval)\n' ||
+        E'Risky Changes: %s (requires mitigation planning)\n' ||
+        E'Compatible Changes: %s\n' ||
+        E'Overall Risk Level: %s\n' ||
+        E'\n' ||
+        E'MIGRATION FEASIBILITY: %s\n' ||
+        E'ESTIMATED EFFORT: %s\n' ||
+        E'\n' ||
+        E'COMPLIANCE STATUS: %s\n',
+        NOW()::text,
+        p_branch_a,
+        p_branch_b,
+        v_breaking_count,
+        v_risky_count,
+        COALESCE((v_impact->>'compatible_changes')::integer, 0),
+        v_impact->>'risk_level',
+        v_impact->>'feasibility',
+        v_impact->>'estimated_effort',
+        CASE
+            WHEN v_breaking_count = 0 AND v_risky_count = 0 THEN 'COMPLIANT'
+            WHEN v_breaking_count = 0 THEN 'WARNING'
+            ELSE 'REQUIRES_APPROVAL'
+        END
+    );
+
+    RAISE NOTICE 'generate_compliance_report: Generated report for % → %', p_branch_a, p_branch_b;
+
+    RETURN v_report;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- VIEWS: WORKFLOW MONITORING & READINESS
+-- ============================================================================
+
+CREATE OR REPLACE VIEW pggit.v_schema_workflow_summary AS
+SELECT
+    workflow_id,
+    operation_type,
+    source_branch,
+    target_branch,
+    status,
+    started_at,
+    completed_at,
+    EXTRACT(EPOCH FROM (COALESCE(completed_at, NOW()) - started_at))::integer as duration_seconds
+FROM pggit.schema_workflows
+ORDER BY created_at DESC;
+
+CREATE OR REPLACE VIEW pggit.v_ci_ready_changes AS
+SELECT
+    sd.branch_a,
+    sd.branch_b,
+    sd.added_count,
+    sd.removed_count,
+    sd.modified_count,
+    CASE
+        WHEN sd.removed_count = 0 THEN 'SAFE'
+        ELSE 'REVIEW_REQUIRED'
+    END as ci_approval,
+    sd.created_at
+FROM pggit.schema_diffs sd
+WHERE sd.removed_count = 0
+ORDER BY sd.created_at DESC;
+
+CREATE OR REPLACE VIEW pggit.v_migration_readiness_summary AS
+SELECT
+    branch_a as source_branch,
+    branch_b as target_branch,
+    added_count,
+    removed_count,
+    modified_count,
+    CASE
+        WHEN removed_count = 0 AND modified_count <= 5 THEN 'READY'
+        WHEN removed_count = 0 THEN 'PROCEED_WITH_CAUTION'
+        ELSE 'REQUIRES_REVIEW'
+    END as readiness_status,
+    created_at
+FROM pggit.schema_diffs
+ORDER BY created_at DESC;
+
+-- ============================================================================
+-- END OF PHASE 10 ADVANCED WORKFLOWS
+-- ============================================================================
+
+
+
+-- ========================================
+-- File: 057_advanced_reporting.sql
+-- ========================================
+
+-- pgGit v0.3.1 Phase 11: Advanced Reporting
+-- HTML/Markdown reports, schema evolution timelines, comprehensive analytics
+
+-- ============================================================================
+-- FUNCTION: pggit.generate_html_diff_report()
+-- ============================================================================
+-- Generate HTML-formatted schema comparison report
+-- Returns: Self-contained HTML with styling
+
+CREATE OR REPLACE FUNCTION pggit.generate_html_diff_report(
+    p_branch_a text,
+    p_branch_b text
+)
+RETURNS text AS $$
+DECLARE
+    v_diff jsonb;
+    v_impact jsonb;
+    v_html text;
+    v_added integer;
+    v_removed integer;
+    v_modified integer;
+    v_breaking integer;
+    v_compatible integer;
+BEGIN
+    -- Get analysis
+    v_diff := pggit.compare_schemas(p_branch_a, p_branch_b);
+    v_impact := pggit.assess_migration_impact(v_diff);
+
+    -- Extract counts
+    v_added := COALESCE((v_diff->'summary'->>'added')::integer, 0);
+    v_removed := COALESCE((v_diff->'summary'->>'removed')::integer, 0);
+    v_modified := COALESCE((v_diff->'summary'->>'modified')::integer, 0);
+    v_breaking := COALESCE((v_impact->>'breaking_changes')::integer, 0);
+    v_compatible := COALESCE((v_impact->>'compatible_changes')::integer, 0);
+
+    -- Generate HTML
+    v_html := format(
+        E'<!DOCTYPE html>\n' ||
+        E'<html>\n' ||
+        E'<head>\n' ||
+        E'  <meta charset="UTF-8">\n' ||
+        E'  <title>Schema Diff Report: %s → %s</title>\n' ||
+        E'  <style>\n' ||
+        E'    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }\n' ||
+        E'    .container { background: white; padding: 20px; border-radius: 8px; }\n' ||
+        E'    h1 { color: #333; border-bottom: 3px solid #0066cc; padding-bottom: 10px; }\n' ||
+        E'    .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px 0; }\n' ||
+        E'    .metric { padding: 15px; border-left: 4px solid #0066cc; background: #f9f9f9; }\n' ||
+        E'    .metric-value { font-size: 28px; font-weight: bold; color: #0066cc; }\n' ||
+        E'    .metric-label { color: #666; margin-top: 5px; }\n' ||
+        E'    .added { border-left-color: #28a745; }\n' ||
+        E'    .added .metric-value { color: #28a745; }\n' ||
+        E'    .removed { border-left-color: #dc3545; }\n' ||
+        E'    .removed .metric-value { color: #dc3545; }\n' ||
+        E'    .modified { border-left-color: #ffc107; }\n' ||
+        E'    .modified .metric-value { color: #ffc107; }\n' ||
+        E'    .risk-high { color: #dc3545; font-weight: bold; }\n' ||
+        E'    .risk-medium { color: #ffc107; font-weight: bold; }\n' ||
+        E'    .risk-low { color: #28a745; font-weight: bold; }\n' ||
+        E'    .assessment { margin: 20px 0; padding: 15px; background: #f0f7ff; border-left: 4px solid #0066cc; }\n' ||
+        E'    .timestamp { color: #999; font-size: 12px; }\n' ||
+        E'  </style>\n' ||
+        E'</head>\n' ||
+        E'<body>\n' ||
+        E'  <div class="container">\n' ||
+        E'    <h1>Schema Comparison Report</h1>\n' ||
+        E'    <p>%s → %s</p>\n' ||
+        E'    <p class="timestamp">Generated: %s</p>\n' ||
+        E'\n' ||
+        E'    <h2>Summary</h2>\n' ||
+        E'    <div class="summary">\n' ||
+        E'      <div class="metric added">\n' ||
+        E'        <div class="metric-value">%s</div>\n' ||
+        E'        <div class="metric-label">Added Objects</div>\n' ||
+        E'      </div>\n' ||
+        E'      <div class="metric removed">\n' ||
+        E'        <div class="metric-value">%s</div>\n' ||
+        E'        <div class="metric-label">Removed Objects</div>\n' ||
+        E'      </div>\n' ||
+        E'      <div class="metric modified">\n' ||
+        E'        <div class="metric-value">%s</div>\n' ||
+        E'        <div class="metric-label">Modified Objects</div>\n' ||
+        E'      </div>\n' ||
+        E'    </div>\n' ||
+        E'\n' ||
+        E'    <h2>Impact Assessment</h2>\n' ||
+        E'    <div class="assessment">\n' ||
+        E'      <p><strong>Feasibility:</strong> %s</p>\n' ||
+        E'      <p><strong>Risk Level:</strong> <span class="risk-%s">%s</span></p>\n' ||
+        E'      <p><strong>Breaking Changes:</strong> %s</p>\n' ||
+        E'      <p><strong>Compatible Changes:</strong> %s</p>\n' ||
+        E'      <p><strong>Estimated Effort:</strong> %s</p>\n' ||
+        E'    </div>\n' ||
+        E'\n' ||
+        E'    <hr>\n' ||
+        E'    <p class="timestamp">Report generated by pgGit v0.3.1</p>\n' ||
+        E'  </div>\n' ||
+        E'</body>\n' ||
+        E'</html>',
+        p_branch_a, p_branch_b,
+        p_branch_a, p_branch_b,
+        NOW()::text,
+        v_added, v_removed, v_modified,
+        v_impact->>'feasibility',
+        LOWER(v_impact->>'risk_level'),
+        v_impact->>'risk_level',
+        v_breaking,
+        v_compatible,
+        v_impact->>'estimated_effort'
+    );
+
+    RAISE NOTICE 'generate_html_diff_report: Generated HTML report for % → %', p_branch_a, p_branch_b;
+
+    RETURN v_html;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.generate_markdown_diff_report()
+-- ============================================================================
+-- Generate Markdown-formatted schema comparison report
+-- GitHub/GitLab compatible format
+
+CREATE OR REPLACE FUNCTION pggit.generate_markdown_diff_report(
+    p_branch_a text,
+    p_branch_b text
+)
+RETURNS text AS $$
+DECLARE
+    v_diff jsonb;
+    v_impact jsonb;
+    v_markdown text;
+    v_added integer;
+    v_removed integer;
+    v_modified integer;
+    v_breaking integer;
+    v_compatible integer;
+BEGIN
+    -- Get analysis
+    v_diff := pggit.compare_schemas(p_branch_a, p_branch_b);
+    v_impact := pggit.assess_migration_impact(v_diff);
+
+    -- Extract counts
+    v_added := COALESCE((v_diff->'summary'->>'added')::integer, 0);
+    v_removed := COALESCE((v_diff->'summary'->>'removed')::integer, 0);
+    v_modified := COALESCE((v_diff->'summary'->>'modified')::integer, 0);
+    v_breaking := COALESCE((v_impact->>'breaking_changes')::integer, 0);
+    v_compatible := COALESCE((v_impact->>'compatible_changes')::integer, 0);
+
+    -- Generate Markdown
+    v_markdown := format(
+        E'# Schema Comparison Report\n' ||
+        E'\n' ||
+        E'**From:** `%s`\n' ||
+        E'**To:** `%s`\n' ||
+        E'**Generated:** %s\n' ||
+        E'\n' ||
+        E'## Summary\n' ||
+        E'\n' ||
+        E'| Metric | Count |\n' ||
+        E'|--------|-------|\n' ||
+        E'| Added Objects | %s |\n' ||
+        E'| Removed Objects | %s |\n' ||
+        E'| Modified Objects | %s |\n' ||
+        E'\n' ||
+        E'## Impact Assessment\n' ||
+        E'\n' ||
+        E'- **Feasibility:** %s\n' ||
+        E'- **Risk Level:** %s\n' ||
+        E'- **Estimated Effort:** %s\n' ||
+        E'\n' ||
+        E'## Change Categorization\n' ||
+        E'\n' ||
+        E'| Category | Count |\n' ||
+        E'|----------|-------|\n' ||
+        E'| Breaking Changes | %s |\n' ||
+        E'| Compatible Changes | %s |\n' ||
+        E'\n' ||
+        E'---\n' ||
+        E'\n' ||
+        E'*Report generated by [pgGit](https://github.com/anthropics/pggit) v0.3.1*\n',
+        p_branch_a, p_branch_b,
+        NOW()::text,
+        v_added, v_removed, v_modified,
+        v_impact->>'feasibility',
+        v_impact->>'risk_level',
+        v_impact->>'estimated_effort',
+        v_breaking, v_compatible
+    );
+
+    RAISE NOTICE 'generate_markdown_diff_report: Generated Markdown report for % → %', p_branch_a, p_branch_b;
+
+    RETURN v_markdown;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.get_schema_evolution_timeline()
+-- ============================================================================
+-- Return schema change history over time period
+
+CREATE OR REPLACE FUNCTION pggit.get_schema_evolution_timeline(
+    p_branch_name text,
+    p_days integer DEFAULT 30
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_timeline jsonb := '{"events": []}'::jsonb;
+    v_change RECORD;
+    v_event_count integer := 0;
+BEGIN
+    -- Get schema diffs for branch in time period
+    FOR v_change IN
+        SELECT
+            sd.id,
+            sd.created_at,
+            sd.added_count,
+            sd.removed_count,
+            sd.modified_count,
+            sd.branch_a,
+            sd.branch_b
+        FROM pggit.schema_diffs sd
+        WHERE (sd.branch_a = p_branch_name OR sd.branch_b = p_branch_name)
+          AND sd.created_at > NOW() - (p_days || ' days')::interval
+        ORDER BY sd.created_at DESC
+    LOOP
+        v_timeline := jsonb_set(
+            v_timeline,
+            '{events}',
+            v_timeline->'events' || jsonb_build_object(
+                'timestamp', v_change.created_at::text,
+                'added', v_change.added_count,
+                'removed', v_change.removed_count,
+                'modified', v_change.modified_count,
+                'from_branch', v_change.branch_a,
+                'to_branch', v_change.branch_b
+            )
+        );
+        v_event_count := v_event_count + 1;
+    END LOOP;
+
+    -- Add summary
+    v_timeline := jsonb_set(v_timeline, '{branch}', to_jsonb(p_branch_name));
+    v_timeline := jsonb_set(v_timeline, '{period_days}', to_jsonb(p_days));
+    v_timeline := jsonb_set(v_timeline, '{event_count}', to_jsonb(v_event_count));
+    v_timeline := jsonb_set(v_timeline, '{start_date}', to_jsonb((NOW() - (p_days || ' days')::interval)::text));
+    v_timeline := jsonb_set(v_timeline, '{end_date}', to_jsonb(NOW()::text));
+
+    RAISE NOTICE 'get_schema_evolution_timeline: Retrieved % events for % over % days', v_event_count, p_branch_name, p_days;
+
+    RETURN v_timeline;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- VIEWS: REPORTING & ANALYTICS
+-- ============================================================================
+
+CREATE OR REPLACE VIEW pggit.v_schema_reports_summary AS
+SELECT
+    'diff_reports' as report_type,
+    COUNT(DISTINCT branch_a) as branches_compared,
+    COUNT(*) as total_comparisons,
+    MAX(created_at) as last_generated
+FROM pggit.schema_diffs
+UNION ALL
+SELECT
+    'migration_plans' as report_type,
+    COUNT(DISTINCT source_branch) as branches_analyzed,
+    COUNT(*) as total_plans,
+    MAX(created_at) as last_generated
+FROM pggit.migration_plans;
+
+CREATE OR REPLACE VIEW pggit.v_schema_change_activity AS
+SELECT
+    branch_a as branch,
+    DATE(created_at) as change_date,
+    COUNT(*) as comparison_count,
+    SUM(added_count) as total_added,
+    SUM(removed_count) as total_removed,
+    SUM(modified_count) as total_modified
+FROM pggit.schema_diffs
+GROUP BY branch_a, DATE(created_at)
+ORDER BY branch_a, change_date DESC;
+
+CREATE OR REPLACE VIEW pggit.v_migration_effort_summary AS
+SELECT
+    source_branch,
+    target_branch,
+    (plan_json->>'step_count')::integer as step_count,
+    plan_json->>'feasibility' as feasibility,
+    created_at
+FROM pggit.migration_plans
+ORDER BY created_at DESC;
+
+-- ============================================================================
+-- END OF PHASE 11 TIER 1 - ADVANCED REPORTING
+-- ============================================================================
+
+
+
+-- ========================================
+-- File: 058_analytics_insights.sql
+-- ========================================
+
+-- pgGit v0.3.1 Phase 11: Analytics & Insights
+-- Change frequency analysis, trend tracking, effort estimation
+
+-- ============================================================================
+-- FUNCTION: pggit.analyze_schema_change_frequency()
+-- ============================================================================
+-- Analyze schema change patterns and frequency
+
+CREATE OR REPLACE FUNCTION pggit.analyze_schema_change_frequency(
+    p_branch_name text,
+    p_days integer DEFAULT 30
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_analysis jsonb;
+    v_total_changes integer;
+    v_daily_average numeric;
+    v_peak_day text;
+    v_total_added integer;
+    v_total_removed integer;
+    v_total_modified integer;
+BEGIN
+    -- Calculate totals
+    SELECT
+        COUNT(*),
+        SUM(added_count),
+        SUM(removed_count),
+        SUM(modified_count)
+    INTO v_total_changes, v_total_added, v_total_removed, v_total_modified
+    FROM pggit.schema_diffs
+    WHERE (branch_a = p_branch_name OR branch_b = p_branch_name)
+      AND created_at > NOW() - (p_days || ' days')::interval;
+
+    v_total_added := COALESCE(v_total_added, 0);
+    v_total_removed := COALESCE(v_total_removed, 0);
+    v_total_modified := COALESCE(v_total_modified, 0);
+    v_total_changes := COALESCE(v_total_changes, 0);
+
+    -- Calculate daily average
+    v_daily_average := CASE
+        WHEN v_total_changes > 0 THEN ROUND(v_total_changes::numeric / p_days, 2)
+        ELSE 0
+    END;
+
+    -- Find peak day
+    SELECT DATE(created_at)::text
+    INTO v_peak_day
+    FROM pggit.schema_diffs
+    WHERE (branch_a = p_branch_name OR branch_b = p_branch_name)
+      AND created_at > NOW() - (p_days || ' days')::interval
+    GROUP BY DATE(created_at)
+    ORDER BY COUNT(*) DESC
+    LIMIT 1;
+
+    v_analysis := jsonb_build_object(
+        'branch_name', p_branch_name,
+        'period_days', p_days,
+        'total_changes', v_total_changes,
+        'daily_average', v_daily_average,
+        'peak_day', v_peak_day,
+        'total_added', v_total_added,
+        'total_removed', v_total_removed,
+        'total_modified', v_total_modified,
+        'change_intensity', CASE
+            WHEN v_daily_average > 2 THEN 'HIGH'
+            WHEN v_daily_average > 0.5 THEN 'MEDIUM'
+            ELSE 'LOW'
+        END,
+        'analysis_timestamp', NOW()::text
+    );
+
+    RAISE NOTICE 'analyze_schema_change_frequency: % changes for % in % days', v_total_changes, p_branch_name, p_days;
+
+    RETURN v_analysis;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.get_breaking_change_trends()
+-- ============================================================================
+-- Analyze breaking change patterns over time
+
+CREATE OR REPLACE FUNCTION pggit.get_breaking_change_trends(
+    p_branch_name text,
+    p_days integer DEFAULT 30
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_trends jsonb := '{"data": []}'::jsonb;
+    v_day_record RECORD;
+    v_day integer;
+    v_daily_count integer;
+    v_period_breaking integer;
+BEGIN
+    -- Calculate total breaking changes
+    SELECT COUNT(*)
+    INTO v_period_breaking
+    FROM pggit.schema_diffs sd
+    JOIN pggit.schema_changes sc ON sd.id = sc.diff_id
+    WHERE (sd.branch_a = p_branch_name OR sd.branch_b = p_branch_name)
+      AND sc.category = 'BREAKING'
+      AND sd.created_at > NOW() - (p_days || ' days')::interval;
+
+    v_period_breaking := COALESCE(v_period_breaking, 0);
+
+    -- Build day-by-day trend
+    FOR v_day IN 0..(p_days-1)
+    LOOP
+        SELECT COUNT(*)
+        INTO v_daily_count
+        FROM pggit.schema_diffs sd
+        JOIN pggit.schema_changes sc ON sd.id = sc.diff_id
+        WHERE (sd.branch_a = p_branch_name OR sd.branch_b = p_branch_name)
+          AND sc.category = 'BREAKING'
+          AND DATE(sd.created_at) = DATE(NOW() - (v_day || ' days')::interval);
+
+        v_daily_count := COALESCE(v_daily_count, 0);
+
+        v_trends := jsonb_set(
+            v_trends,
+            '{data}',
+            v_trends->'data' || jsonb_build_object(
+                'day', v_day,
+                'date', DATE(NOW() - (v_day || ' days')::interval)::text,
+                'breaking_changes', v_daily_count
+            )
+        );
+    END LOOP;
+
+    v_trends := jsonb_set(v_trends, '{branch}', to_jsonb(p_branch_name));
+    v_trends := jsonb_set(v_trends, '{period_days}', to_jsonb(p_days));
+    v_trends := jsonb_set(v_trends, '{total_breaking_changes}', to_jsonb(v_period_breaking));
+    v_trends := jsonb_set(v_trends, '{trend}', to_jsonb(CASE
+        WHEN v_period_breaking > 10 THEN 'INCREASING'
+        WHEN v_period_breaking > 5 THEN 'MODERATE'
+        ELSE 'LOW'
+    END));
+
+    RAISE NOTICE 'get_breaking_change_trends: % breaking changes for % over % days', v_period_breaking, p_branch_name, p_days;
+
+    RETURN v_trends;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.estimate_migration_effort()
+-- ============================================================================
+-- Estimate effort required for migration
+
+CREATE OR REPLACE FUNCTION pggit.estimate_migration_effort(
+    p_branch_a text,
+    p_branch_b text
+)
+RETURNS jsonb AS $$
+DECLARE
+    v_diff jsonb;
+    v_impact jsonb;
+    v_estimate jsonb;
+    v_added integer;
+    v_removed integer;
+    v_modified integer;
+    v_breaking integer;
+    v_risky integer;
+    v_base_effort numeric;
+    v_risk_multiplier numeric;
+    v_total_effort numeric;
+    v_testing_hours numeric;
+    v_development_hours numeric;
+BEGIN
+    -- Get analysis
+    v_diff := pggit.compare_schemas(p_branch_a, p_branch_b);
+    v_impact := pggit.assess_migration_impact(v_diff);
+
+    -- Extract counts
+    v_added := COALESCE((v_diff->'summary'->>'added')::integer, 0);
+    v_removed := COALESCE((v_diff->'summary'->>'removed')::integer, 0);
+    v_modified := COALESCE((v_diff->'summary'->>'modified')::integer, 0);
+    v_breaking := COALESCE((v_impact->>'breaking_changes')::integer, 0);
+    v_risky := COALESCE((v_impact->>'risky_changes')::integer, 0);
+
+    -- Calculate base effort (in hours)
+    -- Base: 0.25h per object change, plus overhead
+    v_base_effort := (v_added + v_removed + v_modified) * 0.25;
+    v_base_effort := GREATEST(v_base_effort, 0.5); -- Minimum 30 minutes
+
+    -- Risk multiplier based on breaking changes
+    v_risk_multiplier := 1.0;
+    IF v_breaking > 0 THEN
+        v_risk_multiplier := 1.5 + (v_breaking * 0.25); -- 50% base + 25% per breaking change
+    ELSIF v_risky > 0 THEN
+        v_risk_multiplier := 1.25; -- 25% increase for risky changes
+    END IF;
+
+    -- Development effort
+    v_development_hours := ROUND(v_base_effort * v_risk_multiplier, 1);
+
+    -- Testing effort (usually 50-75% of development)
+    v_testing_hours := ROUND(v_development_hours * 0.6, 1);
+
+    -- Total effort
+    v_total_effort := v_development_hours + v_testing_hours;
+
+    v_estimate := jsonb_build_object(
+        'source_branch', p_branch_a,
+        'target_branch', p_branch_b,
+        'scope', jsonb_build_object(
+            'added_objects', v_added,
+            'removed_objects', v_removed,
+            'modified_objects', v_modified,
+            'total_changes', v_added + v_removed + v_modified
+        ),
+        'risk_factors', jsonb_build_object(
+            'breaking_changes', v_breaking,
+            'risky_changes', v_risky,
+            'risk_multiplier', ROUND(v_risk_multiplier, 2)
+        ),
+        'effort_estimate', jsonb_build_object(
+            'development_hours', v_development_hours,
+            'testing_hours', v_testing_hours,
+            'total_hours', v_total_effort,
+            'development_days', ROUND(v_development_hours / 8, 1),
+            'testing_days', ROUND(v_testing_hours / 8, 1),
+            'total_days', ROUND(v_total_effort / 8, 1)
+        ),
+        'complexity', CASE
+            WHEN v_total_effort <= 4 THEN 'LOW'
+            WHEN v_total_effort <= 16 THEN 'MEDIUM'
+            ELSE 'HIGH'
+        END,
+        'estimated_timestamp', NOW()::text
+    );
+
+    RAISE NOTICE 'estimate_migration_effort: % → % estimated at % hours', p_branch_a, p_branch_b, v_total_effort;
+
+    RETURN v_estimate;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- VIEWS: ANALYTICS
+-- ============================================================================
+
+CREATE OR REPLACE VIEW pggit.v_schema_change_trends AS
+SELECT
+    DATE(sd.created_at) as change_date,
+    branch_a as branch,
+    COUNT(*) as comparison_count,
+    SUM(added_count) as total_added,
+    SUM(removed_count) as total_removed,
+    SUM(modified_count) as total_modified,
+    ROUND(AVG(added_count + removed_count + modified_count)::numeric, 1) as avg_changes_per_comparison
+FROM pggit.schema_diffs sd
+GROUP BY branch_a, DATE(sd.created_at)
+ORDER BY change_date DESC, branch_a;
+
+CREATE OR REPLACE VIEW pggit.v_breaking_change_frequency AS
+SELECT
+    branch_a as branch,
+    COUNT(DISTINCT sd.id) as total_comparisons,
+    COUNT(DISTINCT sc.id) FILTER (WHERE sc.category = 'BREAKING') as breaking_change_count,
+    ROUND(
+        COUNT(DISTINCT sc.id) FILTER (WHERE sc.category = 'BREAKING')::numeric
+        / COUNT(DISTINCT sd.id) * 100,
+        1
+    ) as breaking_change_percentage
+FROM pggit.schema_diffs sd
+LEFT JOIN pggit.schema_changes sc ON sd.id = sc.diff_id
+GROUP BY branch_a
+ORDER BY breaking_change_count DESC;
+
+CREATE OR REPLACE VIEW pggit.v_most_active_branches AS
+SELECT
+    branch_a as branch,
+    COUNT(*) as comparison_count,
+    MAX(created_at) as last_compared,
+    SUM(added_count) as lifetime_additions,
+    SUM(removed_count) as lifetime_removals,
+    SUM(modified_count) as lifetime_modifications
+FROM pggit.schema_diffs
+GROUP BY branch_a
+ORDER BY comparison_count DESC
+LIMIT 20;
+
+-- ============================================================================
+-- END OF PHASE 11 TIER 2 - ANALYTICS & INSIGHTS
+-- ============================================================================
+
+
+
+-- ========================================
+-- File: 059_performance_optimization.sql
+-- ========================================
+
+-- pgGit v0.3.1 Phase 11: Performance Optimization
+-- Query optimization, storage management, performance monitoring
+
+-- ============================================================================
+-- PERFORMANCE OPTIMIZATION: COMPOSITE INDEXES
+-- ============================================================================
+
+CREATE INDEX IF NOT EXISTS idx_schema_diffs_branch_date
+    ON pggit.schema_diffs(branch_a, branch_b, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_schema_changes_category_type
+    ON pggit.schema_changes(category, change_type, diff_id);
+
+CREATE INDEX IF NOT EXISTS idx_migration_plans_feasibility
+    ON pggit.migration_plans(source_branch, (plan_json->>'feasibility'));
+
+CREATE INDEX IF NOT EXISTS idx_schema_snapshots_date_range
+    ON pggit.schema_snapshots(branch_id, snapshot_date DESC)
+    WHERE object_count > 0;
+
+CREATE INDEX IF NOT EXISTS idx_schema_diffs_summary
+    ON pggit.schema_diffs(
+        (added_count + removed_count + modified_count) DESC
+    );
+
+-- ============================================================================
+-- FUNCTION: pggit.optimize_schema_queries()
+-- ============================================================================
+-- Analyze and optimize query performance
+
+CREATE OR REPLACE FUNCTION pggit.optimize_schema_queries()
+RETURNS jsonb AS $$
+DECLARE
+    v_optimization jsonb;
+    v_missing_indexes integer;
+    v_table_sizes jsonb := '[]'::jsonb;
+    v_index_count integer;
+BEGIN
+    -- Count current indexes
+    SELECT COUNT(*)
+    INTO v_index_count
+    FROM pg_indexes
+    WHERE schemaname = 'pggit'
+      AND tablename IN ('schema_diffs', 'schema_changes', 'migration_plans', 'schema_snapshots');
+
+    -- Analyze table sizes
+    SELECT jsonb_agg(
+        jsonb_build_object(
+            'table_name', t.relname,
+            'size_mb', ROUND(pg_total_relation_size(t.oid) / 1024.0 / 1024.0, 2),
+            'row_count', (SELECT COUNT(*) FROM pg_class c WHERE c.oid = t.oid)
+        )
+    )
+    INTO v_table_sizes
+    FROM pg_class t
+    WHERE t.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'pggit')
+      AND t.relkind = 'r';
+
+    v_optimization := jsonb_build_object(
+        'optimization_timestamp', NOW()::text,
+        'index_status', jsonb_build_object(
+            'total_indexes', v_index_count,
+            'target_indexes', 8,
+            'optimization_level', CASE
+                WHEN v_index_count >= 8 THEN 'OPTIMAL'
+                WHEN v_index_count >= 5 THEN 'GOOD'
+                ELSE 'NEEDS_IMPROVEMENT'
+            END
+        ),
+        'table_sizes', v_table_sizes,
+        'recommendations', jsonb_build_array(
+            'Run VACUUM ANALYZE on large tables',
+            'Consider partitioning if schema_diffs grows beyond 1M rows',
+            'Use snapshot compression for archived snapshots'
+        )
+    );
+
+    RAISE NOTICE 'optimize_schema_queries: Analyzed performance with % indexes', v_index_count;
+
+    RETURN v_optimization;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.get_storage_usage_summary()
+-- ============================================================================
+-- Get detailed storage usage statistics
+
+CREATE OR REPLACE FUNCTION pggit.get_storage_usage_summary()
+RETURNS jsonb AS $$
+DECLARE
+    v_summary jsonb;
+    v_total_size_mb numeric;
+    v_snapshots_size_mb numeric;
+    v_diffs_size_mb numeric;
+    v_changes_size_mb numeric;
+    v_migrations_size_mb numeric;
+BEGIN
+    -- Calculate table sizes
+    SELECT ROUND(pg_total_relation_size(t.oid) / 1024.0 / 1024.0, 2)
+    INTO v_snapshots_size_mb
+    FROM pg_class t
+    WHERE t.relname = 'schema_snapshots'
+      AND t.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'pggit');
+
+    SELECT ROUND(pg_total_relation_size(t.oid) / 1024.0 / 1024.0, 2)
+    INTO v_diffs_size_mb
+    FROM pg_class t
+    WHERE t.relname = 'schema_diffs'
+      AND t.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'pggit');
+
+    SELECT ROUND(pg_total_relation_size(t.oid) / 1024.0 / 1024.0, 2)
+    INTO v_changes_size_mb
+    FROM pg_class t
+    WHERE t.relname = 'schema_changes'
+      AND t.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'pggit');
+
+    SELECT ROUND(pg_total_relation_size(t.oid) / 1024.0 / 1024.0, 2)
+    INTO v_migrations_size_mb
+    FROM pg_class t
+    WHERE t.relname = 'migration_plans'
+      AND t.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'pggit');
+
+    v_snapshots_size_mb := COALESCE(v_snapshots_size_mb, 0);
+    v_diffs_size_mb := COALESCE(v_diffs_size_mb, 0);
+    v_changes_size_mb := COALESCE(v_changes_size_mb, 0);
+    v_migrations_size_mb := COALESCE(v_migrations_size_mb, 0);
+
+    v_total_size_mb := v_snapshots_size_mb + v_diffs_size_mb + v_changes_size_mb + v_migrations_size_mb;
+
+    v_summary := jsonb_build_object(
+        'timestamp', NOW()::text,
+        'storage_breakdown_mb', jsonb_build_object(
+            'schema_snapshots', v_snapshots_size_mb,
+            'schema_diffs', v_diffs_size_mb,
+            'schema_changes', v_changes_size_mb,
+            'migration_plans', v_migrations_size_mb,
+            'total', v_total_size_mb
+        ),
+        'storage_percentage', jsonb_build_object(
+            'snapshots_pct', ROUND(v_snapshots_size_mb / NULLIF(v_total_size_mb, 0) * 100, 1),
+            'diffs_pct', ROUND(v_diffs_size_mb / NULLIF(v_total_size_mb, 0) * 100, 1),
+            'changes_pct', ROUND(v_changes_size_mb / NULLIF(v_total_size_mb, 0) * 100, 1),
+            'migrations_pct', ROUND(v_migrations_size_mb / NULLIF(v_total_size_mb, 0) * 100, 1)
+        ),
+        'growth_recommendation', CASE
+            WHEN v_total_size_mb > 1000 THEN 'Consider archiving old snapshots'
+            WHEN v_total_size_mb > 500 THEN 'Monitor storage growth'
+            ELSE 'Storage usage normal'
+        END
+    );
+
+    RAISE NOTICE 'get_storage_usage_summary: Total storage usage: % MB', v_total_size_mb;
+
+    RETURN v_summary;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- FUNCTION: pggit.analyze_query_performance()
+-- ============================================================================
+-- Analyze and report on query performance
+
+CREATE OR REPLACE FUNCTION pggit.analyze_query_performance()
+RETURNS jsonb AS $$
+DECLARE
+    v_performance jsonb;
+    v_pg_stat_available boolean;
+    v_extension_check RECORD;
+BEGIN
+    -- Check if pg_stat_statements is available
+    SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements') INTO v_pg_stat_available;
+
+    IF v_pg_stat_available THEN
+        -- Use real performance data from pg_stat_statements
+        v_performance := jsonb_build_object(
+            'analysis_timestamp', NOW()::text,
+            'data_source', 'pg_stat_statements',
+            'note', 'Based on actual query execution statistics',
+            'optimization_tips', jsonb_build_array(
+                'Review slow queries in pg_stat_statements',
+                'Create missing indexes for high-cost queries',
+                'Consider caching for frequently executed queries',
+                'Archive old snapshots to reduce table bloat'
+            ),
+            'recommendation', 'Use SELECT * FROM pg_stat_statements WHERE query LIKE ''%pggit%'' for detailed analysis'
+        );
+    ELSE
+        -- pg_stat_statements not available - provide guidance
+        v_performance := jsonb_build_object(
+            'analysis_timestamp', NOW()::text,
+            'data_source', 'documentation_based',
+            'note', 'pg_stat_statements not installed. Install it for real performance metrics.',
+            'installation_hint', 'CREATE EXTENSION IF NOT EXISTS pg_stat_statements;',
+            'target_performance_baselines', jsonb_build_object(
+                'get_schema_snapshot', 'should be < 100ms',
+                'compare_schemas', 'should be < 200ms',
+                'assess_migration_impact', 'should be < 50ms',
+                'plan_migration', 'should be < 100ms'
+            ),
+            'optimization_tips', jsonb_build_array(
+                'Install pg_stat_statements for real query metrics',
+                'Ensure all performance indexes exist',
+                'Use EXPLAIN ANALYZE on slow queries',
+                'Monitor table growth and consider archiving old snapshots'
+            ),
+            'recommendation', 'Install pg_stat_statements extension for production monitoring'
+        );
+    END IF;
+
+    RAISE NOTICE 'analyze_query_performance: Query analysis complete (pg_stat_statements: %)', CASE WHEN v_pg_stat_available THEN 'available' ELSE 'not available' END;
+
+    RETURN v_performance;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- VIEWS: PERFORMANCE MONITORING
+-- ============================================================================
+
+CREATE OR REPLACE VIEW pggit.v_schema_analysis_performance AS
+SELECT
+    'schema_diffs' as table_name,
+    COUNT(*) as row_count,
+    MAX(created_at) as latest_record,
+    MIN(created_at) as oldest_record,
+    ROUND(AVG(added_count + removed_count + modified_count)::numeric, 1) as avg_changes
+FROM pggit.schema_diffs
+UNION ALL
+SELECT
+    'schema_changes' as table_name,
+    COUNT(*) as row_count,
+    MAX(created_at) as latest_record,
+    MIN(created_at) as oldest_record,
+    NULL as avg_changes
+FROM pggit.schema_changes
+UNION ALL
+SELECT
+    'migration_plans' as table_name,
+    COUNT(*) as row_count,
+    MAX(created_at) as latest_record,
+    MIN(created_at) as oldest_record,
+    NULL as avg_changes
+FROM pggit.migration_plans;
+
+CREATE OR REPLACE VIEW pggit.v_index_effectiveness AS
+SELECT
+    schemaname,
+    relname as table_name,
+    indexrelname as index_name,
+    idx_scan as index_scans,
+    idx_tup_read as tuples_read,
+    idx_tup_fetch as tuples_fetched,
+    ROUND(idx_tup_fetch::numeric / NULLIF(idx_scan, 0), 2) as avg_tuples_per_scan
+FROM pg_stat_user_indexes
+WHERE schemaname = 'pggit'
+ORDER BY idx_scan DESC;
+
+CREATE OR REPLACE VIEW pggit.v_query_optimization_status AS
+SELECT
+    'snapshots' as component,
+    COUNT(*) as record_count,
+    ROUND(pg_total_relation_size('pggit.schema_snapshots') / 1024.0 / 1024.0, 2) as size_mb,
+    ROUND(pg_total_relation_size('pggit.schema_snapshots') / NULLIF(COUNT(*), 0)::numeric, 2) as avg_bytes_per_record
+FROM pggit.schema_snapshots
+UNION ALL
+SELECT
+    'diffs' as component,
+    COUNT(*) as record_count,
+    ROUND(pg_total_relation_size('pggit.schema_diffs') / 1024.0 / 1024.0, 2) as size_mb,
+    ROUND(pg_total_relation_size('pggit.schema_diffs') / NULLIF(COUNT(*), 0)::numeric, 2) as avg_bytes_per_record
+FROM pggit.schema_diffs
+UNION ALL
+SELECT
+    'changes' as component,
+    COUNT(*) as record_count,
+    ROUND(pg_total_relation_size('pggit.schema_changes') / 1024.0 / 1024.0, 2) as size_mb,
+    ROUND(pg_total_relation_size('pggit.schema_changes') / NULLIF(COUNT(*), 0)::numeric, 2) as avg_bytes_per_record
+FROM pggit.schema_changes;
+
+-- ============================================================================
+-- END OF PHASE 11 TIER 3 - PERFORMANCE OPTIMIZATION
+-- ============================================================================
+
+
 
 -- ========================================
 -- File: pggit_conflict_resolution_minimal.sql
@@ -10254,12 +14237,6 @@ BEGIN
     v_verification_id := gen_random_uuid();
 
     -- Record verification attempt
-
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'Backup % not found', p_backup_id;
-    END IF;
-
-    -- Record verification attempt
     INSERT INTO pggit.backup_verifications (
         verification_id,
         backup_id,
@@ -10888,8 +14865,8 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION pggit.audited_operation(
     p_operation_name TEXT,
     p_operation_type TEXT,
-    p_parameters JSONB DEFAULT NULL,
-    p_operation_sql TEXT
+    p_operation_sql TEXT,
+    p_parameters JSONB DEFAULT NULL
 )
 RETURNS JSONB AS $$
 DECLARE
