@@ -916,3 +916,296 @@ class ZeroDowntimeTestBuilder(BaseTestBuilder):
             "null_violations": null_count,
             "is_valid": null_count == 0
         }
+
+
+class AITestBuilder(BaseTestBuilder):
+    """Builder for AI/ML features tests"""
+
+    def create_ai_scenario(self) -> dict:
+        """Create basic AI test scenario with migrations"""
+        schema = self.create_schema("ai_test_schema")
+
+        # Create a test migration
+        migration_id = "test_migration_" + str(hash("ai_test") & 0x7FFFFFFF)
+        migration_content = """
+            ALTER TABLE users ADD COLUMN ai_score INT;
+            ALTER TABLE orders ADD COLUMN prediction_id UUID;
+        """
+
+        try:
+            self.execute("""
+                INSERT INTO pggit.migrations (migration_id, content, status)
+                VALUES (%s, %s, 'pending')
+            """, (migration_id, migration_content))
+        except Exception:
+            pass
+
+        return {
+            "schema": schema,
+            "migration_id": migration_id,
+            "migration_content": migration_content
+        }
+
+    def record_ai_analysis(self, migration_id: str, content: str,
+                          response: dict = None) -> dict:
+        """Record AI analysis result"""
+        if response is None:
+            response = {"analysis": "test", "confidence": 0.85}
+
+        import json
+        try:
+            self.execute("""
+                SELECT pggit.record_ai_analysis(%s, %s, %s, 'test-model', 100)
+            """, (migration_id, content, json.dumps(response)))
+
+            return {
+                "migration_id": migration_id,
+                "recorded": True,
+                "model": "test-model"
+            }
+        except Exception as e:
+            return {
+                "migration_id": migration_id,
+                "recorded": False,
+                "error": str(e)
+            }
+
+    def record_ai_prediction(self, migration_id: int, prediction: dict = None,
+                            confidence: float = 0.8) -> dict:
+        """Record AI prediction"""
+        if prediction is None:
+            prediction = {"predicted_duration": 300, "risk_level": "low"}
+
+        import json
+        try:
+            result = self.execute("""
+                SELECT pggit.record_ai_prediction(%s, %s, %s)
+            """, (migration_id, json.dumps(prediction), confidence))
+
+            success = result.fetchone()[0] if result.fetchone() else False
+            return {
+                "migration_id": migration_id,
+                "confidence": confidence,
+                "recorded": success
+            }
+        except Exception as e:
+            return {
+                "migration_id": migration_id,
+                "confidence": confidence,
+                "recorded": False,
+                "error": str(e)
+            }
+
+    def cache_ml_predictions(self, object_id: str,
+                            ttl_minutes: int = 60) -> dict:
+        """Cache ML predictions for object"""
+        try:
+            result = self.execute("""
+                SELECT cached_predictions, cache_size, ttl_seconds
+                FROM pggit.cache_ml_predictions(%s, %s)
+            """, (object_id, ttl_minutes))
+
+            cache_data = result.fetchone()
+            if cache_data:
+                return {
+                    "object_id": object_id,
+                    "cached_predictions": cache_data[0],
+                    "cache_size": cache_data[1],
+                    "ttl_seconds": cache_data[2],
+                    "cached": True
+                }
+            return {
+                "object_id": object_id,
+                "cached": False
+            }
+        except Exception as e:
+            return {
+                "object_id": object_id,
+                "cached": False,
+                "error": str(e)
+            }
+
+    def predict_next_objects(self, object_id: int,
+                            min_confidence: float = 0.7) -> dict:
+        """Predict next objects based on patterns"""
+        try:
+            result = self.execute("""
+                SELECT predicted_object_id, confidence, based_on_patterns
+                FROM pggit.predict_next_objects(%s, %s)
+            """, (object_id, min_confidence))
+
+            predictions = []
+            for row in result.fetchall():
+                predictions.append({
+                    "predicted_object_id": row[0],
+                    "confidence": row[1],
+                    "based_on_patterns": row[2]
+                })
+
+            return {
+                "object_id": object_id,
+                "min_confidence": min_confidence,
+                "predictions": predictions,
+                "count": len(predictions)
+            }
+        except Exception as e:
+            return {
+                "object_id": object_id,
+                "min_confidence": min_confidence,
+                "predictions": [],
+                "count": 0,
+                "error": str(e)
+            }
+
+    def predict_prefetch_candidates(self) -> dict:
+        """Predict candidates for prefetching"""
+        try:
+            result = self.execute("""
+                SELECT predicted_objects, confidence, estimated_benefit
+                FROM pggit.predict_prefetch_candidates()
+            """)
+
+            if result.fetchone():
+                row = result.fetchone()
+                return {
+                    "predicted_objects": row[0],
+                    "confidence": row[1],
+                    "estimated_benefit": row[2],
+                    "available": True
+                }
+            return {
+                "available": False
+            }
+        except Exception as e:
+            return {
+                "available": False,
+                "error": str(e)
+            }
+
+    def update_prediction_accuracy(self, input_object_id: str,
+                                   predicted_object_id: str,
+                                   actual_next_object_id: str,
+                                   actual_latency_ms: float) -> dict:
+        """Update prediction accuracy metrics"""
+        try:
+            result = self.execute("""
+                SELECT prediction_accuracy, confidence_delta, updated
+                FROM pggit.update_prediction_accuracy(%s, %s, %s, %s)
+            """, (input_object_id, predicted_object_id, actual_next_object_id,
+                  actual_latency_ms))
+
+            if result.fetchone():
+                row = result.fetchone()
+                return {
+                    "input_object_id": input_object_id,
+                    "predicted_object_id": predicted_object_id,
+                    "prediction_accuracy": row[0],
+                    "confidence_delta": row[1],
+                    "updated": row[2]
+                }
+            return {
+                "input_object_id": input_object_id,
+                "updated": False
+            }
+        except Exception as e:
+            return {
+                "input_object_id": input_object_id,
+                "updated": False,
+                "error": str(e)
+            }
+
+    def evaluate_model_accuracy(self) -> dict:
+        """Evaluate model accuracy"""
+        try:
+            result = self.execute("""
+                SELECT pggit.evaluate_model_accuracy()
+            """)
+
+            accuracy = result.fetchone()[0] if result.fetchone() else None
+            return {
+                "accuracy": accuracy,
+                "evaluated": accuracy is not None
+            }
+        except Exception as e:
+            return {
+                "accuracy": None,
+                "evaluated": False,
+                "error": str(e)
+            }
+
+    def analyze_migration_with_ai(self, migration_id: str,
+                                  migration_content: str,
+                                  source_tool: str = "unknown") -> dict:
+        """Analyze migration with AI"""
+        try:
+            result = self.execute("""
+                SELECT intent, confidence, risk_level, risk_score,
+                       array_length(recommendations, 1),
+                       estimated_duration_seconds, requires_downtime
+                FROM pggit.analyze_migration_with_ai(%s, %s, %s)
+            """, (migration_id, migration_content, source_tool))
+
+            if result.fetchone():
+                row = result.fetchone()
+                return {
+                    "migration_id": migration_id,
+                    "intent": row[0],
+                    "confidence": row[1],
+                    "risk_level": row[2],
+                    "risk_score": row[3],
+                    "recommendations_count": row[4] or 0,
+                    "estimated_duration_seconds": row[5],
+                    "requires_downtime": row[6],
+                    "analyzed": True
+                }
+            return {
+                "migration_id": migration_id,
+                "analyzed": False
+            }
+        except Exception as e:
+            return {
+                "migration_id": migration_id,
+                "analyzed": False,
+                "error": str(e)
+            }
+
+    def analyze_migration_with_ai_enhanced(self, migration_id: str,
+                                           migration_content: str,
+                                           source_tool: str = "unknown") -> dict:
+        """Analyze migration with enhanced AI analysis"""
+        try:
+            result = self.execute("""
+                SELECT intent, confidence, risk_level, risk_score,
+                       array_length(recommendations, 1),
+                       estimated_duration_seconds, requires_downtime,
+                       size_impact_bytes, size_impact_category,
+                       array_length(pruning_suggestions, 1)
+                FROM pggit.analyze_migration_with_ai_enhanced(%s, %s, %s)
+            """, (migration_id, migration_content, source_tool))
+
+            if result.fetchone():
+                row = result.fetchone()
+                return {
+                    "migration_id": migration_id,
+                    "intent": row[0],
+                    "confidence": row[1],
+                    "risk_level": row[2],
+                    "risk_score": row[3],
+                    "recommendations_count": row[4] or 0,
+                    "estimated_duration_seconds": row[5],
+                    "requires_downtime": row[6],
+                    "size_impact_bytes": row[7],
+                    "size_impact_category": row[8],
+                    "pruning_suggestions_count": row[9] or 0,
+                    "analyzed": True
+                }
+            return {
+                "migration_id": migration_id,
+                "analyzed": False
+            }
+        except Exception as e:
+            return {
+                "migration_id": migration_id,
+                "analyzed": False,
+                "error": str(e)
+            }
