@@ -6,12 +6,14 @@ This module re-exports all fixture utilities for easy importing across the test 
 Usage in tests:
     from tests.fixtures import DatabaseFixture, BranchBuilder, CommitBuilder
     from tests.fixtures import DockerPostgresSetup, TableBuilder
+    from tests.fixtures import IsolatedDatabaseFixture, TransactionDatabaseFixture
 
 Submodules:
     - database: DatabaseFixture class for DB connection management
     - pggit: pgGit-specific setup and helpers
     - docker_helpers: DockerPostgresSetup for container management
     - data_builders: Factory classes for test data generation
+    - isolated_database: Specialized fixtures with proper isolation
 """
 
 from tests.fixtures.database import DatabaseFixture
@@ -30,6 +32,12 @@ from tests.fixtures.data_builders import (
     CommitBuilder,
     TableBuilder,
     DataGenerator,
+)
+from tests.fixtures.isolated_database import (
+    IsolatedDatabaseFixture,
+    TransactionDatabaseFixture,
+    SavepointDatabaseFixture,
+    LoadDatabaseFixture,
 )
 
 __all__ = [
@@ -50,4 +58,9 @@ __all__ = [
     "CommitBuilder",
     "TableBuilder",
     "DataGenerator",
+    # Isolated database fixtures
+    "IsolatedDatabaseFixture",
+    "TransactionDatabaseFixture",
+    "SavepointDatabaseFixture",
+    "LoadDatabaseFixture",
 ]

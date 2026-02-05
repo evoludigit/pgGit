@@ -6,6 +6,7 @@ Provides Docker setup, database connection, and pgGit installation
 import subprocess
 import threading
 import time
+from typing import Generator
 
 import docker
 import pytest
@@ -13,6 +14,10 @@ from psycopg import connect
 from psycopg_pool import ConnectionPool
 
 from tests.fixtures.pooled_database import PooledDatabaseFixture
+from tests.fixtures.isolated_database import (
+    TransactionDatabaseFixture,
+    LoadDatabaseFixture,
+)
 
 
 class DockerPostgresSetup:
@@ -357,3 +362,132 @@ def db(e2e_pool) -> PooledDatabaseFixture:
     # Rollback the transaction to undo all test changes (if in transaction)
     if fixture.in_test_transaction:
         fixture.rollback_transaction()
+
+
+@pytest.fixture
+def db_unit(e2e_pool) -> Generator[TransactionDatabaseFixture, None, None]:
+    """Unit test fixture with transaction rollback isolation.
+
+    Use for:
+    - SQL function tests
+    - Constraint validation
+    - Schema validation
+    - DDL tracking tests
+
+    Guarantees:
+    - Complete test isolation via transaction rollback
+    - All changes automatically rolled back
+    - ~1ms overhead per test
+
+    Example:
+        def test_unique_constraint(db_unit):
+            db_unit.execute("CREATE TABLE test (id INT UNIQUE)")
+            db_unit.execute("INSERT INTO test VALUES (1)")
+            with pytest.raises(Exception):
+                db_unit.execute("INSERT INTO test VALUES (1)")
+            # No cleanup needed - automatic rollback
+    """
+    fixture = TransactionDatabaseFixture(e2e_pool)
+    fixture.begin_transaction()
+
+    yield fixture
+
+    fixture.rollback_transaction()
+
+
+@pytest.fixture
+def db_integration(e2e_pool) -> Generator[TransactionDatabaseFixture, None, None]:
+    """Integration test fixture with transaction rollback isolation.
+
+    Use for:
+    - Multi-operation workflows
+    - Dependency tracking tests
+    - Branch/merge operations
+    - Tests with explicit transaction testing
+
+    Guarantees:
+    - Per-test isolation via transaction rollback
+    - Can test transaction behavior with explicit BEGIN/COMMIT
+    - Works with connection pooling
+    - ~1ms overhead per test
+
+    Example:
+        def test_dependency_chain(db_integration):
+            db_integration.execute("CREATE TABLE base (id INT)")
+            db_integration.execute("CREATE VIEW v1 AS SELECT * FROM base")
+            deps = db_integration.execute("SELECT * FROM pggit.dependencies ...")
+            assert len(deps) >= 1
+            # No cleanup needed - automatic transaction rollback
+    """
+    fixture = TransactionDatabaseFixture(e2e_pool)
+    fixture.begin_transaction()
+
+    yield fixture
+
+    fixture.rollback_transaction()
+
+
+@pytest.fixture
+def db_e2e(e2e_pool) -> Generator[TransactionDatabaseFixture, None, None]:
+    """E2E test fixture with transaction rollback isolation.
+
+    Use for:
+    - Full workflow tests
+    - Backup/recovery scenarios
+    - User journey tests
+    - Cross-feature integration
+
+    Guarantees:
+    - Test-level isolation via transaction rollback
+    - Realistic PostgreSQL environment
+    - Complete cleanup on test end
+    - ~1ms overhead per test
+
+    Example:
+        def test_backup_recovery(db_e2e):
+            # Setup data
+            db_e2e.execute("CREATE TABLE data (id INT)")
+            backup_id = db_e2e.execute("SELECT pggit.create_backup()")[0]
+
+            # Test recovery
+            db_e2e.execute("SELECT pggit.restore_backup(%s)", backup_id)
+            # Automatic transaction rollback at end
+    """
+    fixture = TransactionDatabaseFixture(e2e_pool)
+    fixture.begin_transaction()
+
+    yield fixture
+
+    fixture.rollback_transaction()
+
+
+@pytest.fixture
+def db_load(e2e_pool) -> Generator[LoadDatabaseFixture, None, None]:
+    """Load test fixture with no automatic cleanup.
+
+    Use for:
+    - Performance benchmarks
+    - Stress tests
+    - Throughput measurements
+    - Connection pool exhaustion tests
+
+    Guarantees:
+    - Minimal overhead (~0ms)
+    - Manual cleanup responsibility
+    - Timing metrics available
+
+    Example:
+        def test_commit_throughput(db_load):
+            for i in range(10000):
+                db_load.execute_timed("SELECT pggit.commit_changes(...)")
+
+            print(f"Throughput: {10000 / db_load.metrics['time']:.0f} ops/sec")
+
+            # Manual cleanup required
+            db_load.cleanup()
+    """
+    fixture = LoadDatabaseFixture(e2e_pool)
+
+    yield fixture
+
+    # No automatic cleanup - test owns cleanup
