@@ -30,7 +30,13 @@ jobs:
       - name: Validate commit messages
         run: |
           # Validate all commits in the PR
-          npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+            # Running from pull_request event
+            npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+          else
+            # Running from workflow_dispatch or other event
+            npx commitlint --from origin/main --to HEAD --verbose
+          fi
 
       - name: Generate validation summary
         if: always()
@@ -38,7 +44,13 @@ jobs:
           echo "## Commit Message Validation" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          if npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --quiet; then
+          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+            RESULT=$(npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --quiet; echo $?)
+          else
+            RESULT=$(npx commitlint --from origin/main --to HEAD --quiet; echo $?)
+          fi
+
+          if [ "$RESULT" -eq 0 ]; then
             echo "✅ **All commit messages follow conventional commit format**" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ **Some commit messages need improvement**" >> $GITHUB_STEP_SUMMARY
