@@ -51,8 +51,8 @@ jobs:
             npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --quiet
             RESULT=$?
           else
-            MERGE_BASE=$(git merge-base origin/main HEAD)
-            npx commitlint --from $MERGE_BASE --to HEAD --quiet
+            # Running from workflow_dispatch - validate only HEAD commit
+            npx commitlint --from HEAD~1 --to HEAD --quiet
             RESULT=$?
           fi
 
