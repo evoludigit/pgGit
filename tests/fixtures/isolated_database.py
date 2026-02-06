@@ -23,6 +23,7 @@ import time
 import uuid
 
 from psycopg import Connection
+from psycopg.pq import TransactionStatus
 from psycopg_pool import ConnectionPool
 
 
@@ -53,8 +54,18 @@ class IsolatedDatabaseFixture:
         return self._conn
 
     def _release_connection(self):
-        """Return connection to pool."""
+        """Return connection to pool.
+
+        Before returning, reset any error state so the next user gets a clean connection.
+        """
         if self._conn is not None:
+            # Reset error state before returning to pool
+            try:
+                if self._conn.info.transaction_status == TransactionStatus.INERROR:
+                    self._conn.rollback()
+            except Exception:
+                pass  # Connection might be broken, pool will handle it
+
             self.pool.putconn(self._conn)
             self._conn = None
 
@@ -135,6 +146,12 @@ class TransactionDatabaseFixture(IsolatedDatabaseFixture):
         All subsequent operations on this connection will be rolled back at test end.
         """
         conn = self._ensure_connection()
+        # Reset connection state if it's in error state from previous transaction
+        if conn.info.transaction_status == TransactionStatus.INERROR:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
         conn.execute("BEGIN")
 
     def rollback_transaction(self):
@@ -243,6 +260,13 @@ class SavepointDatabaseFixture(IsolatedDatabaseFixture):
         will be rolled back to this savepoint at test end.
         """
         conn = self._ensure_connection()
+
+        # Reset connection state if it's in error state from previous transaction
+        if conn.info.transaction_status == TransactionStatus.INERROR:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
 
         # SAVEPOINT requires being in a transaction, so start one if needed
         try:
