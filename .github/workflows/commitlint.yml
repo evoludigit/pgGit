@@ -29,13 +29,16 @@ jobs:
 
       - name: Validate commit messages
         run: |
-          # Validate all commits in the PR
+          # Validate all commits in the PR or branch
           if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
             # Running from pull_request event
+            echo "Validating PR commits from ${{ github.event.pull_request.base.sha }} to ${{ github.event.pull_request.head.sha }}"
             npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
           else
-            # Running from workflow_dispatch or other event
-            npx commitlint --from origin/main --to HEAD --verbose
+            # Running from workflow_dispatch or other event - get merge-base
+            MERGE_BASE=$(git merge-base origin/main HEAD)
+            echo "Validating branch commits from $MERGE_BASE to HEAD"
+            npx commitlint --from $MERGE_BASE --to HEAD --verbose
           fi
 
       - name: Generate validation summary
@@ -45,9 +48,12 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
-            RESULT=$(npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --quiet; echo $?)
+            npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --quiet
+            RESULT=$?
           else
-            RESULT=$(npx commitlint --from origin/main --to HEAD --quiet; echo $?)
+            MERGE_BASE=$(git merge-base origin/main HEAD)
+            npx commitlint --from $MERGE_BASE --to HEAD --quiet
+            RESULT=$?
           fi
 
           if [ "$RESULT" -eq 0 ]; then
