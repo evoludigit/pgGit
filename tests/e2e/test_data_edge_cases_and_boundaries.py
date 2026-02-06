@@ -269,7 +269,8 @@ class TestEdgeCasesAndBoundaries:
         result = db_e2e.execute("SELECT COUNT(*) FROM public.duplicate_snap WHERE id = 1")
         assert result[0][0] == 1, "One record should exist"
 
-        # Try to insert duplicate - should fail due to constraint
+        # Use a savepoint to handle constraint violation without affecting rest of transaction
+        db_e2e.execute("SAVEPOINT sp_duplicate_test")
         try:
             db_e2e.execute(
                 "INSERT INTO public.duplicate_snap (id, value) VALUES (1, 'data2')"
@@ -278,12 +279,15 @@ class TestEdgeCasesAndBoundaries:
             assert False, "Duplicate insert should have failed"
         except Exception:
             # Expected - PK constraint violation
-            # Don't call rollback - let the fixture handle transaction cleanup
-            pass
+            # Rollback to savepoint, not the entire transaction
+            db_e2e.execute("ROLLBACK TO SAVEPOINT sp_duplicate_test")
 
         # Verify original data still exists
         result = db_e2e.execute("SELECT value FROM public.duplicate_snap WHERE id = 1")
         assert result[0][0] == "data", "Original data should be preserved"
+
+        # Cleanup
+        db_e2e.execute("DROP TABLE IF EXISTS public.duplicate_snap CASCADE")
 
     def test_conflicting_temporal_intervals(self, db_e2e, pggit_installed):
         """Test handling time-based data updates."""

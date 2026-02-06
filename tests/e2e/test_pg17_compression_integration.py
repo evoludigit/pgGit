@@ -29,7 +29,7 @@ def get_pg_version(db):
     Returns:
         int: PostgreSQL major version (e.g., 15, 16, 17)
     """
-    result = db_e2e.execute("SHOW server_version")
+    result = db.execute("SHOW server_version")
     version_str = result[0][0]
     version = int(version_str.split('.')[0])
     return version
@@ -49,9 +49,9 @@ class TestCompressedTableTracking:
     """Test pgGit tracks compressed tables correctly."""
 
     @pytest.fixture(autouse=True)
-    def skip_if_not_pg17(self, db):
+    def skip_if_not_pg17(self, db_e2e):
         """Skip these tests if not running on PostgreSQL 17+."""
-        version = get_pg_version(db)
+        version = get_pg_version(db_e2e)
         if version < 17:
             pytest.skip(f"Requires PostgreSQL 17+ (running {version})")
 
@@ -225,9 +225,9 @@ class TestCompressionWithBranching:
     """Test compression settings with pgGit branching features."""
 
     @pytest.fixture(autouse=True)
-    def skip_if_not_pg17(self, db):
+    def skip_if_not_pg17(self, db_e2e):
         """Skip these tests if not running on PostgreSQL 17+."""
-        version = get_pg_version(db)
+        version = get_pg_version(db_e2e)
         if version < 17:
             pytest.skip(f"Requires PostgreSQL 17+ (running {version})")
 
@@ -333,9 +333,9 @@ class TestCompressionPerformance:
     """Performance tests for compressed tables with pgGit."""
 
     @pytest.fixture(autouse=True)
-    def skip_if_not_pg17(self, db):
+    def skip_if_not_pg17(self, db_e2e):
         """Skip these tests if not running on PostgreSQL 17+."""
-        version = get_pg_version(db)
+        version = get_pg_version(db_e2e)
         if version < 17:
             pytest.skip(f"Requires PostgreSQL 17+ (running {version})")
 
@@ -424,9 +424,9 @@ class TestCompressionEdgeCases:
     """Edge cases and error handling with compression."""
 
     @pytest.fixture(autouse=True)
-    def skip_if_not_pg17(self, db):
+    def skip_if_not_pg17(self, db_e2e):
         """Skip these tests if not running on PostgreSQL 17+."""
-        version = get_pg_version(db)
+        version = get_pg_version(db_e2e)
         if version < 17:
             pytest.skip(f"Requires PostgreSQL 17+ (running {version})")
 
@@ -446,8 +446,11 @@ class TestCompressionEdgeCases:
         assert 'compression' in error_msg or 'invalid' in error_msg or 'unrecognized' in error_msg, \
             f"Expected compression error, got: {exc.value}"
 
-        # Cleanup
-        db_e2e.execute("DROP TABLE invalid_compress")
+        # Cleanup (table may have been rolled back)
+        try:
+            db_e2e.execute("DROP TABLE IF EXISTS invalid_compress")
+        except Exception:
+            pass  # Already dropped during rollback
         print("✓ Invalid compression method rejected")
 
     def test_compression_on_table_without_toastable_columns(self, db_e2e, pggit_installed):

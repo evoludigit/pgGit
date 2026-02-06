@@ -58,7 +58,10 @@ class TestBranchInputValidation:
             "test\"; DROP TABLE pggit.branches; --",
         ]
 
-        for malicious_input in malicious_inputs:
+        for i, malicious_input in enumerate(malicious_inputs):
+            # Use savepoint to handle each test case independently
+            savepoint_name = f"sp_sql_injection_{i}"
+            db_e2e.execute(f"SAVEPOINT {savepoint_name}")
             try:
                 branch_id = db_e2e.execute_returning(
                     "SELECT pggit.create_branch(%s)",
@@ -76,7 +79,8 @@ class TestBranchInputValidation:
                 db_e2e.execute("DELETE FROM pggit.branches WHERE id = %s", branch_id[0])
             except Exception:
                 # Also acceptable - function may validate special characters
-                pass
+                # Rollback to savepoint to clear transaction error state
+                db_e2e.execute(f"ROLLBACK TO SAVEPOINT {savepoint_name}")
 
         # Verify branches table still exists
         result = db_e2e.execute(

@@ -1,9 +1,10 @@
 -- Enhanced pgGit Event Triggers with Configuration Support
 -- Replaces the basic triggers with configuration-aware versions
 
--- Drop existing triggers if they exist
-DROP EVENT TRIGGER IF EXISTS pggit_ddl_trigger CASCADE;
-DROP EVENT TRIGGER IF EXISTS pggit_drop_trigger CASCADE;
+-- DISABLED: Enhanced triggers have broken implementation (calls non-existent pggit.version_object)
+-- Use original triggers from 002_event_triggers.sql instead
+-- DROP EVENT TRIGGER IF EXISTS pggit_ddl_trigger CASCADE;
+-- DROP EVENT TRIGGER IF EXISTS pggit_drop_trigger CASCADE;
 
 -- Enhanced DDL trigger function with configuration support
 CREATE OR REPLACE FUNCTION pggit.enhanced_ddl_trigger_func() 
@@ -239,5 +240,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Enable enhanced triggers by default
-SELECT pggit.use_enhanced_triggers(true);
+-- DISABLED: Enhanced trigger implementation is broken (calls non-existent pggit.version_object)
+-- Comment out to use original working triggers from 002_event_triggers.sql
+-- SELECT pggit.use_enhanced_triggers(true);
