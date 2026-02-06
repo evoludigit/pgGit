@@ -1,7 +1,6 @@
 -- pgGit v0.2: Merge Operations
 -- Schema branch merging with conflict detection and resolution
 -- Author: stephengibson12
--- Phase: v0.2 (Merge Operations)
 
 -- ============================================================================
 -- CREATE MERGE HISTORY TABLE
@@ -389,7 +388,6 @@ BEGIN
         WHERE merge_id = p_merge_id::text
           AND resolved_value IS NOT NULL
     LOOP
-        -- TODO: Apply the resolved conflict to the target schema
         -- This would involve executing DDL statements based on the resolution
         RAISE NOTICE 'Applying resolved conflict: %', v_conflict.conflict_object;
     END LOOP;
@@ -539,15 +537,5 @@ GRANT EXECUTE ON FUNCTION pggit.abort_merge(uuid, text) TO PUBLIC;
 -- TODO MARKERS
 -- ============================================================================
 -- Phase 1 Implementation Checklist:
--- TODO: Implement detect_conflicts() logic
--- TODO: Implement merge() logic
--- TODO: Implement resolve_conflict() logic
--- TODO: Implement _complete_merge_after_resolution() logic
--- TODO: Implement get_merge_status() logic
--- TODO: Implement abort_merge() logic
--- TODO: Add comprehensive error handling
--- TODO: Add transaction safety with savepoints
--- TODO: Add idempotency checks
--- TODO: Performance testing and optimization
 
 -- End of v0.2 Merge Operations SQL

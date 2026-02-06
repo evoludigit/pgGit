@@ -8,7 +8,7 @@ include = ["tests.chaos*"]
 
 [project]
 name = "pggit-chaos-tests"
-version = "0.1.3"
+version = "0.2.0"
 description = "Chaos engineering tests for pgGit PostgreSQL extension"
 authors = [
     { name = "Lionel Hamayon", email = "lionel.hamayon@evolution-digitale.fr" },
@@ -79,6 +79,7 @@ dev = [
 minversion = "8.0"
 addopts = "-ra -q --strict-markers --strict-config"
 testpaths = ["tests"]
+pythonpath = ["."]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

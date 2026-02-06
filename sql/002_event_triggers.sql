@@ -428,10 +428,16 @@ CREATE EVENT TRIGGER pggit_ddl_trigger
     ON ddl_command_end
     EXECUTE FUNCTION pggit.handle_ddl_command();
 
+-- Explicitly enable the trigger
+ALTER EVENT TRIGGER pggit_ddl_trigger ENABLE;
+
 DROP EVENT TRIGGER IF EXISTS pggit_drop_trigger;
 CREATE EVENT TRIGGER pggit_drop_trigger
     ON sql_drop
     EXECUTE FUNCTION pggit.handle_sql_drop();
+
+-- Explicitly enable the trigger
+ALTER EVENT TRIGGER pggit_drop_trigger ENABLE;
 
 -- Function to detect foreign key dependencies
 CREATE OR REPLACE FUNCTION pggit.detect_foreign_keys() RETURNS VOID AS $$

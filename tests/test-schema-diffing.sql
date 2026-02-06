@@ -1,11 +1,9 @@
--- pgGit v0.3 Phase 9: Schema Diffing Foundation Tests
 -- Comprehensive test suite for schema comparison, diff detection, and migration planning
 
 \set ECHO all
 \set ON_ERROR_STOP on
 
 \echo '===================================================================================='
-\echo 'pgGit v0.3 Phase 9: Schema Diffing Foundation Test Suite'
 \echo 'Testing: Schema comparison, diff detection, impact assessment, migration planning'
 \echo '===================================================================================='
 \echo ''

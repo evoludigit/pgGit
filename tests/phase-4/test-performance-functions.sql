@@ -99,6 +99,5 @@ SELECT COUNT(*) as metrics_recorded FROM pggit.performance_metrics WHERE metric_
 \echo ''
 
 \echo '🎉 All 8 performance functions tested successfully!'
-\echo 'Phase 4 performance monitoring is working correctly.'
 
 ROLLBACK;

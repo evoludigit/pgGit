@@ -201,8 +201,8 @@ class TestTableDDL:
         # Rollback failed transaction before cleanup
         db_e2e.rollback()
 
-        # Cleanup
-        db_e2e.execute("DROP TABLE constraint_test")
+        # Cleanup (table may have been rolled back)
+        db_e2e.execute("DROP TABLE IF EXISTS constraint_test")
         print("✓ ALTER TABLE ADD CONSTRAINT tracked")
 
 
@@ -244,8 +244,8 @@ class TestIndexDDL:
         # Rollback failed transaction before cleanup
         db_e2e.rollback()
 
-        # Cleanup
-        db_e2e.execute("DROP TABLE unique_idx_test CASCADE")
+        # Cleanup (table may have been rolled back)
+        db_e2e.execute("DROP TABLE IF EXISTS unique_idx_test CASCADE")
         print("✓ CREATE UNIQUE INDEX tracked")
 
     def test_track_create_multicolumn_index(self, db_e2e, pggit_installed):
