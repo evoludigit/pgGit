@@ -8,7 +8,7 @@ include = ["tests.chaos*"]
 
 [project]
 name = "pggit-chaos-tests"
-version = "0.2.0"
+version = "0.1.0"
 description = "Chaos engineering tests for pgGit PostgreSQL extension"
 authors = [
     { name = "Lionel Hamayon", email = "lionel.hamayon@evolution-digitale.fr" },
