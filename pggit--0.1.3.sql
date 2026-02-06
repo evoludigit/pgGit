@@ -5052,7 +5052,7 @@ BEGIN
   END IF;
 
   -- For now, implement simple merge without actual data conflict detection
-  -- This is a placeholder that will be expanded in Phase 3
+  -- This is a placeholder that is a placeholder for future enhancement
 
   -- Count potential rows to merge (from data_branches table)
   SELECT COUNT(*) INTO v_rows_merged
@@ -5095,7 +5095,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Helper function to execute the actual merge operations
--- This will be enhanced in Phase 3 with proper conflict resolution
+-- This may be enhanced in future versions with proper conflict resolution
 CREATE OR REPLACE FUNCTION pggit.execute_data_merge(
   p_merge_id UUID,
   p_source_branch_id INTEGER,
@@ -5105,7 +5105,7 @@ DECLARE
   v_rows_affected INTEGER := 0;
 BEGIN
   -- Placeholder for actual data merging logic
-  -- This will be implemented in Phase 3
+  -- This is planned for future implementation
 
   -- For now, just update the merge record
   UPDATE pggit.merge_conflicts
@@ -5122,7 +5122,6 @@ $$ LANGUAGE plpgsql;
 -- ========================================
 
 -- Storage Tier Management Stub Functions
--- Phase 5: Provide minimal implementations for cold/hot storage tests
 
 -- Function to classify storage tier based on data age
 CREATE OR REPLACE FUNCTION pggit.classify_storage_tier(
@@ -5401,7 +5400,6 @@ VALUES
 -- ========================================
 
 -- Function and Configuration Versioning Stub Functions
--- Phase 6: Provide minimal implementations for versioning tests
 
 -- Configuration system table
 CREATE TABLE IF NOT EXISTS pggit.versioned_objects (
@@ -7303,7 +7301,6 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
 -- pgGit v0.2: Merge Operations
 -- Schema branch merging with conflict detection and resolution
 -- Author: stephengibson12
--- Phase: v0.2 (Merge Operations)
 
 -- ============================================================================
 -- CREATE MERGE HISTORY TABLE
@@ -7686,7 +7683,6 @@ BEGIN
         WHERE merge_id = p_merge_id::text
           AND resolved_value IS NOT NULL
     LOOP
-        -- TODO: Apply the resolved conflict to the target schema
         -- This would involve executing DDL statements based on the resolution
         RAISE NOTICE 'Applying resolved conflict: %', v_conflict.conflict_object;
     END LOOP;
@@ -7833,20 +7829,6 @@ GRANT EXECUTE ON FUNCTION pggit.get_merge_status(uuid) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.abort_merge(uuid, text) TO PUBLIC;
 
 -- ============================================================================
--- TODO MARKERS
--- ============================================================================
--- Phase 1 Implementation Checklist:
--- TODO: Implement detect_conflicts() logic
--- TODO: Implement merge() logic
--- TODO: Implement resolve_conflict() logic
--- TODO: Implement _complete_merge_after_resolution() logic
--- TODO: Implement get_merge_status() logic
--- TODO: Implement abort_merge() logic
--- TODO: Add comprehensive error handling
--- TODO: Add transaction safety with savepoints
--- TODO: Add idempotency checks
--- TODO: Performance testing and optimization
-
 -- End of v0.2 Merge Operations SQL
 
 
@@ -7854,10 +7836,8 @@ GRANT EXECUTE ON FUNCTION pggit.abort_merge(uuid, text) TO PUBLIC;
 -- File: 053_advanced_merge_operations.sql
 -- ========================================
 
--- pgGit v0.2 Phase 7: Advanced Merge Operations
 -- Three-way merge algorithm, semantic conflict detection, automatic heuristics
 -- Author: stephengibson12
--- Phase: v0.2 Extended (Advanced Conflict Resolution)
 
 -- ============================================================================
 -- ENHANCE MERGE_CONFLICTS TABLE FOR ADVANCED FEATURES
@@ -8461,10 +8441,8 @@ FROM pggit.merge_conflicts;
 -- File: 054_batch_operations_monitoring.sql
 -- ========================================
 
--- pgGit v0.2 Phase 8: Batch Operations & Production Monitoring
 -- Performance optimization, batch merges, health checks, observability
 -- Author: stephengibson12
--- Phase: v0.2 Extended (Week 8 - Performance & Production Hardening)
 
 -- ============================================================================
 -- PERFORMANCE OPTIMIZATION: ADDITIONAL INDEXES
@@ -9174,10 +9152,8 @@ $$ LANGUAGE plpgsql;
 -- File: 055_schema_diffing_foundation.sql
 -- ========================================
 
--- pgGit v0.3 Phase 9: Schema Diffing Foundation
 -- Detailed schema comparison, diff detection, and migration planning
 -- Author: stephengibson12
--- Phase: v0.3 (Schema Diffing & Advanced Features)
 
 -- ============================================================================
 -- STORAGE TABLES FOR SCHEMA ANALYSIS
@@ -9186,7 +9162,7 @@ $$ LANGUAGE plpgsql;
 -- Table: schema_snapshots (already exists from prior work)
 -- No need to recreate - using existing table
 
--- Table: schema_diffs (recreate with proper structure for Phase 9)
+-- Table: schema_diffs (recreate with proper structure for future enhancement)
 -- Drop existing if it has wrong structure
 DROP TABLE IF EXISTS pggit.schema_diffs CASCADE;
 
@@ -9904,7 +9880,6 @@ ORDER BY created_at DESC;
 -- File: 056_advanced_workflows.sql
 -- ========================================
 
--- pgGit v0.3 Phase 10: Advanced Workflows & Polish
 -- Workflow orchestration, CI/CD integration, advanced reporting
 
 -- ============================================================================
@@ -10384,7 +10359,6 @@ FROM pggit.schema_diffs
 ORDER BY created_at DESC;
 
 -- ============================================================================
--- END OF PHASE 10 ADVANCED WORKFLOWS
 -- ============================================================================
 
 
@@ -10393,7 +10367,6 @@ ORDER BY created_at DESC;
 -- File: 057_advanced_reporting.sql
 -- ========================================
 
--- pgGit v0.3.1 Phase 11: Advanced Reporting
 -- HTML/Markdown reports, schema evolution timelines, comprehensive analytics
 
 -- ============================================================================
@@ -10689,7 +10662,6 @@ FROM pggit.migration_plans
 ORDER BY created_at DESC;
 
 -- ============================================================================
--- END OF PHASE 11 TIER 1 - ADVANCED REPORTING
 -- ============================================================================
 
 
@@ -10698,7 +10670,6 @@ ORDER BY created_at DESC;
 -- File: 058_analytics_insights.sql
 -- ========================================
 
--- pgGit v0.3.1 Phase 11: Analytics & Insights
 -- Change frequency analysis, trend tracking, effort estimation
 
 -- ============================================================================
@@ -10982,7 +10953,6 @@ ORDER BY comparison_count DESC
 LIMIT 20;
 
 -- ============================================================================
--- END OF PHASE 11 TIER 2 - ANALYTICS & INSIGHTS
 -- ============================================================================
 
 
@@ -10991,7 +10961,6 @@ LIMIT 20;
 -- File: 059_performance_optimization.sql
 -- ========================================
 
--- pgGit v0.3.1 Phase 11: Performance Optimization
 -- Query optimization, storage management, performance monitoring
 
 -- ============================================================================
@@ -11272,7 +11241,6 @@ SELECT
 FROM pggit.schema_changes;
 
 -- ============================================================================
--- END OF PHASE 11 TIER 3 - PERFORMANCE OPTIMIZATION
 -- ============================================================================
 
 
@@ -11458,7 +11426,6 @@ LIMIT 100;
 -- ========================================
 
 -- pgGit Time-Travel and Point-in-Time Recovery (PITR)
--- Phase 4: Advanced temporal query capabilities
 -- Enables querying database state at any point in time
 
 -- =====================================================
@@ -11985,7 +11952,6 @@ DROP FUNCTION IF EXISTS pggit.query_historical_data(TEXT, TIMESTAMP, TIMESTAMP, 
 DROP FUNCTION IF EXISTS pggit.restore_table_to_point_in_time(TEXT, TIMESTAMP, BOOLEAN) CASCADE;
 
 -- =====================================================
--- Phase 2: Specification-Matching Functions
 -- =====================================================
 
 -- Get table state at a specific point in time
@@ -12002,7 +11968,7 @@ CREATE OR REPLACE FUNCTION pggit.get_table_state_at_time(
 DECLARE
     v_timestamp TIMESTAMP WITH TIME ZONE := p_timestamp_iso::TIMESTAMP WITH TIME ZONE;
 BEGIN
-    -- For now, return empty result set (will be enhanced in Phase 3)
+    -- For now, return empty result set (may be enhanced in future versions)
     -- This satisfies the function signature for tests to pass
     RETURN QUERY SELECT
         1::BIGINT,
@@ -12083,11 +12049,10 @@ ALTER COLUMN change_timestamp TYPE TIMESTAMP WITH TIME ZONE USING change_timesta
 -- ========================================
 
 -- =====================================================
--- pgGit Backup Integration - Phase 1: Metadata Tracking
+-- pgGit Backup Integration: Metadata Tracking
 -- =====================================================
 --
 -- This module provides Git-like tracking of database backups.
--- Phase 1 focuses on metadata tracking only - users manually
 -- create backups using external tools, then register them here.
 --
 -- Features:
@@ -12098,8 +12063,6 @@ ALTER COLUMN change_timestamp TYPE TIMESTAMP WITH TIME ZONE USING change_timesta
 -- - Backup dependency tracking (for incremental backups)
 -- - Backup verification records
 --
--- Phase 2 (future): Automated backup execution
--- Phase 3 (future): Recovery workflows
 -- =====================================================
 
 -- =====================================================
@@ -12205,7 +12168,6 @@ CREATE INDEX IF NOT EXISTS idx_backup_tags_name ON pggit.backup_tags(tag_name, t
 -- =====================================================
 
 -- Register a backup that was created externally
--- Phase 1: Users run backup tools manually, then register the backup metadata
 CREATE OR REPLACE FUNCTION pggit.register_backup(
     p_backup_name TEXT,
     p_backup_type TEXT,
@@ -12539,7 +12501,7 @@ GRANT EXECUTE ON FUNCTION pggit.get_backup_info TO PUBLIC;
 -- ========================================
 
 -- =====================================================
--- pgGit Backup Integration - Phase 2: Automation
+-- pgGit Backup Integration: Automation
 -- =====================================================
 --
 -- This module provides automated backup execution via a reliable
@@ -13114,7 +13076,6 @@ GRANT EXECUTE ON FUNCTION pggit.update_pgbackrest_metadata TO PUBLIC;
 
 -- =====================================================
 -- pgGit Backup Management & Monitoring
--- Phase 2 Stabilization
 -- =====================================================
 --
 -- This module provides health monitoring, worker management,
@@ -13822,7 +13783,6 @@ COMMENT ON FUNCTION pggit.set_maintenance_mode IS
 
 -- =====================================================
 -- pgGit Backup Recovery Workflows
--- Phase 3: Recovery Planning & Execution
 -- =====================================================
 --
 -- This module provides recovery planning, backup verification,
@@ -14666,7 +14626,6 @@ COMMENT ON FUNCTION pggit.test_backup_restore IS
 -- ========================================
 
 -- pgGit Structured Error Codes
--- Phase 3: Reliability - Structured Error Codes
 -- =====================================================
 
 -- Create schema for error codes
@@ -14760,7 +14719,6 @@ COMMENT ON FUNCTION pggit_errors.raise_error IS
 -- ========================================
 
 -- pgGit Operation Audit Logging
--- Phase 3: Reliability - Operation Audit Logging
 -- =====================================================
 
 -- Create audit table for operation tracking
@@ -14921,7 +14879,6 @@ COMMENT ON FUNCTION pggit.audited_operation IS
 -- ========================================
 
 -- pgGit Advanced ML Optimization
--- Phase 4: ML-based pattern learning and intelligent prefetching
 -- Enables machine learning-like sequential access pattern detection,
 -- confidence scoring, and adaptive prefetch optimization
 
@@ -15517,7 +15474,6 @@ DROP FUNCTION IF EXISTS pggit.learn_access_patterns(INTEGER, INTEGER) CASCADE;
 DROP FUNCTION IF EXISTS pggit.predict_next_objects(TEXT, INTEGER, NUMERIC) CASCADE;
 
 -- =====================================================
--- Phase 3: Specification-Compliant Functions
 -- =====================================================
 
 -- Learn access patterns for a specific object and operation
@@ -15666,7 +15622,6 @@ $$ LANGUAGE plpgsql;
 -- ========================================
 
 -- pgGit Advanced Conflict Resolution
--- Phase 4: 3-way merge with intelligent heuristics and semantic conflict detection
 -- Enables sophisticated conflict resolution for complex schema and data changes
 
 -- =====================================================
@@ -16250,7 +16205,6 @@ DROP FUNCTION IF EXISTS pggit.analyze_semantic_conflict(UUID, JSONB, JSONB, JSON
 DROP FUNCTION IF EXISTS pggit.identify_conflict_patterns(INTEGER) CASCADE;
 
 -- =====================================================
--- Phase 3: Specification-Compliant Functions
 -- =====================================================
 
 -- Analyze semantic conflicts between three versions

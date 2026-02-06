@@ -1,11 +1,9 @@
--- pgGit v0.3 Phase 10: Advanced Workflows Test Suite
 -- Test all workflow orchestration, CI/CD integration, and advanced reporting functions
 
 \set ECHO all
 \set ON_ERROR_STOP on
 
 \echo '===================================================================================='
-\echo 'pgGit v0.3 Phase 10: Advanced Workflows & Polish Test Suite'
 \echo 'Testing: Workflow orchestration, CI/CD integration, advanced reporting'
 \echo '===================================================================================='
 \echo ''

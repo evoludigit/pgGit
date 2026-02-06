@@ -1,4 +1,3 @@
--- pgGit v0.2 Phase 7: Advanced Merge Operations Tests
 -- Comprehensive test suite for three-way merge, semantic conflict detection, and automatic heuristics
 
 \set ECHO all
@@ -7,7 +6,6 @@
 -- TEST SETUP
 
 \echo '=================================================================================='
-\echo 'pgGit v0.2 Phase 7: Advanced Merge Operations Test Suite'
 \echo 'Testing: Three-way merge, semantic conflicts, automatic heuristics'
 \echo '=================================================================================='
 \echo ''

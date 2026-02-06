@@ -1,7 +1,6 @@
 -- pgGit v0.2 Phase 8: Batch Operations & Production Monitoring
 -- Performance optimization, batch merges, health checks, observability
 -- Author: stephengibson12
--- Phase: v0.2 Extended (Week 8 - Performance & Production Hardening)
 
 -- ============================================================================
 -- PERFORMANCE OPTIMIZATION: ADDITIONAL INDEXES
