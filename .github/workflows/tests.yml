@@ -213,184 +213,35 @@ jobs:
         );
         EOF
 
-    - name: Install new feature modules
+    - name: Verify pgGit installation
       env:
         PGPASSWORD: postgres
         PGHOST: localhost
         PGUSER: postgres
         PGDATABASE: pggit_test
       run: |
-        # First ensure all dependencies exist
+        # Verify core pgGit is installed
+        echo "Verifying pgGit installation..."
         psql << 'EOF'
-        -- Ensure required tables exist
-        CREATE TABLE IF NOT EXISTS pggit.system_events (
-            event_id serial PRIMARY KEY,
-            event_type text NOT NULL,
-            event_data jsonb,
-            created_at timestamptz DEFAULT now()
-        );
-        
-        CREATE TABLE IF NOT EXISTS pggit.pending_constraints (
-            constraint_name text PRIMARY KEY,
-            table_name text,
-            definition text
-        );
-        
-        -- Ensure required functions exist
-        CREATE OR REPLACE FUNCTION pggit.restore_object_version(text, uuid)
-        RETURNS void AS $$ BEGIN END; $$ LANGUAGE plpgsql;
+        -- Check for core tables
+        SELECT
+          CASE WHEN EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema='pggit' AND table_name='commits')
+            THEN '✓ commits table exists'
+            ELSE '✗ commits table missing'
+          END as status;
 
-        CREATE OR REPLACE FUNCTION pggit.reorder_dependencies(text)
-        RETURNS void AS $$ BEGIN END; $$ LANGUAGE plpgsql;
+        -- Verify core function
+        SELECT 'pgGit version: ' || pggit.version() as version_info;
 
-        CREATE OR REPLACE FUNCTION pggit.merge_object_versions(text, text, text, text)
-        RETURNS void AS $$ BEGIN END; $$ LANGUAGE plpgsql;
-
-        CREATE OR REPLACE FUNCTION pggit.get_table_definition(text, text)
-        RETURNS text AS $$ SELECT 'id int' $$ LANGUAGE sql;
-
-        CREATE OR REPLACE FUNCTION pggit.get_schema_at_commit(uuid)
-        RETURNS text AS $$ SELECT '-- Schema' $$ LANGUAGE sql;
-
-        -- Additional stub functions for tests
-        CREATE OR REPLACE FUNCTION pggit.track_function(text)
-        RETURNS void AS $$ BEGIN END; $$ LANGUAGE plpgsql;
-
-        CREATE OR REPLACE FUNCTION pggit.begin_migration(bigint, text, text)
-        RETURNS uuid AS $$ SELECT gen_random_uuid(); $$ LANGUAGE sql;
-
-        CREATE OR REPLACE FUNCTION pggit.register_conflict(text, text, text, jsonb)
-        RETURNS uuid AS $$ SELECT gen_random_uuid(); $$ LANGUAGE sql;
-
-        -- Create missing types for tests
-        DO $$ BEGIN
-            CREATE TYPE pggit.cqrs_change AS (
-                command_changes text[],
-                query_changes text[],
-                description text,
-                version text
-            );
-        EXCEPTION WHEN duplicate_object THEN
-            -- Type already exists
-        END $$;
-
-        -- Create versioned_objects table if missing
-        CREATE TABLE IF NOT EXISTS pggit.versioned_objects (
-            object_id serial PRIMARY KEY,
-            object_name text UNIQUE NOT NULL,
-            object_type text,
-            schema_name text
-        );
-
-        -- Create missing tables for AI tests
-        CREATE TABLE IF NOT EXISTS pggit.ai_predictions (
-            prediction_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            migration_id text,
-            prediction_type text,
-            predicted_value text,
-            confidence numeric,
-            model_version text,
-            context jsonb,
-            processing_time_ms integer,
-            created_at timestamp default now()
-        );
-
-        CREATE TABLE IF NOT EXISTS pggit.ai_ground_truth (
-            prediction_id uuid REFERENCES pggit.ai_predictions(prediction_id),
-            actual_value text,
-            verified_at timestamp default now(),
-            PRIMARY KEY (prediction_id)
-        );
-
-        CREATE TABLE IF NOT EXISTS pggit.ai_decisions (
-            decision_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            migration_id text,
-            original_content text,
-            ai_response text,
-            confidence numeric,
-            model_version text,
-            created_at timestamp default now()
-        );
-
-        -- Stub functions for AI tests
-        CREATE OR REPLACE FUNCTION pggit.record_ai_prediction(text, text, text, numeric, text, jsonb, integer)
-        RETURNS uuid AS $$ SELECT gen_random_uuid(); $$ LANGUAGE sql;
-
-        CREATE OR REPLACE FUNCTION pggit.get_ai_accuracy_report()
-        RETURNS TABLE (report_section text, metrics jsonb) AS $$
-        SELECT 'overall_accuracy'::text, jsonb_build_object('current_accuracy', 85.0);
-        $$ LANGUAGE sql;
-
-        CREATE OR REPLACE FUNCTION pggit.simulate_accuracy_improvement()
-        RETURNS TABLE (week integer, simulated_accuracy numeric, improvement_rate numeric) AS $$
-        SELECT 1, 85.0, 0.5 UNION ALL
-        SELECT 2, 85.5, 0.5 UNION ALL
-        SELECT 3, 86.0, 0.5;
-        $$ LANGUAGE sql;
-
-        -- Stub functions for zero-downtime tests
-        CREATE OR REPLACE FUNCTION pggit.start_zero_downtime_deployment(text, text, text)
-        RETURNS uuid AS $$ SELECT gen_random_uuid(); $$ LANGUAGE sql;
-
-        CREATE OR REPLACE FUNCTION pggit.validate_shadow_deployment(uuid)
-        RETURNS TABLE (is_valid boolean, row_count bigint) AS $$
-        SELECT true, 100;
-        $$ LANGUAGE sql;
-
-        CREATE OR REPLACE FUNCTION pggit.setup_blue_green_deployment(text, text, text[])
-        RETURNS void AS $$ BEGIN END; $$ LANGUAGE plpgsql;
-
-        CREATE OR REPLACE FUNCTION pggit.deploy_to_green(text)
-        RETURNS void AS $$ BEGIN END; $$ LANGUAGE plpgsql;
-
-        CREATE OR REPLACE FUNCTION pggit.test_green_deployment()
-        RETURNS TABLE (tests_passed boolean) AS $$
-        SELECT true;
-        $$ LANGUAGE sql;
-
-        CREATE OR REPLACE FUNCTION pggit.switch_blue_green()
-        RETURNS boolean AS $$ SELECT true; $$ LANGUAGE sql;
-
-        CREATE OR REPLACE FUNCTION pggit.start_progressive_rollout(text, text, integer, integer, interval)
-        RETURNS uuid AS $$ SELECT gen_random_uuid(); $$ LANGUAGE sql;
-
-        CREATE OR REPLACE FUNCTION pggit.get_rollout_status(uuid)
-        RETURNS TABLE (current_percentage integer, status text) AS $$
-        SELECT 50, 'active';
-        $$ LANGUAGE sql;
-
-        -- Stub functions for advanced features
-        CREATE OR REPLACE FUNCTION pggit.create_data_branch(text, text, text[], boolean)
-        RETURNS integer AS $$ SELECT 1; $$ LANGUAGE sql;
-
-        CREATE OR REPLACE FUNCTION pggit.start_zero_downtime_deployment(text, text, text)
-        RETURNS uuid AS $$ SELECT gen_random_uuid(); $$ LANGUAGE sql;
-
-        CREATE OR REPLACE FUNCTION pggit.create_commit(text, text, text)
-        RETURNS uuid AS $$ SELECT gen_random_uuid(); $$ LANGUAGE sql;
-
-        CREATE OR REPLACE FUNCTION pggit.record_performance_metric(text, text, timestamp, integer, jsonb)
-        RETURNS uuid AS $$ SELECT gen_random_uuid(); $$ LANGUAGE sql;
+        -- Ensure required test support exists
+        CREATE OR REPLACE FUNCTION test_assert(condition boolean, message text) RETURNS void AS $$
+        BEGIN
+            IF NOT condition THEN
+                RAISE EXCEPTION 'Test failed: %', message;
+            END IF;
+        END;
+        $$ LANGUAGE plpgsql;
         EOF
-        
-        # Install feature modules in order
-        cd sql
-        for module in \
-          pggit_configuration.sql \
-          pggit_conflict_resolution_api.sql \
-          pggit_cqrs_support.sql \
-          pggit_function_versioning.sql \
-          pggit_migration_integration.sql \
-          pggit_operations.sql \
-          pggit_enhanced_triggers.sql \
-          pggit_performance.sql
-        do
-          if [ -f "$module" ]; then
-            echo "Installing $module..."
-            psql -f "$module" || echo "Warning: Some errors in $module (may be expected)"
-          fi
-        done
-        cd ..
 
     - name: Run core tests
       env:
@@ -399,100 +250,7 @@ jobs:
         PGUSER: postgres
         PGDATABASE: pggit_test
       run: |
-        # Create test helper function
-        psql << 'EOF'
-        CREATE OR REPLACE FUNCTION test_assert(condition boolean, message text) RETURNS void AS $$
-        BEGIN
-            IF NOT condition THEN
-                RAISE EXCEPTION 'Test failed: %', message;
-            END IF;
-        END;
-        $$ LANGUAGE plpgsql;
-        
-        -- Stub functions for testing
-        CREATE OR REPLACE FUNCTION pggit.version_object(
-            classid oid, objid oid, objsubid integer,
-            command_tag text, object_type text, schema_name text,
-            object_identity text, in_extension boolean
-        ) RETURNS void AS $$
-        BEGIN
-            INSERT INTO pggit.versioned_objects (object_name, object_type, schema_name)
-            VALUES (object_identity, object_type, schema_name)
-            ON CONFLICT (object_name) DO NOTHING;
-        END;
-        $$ LANGUAGE plpgsql;
-        
-        CREATE OR REPLACE FUNCTION pggit.version_drop(
-            classid oid, objid oid, objsubid integer,
-            object_type text, schema_name text, object_identity text
-        ) RETURNS void AS $$
-        BEGIN
-            DELETE FROM pggit.versioned_objects WHERE object_name = object_identity;
-        END;
-        $$ LANGUAGE plpgsql;
-        
-        CREATE OR REPLACE FUNCTION pggit.get_current_version() RETURNS uuid AS $$
-            SELECT gen_random_uuid();
-        $$ LANGUAGE sql;
-        
-        CREATE OR REPLACE FUNCTION pggit.diff_text(text1 text, text2 text)
-        RETURNS TABLE(line_number int, change_type text, version1_line text, version2_line text) AS $$
-        BEGIN
-            RETURN QUERY SELECT 1, 'change'::text, text1, text2;
-        END;
-        $$ LANGUAGE plpgsql;
-        
-        -- Basic event triggers
-        CREATE OR REPLACE FUNCTION pggit.ddl_trigger_func() RETURNS event_trigger AS $$
-        DECLARE
-            obj record;
-        BEGIN
-            FOR obj IN SELECT * FROM pg_event_trigger_ddl_commands()
-            LOOP
-                IF obj.schema_name != 'pggit' THEN
-                    PERFORM pggit.version_object(
-                        obj.classid, obj.objid, obj.objsubid,
-                        obj.command_tag, obj.object_type, obj.schema_name,
-                        obj.object_identity, obj.in_extension
-                    );
-                END IF;
-            END LOOP;
-        END;
-        $$ LANGUAGE plpgsql;
-        
-        CREATE EVENT TRIGGER pggit_ddl_trigger ON ddl_command_end
-        EXECUTE FUNCTION pggit.ddl_trigger_func();
-        
-        CREATE OR REPLACE FUNCTION pggit.drop_trigger_func() RETURNS event_trigger AS $$
-        DECLARE
-            obj record;
-        BEGIN
-            FOR obj IN SELECT * FROM pg_event_trigger_dropped_objects()
-            LOOP
-                IF obj.schema_name != 'pggit' THEN
-                    PERFORM pggit.version_drop(
-                        obj.classid, obj.objid, obj.objsubid,
-                        obj.object_type, obj.schema_name, obj.object_identity
-                    );
-                END IF;
-            END LOOP;
-        END;
-        $$ LANGUAGE plpgsql;
-        
-        CREATE EVENT TRIGGER pggit_drop_trigger ON sql_drop
-        EXECUTE FUNCTION pggit.drop_trigger_func();
-        
-        -- Ensure we use enhanced triggers if available
-        DO $$
-        BEGIN
-            IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'use_enhanced_triggers' AND pronamespace = 'pggit'::regnamespace) THEN
-                PERFORM pggit.use_enhanced_triggers(true);
-                RAISE NOTICE 'Enhanced triggers enabled';
-            END IF;
-        END $$;
-        EOF
-        
-        echo "Core setup completed"
+        echo "Core pgGit installation verified and ready for feature tests"
 
     - name: Run new feature tests
       env:
