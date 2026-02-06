@@ -428,7 +428,7 @@ class TestUpgradePath:
 
         # Cleanup
         db_e2e.execute("DROP TABLE evolve_test")
-        print(f"✓ Schema evolution tracking works on PG {get_pg_version(db)}")
+        print(f"✓ Schema evolution tracking works on PG {get_pg_version(db_e2e)}")
 
     def test_commit_metadata_preservation(self, db_e2e, pggit_installed):
         """Test commit metadata is preserved across operations."""
