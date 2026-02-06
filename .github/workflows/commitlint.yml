@@ -5,6 +5,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
     branches: [main, develop]
+  workflow_dispatch:
 
 jobs:
   commitlint:
