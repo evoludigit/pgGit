@@ -26,7 +26,7 @@ def get_pg_version(db):
         int: PostgreSQL major version (e.g., 15, 16, 17)
     """
     # Use SELECT version() which is more compatible with the E2E fixture
-    result = db_e2e.execute("SELECT version()")
+    result = db.execute("SELECT version()")
     if not result or not result[0]:
         # Fallback: assume PG16 for Docker default
         return 16
@@ -201,9 +201,9 @@ class TestPG17Features:
     """Features specific to PostgreSQL 17."""
 
     @pytest.fixture(autouse=True)
-    def skip_if_not_pg17(self, db):
+    def skip_if_not_pg17(self, db_e2e):
         """Skip these tests if not running on PostgreSQL 17."""
-        version = get_pg_version(db)
+        version = get_pg_version(db_e2e)
         if version < 17:
             pytest.skip(f"PG17-specific features require PostgreSQL 17+ (running {version})")
 
@@ -305,9 +305,9 @@ class TestPG16Features:
     """Features requiring PostgreSQL 16+."""
 
     @pytest.fixture(autouse=True)
-    def skip_if_not_pg16_plus(self, db):
+    def skip_if_not_pg16_plus(self, db_e2e):
         """Skip these tests if not running on PostgreSQL 16+."""
-        version = get_pg_version(db)
+        version = get_pg_version(db_e2e)
         if version < 16:
             pytest.skip(f"PG16+ features require PostgreSQL 16+ (running {version})")
 
