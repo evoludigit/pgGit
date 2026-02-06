@@ -1,11 +1,9 @@
--- pgGit v0.2 Phase 8: Batch Operations & Monitoring Tests
 -- Comprehensive test suite for performance, batch ops, and health checks
 
 \set ECHO all
 \set ON_ERROR_STOP on
 
 \echo '===================================================================================='
-\echo 'pgGit v0.2 Phase 8: Batch Operations & Production Monitoring Test Suite'
 \echo 'Testing: Batch merges, health checks, performance metrics, monitoring'
 \echo '===================================================================================='
 \echo ''

@@ -26,13 +26,49 @@ class DockerPostgresSetup:
         self.client = docker.from_env()
         self.container = None
         self.connection_string = None
+        self.used_port = None
 
     def start_container(self) -> str:
         """Start a fresh PostgreSQL container and return connection string"""
-        # Remove existing test container if it exists
+        # Check if existing test container is healthy and reuse it
         try:
             existing = self.client.containers.get("pggit-e2e-test")
-            existing.remove(force=True)
+            if existing.status == "running":
+                # Container is still running, check if it's responsive
+                if self.used_port is None:
+                    # Try to figure out which port it's on
+                    for port in [5434, 5435, 5436, 5437, 5438]:
+                        try:
+                            conn = connect(
+                                f"postgresql://postgres:postgres@localhost:{port}/pggit_test"
+                            )
+                            conn.close()
+                            self.used_port = port
+                            break
+                        except Exception:
+                            pass
+
+                if self.used_port is not None:
+                    try:
+                        conn = connect(
+                            f"postgresql://postgres:postgres@localhost:{self.used_port}/pggit_test"
+                        )
+                        conn.close()
+                        # Container is healthy, reuse it
+                        self.container = existing
+                        self.connection_string = (
+                            f"postgresql://postgres:postgres@localhost:{self.used_port}/pggit_test"
+                        )
+                        return self.connection_string
+                    except Exception:
+                        # Container exists but is not responsive, remove it
+                        existing.remove(force=True)
+                else:
+                    # Couldn't find which port, remove it
+                    existing.remove(force=True)
+            else:
+                # Container is not running, remove it
+                existing.remove(force=True)
         except docker.errors.NotFound:
             pass
 
@@ -53,7 +89,7 @@ class DockerPostgresSetup:
                     detach=True,
                     remove=False,
                 )
-                used_port = port
+                self.used_port = port
                 break
             except Exception as e:
                 if port == 5438:
@@ -65,11 +101,11 @@ class DockerPostgresSetup:
         for attempt in range(max_retries):
             try:
                 conn = connect(
-                    f"postgresql://postgres:postgres@localhost:{used_port}/pggit_test"
+                    f"postgresql://postgres:postgres@localhost:{self.used_port}/pggit_test"
                 )
                 conn.close()
                 self.connection_string = (
-                    f"postgresql://postgres:postgres@localhost:{used_port}/pggit_test"
+                    f"postgresql://postgres:postgres@localhost:{self.used_port}/pggit_test"
                 )
                 return self.connection_string
             except Exception:

@@ -5,6 +5,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
     branches: [main, develop]
+  workflow_dispatch:
 
 jobs:
   commitlint:
@@ -28,8 +29,16 @@ jobs:
 
       - name: Validate commit messages
         run: |
-          # Validate all commits in the PR
-          npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+          # Validate all commits in the PR or branch
+          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+            # Running from pull_request event
+            echo "Validating PR commits from ${{ github.event.pull_request.base.sha }} to ${{ github.event.pull_request.head.sha }}"
+            npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+          else
+            # Running from workflow_dispatch - validate only HEAD commit
+            echo "Validating HEAD commit"
+            npx commitlint --from HEAD~1 --to HEAD --verbose
+          fi
 
       - name: Generate validation summary
         if: always()
@@ -37,7 +46,16 @@ jobs:
           echo "## Commit Message Validation" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          if npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --quiet; then
+          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+            npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --quiet
+            RESULT=$?
+          else
+            # Running from workflow_dispatch - validate only HEAD commit
+            npx commitlint --from HEAD~1 --to HEAD --quiet
+            RESULT=$?
+          fi
+
+          if [ "$RESULT" -eq 0 ]; then
             echo "✅ **All commit messages follow conventional commit format**" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ **Some commit messages need improvement**" >> $GITHUB_STEP_SUMMARY

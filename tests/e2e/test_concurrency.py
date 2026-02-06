@@ -118,8 +118,8 @@ class TestConcurrency:
         from tests.e2e.test_helpers import create_test_commit, register_and_complete_backup
 
         # Create a test backup first (required by backup_jobs foreign key)
-        commit = create_test_commit(db, "job-ops")
-        backup_id = register_and_complete_backup(db, "job-ops-backup", "full", commit)
+        commit = create_test_commit(db_e2e, "job-ops")
+        backup_id = register_and_complete_backup(db_e2e, "job-ops-backup", "full", commit)
 
         # Create a test job with valid status (not 'failed' to avoid retry constraint)
         job_id = db_e2e.execute_returning("""
@@ -160,7 +160,7 @@ class TestConcurrency:
 
         # Create some expired backups using helper
         for i in range(3):
-            create_expired_backup(db, f"expired-test-{i}")
+            create_expired_backup(db_e2e, f"expired-test-{i}")
 
         # Test sequential dry-run calls (advisory locks in read-only mode)
         result1 = db_e2e.execute("SELECT * FROM pggit.cleanup_expired_backups(TRUE)")
@@ -185,8 +185,8 @@ class TestConcurrency:
         )
 
         # Create a proper commit and expired backup
-        commit = create_test_commit(db, "txn-test")
-        backup_id = register_and_complete_backup(db, "txn-test", "full", commit)
+        commit = create_test_commit(db_e2e, "txn-test")
+        backup_id = register_and_complete_backup(db_e2e, "txn-test", "full", commit)
 
         db_e2e.execute(
             """
@@ -198,17 +198,17 @@ class TestConcurrency:
         )
 
         # Verify destructive functions contain transaction requirement checks
-        cleanup_func_source = get_function_source(db, "cleanup_expired_backups")
+        cleanup_func_source = get_function_source(db_e2e, "cleanup_expired_backups")
         assert cleanup_func_source and "transaction" in cleanup_func_source.lower(), (
             "cleanup_expired_backups should contain transaction requirement check"
         )
 
-        cleanup_jobs_func_source = get_function_source(db, "cleanup_old_jobs")
+        cleanup_jobs_func_source = get_function_source(db_e2e, "cleanup_old_jobs")
         assert cleanup_jobs_func_source and "transaction" in cleanup_jobs_func_source.lower(), (
             "cleanup_old_jobs should contain transaction requirement check"
         )
 
-        cancel_stuck_func_source = get_function_source(db, "cancel_stuck_jobs")
+        cancel_stuck_func_source = get_function_source(db_e2e, "cancel_stuck_jobs")
         assert cancel_stuck_func_source and "transaction" in cancel_stuck_func_source.lower(), (
             "cancel_stuck_jobs should contain transaction requirement check"
         )
@@ -220,8 +220,8 @@ class TestConcurrency:
         from tests.e2e.test_helpers import get_function_source, create_test_commit, register_and_complete_backup
 
         # Create a test backup first (required by backup_jobs foreign key)
-        commit = create_test_commit(db, "locking-test")
-        backup_id = register_and_complete_backup(db, "locking-backup", "full", commit)
+        commit = create_test_commit(db_e2e, "locking-test")
+        backup_id = register_and_complete_backup(db_e2e, "locking-backup", "full", commit)
 
         # Create a test job with valid status (not 'failed' to avoid retry constraint)
         job_id = db_e2e.execute_returning("""
@@ -233,7 +233,7 @@ class TestConcurrency:
         """, backup_id)[0]
 
         # Verify the reset_job function contains row-level locking (FOR UPDATE)
-        reset_job_source = get_function_source(db, "reset_job")
+        reset_job_source = get_function_source(db_e2e, "reset_job")
         assert reset_job_source and "for update" in reset_job_source.lower(), (
             "reset_job should contain row-level locking (FOR UPDATE)"
         )
@@ -266,7 +266,7 @@ class TestConcurrency:
         from tests.e2e.test_helpers import create_expired_backup
 
         # Create an old backup that's past the retention threshold
-        create_expired_backup(db, "timeout-test", "full", days_ago=40)
+        create_expired_backup(db_e2e, "timeout-test", "full", days_ago=40)
 
         # First retention policy call should work
         result1 = db_e2e.execute("""
@@ -296,21 +296,21 @@ class TestConcurrency:
         )
 
         # Create commits for chain
-        full_commit = create_test_commit(db, "chain-full")
-        incr1_commit = create_test_commit(db, "chain-incr1")
-        incr2_commit = create_test_commit(db, "chain-incr2")
+        full_commit = create_test_commit(db_e2e, "chain-full")
+        incr1_commit = create_test_commit(db_e2e, "chain-incr1")
+        incr2_commit = create_test_commit(db_e2e, "chain-incr2")
 
         # Create chain: full -> incr1 -> incr2 using API
         full_id = register_and_complete_backup(
-            db, "full-chain", "full", full_commit
+            db_e2e, "full-chain", "full", full_commit
         )
 
         incr1_id = register_and_complete_backup(
-            db, "incr1-chain", "incremental", incr1_commit
+            db_e2e, "incr1-chain", "incremental", incr1_commit
         )
 
         incr2_id = register_and_complete_backup(
-            db, "incr2-chain", "incremental", incr2_commit
+            db_e2e, "incr2-chain", "incremental", incr2_commit
         )
 
         # Update incremental backups to reference their base backups
@@ -353,9 +353,9 @@ class TestConcurrency:
         # Create test backups (required by backup_jobs foreign key)
         backup_ids = []
         for i in range(10):
-            commit = create_test_commit(db, f"escalation-{i}")
+            commit = create_test_commit(db_e2e, f"escalation-{i}")
             backup_id = register_and_complete_backup(
-                db, f"escalation-backup-{i}", "full", commit
+                db_e2e, f"escalation-backup-{i}", "full", commit
             )
             backup_ids.append(backup_id)
 

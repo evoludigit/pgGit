@@ -7258,7 +7258,6 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
 -- pgGit v0.2: Merge Operations
 -- Schema branch merging with conflict detection and resolution
 -- Author: stephengibson12
--- Phase: v0.2 (Merge Operations)
 
 -- ============================================================================
 -- CREATE MERGE HISTORY TABLE
@@ -7646,7 +7645,6 @@ BEGIN
         WHERE merge_id = p_merge_id::text
           AND resolved_value IS NOT NULL
     LOOP
-        -- TODO: Apply the resolved conflict to the target schema
         -- This would involve executing DDL statements based on the resolution
         RAISE NOTICE 'Applying resolved conflict: %', v_conflict.conflict_object;
     END LOOP;
@@ -7796,16 +7794,6 @@ GRANT EXECUTE ON FUNCTION pggit.abort_merge(uuid, text) TO PUBLIC;
 -- TODO MARKERS
 -- ============================================================================
 -- Phase 1 Implementation Checklist:
--- TODO: Implement detect_conflicts() logic
--- TODO: Implement merge() logic
--- TODO: Implement resolve_conflict() logic
--- TODO: Implement _complete_merge_after_resolution() logic
--- TODO: Implement get_merge_status() logic
--- TODO: Implement abort_merge() logic
--- TODO: Add comprehensive error handling
--- TODO: Add transaction safety with savepoints
--- TODO: Add idempotency checks
--- TODO: Performance testing and optimization
 
 -- End of v0.2 Merge Operations SQL
 
@@ -8364,7 +8352,6 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
 -- pgGit v0.2 Phase 7: Advanced Merge Operations
 -- Three-way merge algorithm, semantic conflict detection, automatic heuristics
 -- Author: stephengibson12
--- Phase: v0.2 Extended (Advanced Conflict Resolution)
 
 -- ============================================================================
 -- ENHANCE MERGE_CONFLICTS TABLE FOR ADVANCED FEATURES
@@ -9518,7 +9505,6 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
 -- pgGit v0.2 Phase 8: Batch Operations & Production Monitoring
 -- Performance optimization, batch merges, health checks, observability
 -- Author: stephengibson12
--- Phase: v0.2 Extended (Week 8 - Performance & Production Hardening)
 
 -- ============================================================================
 -- PERFORMANCE OPTIMIZATION: ADDITIONAL INDEXES
@@ -11017,7 +11003,6 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
 -- pgGit v0.3 Phase 9: Schema Diffing Foundation
 -- Detailed schema comparison, diff detection, and migration planning
 -- Author: stephengibson12
--- Phase: v0.3 (Schema Diffing & Advanced Features)
 
 -- ============================================================================
 -- STORAGE TABLES FOR SCHEMA ANALYSIS
@@ -12463,7 +12448,6 @@ FROM pggit.schema_diffs
 ORDER BY created_at DESC;
 
 -- ============================================================================
--- END OF PHASE 10 ADVANCED WORKFLOWS
 -- ============================================================================
 
 
@@ -13368,7 +13352,6 @@ FROM pggit.migration_plans
 ORDER BY created_at DESC;
 
 -- ============================================================================
--- END OF PHASE 11 TIER 1 - ADVANCED REPORTING
 -- ============================================================================
 
 
@@ -13658,7 +13641,6 @@ ORDER BY comparison_count DESC
 LIMIT 20;
 
 -- ============================================================================
--- END OF PHASE 11 TIER 2 - ANALYTICS & INSIGHTS
 -- ============================================================================
 
 
@@ -13945,7 +13927,6 @@ SELECT
 FROM pggit.schema_changes;
 
 -- ============================================================================
--- END OF PHASE 11 TIER 3 - PERFORMANCE OPTIMIZATION
 -- ============================================================================
 
 

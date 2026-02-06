@@ -51,8 +51,6 @@ validate_production_readiness() {
     log_info "Test Database: $TEST_DB"
     echo
 
-    # Phase 1: Core Installation
-    log_info "Phase 1: Testing Core Installation..."
     if psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -c "CREATE DATABASE \"$TEST_DB\";" 2>/dev/null; then
         log_success "✓ Database creation successful"
     else
@@ -76,8 +74,6 @@ validate_production_readiness() {
         exit 1
     fi
 
-    # Phase 2: Code Quality
-    log_info "Phase 2: Testing Code Quality Features..."
     # Create test table and verify tracking
     psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$TEST_DB" << 'EOF' >/dev/null 2>&1
     CREATE TABLE test_quality (id int, name text);
@@ -94,8 +90,6 @@ EOF
         exit 1
     fi
 
-    # Phase 3: Production Features
-    log_info "Phase 3: Testing Production Features..."
 
     # Test health check
     if psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$TEST_DB" -c "SELECT * FROM pggit.health_check();" >/dev/null 2>&1; then
@@ -111,8 +105,6 @@ EOF
         log_warn "⚠ Migration integration not available (optional)"
     fi
 
-    # Phase 4: Enterprise Features
-    log_info "Phase 4: Testing Enterprise Features..."
 
     # Test SBOM exists
     if [ -f "SBOM.json" ]; then
@@ -194,10 +186,6 @@ EOF
     # Summary
     echo "Validation Summary:"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "✅ Phase 1: Core Installation - WORKING"
-    echo "✅ Phase 2: Code Quality - WORKING"
-    echo "✅ Phase 3: Production Features - WORKING"
-    echo "✅ Phase 4: Enterprise Features - WORKING"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo "🎯 pgGit is PRODUCTION READY!"
 }

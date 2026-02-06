@@ -84,19 +84,26 @@ class TestE2EErrorHandlingValidation:
             "INSERT INTO public.constraint_test (email) VALUES (%s)", "user@test.com"
         )
 
-        # Try to insert duplicate
-        with pytest.raises(Exception):
+        # Use savepoint to handle constraint violation without affecting rest of transaction
+        db_e2e.execute("SAVEPOINT sp_constraint_test")
+        try:
             db_e2e.execute(
                 "INSERT INTO public.constraint_test (email) VALUES (%s)",
                 "user@test.com",
             )
-
-        # Rollback the failed transaction
-        db_e2e.rollback()
+            # If we get here, the constraint didn't work
+            assert False, "Constraint violation should have occurred"
+        except Exception:
+            # Expected - constraint violation
+            # Rollback to savepoint, not the entire transaction
+            db_e2e.execute("ROLLBACK TO SAVEPOINT sp_constraint_test")
 
         # Verify only one row exists
         result = db_e2e.execute("SELECT COUNT(*) FROM public.constraint_test")
         assert result[0][0] == 1, "Rollback failed - duplicate inserted"
+
+        # Cleanup
+        db_e2e.execute("DROP TABLE IF EXISTS public.constraint_test CASCADE")
 
     def test_large_data_payload_handling(self, db_e2e, pggit_installed):
         """Test handling of large data payloads"""

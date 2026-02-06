@@ -614,13 +614,4 @@ END $$;
 ROLLBACK;
 
 -- ============================================================================
--- TODO MARKERS FOR IMPLEMENTATION
--- ============================================================================
--- TODO: Implement all 10 test scenarios
--- TODO: Add error case tests
--- TODO: Add edge case tests (circular deps, etc)
--- TODO: Add performance benchmarking
--- TODO: Add concurrency testing (may need separate sessions)
--- TODO: Verify all tests pass before v0.2 release
-
 -- End of v0.2 Schema Merge Operations Tests
