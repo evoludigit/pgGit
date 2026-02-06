@@ -84,19 +84,26 @@ class TestE2EErrorHandlingValidation:
             "INSERT INTO public.constraint_test (email) VALUES (%s)", "user@test.com"
         )
 
-        # Try to insert duplicate
-        with pytest.raises(Exception):
+        # Use savepoint to handle constraint violation without affecting rest of transaction
+        db_e2e.execute("SAVEPOINT sp_constraint_test")
+        try:
             db_e2e.execute(
                 "INSERT INTO public.constraint_test (email) VALUES (%s)",
                 "user@test.com",
             )
-
-        # Rollback the failed transaction
-        db_e2e.rollback()
+            # If we get here, the constraint didn't work
+            assert False, "Constraint violation should have occurred"
+        except Exception:
+            # Expected - constraint violation
+            # Rollback to savepoint, not the entire transaction
+            db_e2e.execute("ROLLBACK TO SAVEPOINT sp_constraint_test")
 
         # Verify only one row exists
         result = db_e2e.execute("SELECT COUNT(*) FROM public.constraint_test")
         assert result[0][0] == 1, "Rollback failed - duplicate inserted"
+
+        # Cleanup
+        db_e2e.execute("DROP TABLE IF EXISTS public.constraint_test CASCADE")
 
     def test_large_data_payload_handling(self, db_e2e, pggit_installed):
         """Test handling of large data payloads"""
@@ -551,8 +558,11 @@ class TestE2EDataIntegrity:
 
         recorded_time = result[0]
 
-        # Verify timestamp is reasonable
-        assert before <= recorded_time <= after, "Timestamp accuracy issue"
+        # Verify timestamp is reasonable (with 1-second tolerance for clock differences)
+        from datetime import timedelta
+        tolerance = timedelta(seconds=1)
+        assert (before - tolerance) <= recorded_time <= (after + tolerance), \
+            f"Timestamp accuracy issue: {before} <= {recorded_time} <= {after}"
 
 
 class TestE2EAdvancedFeatures:

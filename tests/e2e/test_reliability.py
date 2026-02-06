@@ -190,7 +190,7 @@ class TestReliability:
         )
 
         # Create an expired backup to clean up
-        create_expired_backup(db, "audit-test")
+        create_expired_backup(db_e2e, "audit-test")
 
         # Execute cleanup in dry-run mode (will succeed)
         db_e2e.execute("""
@@ -213,7 +213,7 @@ class TestReliability:
             print("✓ Audit logging captures operation records correctly")
         else:
             # Verify function contains error handling code
-            cleanup_source = get_function_source(db, "cleanup_expired_backups")
+            cleanup_source = get_function_source(db_e2e, "cleanup_expired_backups")
             assert cleanup_source and "exception" in cleanup_source.lower(), (
                 "cleanup_expired_backups should contain exception handling"
             )
