@@ -605,7 +605,8 @@ class TestE2EFullWorkflow:
             "user1@example.com",
         )
 
-        # Attempt duplicate (should fail gracefully)
+        # Use savepoint to handle constraint violation without affecting rest of transaction
+        db_e2e.execute("SAVEPOINT sp_integrity_test")
         try:
             db_e2e.execute(
                 "INSERT INTO public.integrity_test (email) VALUES (%s)",
@@ -615,8 +616,8 @@ class TestE2EFullWorkflow:
             assert False, "Unique constraint violated"
         except Exception:
             # Expected - constraint violation
-            # Rollback the failed transaction
-            db_e2e.rollback()
+            # Rollback to savepoint, not the entire transaction
+            db_e2e.execute("ROLLBACK TO SAVEPOINT sp_integrity_test")
 
         # Insert different email (should succeed)
         db_e2e.execute(

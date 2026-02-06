@@ -114,6 +114,7 @@ class TestEventTriggerDiagnostic:
         print("="*80)
 
         # Create a version of handle_ddl_command that uses RAISE NOTICE
+        # Note: %% escapes are needed because psycopg scans for %s/%b/%t placeholders
         db_e2e.execute("""
             CREATE OR REPLACE FUNCTION pggit.test_ddl_trigger() RETURNS event_trigger AS $$
             DECLARE
@@ -124,7 +125,7 @@ class TestEventTriggerDiagnostic:
 
                 FOR v_object IN SELECT * FROM pg_event_trigger_ddl_commands() LOOP
                     v_count := v_count + 1;
-                    RAISE NOTICE 'Command %: % (type=%, schema=%)',
+                    RAISE NOTICE 'Command %%: %% (type=%%, schema=%%)',
                         v_count,
                         v_object.command_tag,
                         v_object.object_type,
@@ -134,7 +135,7 @@ class TestEventTriggerDiagnostic:
                 IF v_count = 0 THEN
                     RAISE NOTICE '⚠️  pg_event_trigger_ddl_commands() returned 0 rows';
                 ELSE
-                    RAISE NOTICE '✅ Processed % DDL command(s)', v_count;
+                    RAISE NOTICE '✅ Processed %% DDL command(s)', v_count;
                 END IF;
             END;
             $$ LANGUAGE plpgsql;
@@ -230,10 +231,11 @@ class TestEventTriggerDiagnostic:
         db_e2e.execute("CREATE TABLE test_log_table (id INT, data TEXT)")
 
         # Check what was logged
+        # Note: %% escapes are needed because psycopg scans for %s/%b/%t placeholders
         log_entries = db_e2e.execute("""
             SELECT command_tag, object_type, object_identity, schema_name
             FROM pggit.trigger_debug_log
-            WHERE object_identity LIKE '%test_log_table%'
+            WHERE object_identity LIKE '%%test_log_table%%'
         """)
 
         print(f"Logged entries: {len(log_entries) if log_entries else 0}")
