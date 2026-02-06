@@ -88,7 +88,10 @@ def db_connection_string(db_config: dict[str, str | None]) -> str:
 
 
 @pytest.fixture(scope="session")
-def chaos_pool(db_connection_string: str) -> ConnectionPool:
+def chaos_pool(
+    db_connection_string: str,
+    chaos_test_db_setup: None,
+) -> ConnectionPool:
     """Session-scoped connection pool for chaos tests."""
     pool = ConnectionPool(
         conninfo=db_connection_string,
@@ -102,7 +105,10 @@ def chaos_pool(db_connection_string: str) -> ConnectionPool:
 
 
 @pytest.fixture(scope="function", autouse=True)
-def cleanup_test_tables(db_connection_string: str) -> None:
+def cleanup_test_tables(
+    db_connection_string: str,
+    chaos_test_db_setup: None,
+) -> None:
     """Clean up test tables before each test function runs."""
     with psycopg.connect(db_connection_string, autocommit=True) as conn:
         try:
@@ -226,6 +232,7 @@ def sync_conn_with_transactions(
 @pytest.fixture
 async def async_conn(
     db_connection_string: str,
+    chaos_test_db_setup: None,
 ) -> AsyncGenerator[psycopg.AsyncConnection, None]:
     """Asynchronous database connection for a single test."""
     async with await psycopg.AsyncConnection.connect(
@@ -279,6 +286,7 @@ def conn_pool(
 @pytest_asyncio.fixture
 async def async_conn_pool(
     db_connection_string: str,
+    chaos_test_db_setup: None,
     request,
 ):
     """Pool of asynchronous database connections for concurrent testing."""
@@ -384,9 +392,8 @@ def chaos_test_db_setup(db_connection_string: str) -> None:
     admin_conn_string = db_connection_string.replace("pggit_chaos_test", "postgres")
 
     try:
-        with psycopg.connect(admin_conn_string) as conn:
+        with psycopg.connect(admin_conn_string, autocommit=True) as conn:
             conn.execute("CREATE DATABASE pggit_chaos_test")
-            conn.commit()
     except psycopg.errors.DuplicateDatabase:
         # Database already exists
         pass
