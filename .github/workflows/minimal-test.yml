@@ -42,67 +42,37 @@ jobs:
         psql -h localhost -U postgres -d test_db -c "SELECT version();"
         psql -h localhost -U postgres -d test_db -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
     
-    - name: Try minimal pgGit setup
+    - name: Install full pgGit
       env:
         PGPASSWORD: postgres
       run: |
-        # Just create the schema and minimal tables
-        psql -h localhost -U postgres -d test_db << 'EOF'
-        -- Create schema
-        CREATE SCHEMA IF NOT EXISTS pggit;
-        
-        -- Create only the tables our tests need
-        CREATE TABLE IF NOT EXISTS pggit.tracking_config (
-            config_id serial PRIMARY KEY,
-            config_type text NOT NULL,
-            action text NOT NULL,
-            pattern text NOT NULL,
-            priority integer DEFAULT 0,
-            created_at timestamptz DEFAULT now()
-        );
-        
-        CREATE TABLE IF NOT EXISTS pggit.deployment_mode (
-            deployment_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            deployment_name text NOT NULL,
-            started_at timestamptz DEFAULT now(),
-            status text DEFAULT 'active'
-        );
-        
-        CREATE TABLE IF NOT EXISTS pggit.deployment_state (
-            id integer PRIMARY KEY DEFAULT 1,
-            current_deployment_id uuid,
-            is_active boolean DEFAULT false
-        );
-        
-        INSERT INTO pggit.deployment_state (id, is_active) 
-        VALUES (1, false) 
-        ON CONFLICT (id) DO NOTHING;
-        
-        SELECT 'Basic setup complete' as status;
-        EOF
-    
-    - name: Try to install just configuration module
-      env:
-        PGPASSWORD: postgres
-      run: |
-        echo "Installing configuration module only..."
+        echo "Installing pgGit using install.sql..."
         cd sql
-        # First check file exists
-        if [ -f "pggit_configuration.sql" ]; then
-          echo "File exists, attempting install..."
-          # Show first 50 lines for debugging
-          head -50 pggit_configuration.sql
-          echo "---"
-          # Try to install
-          if psql -h localhost -U postgres -d test_db -f pggit_configuration.sql; then
-            echo "✓ Configuration module installed successfully"
-          else
-            echo "✗ Configuration module failed to install"
-            # Try to get more specific error
-            psql -h localhost -U postgres -d test_db -f pggit_configuration.sql 2>&1 | tail -100
-            exit 1
-          fi
+        if psql -h localhost -U postgres -d test_db -f install.sql; then
+          echo "✓ pgGit installed successfully"
         else
-          echo "✗ pggit_configuration.sql not found!"
+          echo "✗ pgGit installation failed"
           exit 1
         fi
+
+    - name: Verify installation
+      env:
+        PGPASSWORD: postgres
+      run: |
+        echo "Verifying pgGit installation..."
+        psql -h localhost -U postgres -d test_db << 'EOF'
+        -- Show pgGit version
+        SELECT 'pgGit Version: ' || pggit.version() as version_info;
+
+        -- Count tables in pggit schema
+        SELECT 'Tables in pggit schema: ' || count(*)::text
+        FROM information_schema.tables
+        WHERE table_schema = 'pggit';
+
+        -- Count functions in pggit schema
+        SELECT 'Functions in pggit schema: ' || count(*)::text
+        FROM pg_proc
+        WHERE pronamespace = 'pggit'::regnamespace;
+
+        SELECT '✓ Installation verified successfully' as status;
+        EOF

@@ -47,25 +47,34 @@ jobs:
         SELECT 'Basic setup works' as status;
         EOF
         
-    - name: Try installing core files one by one
+    - name: Install pgGit using install.sql
       env:
         PGPASSWORD: postgres
       run: |
         cd sql
-        for file in 001_schema.sql 002_event_triggers.sql; do
-          echo "Installing $file..."
-          if psql -h localhost -U postgres -d test_db -f "$file"; then
-            echo "✓ $file installed"
-          else
-            echo "✗ $file FAILED"
-            exit 1
-          fi
-        done
-        
-    - name: Try new modules
+        echo "Installing pgGit core..."
+        if psql -h localhost -U postgres -d test_db -f install.sql; then
+          echo "✓ pgGit core installed successfully"
+          psql -h localhost -U postgres -d test_db -c "SELECT 'pgGit version: ' || pggit.version();"
+        else
+          echo "✗ pgGit installation FAILED"
+          exit 1
+        fi
+
+    - name: Verify all modules loaded
       env:
         PGPASSWORD: postgres
       run: |
-        cd sql
-        echo "Testing configuration module..."
-        psql -h localhost -U postgres -d test_db -f pggit_configuration.sql || echo "Configuration module failed"
+        echo "Verifying pgGit installation..."
+        psql -h localhost -U postgres -d test_db << 'EOF'
+        -- Verify core tables exist
+        SELECT 'Checking core tables...' as check;
+        SELECT count(*) as table_count FROM information_schema.tables
+        WHERE table_schema = 'pggit';
+
+        -- List some core functions
+        SELECT 'Core functions available:' as check;
+        SELECT proname FROM pg_proc
+        WHERE pronamespace = 'pggit'::regnamespace
+        LIMIT 10;
+        EOF
