@@ -37,8 +37,10 @@ jobs:
         PGUSER: postgres
         PGDATABASE: pggit_test
       run: |
-        psql -f sql/install.sql
-        psql -f sql/pggit_monitoring.sql
+        cd sql
+        psql -f install.sql
+        # Note: pggit_monitoring.sql is already included in install.sql
+        cd ..
 
     - name: Run SQL injection tests
       env:
