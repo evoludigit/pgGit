@@ -28,7 +28,12 @@ class TestEventTriggerDiagnostic:
 
         if result:
             print(f"✅ Event trigger exists: {result[0]}")
-            assert result[0][1] is True or result[0][1] == 't', "Event trigger is disabled!"
+            # PostgreSQL event trigger states (evtenabled column):
+            # 'O' = Enabled (Origin mode - normal enabled state)
+            # 'D' = Disabled
+            # 'A' = Always (fires in all replication modes)
+            # 'R' = Replica mode only
+            assert result[0][1] == 'O', f"Event trigger is not enabled! Status: {result[0][1]}"
         else:
             print("❌ pggit_ddl_trigger does not exist!")
             # List all event triggers
@@ -259,7 +264,9 @@ class TestEventTriggerDiagnostic:
         """)
 
         if original:
-            print(f"✅ Original pggit_ddl_trigger exists, enabled={original[0][1]}")
+            enabled_state = original[0][1]
+            is_enabled = enabled_state == 'O'
+            print(f"✅ Original pggit_ddl_trigger exists, enabled={enabled_state} ({'ENABLED' if is_enabled else 'DISABLED'})")
         else:
             print("❌ Original pggit_ddl_trigger does NOT exist")
 

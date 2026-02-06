@@ -498,12 +498,12 @@ class TestBackupVerification:
         )
 
         # Check if function exists
-        if not verify_function_exists(db, "verify_backup"):
+        if not verify_function_exists(db_e2e, "verify_backup"):
             pytest.skip("verify_backup function not found in test environment")
 
         # Create backup using helpers
-        commit = create_test_commit(db, "verify")
-        backup_id = register_and_complete_backup(db, "verify-backup", "full", commit)
+        commit = create_test_commit(db_e2e, "verify")
+        backup_id = register_and_complete_backup(db_e2e, "verify-backup", "full", commit)
 
         # Trigger verification
         verification_id = db_e2e.execute_returning(

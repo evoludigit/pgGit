@@ -47,7 +47,7 @@ class TestCrossVersionCore:
 
     def test_extension_loads_on_all_versions(self, db_e2e, pggit_installed):
         """Test pgGit extension loads successfully on PG 15, 16, 17."""
-        version = get_pg_version(db)
+        version = get_pg_version(db_e2e)
         assert version in [15, 16, 17], f"Unsupported PostgreSQL version: {version}"
 
         # Verify pggit schema exists (not a formal extension, just SQL scripts)
@@ -88,7 +88,7 @@ class TestCrossVersionCore:
 
         # Cleanup
         db_e2e.execute("DROP TABLE version_test")
-        print(f"✓ Basic object tracking works on PG {get_pg_version(db)}")
+        print(f"✓ Basic object tracking works on PG {get_pg_version(db_e2e)}")
 
     def test_branching_all_versions(self, db_e2e, pggit_installed):
         """Test branch creation and management on all PG versions."""
@@ -110,7 +110,7 @@ class TestCrossVersionCore:
 
         # Cleanup
         db_e2e.execute("DELETE FROM pggit.branches WHERE id = %s", branch_id)
-        print(f"✓ Branch management works on PG {get_pg_version(db)}")
+        print(f"✓ Branch management works on PG {get_pg_version(db_e2e)}")
 
     @pytest.mark.requires_time_travel_api
     def test_version_increment_all_versions(self, db_e2e, pggit_installed):
@@ -174,7 +174,7 @@ class TestCrossVersionCore:
 
         # Cleanup
         db_e2e.execute("DROP TABLE increment_test")
-        print(f"✓ Version increment works on PG {get_pg_version(db)}")
+        print(f"✓ Version increment works on PG {get_pg_version(db_e2e)}")
 
     def test_schema_introspection_all_versions(self, db_e2e, pggit_installed):
         """Test pgGit schema introspection works consistently."""
@@ -193,7 +193,7 @@ class TestCrossVersionCore:
         assert 'objects' in table_names or 'versions' in table_names, \
             "Object tracking tables missing"
 
-        print(f"✓ Schema introspection works on PG {get_pg_version(db)}")
+        print(f"✓ Schema introspection works on PG {get_pg_version(db_e2e)}")
         print(f"  Found {len(table_names)} pgGit tables: {', '.join(table_names[:5])}")
 
 
@@ -400,7 +400,7 @@ class TestUpgradePath:
 
         # Cleanup
         db_e2e.execute("DROP TABLE migration_test CASCADE")
-        print(f"✓ Migration SQL generation works on PG {get_pg_version(db)}")
+        print(f"✓ Migration SQL generation works on PG {get_pg_version(db_e2e)}")
 
     @pytest.mark.requires_time_travel_api
     def test_version_tracking_across_schema_changes(self, db_e2e, pggit_installed):
@@ -453,7 +453,7 @@ class TestUpgradePath:
 
         # Cleanup
         db_e2e.execute("DELETE FROM pggit.commits WHERE id = %s", commit_id)
-        print(f"✓ Commit metadata preservation works on PG {get_pg_version(db)}")
+        print(f"✓ Commit metadata preservation works on PG {get_pg_version(db_e2e)}")
 
 
 class TestPerformanceAcrossVersions:
@@ -486,7 +486,7 @@ class TestPerformanceAcrossVersions:
         for i in range(50):
             db_e2e.execute(f"DROP TABLE perf_test_{i}")
 
-        print(f"✓ Performance test passed on PG {get_pg_version(db)}")
+        print(f"✓ Performance test passed on PG {get_pg_version(db_e2e)}")
         print(f"  Creation: {creation_time:.2f}s, Queries: {query_time:.2f}s")
 
     def test_branch_creation_performance(self, db_e2e, pggit_installed):

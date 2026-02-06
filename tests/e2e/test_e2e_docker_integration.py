@@ -628,6 +628,9 @@ class TestE2EFullWorkflow:
         result = db_e2e.execute("SELECT COUNT(*) FROM public.integrity_test")
         assert result[0][0] == 2, "Data integrity compromised"
 
+        # Cleanup
+        db_e2e.execute("DROP TABLE IF EXISTS public.integrity_test CASCADE")
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])
