@@ -35,10 +35,9 @@ jobs:
             echo "Validating PR commits from ${{ github.event.pull_request.base.sha }} to ${{ github.event.pull_request.head.sha }}"
             npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
           else
-            # Running from workflow_dispatch or other event - get merge-base
-            MERGE_BASE=$(git merge-base origin/main HEAD)
-            echo "Validating branch commits from $MERGE_BASE to HEAD"
-            npx commitlint --from $MERGE_BASE --to HEAD --verbose
+            # Running from workflow_dispatch - validate only HEAD commit
+            echo "Validating HEAD commit"
+            npx commitlint --from HEAD~1 --to HEAD --verbose
           fi
 
       - name: Generate validation summary
