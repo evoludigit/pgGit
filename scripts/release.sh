@@ -101,7 +101,19 @@ log_success "Updated version to $NEW_VERSION"
 # 2. Update CHANGELOG.md
 log_info "Updating CHANGELOG.md..."
 TODAY=$(date +%Y-%m-%d)
-CHANGELOG_ENTRY=$(cat <<EOF
+
+# Create temporary changelog with new entry
+TEMP_CHANGELOG=$(mktemp)
+cat > "$TEMP_CHANGELOG" <<EOF
+# Changelog
+
+All notable changes to pgGit will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
 ## [${NEW_VERSION}] - ${TODAY}
 
 ### Summary
@@ -109,25 +121,19 @@ Release ${NEW_VERSION} with ${COMMIT_COUNT} commits.
 
 ### Changes
 EOF
-)
 
 # Add commits to changelog
 echo "$COMMITS" | while read -r line; do
     COMMIT_HASH=$(echo "$line" | cut -d' ' -f1)
     COMMIT_MSG=$(echo "$line" | cut -d' ' -f2-)
-    echo "- \`${COMMIT_HASH}\` ${COMMIT_MSG}" >> /tmp/changelog_entries.txt
+    echo "- \`${COMMIT_HASH}\` ${COMMIT_MSG}" >> "$TEMP_CHANGELOG"
 done
 
-if [ -f /tmp/changelog_entries.txt ]; then
-    CHANGELOG_ENTRY+=$'\n'"$(cat /tmp/changelog_entries.txt)"
-    rm -f /tmp/changelog_entries.txt
-fi
+# Append rest of original CHANGELOG (skip header lines)
+tail -n +8 "$CHANGELOG" >> "$TEMP_CHANGELOG"
 
-# Insert into CHANGELOG
-sed -i.bak "/^## \[Unreleased\]/a\\
-\\
-${CHANGELOG_ENTRY}" "$CHANGELOG"
-rm -f "${CHANGELOG}.bak"
+# Replace original with new
+mv "$TEMP_CHANGELOG" "$CHANGELOG"
 log_success "Updated CHANGELOG.md"
 
 # 3. Update README.md version badge (if it exists)
