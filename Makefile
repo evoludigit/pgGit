@@ -8,8 +8,15 @@ PG_CONFIG = pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
 
+# Version and release management
+CURRENT_VERSION := $(shell grep 'version = ' pyproject.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+GIT_REMOTE := origin
+
 # Test targets
 .PHONY: test test-pgtap test-core test-enterprise test-ai test-podman test-all test-clean install clean lint
+# Release targets
+.PHONY: release release-patch release-minor release-major release-check release-dry-run release-help
 
 # Run all tests locally
 test:
@@ -93,3 +100,102 @@ test-help:
 	@echo "  make install       - Install pgGit extension"
 	@echo "  make clean         - Remove pgGit schema"
 	@echo "  make test-help     - Show this help message"
+
+# ============================================================================
+# Release Management Commands
+# ============================================================================
+
+# Validate release prerequisites
+release-check:
+	@echo "🔍 Validating release prerequisites..."
+	@echo ""
+	@echo "Current version: $(CURRENT_VERSION)"
+	@echo "Current branch: $(GIT_BRANCH)"
+	@echo ""
+	@if [ "$(GIT_BRANCH)" != "main" ]; then \
+		echo "❌ ERROR: Must be on 'main' branch. Current: $(GIT_BRANCH)"; \
+		exit 1; \
+	fi
+	@echo "✅ Branch: main"
+	@echo ""
+	@if ! git diff-index --quiet HEAD --; then \
+		echo "❌ ERROR: Working directory has uncommitted changes"; \
+		git status --short; \
+		exit 1; \
+	fi
+	@echo "✅ Working directory: clean"
+	@echo ""
+	@if ! command -v gh &> /dev/null; then \
+		echo "❌ ERROR: GitHub CLI (gh) not installed"; \
+		exit 1; \
+	fi
+	@echo "✅ GitHub CLI: installed"
+	@echo ""
+	@echo "✅ All prerequisites met!"
+
+# Show what would be released (dry run)
+release-dry-run: release-check
+	@echo ""
+	@echo "📋 Release Dry-Run"
+	@echo "Current version: $(CURRENT_VERSION)"
+	@echo ""
+	@echo "Changes since last tag:"
+	@git log $$(git describe --tags --abbrev=0)..HEAD --oneline | head -10
+	@echo ""
+	@echo "Commits on branch:"
+	@git rev-list --count main
+	@echo ""
+
+# Release a patch version (e.g., 0.2.0 → 0.2.1)
+release-patch: release-check
+	@echo "🚀 Creating PATCH release..."
+	@./scripts/release.sh patch
+	@echo "✅ Patch release complete!"
+
+# Release a minor version (e.g., 0.2.0 → 0.3.0)
+release-minor: release-check
+	@echo "🚀 Creating MINOR release..."
+	@./scripts/release.sh minor
+	@echo "✅ Minor release complete!"
+
+# Release a major version (e.g., 0.2.0 → 1.0.0)
+release-major: release-check
+	@echo "🚀 Creating MAJOR release..."
+	@./scripts/release.sh major
+	@echo "✅ Major release complete!"
+
+# Default release target (requires VERSION argument)
+release:
+	@echo "❌ ERROR: Specify release type: make release-patch, release-minor, or release-major"
+	@echo ""
+	@echo "Usage examples:"
+	@echo "  make release-patch   # 0.2.0 → 0.2.1"
+	@echo "  make release-minor   # 0.2.0 → 0.3.0"
+	@echo "  make release-major   # 0.2.0 → 1.0.0"
+	@echo ""
+	@exit 1
+
+# Help for release commands
+release-help:
+	@echo "pgGit Release Commands:"
+	@echo ""
+	@echo "  make release-check     - Validate prerequisites for release"
+	@echo "  make release-dry-run   - Preview what would be released"
+	@echo "  make release-patch     - Create patch release (0.2.0 → 0.2.1)"
+	@echo "  make release-minor     - Create minor release (0.2.0 → 0.3.0)"
+	@echo "  make release-major     - Create major release (0.2.0 → 1.0.0)"
+	@echo "  make release-help      - Show this help message"
+	@echo ""
+	@echo "Release Process:"
+	@echo "  1. Ensure you're on 'main' branch"
+	@echo "  2. All changes committed (no pending work)"
+	@echo "  3. Run 'make release-patch' (or minor/major)"
+	@echo ""
+	@echo "What happens:"
+	@echo "  ✓ Validates prerequisites"
+	@echo "  ✓ Bumps version in pyproject.toml"
+	@echo "  ✓ Updates CHANGELOG.md with changes"
+	@echo "  ✓ Creates annotated git tag"
+	@echo "  ✓ Pushes tag to remote"
+	@echo "  ✓ Creates GitHub release"
+	@echo ""
