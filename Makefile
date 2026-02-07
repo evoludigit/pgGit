@@ -16,7 +16,7 @@ GIT_REMOTE := origin
 # Test targets
 .PHONY: test test-pgtap test-core test-enterprise test-ai test-podman test-all test-clean install clean lint
 # Release targets
-.PHONY: release release-patch release-minor release-major release-check release-dry-run release-help
+.PHONY: release release-patch release-minor release-major release-check release-dry-run release-help validate-changelog
 
 # Run all tests locally
 test:
@@ -86,6 +86,11 @@ lint:
 	@echo "Linting SQL files for syntax errors..."
 	@python3 scripts/lint_sql.py sql/*.sql
 	@echo "✓ SQL linting complete"
+
+# Validate CHANGELOG.md format
+validate-changelog:
+	@echo "Validating CHANGELOG.md..."
+	@./scripts/validate-changelog.sh
 
 # Help for test commands
 test-help:

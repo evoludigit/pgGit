@@ -115,14 +115,169 @@ This project follows a classic Git workflow strategy:
     - Request code review
     - Merge after approval
 
-3. **Release Process**
-   ```bash
-   git checkout main
-   git pull origin main
-   git merge dev
-   git tag -a v1.0.0 -m "Release version 1.0.0"
-git push origin main --tags
-    ```
+3. **Release Process** (Automated - See [Release Management](#-release-management) section below)
+
+## 🚀 Release Management
+
+pgGit uses **automated semantic versioning** with `make` commands. Releases are one-command operations.
+
+### Release Types
+
+- **PATCH** (0.2.0 → 0.2.1): Bug fixes and hotfixes only
+- **MINOR** (0.2.0 → 0.3.0): New features, backward compatible
+- **MAJOR** (0.2.0 → 1.0.0): Breaking changes
+
+### Pre-Release Checklist
+
+Before creating a release, ensure:
+
+```bash
+# 1. All tests pass
+make test
+
+# 2. All code is linted
+ruff check --fix && ruff format
+
+# 3. No uncommitted changes
+git status
+
+# 4. On main branch with latest changes
+git checkout main
+git pull origin main
+```
+
+### Creating a Release
+
+Simply run one of these commands:
+
+```bash
+# For bug fixes only
+make release-patch
+
+# For new features (backward compatible)
+make release-minor
+
+# For breaking changes
+make release-major
+```
+
+### What Happens Automatically
+
+The release command automatically:
+
+1. ✅ **Validates prerequisites** - Checks branch, working directory, and tools
+2. ✅ **Bumps version** - Updates version in `pyproject.toml` using semantic versioning
+3. ✅ **Updates CHANGELOG** - Captures all commits since last release
+4. ✅ **Updates badges** - Updates version in `README.md`
+5. ✅ **Creates commit** - Commits version bump with proper message
+6. ✅ **Creates tag** - Annotated git tag with release notes
+7. ✅ **Pushes to remote** - Pushes main branch and tag
+8. ✅ **Creates GitHub release** - Publishes release on GitHub
+
+### Verify Release
+
+After release completes, verify on GitHub:
+
+```bash
+# Show your release
+git describe --tags
+# Output: v0.2.1
+
+# View on GitHub
+# https://github.com/evoludigit/pgGit/releases/tag/v0.2.1
+```
+
+### Rollback (If Needed)
+
+If a release has issues:
+
+```bash
+# Delete local tag
+git tag -d v0.2.1
+
+# Delete remote tag
+git push origin :refs/tags/v0.2.1
+
+# Delete GitHub release (via GitHub web UI or gh CLI)
+gh release delete v0.2.1
+
+# Fix the issue and retry
+# ... make changes ...
+make release-patch
+```
+
+### Release Workflow Example
+
+```bash
+# 1. Complete your feature work and merge to main
+git checkout main
+git pull origin main
+
+# 2. Run tests to verify
+make test
+
+# 3. Preview what will be released
+make release-dry-run
+
+# Output shows commits since last tag:
+# Changes since last tag:
+# 186577d fix(release): Fix sed multi-line append issue
+# 7303d61 chore(release): Add automated release management system
+# 03face8 fix(ci): Update debug-test and minimal-test workflows
+# ... and more
+
+# 4. Create the release
+make release-patch
+
+# Output:
+# 🚀 Creating PATCH release...
+# ✅ Updated version to 0.2.1
+# ✅ Updated CHANGELOG.md
+# ✅ Created commit
+# ✅ Created tag v0.2.1
+# ✅ Pushed main branch
+# ✅ Pushed tag v0.2.1
+# ✅ Created GitHub release
+# 🎉 Release v0.2.1 complete!
+
+# 5. Announce the release
+# Share the link: https://github.com/evoludigit/pgGit/releases/tag/v0.2.1
+```
+
+### Release Commands Reference
+
+```bash
+make release-help       # Show all release commands
+make release-check      # Validate prerequisites
+make release-dry-run    # Preview without committing
+make release-patch      # Bug fix release (0.2.0 → 0.2.1)
+make release-minor      # Feature release (0.2.0 → 0.3.0)
+make release-major      # Breaking change (0.2.0 → 1.0.0)
+```
+
+### Troubleshooting
+
+**"Must be on 'main' branch"**
+```bash
+git checkout main
+git pull origin main
+```
+
+**"Working directory has uncommitted changes"**
+```bash
+git status  # Review changes
+git add .
+git commit -m "..."
+```
+
+**"GitHub CLI not installed"**
+```bash
+# macOS: brew install gh
+# Ubuntu: sudo apt-get install gh
+# Then: gh auth login
+```
+
+For more details, see [`.github/RELEASE_CHECKLIST.md`](.github/RELEASE_CHECKLIST.md).
 
 ## Reporting Issues
 

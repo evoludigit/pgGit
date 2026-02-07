@@ -196,6 +196,14 @@ EOF
 log_success "Created tag v${NEW_VERSION}"
 
 # 6. Push to remote
+log_info "Validating changelog..."
+if ./scripts/validate-changelog.sh; then
+    log_success "Changelog validation passed"
+else
+    log_error "Changelog validation failed"
+    exit 1
+fi
+
 log_info "Pushing to remote..."
 git push origin main
 log_success "Pushed main branch"
