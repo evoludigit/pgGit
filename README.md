@@ -34,7 +34,7 @@ This discipline enables rapid iteration, market validation, and sustainable grow
 
 [![Build](https://github.com/evoludigit/pgGit/actions/workflows/build.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/build.yml)
 [![Tests](https://github.com/evoludigit/pgGit/actions/workflows/tests.yml/badge.svg)](https://github.com/evoludigit/pgGit/actions/workflows/tests.yml)
-[![Version: 0.2.0](https://img.shields.io/badge/version-0.2.0-blue.svg)](CHANGELOG.md)
+[![Version: 0.2.0](https://img.shields.io/badge/version-0.2.1-blue.svg)](CHANGELOG.md)
 [![PostgreSQL 15-17](https://img.shields.io/badge/PostgreSQL-15--17-blue.svg)](https://www.postgresql.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Development Tool](https://img.shields.io/badge/Use%20In-Development-green.svg)](docs/guides/DEVELOPMENT_WORKFLOW.md)

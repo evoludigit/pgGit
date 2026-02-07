@@ -7,6 +7,103 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-02-07
+
+### Summary
+Release 0.2.1 with 89 commits.
+
+### Changes
+- `186577d` fix(release): Fix sed multi-line append issue in CHANGELOG update
+- `7303d61` chore(release): Add automated release management system
+- `03face8` fix(ci): Update debug-test and minimal-test workflows to use install.sql
+- `151e6b4` fix(ci): Fix security-tests workflow to properly load pgGit installation
+- `06a064b` fix(ci): Fix test workflow to use correct install.sql approach
+- `3ccd189` Release v0.2.0: Comprehensive merge with CI/CD fixes and 475+ tests
+- `0364c4a` docs(release): Add v0.2.0 release announcement for developer review
+- `f8a4142` docs(archive): Add comprehensive merge completion report for v0.2.0
+- `7904008` chore(version): Bump to v0.2.0 for comprehensive merge release
+- `9201296` merge: Resolve conflicts - use finalized versions
+- `bbc1455` merge: Integrate CI/CD fixes from fix-ci-test-failures
+- `117a5bc` docs(archive): Add finalization completion report
+- `5f5c214` refactor(finalization): Remove all development archaeology and prepare for v0.2 release
+- `15e83b7` fix(chaos): Fix database setup fixture dependency injection
+- `0aa93c9` fix(ci): Add pythonpath to pytest configuration for proper module discovery
+- `953ec65` chore(ci): Fix commitlint validation section to use HEAD~1 for workflow_dispatch
+- `46f8110` chore(ci): Fix commitlint validation summary to use HEAD~1 for workflow_dispatch
+- `7052d97` chore(ci): Use merge-base for commitlint validation in workflow_dispatch
+- `c17c906` chore(ci): Fix commitlint validation for workflow_dispatch events
+- `1c76aba` chore(ci): Add workflow_dispatch trigger to enable manual workflow execution
+- `7b1fdf1` fix(tests): Fix all 23+ CI/CD test failures and infrastructure issues
+- `3e7edce` docs: Add session TODO for 2026-02-05
+- `5f87c1c` fix(tests): Fix type tracking tests transaction handling
+- `cdb5fad` fix(tests): Fix FK dependency test transaction handling
+- `04a8301` fix(sql): Disable broken enhanced trigger implementation
+- `f14aa42` fix(tests): Add tolerance window for timestamp accuracy test
+- `9d17d08` fix(tests): Fix backup verification and FK dependency test schema issues
+- `895f3f3` fix(tests): Fix audit logging test fixture references
+- `d07cf11` docs(test-infrastructure): Add comprehensive documentation and finalize Phase 7
+- `cc391b4` refactor(test-infrastructure): Remove old db fixture - enforce new pattern
+- `c7311fe` fix(test-infrastructure): Import db_setup fixture for validation tests
+- `edd0332` feat(test-infrastructure): Migrate all E2E tests to db_e2e fixture - Phase 6 Complete
+- `7065d2a` feat(test-infrastructure): Migrate E2E tests to db_e2e fixture - Phase 6.1
+- `d172eb6` feat(test-infrastructure): Implement 4-fixture isolated database architecture - Phase 1-5
+- `61c6ee0` fix(test-infrastructure): Fix remaining test failures with rollback handling and DDL tracking
+- `5fa97cf` fix(test-infrastructure): Resolve fixture dict_row access issues and user-journey setup
+- `7ca29c6` fix(sql): Resolve function redefinition and table schema conflicts
+- `3ef3656` fix(sql): Fix AI accuracy table GIST index issue
+- `1d792fb` fix(sql): Fix schema migration and merge operations
+- `8bd90dc` refactor(sql): Comprehensively renumber all SQL files with consecutive integers
+- `058c2b8` fix(sql): Move schema migration to end of installation sequence
+- `1929cf3` refactor(sql): Systematically renumber SQL files to eliminate duplicates
+- `04733e6` refactor(sql): Fix file numbering to avoid duplicates
+- `0611868` fix(sql): Add missing pggit.version() function and schema tables
+- `aae385e` test: Trigger CI/CD workflows to verify Release Please permissions
+- `2043ba7` chore: Fix secrets scanning workflow permissions
+- `945e3f8` chore: Fix CI/CD configuration issues
+- `1423890` chore: Release v0.5.1 - Comprehensive functional test suite (#19)
+- `9333325` chore: Release v0.5.1 - Comprehensive functional test suite
+- `bdaaaec` chore: Fix ruff linting issues (f-string and unused variables)
+- `e8c35a2` chore: Code formatting and type annotation improvements for finalization
+- `621d138` test(zero-downtime-deployment): Complete Phase 7 - Comprehensive deployment test suite
+- `d06ae57` test(ai-features): Complete Phase 6 - Comprehensive AI/ML test suite
+- `4caa903` test(conflict-resolution): Complete Phase 5 - Comprehensive conflict resolution test suite
+- `dfaaad6` feat: Phase 4 Migration Integration - comprehensive functional tests (42 tests)
+- `d27831f` feat: Phase 3 Function Versioning - comprehensive functional tests (30 tests)
+- `70cbac2` feat: Phase 2 CQRS Support - comprehensive functional tests (22 tests)
+- `6efd500` fix: Phase 1 functional test infrastructure - align tests with actual implementation
+- `855f0d1` fix: Close all open transactions in stub test files - FIX XFAIL ✅
+- `b951add` fix: Resolve all remaining issues - 100% test pass rate ✅
+- `9c5946f` test(data-branching): Add cleanup for schemas between test runs
+- `04b743b` refactor(test): Skip unimplemented feature tests and add linting
+- `c818033` fix(data-branching): Add COLLATE "C" to get_base_table_info view lookup
+- `c4f660d` chore: Release v0.5.0 - Test infrastructure overhaul
+- `51700a5` docs: Add release preparation guide and v0.5.0 placeholder
+- `2faf4b1` chore: Prepare v0.4.1 release - Test organization improvements
+- `571f0ba` docs: Update v0.4.0 changelog - reflect deadlock test consolidation
+- `06e7446` refactor: Move deadlock testing to chaos suite
+- `a90d847` docs: Add v0.4.0 release notes - Test infrastructure and bug fixes
+- `d303113` fix(sql): Remove orphaned IF NOT FOUND block in pggit.verify_backup()
+- `20dac6a` fix(e2e): Resolve schema constraint violations in test fixtures
+- `74c4d93` fix(e2e): Add dynamic port allocation for Docker container startup
+- `dbba290` feat(testing): Add connection pooling infrastructure and fix xfail tests
+- `99d50da` fix(v0.3.1): Resolve code quality issues - fix fake tests and stub function
+- `c91810b` feat(v0.3.1): Add advanced reporting, analytics & performance optimization
+- `cacf58a` fix(tests): Improve test integrity - replace fake >= 0 conditions
+- `a89efdb` feat(workflows): Complete Phase 10 Week 10 - Advanced Workflows & Polish
+- `9ad7712` feat(schema-diffing): Complete Phase 9 Week 9 - Schema Diffing Foundation
+- `682ada5` feat: Implement Phase 8 Week 8 - Batch Operations & Production Monitoring
+- `a58d5ac` fix: Complete Phase 7 Week 7 test fixes and function improvements
+- `efe1a58` feat(v0.2-phase7): Implement advanced merge operations - Week 7 foundation
+- `17d3081` chore: Release v0.2.0 - Merge Operations Complete
+- `deb57f9` docs: Week 6 - Polish & Release Prep for v0.2
+- `d7c3847` feat(merge): Fix FULL OUTER JOIN in conflict detection - now detects all objects
+- `b48c11d` feat(v0.2): Implement merge status and abort utilities
+- `a4ec747` feat(v0.2): Implement resolve_conflict() and merge completion logic
+- `dbedc63` feat(v0.2): Implement merge() function with passing tests
+- `9065bde` feat(v0.2): Implement detect_conflicts() function with passing tests
+- `cb54478` feat(v0.2): Add merge operations SQL structure and test framework
+## [Unreleased]
+
 ### Fixed
 - **Data Branching - Collation Bug** ✅
   - Fixed collation mismatch in `get_base_table_info()` WHERE clause
