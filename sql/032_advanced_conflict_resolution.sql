@@ -570,10 +570,8 @@ ON pggit.conflict_resolution_history(merge_status, resolved_at DESC);
 -- Grant Permissions
 -- =====================================================
 
-GRANT SELECT, INSERT, UPDATE ON pggit.conflict_resolution_strategies TO PUBLIC;
-GRANT SELECT, INSERT ON pggit.semantic_conflicts TO PUBLIC;
-GRANT SELECT, INSERT ON pggit.conflict_resolution_history TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. See documentation for guidance.
 
 -- =====================================================
 -- Drop Legacy Functions (Before Redefining with New Signatures)

@@ -781,7 +781,5 @@ FROM pggit.storage_tiers
 ON CONFLICT (tier) DO UPDATE
 SET bytes_available = EXCLUDED.bytes_available;
 
--- Grant permissions
-GRANT ALL ON SCHEMA pggit_storage TO PUBLIC;
-GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA pggit TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. See documentation for guidance.

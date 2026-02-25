@@ -3713,10 +3713,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Grant permissions
-GRANT USAGE ON SCHEMA pggit TO PUBLIC;
-GRANT SELECT ON ALL TABLES IN SCHEMA pggit TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. See documentation for guidance.
 
 -- Create performance indexes
 CREATE INDEX IF NOT EXISTS idx_branches_status ON pggit.branches(status) WHERE status = 'ACTIVE';
@@ -5958,9 +5956,6 @@ BEGIN
                 )
             WHERE deployment_id = p_deployment_id;
 
-            -- Small delay to avoid overwhelming the database
-            PERFORM pg_sleep(0.1);
-
         EXCEPTION
             WHEN OTHERS THEN
                 -- Log error but continue with next batch
@@ -6162,9 +6157,6 @@ BEGIN
           AND (p_target IS NULL OR usename = p_target OR application_name = p_target);
 
         EXIT WHEN v_disconnected = 0;
-
-        -- Wait a bit before checking again
-        PERFORM pg_sleep(1);
     END LOOP;
 
     -- Second phase: Attempt graceful termination using pg_terminate_backend
@@ -6188,9 +6180,6 @@ BEGIN
                     v_connection.pid, SQLERRM;
         END;
     END LOOP;
-
-    -- Wait a moment for terminations to take effect
-    PERFORM pg_sleep(1);
 
     -- Calculate how many connections were drained
     SELECT COUNT(*) INTO v_disconnected
@@ -6264,9 +6253,8 @@ ON pggit.shadow_tables(deployment_id);
 CREATE INDEX IF NOT EXISTS idx_validations_deployment 
 ON pggit.deployment_validations(deployment_id);
 
--- Grant permissions
-GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA pggit TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. See documentation for guidance.
 
 -- ========================================
 -- File: 013_branch_merge_operations.sql
@@ -7342,10 +7330,8 @@ ON pggit.data_conflicts(merge_id);
 CREATE INDEX IF NOT EXISTS idx_data_conflicts_resolution 
 ON pggit.data_conflicts(resolution) WHERE resolution = 'pending';
 
--- Grant permissions
-GRANT ALL ON SCHEMA pggit_branches TO PUBLIC;
-GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA pggit TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. See documentation for guidance.
 
 -- ========================================
 -- File: 016_merge_operations.sql
@@ -7789,13 +7775,6 @@ GRANT EXECUTE ON FUNCTION pggit.detect_conflicts(text, text) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.merge(text, text, text) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.get_merge_status(uuid) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.abort_merge(uuid, text) TO PUBLIC;
-
--- ============================================================================
--- TODO MARKERS
--- ============================================================================
--- Phase 1 Implementation Checklist:
-
--- End of v0.2 Merge Operations SQL
 
 
 -- ========================================
@@ -8345,15 +8324,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Grant permissions
-GRANT SELECT, INSERT ON ALL TABLES IN SCHEMA pggit TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. See documentation for guidance.
 
 -- ========================================
 -- File: 018_advanced_merge_operations.sql
 -- ========================================
 
--- pgGit v0.2 Phase 7: Advanced Merge Operations
+-- pgGit: Advanced Merge Operations
 -- Three-way merge algorithm, semantic conflict detection, automatic heuristics
 -- Author: stephengibson12
 
@@ -9504,15 +9482,14 @@ ON pggit.ai_ground_truth(prediction_id);
 CREATE INDEX IF NOT EXISTS idx_accuracy_metrics_model 
 ON pggit.ai_accuracy_metrics(model_version, calculated_at DESC);
 
--- Grant permissions
-GRANT SELECT, INSERT ON ALL TABLES IN SCHEMA pggit TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. See documentation for guidance.
 
 -- ========================================
 -- File: 020_batch_operations_monitoring.sql
 -- ========================================
 
--- pgGit v0.2 Phase 8: Batch Operations & Production Monitoring
+-- pgGit: Batch Operations & Production Monitoring
 -- Performance optimization, batch merges, health checks, observability
 -- Author: stephengibson12
 
@@ -11007,16 +10984,14 @@ FROM pggit.storage_tiers
 ON CONFLICT (tier) DO UPDATE
 SET bytes_available = EXCLUDED.bytes_available;
 
--- Grant permissions
-GRANT ALL ON SCHEMA pggit_storage TO PUBLIC;
-GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA pggit TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. See documentation for guidance.
 
 -- ========================================
 -- File: 022_schema_diffing_foundation.sql
 -- ========================================
 
--- pgGit v0.3 Phase 9: Schema Diffing Foundation
+-- pgGit: Schema Diffing Foundation
 -- Detailed schema comparison, diff detection, and migration planning
 -- Author: stephengibson12
 
@@ -11946,7 +11921,6 @@ BEGIN
 
     -- Simulate prefetch operation
     -- In real implementation, this would load data into cache
-    PERFORM pg_sleep(0.05);  -- Simulate I/O delay (50ms)
 
     -- Update object statistics
     UPDATE pggit.storage_objects
@@ -12015,7 +11989,7 @@ VALUES
 -- File: 024_advanced_workflows.sql
 -- ========================================
 
--- pgGit v0.3 Phase 10: Advanced Workflows & Polish
+-- pgGit: Advanced Workflows & Polish
 -- Workflow orchestration, CI/CD integration, advanced reporting
 
 -- ============================================================================
@@ -13142,7 +13116,7 @@ COMMENT ON FUNCTION pggit.create_temporal_branch(TEXT, TEXT, INTERVAL) IS
 -- File: 026_advanced_reporting.sql
 -- ========================================
 
--- pgGit v0.3.1 Phase 11: Advanced Reporting
+-- pgGit: Advanced Reporting
 -- HTML/Markdown reports, schema evolution timelines, comprehensive analytics
 
 -- ============================================================================
@@ -13447,7 +13421,7 @@ ORDER BY created_at DESC;
 -- File: 027_analytics_insights.sql
 -- ========================================
 
--- pgGit v0.3.1 Phase 11: Analytics & Insights
+-- pgGit: Analytics & Insights
 -- Change frequency analysis, trend tracking, effort estimation
 
 -- ============================================================================
@@ -13740,7 +13714,7 @@ LIMIT 20;
 -- File: 028_performance_optimization.sql
 -- ========================================
 
--- pgGit v0.3.1 Phase 11: Performance Optimization
+-- pgGit: Performance Optimization
 -- Query optimization, storage management, performance monitoring
 
 -- ============================================================================
@@ -14891,9 +14865,8 @@ ON pggit.temporal_query_cache(query_hash);
 -- Grant Permissions
 -- =====================================================
 
-GRANT SELECT, INSERT ON pggit.temporal_snapshots TO PUBLIC;
-GRANT SELECT, INSERT ON pggit.temporal_changelog TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. See documentation for guidance.
 
 -- =====================================================
 -- Drop Legacy Functions (Before Redefining with New Signatures)
@@ -15585,10 +15558,8 @@ ON pggit.ml_model_metadata(model_name, model_version DESC);
 -- Grant Permissions
 -- =====================================================
 
-GRANT SELECT, INSERT, UPDATE ON pggit.ml_access_patterns TO PUBLIC;
-GRANT SELECT, INSERT, UPDATE ON pggit.ml_prediction_cache TO PUBLIC;
-GRANT SELECT, INSERT, UPDATE ON pggit.ml_model_metadata TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. See documentation for guidance.
 
 -- =====================================================
 -- Drop Legacy Functions (Before Redefining with New Signatures)
@@ -16318,10 +16289,8 @@ ON pggit.conflict_resolution_history(merge_status, resolved_at DESC);
 -- Grant Permissions
 -- =====================================================
 
-GRANT SELECT, INSERT, UPDATE ON pggit.conflict_resolution_strategies TO PUBLIC;
-GRANT SELECT, INSERT ON pggit.semantic_conflicts TO PUBLIC;
-GRANT SELECT, INSERT ON pggit.conflict_resolution_history TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. See documentation for guidance.
 
 -- =====================================================
 -- Drop Legacy Functions (Before Redefining with New Signatures)
@@ -16891,22 +16860,9 @@ COMMENT ON VIEW pggit.commit_backup_coverage IS 'Shows backup coverage analysis 
 -- Grants
 -- =====================================================
 
--- Grant access to backup tables (assuming public schema access)
--- Note: In production, adjust these grants based on security requirements
-
-GRANT SELECT, INSERT, UPDATE ON pggit.backups TO PUBLIC;
-GRANT SELECT, INSERT, UPDATE ON pggit.backup_dependencies TO PUBLIC;
-GRANT SELECT, INSERT ON pggit.backup_verifications TO PUBLIC;
-GRANT SELECT, INSERT, DELETE ON pggit.backup_tags TO PUBLIC;
-
-GRANT SELECT ON pggit.branch_backup_coverage TO PUBLIC;
-GRANT SELECT ON pggit.commit_backup_coverage TO PUBLIC;
-
-GRANT EXECUTE ON FUNCTION pggit.register_backup TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.complete_backup TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.fail_backup TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.list_backups TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.get_backup_info TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. Backup functions can be restricted
+-- to specific backup operator roles. See security documentation.
 
 
 -- ========================================
@@ -17467,21 +17423,9 @@ ORDER BY
 COMMENT ON VIEW pggit.backup_job_queue IS 'Current status of all backup jobs in the queue';
 
 -- =====================================================
--- Grants
--- =====================================================
-
-GRANT SELECT, INSERT, UPDATE ON pggit.backup_jobs TO PUBLIC;
-GRANT SELECT ON pggit.backup_job_queue TO PUBLIC;
-
-GRANT EXECUTE ON FUNCTION pggit.enqueue_backup_job TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.get_next_backup_job TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.complete_backup_job TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.fail_backup_job TO PUBLIC;
-
-GRANT EXECUTE ON FUNCTION pggit.backup_pgbackrest TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.backup_barman TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.backup_pg_dump TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.update_pgbackrest_metadata TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. Backup automation functions should
+-- be restricted to backup operator roles only.
 
 
 -- ========================================
@@ -19658,14 +19602,9 @@ $$ LANGUAGE plpgsql;
 -- PERMISSIONS
 -- ============================================
 
--- Grant read access to audit data
-GRANT USAGE ON SCHEMA pggit_audit TO PUBLIC;
-GRANT SELECT ON ALL TABLES IN SCHEMA pggit_audit TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit_audit TO PUBLIC;
-
--- Grant write access for compliance operations (restrict as needed)
-GRANT INSERT ON pggit_audit.compliance_log TO PUBLIC;
-GRANT UPDATE ON pggit_audit.changes TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. Audit functions should be restricted
+-- to audit administrators. See security documentation.
 
 -- ============================================
 -- METADATA
@@ -25237,11 +25176,9 @@ COMMENT ON FUNCTION pggit_migration.generate_migration_report IS 'Generate compr
 
 -- Grant appropriate permissions
 GRANT USAGE ON SCHEMA pggit_migration TO PUBLIC;
-GRANT SELECT ON ALL TABLES IN SCHEMA pggit_migration TO PUBLIC;
-GRANT INSERT, UPDATE ON pggit_migration.migration_status TO PUBLIC;
-GRANT INSERT ON pggit_migration.migration_errors TO PUBLIC;
-GRANT INSERT ON pggit_migration.migration_verification TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit_migration TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. Migration functions should be
+-- restricted to migration operators.
 
 -- ============================================
 -- INITIALIZATION COMPLETE
@@ -27219,7 +27156,7 @@ $$ LANGUAGE plpgsql;
 -- Functions for understanding pggit_v0 storage and performance
 -- Supports capacity planning, health monitoring, and optimization
 --
--- Week 5 Deliverable: Analytics functions for:
+-- Analytics functions for:
 -- - Storage usage analysis
 -- - Performance metrics
 -- - Health checks and data integrity
@@ -27675,7 +27612,7 @@ END $$;
 -- Advanced branching operations for schema workflows
 -- Supports feature branches, merging, rebasing, conflict detection
 --
--- Week 5 Deliverable: Branching/merging functions for:
+-- Branching/merging functions for:
 -- - Advanced branch management
 -- - Conflict detection
 -- - Merge strategies (recursive, ours, theirs)
@@ -28168,7 +28105,7 @@ END $$;
 -- CLI-friendly functions for common pggit_v0 operations
 -- Designed for developers to easily work with schema versioning
 --
--- Week 4 Deliverable: 9+ functions for:
+-- Developer tools for:
 -- - Schema/object navigation
 -- - Branching operations
 -- - History & change tracking
@@ -28511,7 +28448,7 @@ END $$;
 -- Monitoring views and alert functions for production readiness
 -- Supports dashboard integration and operational health checks
 --
--- Week 5 Deliverable: Monitoring functions for:
+-- Monitoring functions for:
 -- - Current system state summary
 -- - Health check summary
 -- - Alert detection
@@ -28988,7 +28925,7 @@ END $$;
 -- Pre-built views for common queries and insights
 -- Supports development workflows and monitoring
 --
--- Week 4 Deliverable: 10+ views for:
+-- Views for:
 -- - Development insights
 -- - Activity tracking
 -- - Data quality monitoring

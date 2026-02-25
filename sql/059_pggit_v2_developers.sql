@@ -4,7 +4,7 @@
 -- CLI-friendly functions for common pggit_v0 operations
 -- Designed for developers to easily work with schema versioning
 --
--- Week 4 Deliverable: 9+ functions for:
+-- Developer tools for:
 -- - Schema/object navigation
 -- - Branching operations
 -- - History & change tracking

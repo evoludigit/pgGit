@@ -1,4 +1,4 @@
--- pgGit v0.2 Phase 7: Advanced Merge Operations
+-- pgGit: Advanced Merge Operations
 -- Three-way merge algorithm, semantic conflict detection, automatic heuristics
 -- Author: stephengibson12
 

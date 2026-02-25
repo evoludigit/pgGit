@@ -670,11 +670,9 @@ COMMENT ON FUNCTION pggit_migration.generate_migration_report IS 'Generate compr
 
 -- Grant appropriate permissions
 GRANT USAGE ON SCHEMA pggit_migration TO PUBLIC;
-GRANT SELECT ON ALL TABLES IN SCHEMA pggit_migration TO PUBLIC;
-GRANT INSERT, UPDATE ON pggit_migration.migration_status TO PUBLIC;
-GRANT INSERT ON pggit_migration.migration_errors TO PUBLIC;
-GRANT INSERT ON pggit_migration.migration_verification TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit_migration TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. Migration functions should be
+-- restricted to migration operators.
 
 -- ============================================
 -- INITIALIZATION COMPLETE

@@ -4,7 +4,7 @@
 -- Monitoring views and alert functions for production readiness
 -- Supports dashboard integration and operational health checks
 --
--- Week 5 Deliverable: Monitoring functions for:
+-- Monitoring functions for:
 -- - Current system state summary
 -- - Health check summary
 -- - Alert detection

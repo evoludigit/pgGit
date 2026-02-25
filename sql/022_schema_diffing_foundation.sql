@@ -1,4 +1,4 @@
--- pgGit v0.3 Phase 9: Schema Diffing Foundation
+-- pgGit: Schema Diffing Foundation
 -- Detailed schema comparison, diff detection, and migration planning
 -- Author: stephengibson12
 

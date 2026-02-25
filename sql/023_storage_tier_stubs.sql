@@ -199,7 +199,6 @@ BEGIN
 
     -- Simulate prefetch operation
     -- In real implementation, this would load data into cache
-    PERFORM pg_sleep(0.05);  -- Simulate I/O delay (50ms)
 
     -- Update object statistics
     UPDATE pggit.storage_objects

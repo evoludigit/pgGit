@@ -348,10 +348,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Grant permissions
-GRANT USAGE ON SCHEMA pggit TO PUBLIC;
-GRANT SELECT ON ALL TABLES IN SCHEMA pggit TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. See documentation for guidance.
 
 -- Create performance indexes
 CREATE INDEX IF NOT EXISTS idx_branches_status ON pggit.branches(status) WHERE status = 'ACTIVE';

@@ -436,10 +436,3 @@ GRANT EXECUTE ON FUNCTION pggit.detect_conflicts(text, text) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.merge(text, text, text) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.get_merge_status(uuid) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.abort_merge(uuid, text) TO PUBLIC;
-
--- ============================================================================
--- TODO MARKERS
--- ============================================================================
--- Phase 1 Implementation Checklist:
-
--- End of v0.2 Merge Operations SQL

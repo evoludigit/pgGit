@@ -4,7 +4,7 @@
 -- Advanced branching operations for schema workflows
 -- Supports feature branches, merging, rebasing, conflict detection
 --
--- Week 5 Deliverable: Branching/merging functions for:
+-- Branching/merging functions for:
 -- - Advanced branch management
 -- - Conflict detection
 -- - Merge strategies (recursive, ours, theirs)

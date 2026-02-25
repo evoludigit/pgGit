@@ -543,6 +543,5 @@ ON pggit.ai_ground_truth(prediction_id);
 CREATE INDEX IF NOT EXISTS idx_accuracy_metrics_model 
 ON pggit.ai_accuracy_metrics(model_version, calculated_at DESC);
 
--- Grant permissions
-GRANT SELECT, INSERT ON ALL TABLES IN SCHEMA pggit TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. See documentation for guidance.

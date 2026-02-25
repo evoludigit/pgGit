@@ -1,4 +1,4 @@
--- pgGit v0.3.1 Phase 11: Advanced Reporting
+-- pgGit: Advanced Reporting
 -- HTML/Markdown reports, schema evolution timelines, comprehensive analytics
 
 -- ============================================================================

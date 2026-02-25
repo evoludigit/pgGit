@@ -1,4 +1,4 @@
--- pgGit v0.3.1 Phase 11: Analytics & Insights
+-- pgGit: Analytics & Insights
 -- Change frequency analysis, trend tracking, effort estimation
 
 -- ============================================================================

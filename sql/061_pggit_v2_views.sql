@@ -4,7 +4,7 @@
 -- Pre-built views for common queries and insights
 -- Supports development workflows and monitoring
 --
--- Week 4 Deliverable: 10+ views for:
+-- Views for:
 -- - Development insights
 -- - Activity tracking
 -- - Data quality monitoring

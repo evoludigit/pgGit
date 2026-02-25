@@ -582,10 +582,8 @@ ON pggit.ml_model_metadata(model_name, model_version DESC);
 -- Grant Permissions
 -- =====================================================
 
-GRANT SELECT, INSERT, UPDATE ON pggit.ml_access_patterns TO PUBLIC;
-GRANT SELECT, INSERT, UPDATE ON pggit.ml_prediction_cache TO PUBLIC;
-GRANT SELECT, INSERT, UPDATE ON pggit.ml_model_metadata TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. See documentation for guidance.
 
 -- =====================================================
 -- Drop Legacy Functions (Before Redefining with New Signatures)

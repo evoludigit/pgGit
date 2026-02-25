@@ -1,4 +1,4 @@
--- pgGit v0.3 Phase 10: Advanced Workflows & Polish
+-- pgGit: Advanced Workflows & Polish
 -- Workflow orchestration, CI/CD integration, advanced reporting
 
 -- ============================================================================

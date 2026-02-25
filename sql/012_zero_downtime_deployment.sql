@@ -858,9 +858,6 @@ BEGIN
                 )
             WHERE deployment_id = p_deployment_id;
 
-            -- Small delay to avoid overwhelming the database
-            PERFORM pg_sleep(0.1);
-
         EXCEPTION
             WHEN OTHERS THEN
                 -- Log error but continue with next batch
@@ -1062,9 +1059,6 @@ BEGIN
           AND (p_target IS NULL OR usename = p_target OR application_name = p_target);
 
         EXIT WHEN v_disconnected = 0;
-
-        -- Wait a bit before checking again
-        PERFORM pg_sleep(1);
     END LOOP;
 
     -- Second phase: Attempt graceful termination using pg_terminate_backend
@@ -1088,9 +1082,6 @@ BEGIN
                     v_connection.pid, SQLERRM;
         END;
     END LOOP;
-
-    -- Wait a moment for terminations to take effect
-    PERFORM pg_sleep(1);
 
     -- Calculate how many connections were drained
     SELECT COUNT(*) INTO v_disconnected
@@ -1164,6 +1155,5 @@ ON pggit.shadow_tables(deployment_id);
 CREATE INDEX IF NOT EXISTS idx_validations_deployment 
 ON pggit.deployment_validations(deployment_id);
 
--- Grant permissions
-GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA pggit TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. See documentation for guidance.

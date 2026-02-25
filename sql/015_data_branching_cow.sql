@@ -875,7 +875,5 @@ ON pggit.data_conflicts(merge_id);
 CREATE INDEX IF NOT EXISTS idx_data_conflicts_resolution 
 ON pggit.data_conflicts(resolution) WHERE resolution = 'pending';
 
--- Grant permissions
-GRANT ALL ON SCHEMA pggit_branches TO PUBLIC;
-GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA pggit TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. See documentation for guidance.

@@ -221,14 +221,9 @@ $$ LANGUAGE plpgsql;
 -- PERMISSIONS
 -- ============================================
 
--- Grant read access to audit data
-GRANT USAGE ON SCHEMA pggit_audit TO PUBLIC;
-GRANT SELECT ON ALL TABLES IN SCHEMA pggit_audit TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit_audit TO PUBLIC;
-
--- Grant write access for compliance operations (restrict as needed)
-GRANT INSERT ON pggit_audit.compliance_log TO PUBLIC;
-GRANT UPDATE ON pggit_audit.changes TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. Audit functions should be restricted
+-- to audit administrators. See security documentation.
 
 -- ============================================
 -- METADATA

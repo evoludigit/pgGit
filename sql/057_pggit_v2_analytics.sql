@@ -4,7 +4,7 @@
 -- Functions for understanding pggit_v0 storage and performance
 -- Supports capacity planning, health monitoring, and optimization
 --
--- Week 5 Deliverable: Analytics functions for:
+-- Analytics functions for:
 -- - Storage usage analysis
 -- - Performance metrics
 -- - Health checks and data integrity

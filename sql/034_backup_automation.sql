@@ -552,18 +552,6 @@ ORDER BY
 COMMENT ON VIEW pggit.backup_job_queue IS 'Current status of all backup jobs in the queue';
 
 -- =====================================================
--- Grants
--- =====================================================
-
-GRANT SELECT, INSERT, UPDATE ON pggit.backup_jobs TO PUBLIC;
-GRANT SELECT ON pggit.backup_job_queue TO PUBLIC;
-
-GRANT EXECUTE ON FUNCTION pggit.enqueue_backup_job TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.get_next_backup_job TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.complete_backup_job TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.fail_backup_job TO PUBLIC;
-
-GRANT EXECUTE ON FUNCTION pggit.backup_pgbackrest TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.backup_barman TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.backup_pg_dump TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.update_pgbackrest_metadata TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. Backup automation functions should
+-- be restricted to backup operator roles only.

@@ -432,19 +432,6 @@ COMMENT ON VIEW pggit.commit_backup_coverage IS 'Shows backup coverage analysis 
 -- Grants
 -- =====================================================
 
--- Grant access to backup tables (assuming public schema access)
--- Note: In production, adjust these grants based on security requirements
-
-GRANT SELECT, INSERT, UPDATE ON pggit.backups TO PUBLIC;
-GRANT SELECT, INSERT, UPDATE ON pggit.backup_dependencies TO PUBLIC;
-GRANT SELECT, INSERT ON pggit.backup_verifications TO PUBLIC;
-GRANT SELECT, INSERT, DELETE ON pggit.backup_tags TO PUBLIC;
-
-GRANT SELECT ON pggit.branch_backup_coverage TO PUBLIC;
-GRANT SELECT ON pggit.commit_backup_coverage TO PUBLIC;
-
-GRANT EXECUTE ON FUNCTION pggit.register_backup TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.complete_backup TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.fail_backup TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.list_backups TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.get_backup_info TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. Backup functions can be restricted
+-- to specific backup operator roles. See security documentation.

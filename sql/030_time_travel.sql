@@ -513,9 +513,8 @@ ON pggit.temporal_query_cache(query_hash);
 -- Grant Permissions
 -- =====================================================
 
-GRANT SELECT, INSERT ON pggit.temporal_snapshots TO PUBLIC;
-GRANT SELECT, INSERT ON pggit.temporal_changelog TO PUBLIC;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA pggit TO PUBLIC;
+-- Grant permissions removed - administrators should configure permissions
+-- based on their security requirements. See documentation for guidance.
 
 -- =====================================================
 -- Drop Legacy Functions (Before Redefining with New Signatures)
