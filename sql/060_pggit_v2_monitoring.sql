@@ -69,21 +69,21 @@ FROM pggit_audit.changes c
 JOIN pggit_v0.commit_graph cg ON cg.commit_sha = c.commit_sha
 WHERE cg.committed_at >= CURRENT_TIMESTAMP - INTERVAL '24 hours'
 UNION ALL
-SELECT
+(SELECT
     'Latest',
     'HEAD Commit',
     commit_sha
 FROM pggit_v0.commit_graph
 ORDER BY committed_at DESC
-LIMIT 1
+LIMIT 1)
 UNION ALL
-SELECT
+(SELECT
     'Latest',
     'HEAD Timestamp',
     committed_at::TEXT
 FROM pggit_v0.commit_graph
 ORDER BY committed_at DESC
-LIMIT 1;
+LIMIT 1);
 
 COMMENT ON VIEW pggit_v0.current_state_summary IS
 'Quick snapshot of current system state: counts, storage, recent activity, and latest commit.';
@@ -167,8 +167,8 @@ UNION ALL
 SELECT
     'Changes Tracked' as activity_type,
     COUNT(*)::TEXT as count_last_24h,
-    COUNT(DISTINCT author)::TEXT as contributors,
-    MAX(committed_at)::TEXT as last_activity
+    COUNT(DISTINCT cg.author)::TEXT as contributors,
+    MAX(cg.committed_at)::TEXT as last_activity
 FROM pggit_audit.changes c
 JOIN pggit_v0.commit_graph cg ON cg.commit_sha = c.commit_sha
 WHERE cg.committed_at >= CURRENT_TIMESTAMP - INTERVAL '24 hours'

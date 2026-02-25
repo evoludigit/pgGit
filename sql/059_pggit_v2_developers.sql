@@ -58,21 +58,26 @@ COMMENT ON FUNCTION pggit_v0.get_current_schema() IS
 CREATE OR REPLACE FUNCTION pggit_v0.list_objects(
     p_commit_sha TEXT DEFAULT NULL
 ) RETURNS TABLE (
-    commit_sha TEXT,
-    author TEXT,
-    message TEXT,
-    committed_at TIMESTAMPTZ,
-    parent_shas TEXT[]
-)
-    FROM pggit_v0.commit_graph cg
-    ORDER BY cg.committed_at DESC
-    LIMIT p_limit
-    OFFSET p_offset;
+    object_schema TEXT,
+    object_name TEXT,
+    object_type TEXT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        'public'::TEXT as object_schema,
+        te.name::TEXT as object_name,
+        'TABLE'::TEXT as object_type
+    FROM pggit_v0.tree_entries te
+    JOIN pggit_v0.objects o ON o.sha = te.object_sha AND o.type = 'blob'
+    WHERE p_commit_sha IS NULL
+       OR te.tree_sha = (SELECT tree_sha FROM pggit_v0.commit_graph WHERE commit_sha = p_commit_sha)
+    ORDER BY te.name;
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-COMMENT ON FUNCTION pggit_v0.get_commit_history(INT, INT) IS
-'Get paginated commit history like git log. Default: 20 most recent commits with offset support.';
+COMMENT ON FUNCTION pggit_v0.list_objects(TEXT) IS
+'List all objects in a specific commit or at HEAD.';
 
 -- Function: Get history of a specific object
 CREATE OR REPLACE FUNCTION pggit_v0.get_object_history(

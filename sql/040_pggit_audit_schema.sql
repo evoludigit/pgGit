@@ -234,7 +234,7 @@ GRANT UPDATE ON pggit_audit.changes TO PUBLIC;
 -- METADATA
 -- ============================================
 
-COMMENT ON SCHEMA pggit_audit_v0 IS 'Immutable audit trail extracted from pggit_v0 commits';
+COMMENT ON SCHEMA pggit_audit IS 'Immutable audit trail extracted from pggit_v0 commits';
 COMMENT ON TABLE pggit_audit.changes IS 'All DDL changes detected from pggit_v0 commits';
 COMMENT ON TABLE pggit_audit.object_versions IS 'Complete version history for each database object';
 COMMENT ON TABLE pggit_audit.compliance_log IS 'Immutable log of compliance verification activities';

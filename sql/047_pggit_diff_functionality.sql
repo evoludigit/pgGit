@@ -1,16 +1,19 @@
 -- pgGit Diff Functionality
 -- Schema and data diffing capabilities
 
--- Table to store schema diffs
-CREATE TABLE IF NOT EXISTS pggit.schema_diffs (
-    diff_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    schema_a text NOT NULL,
-    schema_b text NOT NULL,
-    diff_type text,
-    object_name text,
-    object_type text,
-    created_at timestamptz DEFAULT now()
-);
+-- Extend schema_diffs table with additional columns needed by diff functionality
+DO $$
+BEGIN
+    -- Add columns if they don't exist (table created in 022_schema_diffing_foundation.sql)
+    ALTER TABLE pggit.schema_diffs ADD COLUMN IF NOT EXISTS diff_id uuid DEFAULT gen_random_uuid();
+    ALTER TABLE pggit.schema_diffs ADD COLUMN IF NOT EXISTS schema_a text;
+    ALTER TABLE pggit.schema_diffs ADD COLUMN IF NOT EXISTS schema_b text;
+    ALTER TABLE pggit.schema_diffs ADD COLUMN IF NOT EXISTS diff_type text;
+    ALTER TABLE pggit.schema_diffs ADD COLUMN IF NOT EXISTS object_name text;
+    ALTER TABLE pggit.schema_diffs ADD COLUMN IF NOT EXISTS object_type text;
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'Could not extend schema_diffs: %', SQLERRM;
+END $$;
 
 -- Function to diff two schemas
 CREATE OR REPLACE FUNCTION pggit.diff_schemas(

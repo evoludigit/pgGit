@@ -164,17 +164,16 @@ CREATE INDEX IF NOT EXISTS idx_perf_tracking_metrics_type_time
 CREATE INDEX IF NOT EXISTS idx_perf_tracking_metrics_value
     ON pggit.performance_tracking_metrics (metric_value DESC);
 
--- Function to record performance metrics
-DROP FUNCTION IF EXISTS pggit.record_metric(TEXT, NUMERIC, JSONB) CASCADE;
+-- Function to record performance metrics (matches 053 param names)
 CREATE OR REPLACE FUNCTION pggit.record_metric(
-    metric_type TEXT,
-    metric_value NUMERIC,
-    metadata JSONB DEFAULT NULL
+    p_type TEXT,
+    p_value NUMERIC,
+    p_tags JSONB DEFAULT '{}'
 )
 RETURNS VOID AS $$
 BEGIN
     INSERT INTO pggit.performance_tracking_metrics (metric_type, metric_value, metadata)
-    VALUES (metric_type, metric_value, metadata);
+    VALUES (p_type, p_value, p_tags);
 
     -- Keep only last 30 days of metrics
     DELETE FROM pggit.performance_tracking_metrics

@@ -234,7 +234,7 @@ $$ LANGUAGE plpgsql;
 -- Function to verify and fix consistency
 CREATE OR REPLACE FUNCTION pggit.verify_consistency(
     fix_issues boolean DEFAULT false,
-    verbose boolean DEFAULT false
+    p_verbose boolean DEFAULT false
 ) RETURNS TABLE (
     check_name text,
     status text,
@@ -321,7 +321,7 @@ BEGIN
     FROM tree_check;
     
     -- Summary
-    IF verbose THEN
+    IF p_verbose THEN
         RETURN QUERY
         SELECT 
             'summary'::text,

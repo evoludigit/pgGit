@@ -21,7 +21,6 @@ CREATE INDEX IF NOT EXISTS idx_monitoring_metrics_type_time
     ON pggit.monitoring_metrics(metric_type, recorded_at DESC);
 
 -- Record performance metrics
-DROP FUNCTION IF EXISTS pggit.record_metric(TEXT, NUMERIC, JSONB) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.record_metric(
     p_type TEXT,
     p_value NUMERIC,
@@ -152,7 +151,7 @@ UNION ALL
 
 SELECT
     'active_branches' as metric,
-    COUNT(DISTINCT branch_id)::TEXT as value,
+    COUNT(DISTINCT h.branch_id)::TEXT as value,
     'Number of active branches' as description
 FROM pggit.history h
 JOIN pggit.objects o ON h.object_id = o.id

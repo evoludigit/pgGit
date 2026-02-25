@@ -520,7 +520,7 @@ $$ LANGUAGE plpgsql;
 -- METADATA AND DOCUMENTATION
 -- ============================================
 
-COMMENT ON SCHEMA pggit_migration_v0 IS 'Migration tooling for pggit v1 to v2 conversion';
+COMMENT ON SCHEMA pggit_migration IS 'Migration tooling for pggit v1 to v2 conversion';
 COMMENT ON TABLE pggit_migration.migration_status IS 'Overall migration progress and status tracking';
 COMMENT ON TABLE pggit_migration.migration_commits IS 'Individual commit processing status';
 COMMENT ON TABLE pggit_migration.migration_errors IS 'Detailed error tracking during migration';
@@ -543,5 +543,4 @@ BEGIN
     RAISE NOTICE 'pgGit Migration Core initialized successfully';
     RAISE NOTICE 'Schema: pggit_migration created with migration tracking tables';
     RAISE NOTICE 'Ready for pggit v1 to v2 migration execution';
-END $$;</content>
-<parameter name="filePath">sql/pggit_migration_core.sql
+END $$;

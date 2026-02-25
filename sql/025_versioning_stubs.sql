@@ -16,10 +16,13 @@ CREATE TABLE IF NOT EXISTS pggit.versioned_objects (
 CREATE INDEX IF NOT EXISTS idx_versioned_objects_name ON pggit.versioned_objects(schema_name, object_name);
 
 -- Function to track function versions
-DROP FUNCTION IF EXISTS pggit.track_function(p_schema_name TEXT,
-    p_function_name TEXT,
-    p_signature TEXT DEFAULT NULL) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.track_function(
+    p_schema_name TEXT,
+    p_function_name TEXT,
+    p_signature TEXT DEFAULT NULL
+)
+RETURNS INTEGER
+AS $$
 DECLARE
     v_id INTEGER;
 BEGIN
@@ -54,9 +57,12 @@ CREATE TABLE IF NOT EXISTS pggit.versioned_functions (
 CREATE INDEX IF NOT EXISTS idx_versioned_functions_id ON pggit.versioned_functions(function_id);
 
 -- Function to get function version
-DROP FUNCTION IF EXISTS pggit.get_function_version(p_schema_name TEXT,
-    p_function_name TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.get_function_version(
+    p_schema_name TEXT,
+    p_function_name TEXT
+)
+RETURNS TABLE(version INTEGER, source_code TEXT, created_at TIMESTAMP, created_by TEXT)
+AS $$
 BEGIN
     RETURN QUERY
     SELECT vf.version, vf.source_code, vf.created_at, vf.created_by
@@ -82,15 +88,18 @@ CREATE TABLE IF NOT EXISTS pggit.migration_targets (
 );
 
 -- Function to prepare migration
-DROP FUNCTION IF EXISTS pggit.prepare_migration(p_migration_name TEXT,
-    p_target_version TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.prepare_migration(
+    p_migration_name TEXT,
+    p_target_version TEXT
+)
+RETURNS TABLE(id INTEGER, status TEXT, estimated_seconds INTEGER)
+AS $$
 DECLARE
     v_id INTEGER;
 BEGIN
     INSERT INTO pggit.migration_targets (target_version, compatibility_level, estimated_duration_seconds)
     VALUES (p_target_version, 'COMPATIBLE', 3600)
-    RETURNING id INTO v_id;
+    RETURNING migration_targets.id INTO v_id;
 
     RETURN QUERY SELECT v_id, 'PREPARED'::TEXT, 3600::INTEGER;
 END;
@@ -100,8 +109,11 @@ COMMENT ON FUNCTION pggit.prepare_migration(TEXT, TEXT) IS
 'Prepare a migration target for execution';
 
 -- Function to validate migration
-DROP FUNCTION IF EXISTS pggit.validate_migration(p_migration_name TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.validate_migration(
+    p_migration_name TEXT
+)
+RETURNS TABLE(status TEXT, errors INTEGER, warnings INTEGER)
+AS $$
 BEGIN
     RETURN QUERY SELECT 'VALID'::TEXT, 0::INTEGER, 0::INTEGER;
 END;
@@ -121,15 +133,18 @@ CREATE TABLE IF NOT EXISTS pggit.deployment_plans (
 );
 
 -- Function to plan zero downtime deployment
-DROP FUNCTION IF EXISTS pggit.plan_zero_downtime_deployment(p_application TEXT,
-    p_version TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.plan_zero_downtime_deployment(
+    p_application TEXT,
+    p_version TEXT
+)
+RETURNS TABLE(plan_id INTEGER, phases INTEGER, estimated_downtime INTEGER)
+AS $$
 DECLARE
     v_id INTEGER;
 BEGIN
     INSERT INTO pggit.deployment_plans (deployment_name, deployment_type, estimated_duration_seconds)
     VALUES (p_application || ':' || p_version, 'ZERO_DOWNTIME', 300)
-    RETURNING id INTO v_id;
+    RETURNING deployment_plans.id INTO v_id;
 
     RETURN QUERY SELECT v_id, 3::INTEGER, 0::INTEGER;
 END;
@@ -148,9 +163,12 @@ CREATE TABLE IF NOT EXISTS pggit.advanced_features (
 );
 
 -- Function to enable advanced feature
-DROP FUNCTION IF EXISTS pggit.enable_advanced_feature(p_feature_name TEXT,
-    p_configuration JSONB DEFAULT NULL) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.enable_advanced_feature(
+    p_feature_name TEXT,
+    p_configuration JSONB DEFAULT NULL
+)
+RETURNS BOOLEAN
+AS $$
 DECLARE
     v_exists BOOLEAN;
 BEGIN
@@ -158,7 +176,7 @@ BEGIN
 
     IF v_exists THEN
         UPDATE pggit.advanced_features
-        SET enabled = true, configuration = COALESCE(p_configuration, configuration)
+        SET enabled = true, configuration = COALESCE(p_configuration, advanced_features.configuration)
         WHERE feature_name = p_feature_name;
     ELSE
         INSERT INTO pggit.advanced_features (feature_name, enabled, configuration)
@@ -173,8 +191,11 @@ COMMENT ON FUNCTION pggit.enable_advanced_feature(TEXT, JSONB) IS
 'Enable an advanced feature with optional configuration';
 
 -- Function to check feature availability
-DROP FUNCTION IF EXISTS pggit.is_feature_available(p_feature_name TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.is_feature_available(
+    p_feature_name TEXT
+)
+RETURNS BOOLEAN
+AS $$
 DECLARE
     v_enabled BOOLEAN;
 BEGIN
@@ -199,9 +220,12 @@ CREATE TABLE IF NOT EXISTS pggit.branch_configs (
 );
 
 -- Function to validate branch creation
-DROP FUNCTION IF EXISTS pggit.validate_branch_creation(p_branch_name TEXT,
-    p_source_branch TEXT DEFAULT 'main') CASCADE;
 CREATE OR REPLACE FUNCTION pggit.validate_branch_creation(
+    p_branch_name TEXT,
+    p_source_branch TEXT DEFAULT 'main'
+)
+RETURNS TABLE(is_valid BOOLEAN, message TEXT)
+AS $$
 BEGIN
     IF p_branch_name IS NULL OR p_branch_name = '' THEN
         RETURN QUERY SELECT false, 'Branch name cannot be empty'::TEXT;
@@ -216,9 +240,12 @@ COMMENT ON FUNCTION pggit.validate_branch_creation(TEXT, TEXT) IS
 'Validate branch creation parameters';
 
 -- Configuration tracking function - overloaded version with named parameters
-DROP FUNCTION IF EXISTS pggit.configure_tracking(track_schemas TEXT[] DEFAULT NULL,
-    ignore_schemas TEXT[] DEFAULT NULL) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.configure_tracking(
+    track_schemas TEXT[] DEFAULT NULL,
+    ignore_schemas TEXT[] DEFAULT NULL
+)
+RETURNS BOOLEAN
+AS $$
 DECLARE
     v_schema TEXT;
 BEGIN
@@ -245,9 +272,12 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Original overload for backward compatibility
-DROP FUNCTION IF EXISTS pggit.configure_tracking(p_schema_name TEXT,
-    p_enabled BOOLEAN DEFAULT true) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.configure_tracking(
+    p_schema_name TEXT,
+    p_enabled BOOLEAN DEFAULT true
+)
+RETURNS BOOLEAN
+AS $$
 BEGIN
     INSERT INTO pggit.versioned_objects (schema_name, object_name, object_type, configuration)
     VALUES (p_schema_name, 'TRACKING', 'CONFIG', jsonb_build_object('enabled', p_enabled))
@@ -261,8 +291,11 @@ COMMENT ON FUNCTION pggit.configure_tracking(TEXT[], TEXT[]) IS
 'Configure object tracking for specific schemas with named parameters';
 
 -- Function to execute migration integration test
-DROP FUNCTION IF EXISTS pggit.execute_migration_integration(p_target_version TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.execute_migration_integration(
+    p_target_version TEXT
+)
+RETURNS TABLE(status TEXT, result TEXT, errors INTEGER)
+AS $$
 BEGIN
     RETURN QUERY SELECT 'SUCCESS'::TEXT, 'COMPLETED'::TEXT, 0::INTEGER;
 END;
@@ -272,8 +305,11 @@ COMMENT ON FUNCTION pggit.execute_migration_integration(TEXT) IS
 'Execute migration integration workflows';
 
 -- Function to plan advanced features
-DROP FUNCTION IF EXISTS pggit.plan_advanced_features(p_features TEXT[]) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.plan_advanced_features(
+    p_features TEXT[]
+)
+RETURNS TABLE(feature_name TEXT, status TEXT, priority TEXT)
+AS $$
 BEGIN
     RETURN QUERY
     SELECT
@@ -287,9 +323,12 @@ COMMENT ON FUNCTION pggit.plan_advanced_features(TEXT[]) IS
 'Plan implementation of advanced features';
 
 -- Function to execute zero downtime strategy
-DROP FUNCTION IF EXISTS pggit.execute_zero_downtime(p_version TEXT,
-    p_strategy TEXT DEFAULT 'blue_green') CASCADE;
 CREATE OR REPLACE FUNCTION pggit.execute_zero_downtime(
+    p_version TEXT,
+    p_strategy TEXT DEFAULT 'blue_green'
+)
+RETURNS TABLE(step_number INTEGER, step_description TEXT, duration_seconds INTEGER)
+AS $$
 BEGIN
     RETURN QUERY VALUES
         (1, 'Prepare shadow environment'::TEXT, 120::INTEGER),
@@ -303,15 +342,18 @@ COMMENT ON FUNCTION pggit.execute_zero_downtime(TEXT, TEXT) IS
 'Execute zero-downtime deployment strategy';
 
 -- Migration integration: begin_migration
-DROP FUNCTION IF EXISTS pggit.begin_migration(p_migration_name TEXT,
-    p_target_version TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.begin_migration(
+    p_migration_name TEXT,
+    p_target_version TEXT
+)
+RETURNS TABLE(migration_id INTEGER, status TEXT, started_at TIMESTAMP)
+AS $$
 DECLARE
     v_id INTEGER;
 BEGIN
     INSERT INTO pggit.migration_targets (target_version, compatibility_level, estimated_duration_seconds)
     VALUES (p_target_version, 'COMPATIBLE', 3600)
-    RETURNING id INTO v_id;
+    RETURNING migration_targets.id INTO v_id;
 
     RETURN QUERY SELECT v_id, 'STARTED'::TEXT, CURRENT_TIMESTAMP;
 END;
@@ -321,9 +363,12 @@ COMMENT ON FUNCTION pggit.begin_migration(TEXT, TEXT) IS
 'Begin a migration transaction';
 
 -- Migration integration: end_migration
-DROP FUNCTION IF EXISTS pggit.end_migration(p_migration_id INTEGER,
-    p_success BOOLEAN DEFAULT true) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.end_migration(
+    p_migration_id INTEGER,
+    p_success BOOLEAN DEFAULT true
+)
+RETURNS TABLE(id INTEGER, status TEXT, completed_at TIMESTAMP)
+AS $$
 BEGIN
     RETURN QUERY SELECT p_migration_id,
         CASE WHEN p_success THEN 'COMPLETED'::TEXT ELSE 'ROLLED_BACK'::TEXT END,
@@ -335,8 +380,11 @@ COMMENT ON FUNCTION pggit.end_migration(INTEGER, BOOLEAN) IS
 'End a migration transaction';
 
 -- Advanced features: get_feature_configuration
-DROP FUNCTION IF EXISTS pggit.get_feature_configuration(p_feature_name TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.get_feature_configuration(
+    p_feature_name TEXT
+)
+RETURNS JSONB
+AS $$
 DECLARE
     v_config JSONB;
 BEGIN
@@ -352,18 +400,19 @@ COMMENT ON FUNCTION pggit.get_feature_configuration(TEXT) IS
 'Get configuration for an enabled advanced feature';
 
 -- Advanced features: list_available_features
-DROP FUNCTION IF EXISTS pggit.list_available_features() CASCADE;
 CREATE OR REPLACE FUNCTION pggit.list_available_features()
+RETURNS TABLE(
     feature_name TEXT,
     enabled BOOLEAN,
     description TEXT
-) AS $$
+)
+AS $$
 BEGIN
     RETURN QUERY
     SELECT
         af.feature_name,
         af.enabled,
-        'Advanced feature: ' || af.feature_name || ''::TEXT
+        ('Advanced feature: ' || af.feature_name)::TEXT
     FROM pggit.advanced_features af
     ORDER BY af.feature_name;
 END;
@@ -373,8 +422,11 @@ COMMENT ON FUNCTION pggit.list_available_features() IS
 'List all available advanced features';
 
 -- Zero downtime: validate_deployment
-DROP FUNCTION IF EXISTS pggit.validate_deployment(p_version TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.validate_deployment(
+    p_version TEXT
+)
+RETURNS TABLE(status TEXT, errors INTEGER, is_ready BOOLEAN)
+AS $$
 BEGIN
     RETURN QUERY SELECT 'VALID'::TEXT, 0::INTEGER, true::BOOLEAN;
 END;
@@ -384,9 +436,12 @@ COMMENT ON FUNCTION pggit.validate_deployment(TEXT) IS
 'Validate a deployment version is ready for zero-downtime execution';
 
 -- Zero downtime: execute_phase
-DROP FUNCTION IF EXISTS pggit.execute_phase(p_deployment_id INTEGER,
-    p_phase_number INTEGER) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.execute_phase(
+    p_deployment_id INTEGER,
+    p_phase_number INTEGER
+)
+RETURNS TABLE(phase INTEGER, status TEXT, duration_seconds INTEGER)
+AS $$
 BEGIN
     RETURN QUERY SELECT p_phase_number, 'COMPLETED'::TEXT, 60::INTEGER;
 END;
@@ -396,15 +451,18 @@ COMMENT ON FUNCTION pggit.execute_phase(INTEGER, INTEGER) IS
 'Execute a specific phase of zero-downtime deployment';
 
 -- Data branching: create_branch_snapshot
-DROP FUNCTION IF EXISTS pggit.create_branch_snapshot(p_branch_name TEXT,
-    p_tables TEXT[]) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.create_branch_snapshot(
+    p_branch_name TEXT,
+    p_tables TEXT[]
+)
+RETURNS TABLE(snapshot_id INTEGER, branch TEXT, table_count INTEGER)
+AS $$
 DECLARE
     v_id INTEGER;
 BEGIN
     INSERT INTO pggit.branch_configs (branch_name, source_branch)
     VALUES (p_branch_name, 'main')
-    RETURNING id INTO v_id;
+    RETURNING branch_configs.id INTO v_id;
 
     RETURN QUERY SELECT v_id, p_branch_name, array_length(p_tables, 1);
 END;
@@ -414,10 +472,13 @@ COMMENT ON FUNCTION pggit.create_branch_snapshot(TEXT, TEXT[]) IS
 'Create a snapshot of specified tables for branching';
 
 -- Data branching: merge_branch_data
-DROP FUNCTION IF EXISTS pggit.merge_branch_data(p_source_branch TEXT,
-    p_target_branch TEXT,
-    p_resolution_strategy TEXT DEFAULT 'manual') CASCADE;
 CREATE OR REPLACE FUNCTION pggit.merge_branch_data(
+    p_source_branch TEXT,
+    p_target_branch TEXT,
+    p_resolution_strategy TEXT DEFAULT 'manual'
+)
+RETURNS TABLE(merge_id INTEGER, status TEXT, conflicts INTEGER)
+AS $$
 BEGIN
     RETURN QUERY SELECT 1::INTEGER, 'COMPLETED'::TEXT, 0::INTEGER;
 END;
@@ -427,10 +488,13 @@ COMMENT ON FUNCTION pggit.merge_branch_data(TEXT, TEXT, TEXT) IS
 'Merge data from source branch into target branch';
 
 -- Advanced features: record AI prediction
-DROP FUNCTION IF EXISTS pggit.record_ai_prediction(p_migration_id INTEGER,
-    p_prediction JSONB,
-    p_confidence DECIMAL DEFAULT 0.8) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.record_ai_prediction(
+    p_migration_id INTEGER,
+    p_prediction JSONB,
+    p_confidence DECIMAL DEFAULT 0.8
+)
+RETURNS BOOLEAN
+AS $$
 BEGIN
     -- Record AI prediction for future learning
     INSERT INTO pggit.ai_decisions (migration_id, decision_json, confidence, created_at)
@@ -445,27 +509,14 @@ COMMENT ON FUNCTION pggit.record_ai_prediction(INTEGER, JSONB, DECIMAL) IS
 'Record AI prediction for migration analysis and learning';
 
 -- Zero downtime: start_zero_downtime_deployment
-DROP FUNCTION IF EXISTS pggit.start_zero_downtime_deployment(p_application TEXT,
-    p_version TEXT,
-    p_strategy TEXT DEFAULT 'blue_green') CASCADE;
-CREATE OR REPLACE FUNCTION pggit.start_zero_downtime_deployment(
-DECLARE
-    v_id INTEGER;
-BEGIN
-    INSERT INTO pggit.deployment_plans (deployment_name, deployment_type, estimated_duration_seconds)
-    VALUES (p_application || ':' || p_version, p_strategy, 300)
-    RETURNING id INTO v_id;
-
-    RETURN QUERY SELECT v_id, 'STARTED'::TEXT, CURRENT_TIMESTAMP;
-END;
-$$ LANGUAGE plpgsql;
-
-COMMENT ON FUNCTION pggit.start_zero_downtime_deployment(TEXT, TEXT, TEXT) IS
-'Start a zero-downtime deployment with specified strategy';
+-- Stub removed: real implementation in 012_zero_downtime_deployment.sql
 
 -- Storage pressure management
-DROP FUNCTION IF EXISTS pggit.handle_storage_pressure(p_threshold_percent INTEGER DEFAULT 80) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.handle_storage_pressure(
+    p_threshold_percent INTEGER DEFAULT 80
+)
+RETURNS TABLE(action TEXT, bytes_freed BIGINT, status TEXT)
+AS $$
 BEGIN
     -- Simulate storage pressure handling by archiving old data
     RETURN QUERY SELECT
@@ -479,9 +530,12 @@ COMMENT ON FUNCTION pggit.handle_storage_pressure(INTEGER) IS
 'Handle storage pressure by archiving old data when threshold is exceeded';
 
 -- Compression testing utility
-DROP FUNCTION IF EXISTS pggit.test_compression_algorithms(p_table_name TEXT DEFAULT NULL,
-    p_sample_rows INTEGER DEFAULT 1000) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.test_compression_algorithms(
+    p_table_name TEXT DEFAULT NULL,
+    p_sample_rows INTEGER DEFAULT 1000
+)
+RETURNS TABLE(algorithm TEXT, original_size BIGINT, compressed_size BIGINT, ratio DECIMAL, speed_mbps INTEGER)
+AS $$
 BEGIN
     RETURN QUERY SELECT
         'ZSTD'::TEXT,
@@ -510,8 +564,11 @@ COMMENT ON FUNCTION pggit.test_compression_algorithms(TEXT, INTEGER) IS
 'Test various compression algorithms to find the most efficient';
 
 -- Massive database simulation
-DROP FUNCTION IF EXISTS pggit.initialize_massive_db_simulation(p_scale_factor INTEGER DEFAULT 100) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.initialize_massive_db_simulation(
+    p_scale_factor INTEGER DEFAULT 100
+)
+RETURNS TABLE(simulation_id INTEGER, table_count INTEGER, row_count BIGINT, size_gb DECIMAL)
+AS $$
 DECLARE
     v_id INTEGER;
     v_row_count BIGINT;
@@ -523,7 +580,7 @@ BEGIN
         true,
         jsonb_build_object('scale_factor', p_scale_factor, 'started_at', CURRENT_TIMESTAMP)
     )
-    RETURNING id INTO v_id;
+    RETURNING advanced_features.id INTO v_id;
 
     -- Calculate simulated row counts
     v_row_count := 1000000 * p_scale_factor;
@@ -540,10 +597,13 @@ COMMENT ON FUNCTION pggit.initialize_massive_db_simulation(INTEGER) IS
 'Initialize a massive database simulation for performance testing';
 
 -- Additional storage tier and branching helpers
-DROP FUNCTION IF EXISTS pggit.create_tiered_branch(p_branch_name TEXT,
-    p_source_branch TEXT,
-    p_tier_strategy TEXT DEFAULT 'balanced') CASCADE;
 CREATE OR REPLACE FUNCTION pggit.create_tiered_branch(
+    p_branch_name TEXT,
+    p_source_branch TEXT,
+    p_tier_strategy TEXT DEFAULT 'balanced'
+)
+RETURNS INTEGER
+AS $$
 DECLARE
     v_branch_id INTEGER;
     v_source_branch_id INTEGER;
@@ -570,10 +630,13 @@ COMMENT ON FUNCTION pggit.create_tiered_branch(TEXT, TEXT, TEXT) IS
 'Create a branch with tiered storage strategy for managing hot/cold data';
 
 -- Create temporal branch for time-series data
-DROP FUNCTION IF EXISTS pggit.create_temporal_branch(p_branch_name TEXT,
-    p_source_branch TEXT,
-    p_time_window INTERVAL DEFAULT '30 days') CASCADE;
 CREATE OR REPLACE FUNCTION pggit.create_temporal_branch(
+    p_branch_name TEXT,
+    p_source_branch TEXT,
+    p_time_window INTERVAL DEFAULT '30 days'
+)
+RETURNS INTEGER
+AS $$
 DECLARE
     v_branch_id INTEGER;
     v_source_branch_id INTEGER;

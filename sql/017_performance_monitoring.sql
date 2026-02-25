@@ -497,11 +497,9 @@ BEGIN
     v_start_time := clock_timestamp();
     v_command_tag := TG_TAG;
 
-    -- Extract event details from tg_ddl_command_start
+    -- Extract event details
     BEGIN
-        -- Try to parse command details
-        v_event_text := (SELECT current_query FROM pg_stat_statements
-                        WHERE userid = current_user_id LIMIT 1);
+        v_event_text := current_query();
     EXCEPTION WHEN OTHERS THEN
         v_event_text := NULL;
     END;
@@ -530,7 +528,7 @@ BEGIN
     -- Update performance baseline
     PERFORM pggit.calculate_performance_baselines();
 
-    RETURN NULL;
+    RETURN;
 END;
 $$ LANGUAGE plpgsql;
 

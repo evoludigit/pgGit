@@ -660,7 +660,7 @@ $$ LANGUAGE plpgsql;
 -- METADATA AND PERMISSIONS
 -- ============================================
 
-COMMENT ON SCHEMA pggit_migration_v0 IS 'Migration tooling for pggit v1 to v2 conversion';
+COMMENT ON SCHEMA pggit_migration IS 'Migration tooling for pggit v1 to v2 conversion';
 COMMENT ON FUNCTION pggit_migration.execute_production_migration IS 'Execute complete production migration with all phases';
 COMMENT ON FUNCTION pggit_migration.rollback_migration IS 'Emergency rollback procedure for failed migrations';
 COMMENT ON FUNCTION pggit_migration.comprehensive_migration_verification IS 'Complete post-migration verification with auto-fix detection';
@@ -685,5 +685,4 @@ BEGIN
     RAISE NOTICE 'pgGit Migration Execution initialized successfully';
     RAISE NOTICE 'Production cutover scripts and rollback procedures ready';
     RAISE NOTICE 'Run pre_migration_health_check() before production migration';
-END $$;</content>
-<parameter name="filePath">sql/pggit_migration_execution.sql
+END $$;

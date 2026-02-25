@@ -259,7 +259,10 @@ CREATE TABLE IF NOT EXISTS pggit.access_patterns (
     pattern_id SERIAL PRIMARY KEY,
     object_name TEXT NOT NULL,
     access_type TEXT NOT NULL,
-    response_time_ms NUMERIC(10,2)
+    accessed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    accessed_by TEXT DEFAULT current_user,
+    response_time_ms INT,
+    was_prefetched BOOLEAN DEFAULT false
 );
 
 -- Indexes for performance

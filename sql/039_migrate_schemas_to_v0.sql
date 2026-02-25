@@ -117,14 +117,17 @@ END $$;
 -- COMPLETION
 -- ============================================
 
-RAISE NOTICE '';
-RAISE NOTICE '✓ Schema versioning migration successfully completed!';
-RAISE NOTICE '✓ All functions now accessible via pggit_v0.* prefix';
-RAISE NOTICE '✓ All audit functions accessible via pggit_audit_v0.* prefix';
-RAISE NOTICE '✓ All migration functions accessible via pggit_migration_v0.* prefix';
-RAISE NOTICE '';
-RAISE NOTICE 'Next steps:';
-RAISE NOTICE '  1. Update application connection strings if using schema-qualified names';
-RAISE NOTICE '  2. Update CI/CD deployment scripts to reference pggit_v0';
-RAISE NOTICE '  3. Update user documentation to reference new schema names';
-RAISE NOTICE '  4. Run application tests to verify compatibility';
+DO $$
+BEGIN
+    RAISE NOTICE '';
+    RAISE NOTICE '✓ Schema versioning migration successfully completed!';
+    RAISE NOTICE '✓ All functions now accessible via pggit_v0.* prefix';
+    RAISE NOTICE '✓ All audit functions accessible via pggit_audit_v0.* prefix';
+    RAISE NOTICE '✓ All migration functions accessible via pggit_migration_v0.* prefix';
+    RAISE NOTICE '';
+    RAISE NOTICE 'Next steps:';
+    RAISE NOTICE '  1. Update application connection strings if using schema-qualified names';
+    RAISE NOTICE '  2. Update CI/CD deployment scripts to reference pggit_v0';
+    RAISE NOTICE '  3. Update user documentation to reference new schema names';
+    RAISE NOTICE '  4. Run application tests to verify compatibility';
+END $$;

@@ -9,6 +9,48 @@
 -- - Performance metrics
 -- - Health checks and data integrity
 
+-- Create pggit_v0 schema for v2 API layer
+CREATE SCHEMA IF NOT EXISTS pggit_v0;
+
+-- Core tables for pggit_v0 schema (used by v2 functions in 057-060)
+CREATE TABLE IF NOT EXISTS pggit_v0.commit_graph (
+    commit_sha TEXT PRIMARY KEY,
+    tree_sha TEXT,
+    author TEXT,
+    committed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    message TEXT
+);
+
+CREATE TABLE IF NOT EXISTS pggit_v0.commit_parents (
+    commit_sha TEXT NOT NULL,
+    parent_sha TEXT NOT NULL,
+    PRIMARY KEY (commit_sha, parent_sha)
+);
+
+CREATE TABLE IF NOT EXISTS pggit_v0.objects (
+    sha TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    size BIGINT NOT NULL DEFAULT 0,
+    content BYTEA,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS pggit_v0.refs (
+    name TEXT PRIMARY KEY,
+    type TEXT NOT NULL DEFAULT 'branch',
+    ref_type TEXT DEFAULT 'branch',
+    target_sha TEXT,
+    commit_sha TEXT
+);
+
+CREATE TABLE IF NOT EXISTS pggit_v0.tree_entries (
+    id SERIAL PRIMARY KEY,
+    tree_sha TEXT NOT NULL,
+    object_sha TEXT NOT NULL,
+    name TEXT NOT NULL,
+    path TEXT NOT NULL
+);
+
 -- ============================================
 -- STORAGE ANALYSIS
 -- ============================================

@@ -387,10 +387,10 @@ $$ LANGUAGE plpgsql;
 
 -- View to show function version history
 CREATE OR REPLACE VIEW pggit.function_history AS
-SELECT 
+SELECT
     fs.schema_name,
     fs.function_name,
-    fs.schema_name || '.' || fs.function_name || '(' || 
+    fs.schema_name || '.' || fs.function_name || '(' ||
         COALESCE(array_to_string(fs.argument_types, ', '), '') || ')' as full_signature,
     fs.argument_types,
     fs.return_type,
@@ -399,9 +399,7 @@ SELECT
     fv.created_at,
     fv.created_by,
     fv.metadata,
-    c.message as commit_message,
-    c.commit_id
+    fv.commit_id
 FROM pggit.function_signatures fs
 JOIN pggit.function_versions fv ON fs.signature_id = fv.signature_id
-LEFT JOIN pggit.commits c ON c.commit_id = fv.commit_id
 ORDER BY fs.schema_name, fs.function_name, fv.created_at DESC;

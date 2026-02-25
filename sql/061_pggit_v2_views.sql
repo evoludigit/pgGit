@@ -35,11 +35,11 @@ SELECT
     object_schema,
     object_name,
     COUNT(*) as change_count,
-    MAX(committed_at) as last_changed,
-    array_agg(DISTINCT change_type) as change_types
-FROM pggit_audit.changes
-JOIN pggit_v0.commit_graph ON commit_graph.commit_sha = changes.commit_sha
-GROUP BY object_schema, object_name
+    MAX(cg.committed_at) as last_changed,
+    array_agg(DISTINCT c.change_type) as change_types
+FROM pggit_audit.changes c
+JOIN pggit_v0.commit_graph cg ON cg.commit_sha = c.commit_sha
+GROUP BY c.object_schema, c.object_name
 ORDER BY change_count DESC;
 
 COMMENT ON VIEW pggit_v0.most_changed_objects IS
@@ -48,7 +48,7 @@ COMMENT ON VIEW pggit_v0.most_changed_objects IS
 -- View: Branch comparison summary
 CREATE OR REPLACE VIEW pggit_v0.branch_comparison AS
 SELECT
-    r.ref_name as branch_name,
+    r.name as branch_name,
     r.commit_sha as head_sha,
     cg.author as head_author,
     cg.committed_at as head_commit_time,
@@ -243,7 +243,8 @@ FROM pggit_audit.changes;
 COMMENT ON VIEW pggit_v0.branch_status_summary IS
 'Overall system status summary: branches, tags, commits, objects, and tracked changes.';
 
--- View: Recent activity summary
+-- View: Recent activity summary (replaces simpler version from 060)
+DROP VIEW IF EXISTS pggit_v0.recent_activity_summary CASCADE;
 CREATE OR REPLACE VIEW pggit_v0.recent_activity_summary AS
 SELECT
     COUNT(DISTINCT CASE WHEN cg.committed_at >= CURRENT_TIMESTAMP - INTERVAL '1 day'
@@ -252,7 +253,7 @@ SELECT
                         THEN cg.commit_sha END) as commits_last_7d,
     COUNT(DISTINCT CASE WHEN cg.committed_at >= CURRENT_TIMESTAMP - INTERVAL '1 day'
                         THEN cg.author END) as authors_last_24h,
-    COUNT(DISTINCT CASE WHEN c.committed_at >= CURRENT_TIMESTAMP - INTERVAL '1 day'
+    COUNT(DISTINCT CASE WHEN cg.committed_at >= CURRENT_TIMESTAMP - INTERVAL '1 day'
                         THEN c.change_id END) as changes_last_24h,
     (SELECT MAX(committed_at) FROM pggit_v0.commit_graph) as last_activity
 FROM pggit_v0.commit_graph cg
