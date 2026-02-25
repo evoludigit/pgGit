@@ -44,51 +44,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Main conflict resolution function
-CREATE OR REPLACE FUNCTION pggit.resolve_conflict(
-    conflict_id uuid,
-    resolution text, -- 'use_current', 'use_tracked', 'merge', 'custom'
-    reason text DEFAULT NULL,
-    custom_resolution jsonb DEFAULT NULL
-) RETURNS void AS $$
-DECLARE
-    conflict_record record;
-BEGIN
-    -- Get conflict details
-    SELECT * INTO conflict_record
-    FROM pggit.conflict_registry
-    WHERE conflict_registry.conflict_id = resolve_conflict.conflict_id;
-    
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'Conflict % not found', conflict_id;
-    END IF;
-    
-    IF conflict_record.status = 'resolved' THEN
-        RAISE EXCEPTION 'Conflict % already resolved', conflict_id;
-    END IF;
-    
-    -- Apply resolution based on type
-    CASE conflict_record.conflict_type
-        WHEN 'merge' THEN
-            PERFORM pggit.resolve_merge_conflict(conflict_record, resolution, custom_resolution);
-        WHEN 'version' THEN
-            PERFORM pggit.resolve_version_conflict(conflict_record, resolution);
-        WHEN 'constraint' THEN
-            PERFORM pggit.resolve_constraint_conflict(conflict_record, resolution, custom_resolution);
-        WHEN 'dependency' THEN
-            PERFORM pggit.resolve_dependency_conflict(conflict_record, resolution);
-    END CASE;
-    
-    -- Update conflict record
-    UPDATE pggit.conflict_registry
-    SET status = 'resolved',
-        resolved_at = now(),
-        resolved_by = current_user,
-        resolution_type = resolution,
-        resolution_reason = reason
-    WHERE conflict_registry.conflict_id = resolve_conflict.conflict_id;
-END;
-$$ LANGUAGE plpgsql;
+-- Main conflict resolution function - DEFINED IN 045_pggit_conflict_resolution_minimal.sql
+-- Superseded by simplified version; this file contains only specialized resolution helpers
 
 -- Function to resolve merge conflicts
 CREATE OR REPLACE FUNCTION pggit.resolve_merge_conflict(

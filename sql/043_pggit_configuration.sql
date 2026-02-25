@@ -22,7 +22,7 @@ CREATE OR REPLACE FUNCTION pggit.configure_tracking(
     ignore_schemas text[] DEFAULT NULL,
     track_operations text[] DEFAULT NULL,
     ignore_operations text[] DEFAULT NULL
-) RETURNS void AS $$
+) RETURNS boolean AS $$
 DECLARE
     schema_name text;
     operation text;
@@ -73,6 +73,8 @@ BEGIN
             ('schema', 'ignore', 'pg_temp%', 10),
             ('schema', 'ignore', 'pg_toast%', 10);
     END IF;
+    
+    RETURN true;
 END;
 $$ LANGUAGE plpgsql;
 

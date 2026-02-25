@@ -7611,76 +7611,11 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ============================================================================
--- FUNCTION: pggit.resolve_conflict()
+-- FUNCTION: pggit.resolve_conflict() - REMOVED
 -- ============================================================================
--- Resolve a single conflict in a merge operation
---
--- PARAMETERS:
---   p_merge_id: ID of the merge operation
---   p_table_name: Name of conflicted table
---   p_resolution: 'ours' (keep target) | 'theirs' (use source) | 'custom'
---   p_custom_definition: Custom definition if p_resolution='custom'
-
-CREATE OR REPLACE FUNCTION pggit.resolve_conflict(
-    p_merge_id uuid,
-    p_conflict_id integer,
-    p_resolution text,
-    p_custom_definition text DEFAULT NULL
-)
-RETURNS void AS $$
-DECLARE
-    v_merge_record record;
-    v_unresolved_count integer;
-BEGIN
-    -- Validate merge exists and is awaiting resolution
-    SELECT * INTO v_merge_record
-    FROM pggit.merge_history
-    WHERE id = p_merge_id;
-
-    IF v_merge_record IS NULL THEN
-        RAISE EXCEPTION 'Merge % not found', p_merge_id;
-    END IF;
-
-    IF v_merge_record.status != 'awaiting_resolution' THEN
-        RAISE EXCEPTION 'Merge % is not awaiting resolution (status: %)',
-            p_merge_id, v_merge_record.status;
-    END IF;
-
-    -- Validate resolution type
-    IF p_resolution NOT IN ('ours', 'theirs', 'custom') THEN
-        RAISE EXCEPTION 'Invalid resolution type: %. Use ours, theirs, or custom', p_resolution;
-    END IF;
-
-    -- Update conflict record with resolution
-    UPDATE pggit.merge_conflicts
-    SET
-        resolution_strategy = p_resolution,
-        resolved_value = CASE
-            WHEN p_resolution = 'ours' THEN COALESCE(branch_b_value, '"ours"'::jsonb)
-            WHEN p_resolution = 'theirs' THEN COALESCE(branch_a_value, '"theirs"'::jsonb)
-            WHEN p_resolution = 'custom' THEN to_jsonb(p_custom_definition)
-            ELSE '"unresolved"'::jsonb
-        END,
-        auto_resolved = false,
-        resolved_by = current_user,
-        resolved_at = now()
-    WHERE id = p_conflict_id
-      AND merge_id = p_merge_id::text;
-
-    -- Check if all conflicts are now resolved
-    SELECT COUNT(*) INTO v_unresolved_count
-    FROM pggit.merge_conflicts
-    WHERE merge_id = p_merge_id::text
-      AND resolved_value IS NULL;
-
-    -- If all resolved, mark merge as completed
-    IF v_unresolved_count = 0 THEN
-        PERFORM pggit._complete_merge_after_resolution(p_merge_id);
-    END IF;
-
-    RAISE NOTICE 'resolve_conflict: Conflict % resolved with %', p_conflict_id, p_resolution;
-END;
-$$ LANGUAGE plpgsql;
+-- Superseded by 045_pggit_conflict_resolution_minimal.sql
+-- Kept only: resolve_conflict(TEXT, INTEGER, TEXT) in 009_git_core_implementation.sql
+--            resolve_conflict(UUID, TEXT, TEXT, JSONB) in 045_pggit_conflict_resolution_minimal.sql
 
 -- ============================================================================
 -- FUNCTION: pggit._complete_merge_after_resolution()
@@ -7852,7 +7787,6 @@ GRANT SELECT, INSERT ON pggit.merge_history TO PUBLIC;
 GRANT SELECT, INSERT ON pggit.merge_conflicts TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.detect_conflicts(text, text) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.merge(text, text, text) TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.resolve_conflict(uuid, integer, text, text) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.get_merge_status(uuid) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.abort_merge(uuid, text) TO PUBLIC;
 
@@ -12066,13 +12000,8 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION pggit.create_test_branch_with_age(TEXT, INTERVAL, BIGINT) IS
 'Create a test branch with specified age for cold storage testing';
 
--- Storage tier statistics table (if doesn't exist)
-CREATE TABLE IF NOT EXISTS pggit.storage_tier_stats (
-    tier TEXT NOT NULL,
-    bytes_used BIGINT NOT NULL DEFAULT 0,
-    object_count INT NOT NULL DEFAULT 0,
-    last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
+-- Storage tier statistics table is defined in 021_cold_hot_storage.sql (canonical version)
+-- with additional columns: bytes_available, avg_object_size, cache_hit_rate
 
 -- Initialize storage tier stats
 DELETE FROM pggit.storage_tier_stats;
@@ -12816,37 +12745,9 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION pggit.validate_branch_creation(TEXT, TEXT) IS
 'Validate branch creation parameters';
 
--- Configuration tracking function - overloaded version with named parameters
-CREATE OR REPLACE FUNCTION pggit.configure_tracking(
-    track_schemas TEXT[] DEFAULT NULL,
-    ignore_schemas TEXT[] DEFAULT NULL
-)
-RETURNS BOOLEAN
-AS $$
-DECLARE
-    v_schema TEXT;
-BEGIN
-    -- Track specified schemas
-    IF track_schemas IS NOT NULL THEN
-        FOREACH v_schema IN ARRAY track_schemas LOOP
-            INSERT INTO pggit.versioned_objects (schema_name, object_name, object_type, configuration)
-            VALUES (v_schema, 'TRACKING', 'CONFIG', jsonb_build_object('enabled', true))
-            ON CONFLICT DO NOTHING;
-        END LOOP;
-    END IF;
-
-    -- Mark ignored schemas
-    IF ignore_schemas IS NOT NULL THEN
-        FOREACH v_schema IN ARRAY ignore_schemas LOOP
-            INSERT INTO pggit.versioned_objects (schema_name, object_name, object_type, configuration)
-            VALUES (v_schema, 'IGNORED', 'CONFIG', jsonb_build_object('enabled', false))
-            ON CONFLICT DO NOTHING;
-        END LOOP;
-    END IF;
-
-    RETURN true;
-END;
-$$ LANGUAGE plpgsql;
+-- Array-based configure_tracking: superseded by 043_pggit_configuration.sql
+-- which provides a 4-parameter version with additional features.
+-- Single-schema convenience version is retained below.
 
 -- Original overload for backward compatibility
 CREATE OR REPLACE FUNCTION pggit.configure_tracking(
@@ -12863,9 +12764,6 @@ BEGIN
     RETURN true;
 END;
 $$ LANGUAGE plpgsql;
-
-COMMENT ON FUNCTION pggit.configure_tracking(TEXT[], TEXT[]) IS
-'Configure object tracking for specific schemas with named parameters';
 
 -- Function to execute migration integration test
 CREATE OR REPLACE FUNCTION pggit.execute_migration_integration(
@@ -14256,13 +14154,12 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Function: pggit.create_data_branch
 -- Creates a data branch (copy-on-write) of a table using PostgreSQL inheritance
-DROP FUNCTION IF EXISTS pggit.create_data_branch(TEXT, TEXT, TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.create_data_branch(
     p_table_name TEXT,
-    p_from_branch TEXT,
-    p_to_branch TEXT
+    p_source_branch TEXT,
+    p_branch_name TEXT
 )
-RETURNS TEXT
+RETURNS INT
 AS $$
 DECLARE
     v_branch_table_name TEXT;
@@ -14273,13 +14170,13 @@ BEGIN
         RAISE EXCEPTION 'Table name cannot be null or empty';
     END IF;
 
-    IF p_to_branch IS NULL OR trim(p_to_branch) = '' THEN
+    IF p_branch_name IS NULL OR trim(p_branch_name) = '' THEN
         RAISE EXCEPTION 'Branch name cannot be null or empty';
     END IF;
 
     -- Validate branch name (basic SQL identifier check)
-    IF p_to_branch !~ '^[a-zA-Z_][a-zA-Z0-9_]*$' THEN
-        RAISE EXCEPTION 'Invalid branch name: %. Must start with letter/underscore, contain only alphanumeric/underscore', p_to_branch;
+    IF p_branch_name !~ '^[a-zA-Z_][a-zA-Z0-9_]*$' THEN
+        RAISE EXCEPTION 'Invalid branch name: %. Must start with letter/underscore, contain only alphanumeric/underscore', p_branch_name;
     END IF;
 
     -- Check if source table exists
@@ -14294,7 +14191,7 @@ BEGIN
     END IF;
 
     -- Create branch table name: table__branch
-    v_branch_table_name := p_table_name || '__' || p_to_branch;
+    v_branch_table_name := p_table_name || '__' || p_branch_name;
 
     -- Check if branch table already exists
     SELECT EXISTS (
@@ -14304,8 +14201,8 @@ BEGIN
     ) INTO v_table_exists;
 
     IF v_table_exists THEN
-        -- Return existing branch table name (idempotent operation)
-        RETURN v_branch_table_name;
+        -- Return 0 to indicate branch already exists (idempotent)
+        RETURN 0;
     END IF;
 
     -- Create branch table as a copy of the original table
@@ -14317,12 +14214,12 @@ BEGIN
         p_table_name
     );
 
-    -- Return the branch table name
-    RETURN v_branch_table_name;
+    -- Return 1 to indicate branch was created
+    RETURN 1;
 
 EXCEPTION
     WHEN OTHERS THEN
-        RAISE EXCEPTION 'Failed to create data branch % for table %: %', p_to_branch, p_table_name, SQLERRM;
+        RAISE EXCEPTION 'Failed to create data branch % for table %: %', p_branch_name, p_table_name, SQLERRM;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -22178,7 +22075,7 @@ CREATE OR REPLACE FUNCTION pggit.configure_tracking(
     ignore_schemas text[] DEFAULT NULL,
     track_operations text[] DEFAULT NULL,
     ignore_operations text[] DEFAULT NULL
-) RETURNS void AS $$
+) RETURNS boolean AS $$
 DECLARE
     schema_name text;
     operation text;
@@ -22229,6 +22126,8 @@ BEGIN
             ('schema', 'ignore', 'pg_temp%', 10),
             ('schema', 'ignore', 'pg_toast%', 10);
     END IF;
+    
+    RETURN true;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -22562,51 +22461,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Main conflict resolution function
-CREATE OR REPLACE FUNCTION pggit.resolve_conflict(
-    conflict_id uuid,
-    resolution text, -- 'use_current', 'use_tracked', 'merge', 'custom'
-    reason text DEFAULT NULL,
-    custom_resolution jsonb DEFAULT NULL
-) RETURNS void AS $$
-DECLARE
-    conflict_record record;
-BEGIN
-    -- Get conflict details
-    SELECT * INTO conflict_record
-    FROM pggit.conflict_registry
-    WHERE conflict_registry.conflict_id = resolve_conflict.conflict_id;
-    
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'Conflict % not found', conflict_id;
-    END IF;
-    
-    IF conflict_record.status = 'resolved' THEN
-        RAISE EXCEPTION 'Conflict % already resolved', conflict_id;
-    END IF;
-    
-    -- Apply resolution based on type
-    CASE conflict_record.conflict_type
-        WHEN 'merge' THEN
-            PERFORM pggit.resolve_merge_conflict(conflict_record, resolution, custom_resolution);
-        WHEN 'version' THEN
-            PERFORM pggit.resolve_version_conflict(conflict_record, resolution);
-        WHEN 'constraint' THEN
-            PERFORM pggit.resolve_constraint_conflict(conflict_record, resolution, custom_resolution);
-        WHEN 'dependency' THEN
-            PERFORM pggit.resolve_dependency_conflict(conflict_record, resolution);
-    END CASE;
-    
-    -- Update conflict record
-    UPDATE pggit.conflict_registry
-    SET status = 'resolved',
-        resolved_at = now(),
-        resolved_by = current_user,
-        resolution_type = resolution,
-        resolution_reason = reason
-    WHERE conflict_registry.conflict_id = resolve_conflict.conflict_id;
-END;
-$$ LANGUAGE plpgsql;
+-- Main conflict resolution function - DEFINED IN 045_pggit_conflict_resolution_minimal.sql
+-- Superseded by simplified version; this file contains only specialized resolution helpers
 
 -- Function to resolve merge conflicts
 CREATE OR REPLACE FUNCTION pggit.resolve_merge_conflict(
@@ -26009,46 +25865,11 @@ COMMENT ON FUNCTION pggit.prometheus_metrics() IS
 'Export metrics in Prometheus format for monitoring systems.';
 
 -- ============================================
--- PART 5: Automated Metrics Collection
+-- PART 5: Automated Metrics Collection - REMOVED
 -- ============================================
-
--- DDL performance monitoring trigger
-CREATE OR REPLACE FUNCTION pggit.collect_ddl_metrics()
-RETURNS event_trigger AS $$
-DECLARE
-    v_start TIMESTAMP;
-    v_duration NUMERIC;
-BEGIN
-    v_start := clock_timestamp();
-
-    -- This trigger fires after DDL commands
-    -- Record the time it took to process the DDL
-    v_duration := EXTRACT(EPOCH FROM (clock_timestamp() - v_start)) * 1000;
-
-    PERFORM pggit.record_metric(
-        'ddl_processing_ms',
-        v_duration,
-        jsonb_build_object('command', TG_TAG)
-    );
-END;
-$$ LANGUAGE plpgsql;
-
--- Create the event trigger for metrics collection
-DO $$
-BEGIN
-    -- Drop existing trigger if it exists
-    DROP EVENT TRIGGER IF EXISTS pggit_metrics_trigger;
-
-    -- Create new trigger
-    CREATE EVENT TRIGGER pggit_metrics_trigger
-        ON ddl_command_end
-        EXECUTE FUNCTION pggit.collect_ddl_metrics();
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'Could not create metrics trigger: %', SQLERRM;
-END $$;
-
-COMMENT ON FUNCTION pggit.collect_ddl_metrics() IS
-'Automatically collect performance metrics for DDL operations.';
+-- The global DDL event trigger (pggit_metrics_trigger) and collect_ddl_metrics()
+-- function have been removed to prevent firing on ALL DDL in the database.
+-- DDL metrics can still be collected on-demand via explicit calls to record_metric().
 
 -- ============================================
 -- PART 6: Maintenance Functions
@@ -27407,36 +27228,43 @@ $$ LANGUAGE plpgsql;
 CREATE SCHEMA IF NOT EXISTS pggit_v0;
 
 -- Core tables for pggit_v0 schema (used by v2 functions in 057-060)
-CREATE TABLE IF NOT EXISTS pggit_v0.commit_graph (
-    commit_sha TEXT PRIMARY KEY,
-    tree_sha TEXT,
-    author TEXT,
-    committed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    message TEXT
-);
+-- Views mapping pggit_v0 schema to pggit tables
+CREATE OR REPLACE VIEW pggit_v0.commit_graph AS
+SELECT
+    c.hash AS commit_sha,
+    c.tree_hash AS tree_sha,
+    c.author,
+    c.committed_at,
+    c.message
+FROM pggit.commits c;
 
-CREATE TABLE IF NOT EXISTS pggit_v0.commit_parents (
-    commit_sha TEXT NOT NULL,
-    parent_sha TEXT NOT NULL,
-    PRIMARY KEY (commit_sha, parent_sha)
-);
+CREATE OR REPLACE VIEW pggit_v0.commit_parents AS
+SELECT
+    c.hash AS commit_sha,
+    c.parent_commit_hash AS parent_sha
+FROM pggit.commits c
+WHERE c.parent_commit_hash IS NOT NULL;
 
-CREATE TABLE IF NOT EXISTS pggit_v0.objects (
-    sha TEXT PRIMARY KEY,
-    type TEXT NOT NULL,
-    size BIGINT NOT NULL DEFAULT 0,
-    content BYTEA,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+CREATE OR REPLACE VIEW pggit_v0.objects AS
+SELECT
+    o.content_hash AS sha,
+    o.object_type AS type,
+    COALESCE(pg_column_size(o.*), 0)::BIGINT AS size,
+    NULL::BYTEA AS content,
+    o.created_at
+FROM pggit.objects o;
 
-CREATE TABLE IF NOT EXISTS pggit_v0.refs (
-    name TEXT PRIMARY KEY,
-    type TEXT NOT NULL DEFAULT 'branch',
-    ref_type TEXT DEFAULT 'branch',
-    target_sha TEXT,
-    commit_sha TEXT
-);
+-- refs: map from branches table
+CREATE OR REPLACE VIEW pggit_v0.refs AS
+SELECT
+    b.name,
+    'branch'::TEXT AS type,
+    'branch'::TEXT AS ref_type,
+    NULL::TEXT AS target_sha,
+    b.head_commit_hash AS commit_sha
+FROM pggit.branches b;
 
+-- tree_entries: no pggit equivalent, keep as empty table
 CREATE TABLE IF NOT EXISTS pggit_v0.tree_entries (
     id SERIAL PRIMARY KEY,
     tree_sha TEXT NOT NULL,

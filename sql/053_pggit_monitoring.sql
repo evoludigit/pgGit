@@ -223,46 +223,11 @@ COMMENT ON FUNCTION pggit.prometheus_metrics() IS
 'Export metrics in Prometheus format for monitoring systems.';
 
 -- ============================================
--- PART 5: Automated Metrics Collection
+-- PART 5: Automated Metrics Collection - REMOVED
 -- ============================================
-
--- DDL performance monitoring trigger
-CREATE OR REPLACE FUNCTION pggit.collect_ddl_metrics()
-RETURNS event_trigger AS $$
-DECLARE
-    v_start TIMESTAMP;
-    v_duration NUMERIC;
-BEGIN
-    v_start := clock_timestamp();
-
-    -- This trigger fires after DDL commands
-    -- Record the time it took to process the DDL
-    v_duration := EXTRACT(EPOCH FROM (clock_timestamp() - v_start)) * 1000;
-
-    PERFORM pggit.record_metric(
-        'ddl_processing_ms',
-        v_duration,
-        jsonb_build_object('command', TG_TAG)
-    );
-END;
-$$ LANGUAGE plpgsql;
-
--- Create the event trigger for metrics collection
-DO $$
-BEGIN
-    -- Drop existing trigger if it exists
-    DROP EVENT TRIGGER IF EXISTS pggit_metrics_trigger;
-
-    -- Create new trigger
-    CREATE EVENT TRIGGER pggit_metrics_trigger
-        ON ddl_command_end
-        EXECUTE FUNCTION pggit.collect_ddl_metrics();
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'Could not create metrics trigger: %', SQLERRM;
-END $$;
-
-COMMENT ON FUNCTION pggit.collect_ddl_metrics() IS
-'Automatically collect performance metrics for DDL operations.';
+-- The global DDL event trigger (pggit_metrics_trigger) and collect_ddl_metrics()
+-- function have been removed to prevent firing on ALL DDL in the database.
+-- DDL metrics can still be collected on-demand via explicit calls to record_metric().
 
 -- ============================================
 -- PART 6: Maintenance Functions

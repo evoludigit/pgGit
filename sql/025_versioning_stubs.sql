@@ -239,37 +239,9 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION pggit.validate_branch_creation(TEXT, TEXT) IS
 'Validate branch creation parameters';
 
--- Configuration tracking function - overloaded version with named parameters
-CREATE OR REPLACE FUNCTION pggit.configure_tracking(
-    track_schemas TEXT[] DEFAULT NULL,
-    ignore_schemas TEXT[] DEFAULT NULL
-)
-RETURNS BOOLEAN
-AS $$
-DECLARE
-    v_schema TEXT;
-BEGIN
-    -- Track specified schemas
-    IF track_schemas IS NOT NULL THEN
-        FOREACH v_schema IN ARRAY track_schemas LOOP
-            INSERT INTO pggit.versioned_objects (schema_name, object_name, object_type, configuration)
-            VALUES (v_schema, 'TRACKING', 'CONFIG', jsonb_build_object('enabled', true))
-            ON CONFLICT DO NOTHING;
-        END LOOP;
-    END IF;
-
-    -- Mark ignored schemas
-    IF ignore_schemas IS NOT NULL THEN
-        FOREACH v_schema IN ARRAY ignore_schemas LOOP
-            INSERT INTO pggit.versioned_objects (schema_name, object_name, object_type, configuration)
-            VALUES (v_schema, 'IGNORED', 'CONFIG', jsonb_build_object('enabled', false))
-            ON CONFLICT DO NOTHING;
-        END LOOP;
-    END IF;
-
-    RETURN true;
-END;
-$$ LANGUAGE plpgsql;
+-- Array-based configure_tracking: superseded by 043_pggit_configuration.sql
+-- which provides a 4-parameter version with additional features.
+-- Single-schema convenience version is retained below.
 
 -- Original overload for backward compatibility
 CREATE OR REPLACE FUNCTION pggit.configure_tracking(
@@ -286,9 +258,6 @@ BEGIN
     RETURN true;
 END;
 $$ LANGUAGE plpgsql;
-
-COMMENT ON FUNCTION pggit.configure_tracking(TEXT[], TEXT[]) IS
-'Configure object tracking for specific schemas with named parameters';
 
 -- Function to execute migration integration test
 CREATE OR REPLACE FUNCTION pggit.execute_migration_integration(

@@ -122,13 +122,12 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Function: pggit.create_data_branch
 -- Creates a data branch (copy-on-write) of a table using PostgreSQL inheritance
-DROP FUNCTION IF EXISTS pggit.create_data_branch(TEXT, TEXT, TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION pggit.create_data_branch(
     p_table_name TEXT,
-    p_from_branch TEXT,
-    p_to_branch TEXT
+    p_source_branch TEXT,
+    p_branch_name TEXT
 )
-RETURNS TEXT
+RETURNS INT
 AS $$
 DECLARE
     v_branch_table_name TEXT;
@@ -139,13 +138,13 @@ BEGIN
         RAISE EXCEPTION 'Table name cannot be null or empty';
     END IF;
 
-    IF p_to_branch IS NULL OR trim(p_to_branch) = '' THEN
+    IF p_branch_name IS NULL OR trim(p_branch_name) = '' THEN
         RAISE EXCEPTION 'Branch name cannot be null or empty';
     END IF;
 
     -- Validate branch name (basic SQL identifier check)
-    IF p_to_branch !~ '^[a-zA-Z_][a-zA-Z0-9_]*$' THEN
-        RAISE EXCEPTION 'Invalid branch name: %. Must start with letter/underscore, contain only alphanumeric/underscore', p_to_branch;
+    IF p_branch_name !~ '^[a-zA-Z_][a-zA-Z0-9_]*$' THEN
+        RAISE EXCEPTION 'Invalid branch name: %. Must start with letter/underscore, contain only alphanumeric/underscore', p_branch_name;
     END IF;
 
     -- Check if source table exists
@@ -160,7 +159,7 @@ BEGIN
     END IF;
 
     -- Create branch table name: table__branch
-    v_branch_table_name := p_table_name || '__' || p_to_branch;
+    v_branch_table_name := p_table_name || '__' || p_branch_name;
 
     -- Check if branch table already exists
     SELECT EXISTS (
@@ -170,8 +169,8 @@ BEGIN
     ) INTO v_table_exists;
 
     IF v_table_exists THEN
-        -- Return existing branch table name (idempotent operation)
-        RETURN v_branch_table_name;
+        -- Return 0 to indicate branch already exists (idempotent)
+        RETURN 0;
     END IF;
 
     -- Create branch table as a copy of the original table
@@ -183,12 +182,12 @@ BEGIN
         p_table_name
     );
 
-    -- Return the branch table name
-    RETURN v_branch_table_name;
+    -- Return 1 to indicate branch was created
+    RETURN 1;
 
 EXCEPTION
     WHEN OTHERS THEN
-        RAISE EXCEPTION 'Failed to create data branch % for table %: %', p_to_branch, p_table_name, SQLERRM;
+        RAISE EXCEPTION 'Failed to create data branch % for table %: %', p_branch_name, p_table_name, SQLERRM;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

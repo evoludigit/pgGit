@@ -13,36 +13,43 @@
 CREATE SCHEMA IF NOT EXISTS pggit_v0;
 
 -- Core tables for pggit_v0 schema (used by v2 functions in 057-060)
-CREATE TABLE IF NOT EXISTS pggit_v0.commit_graph (
-    commit_sha TEXT PRIMARY KEY,
-    tree_sha TEXT,
-    author TEXT,
-    committed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    message TEXT
-);
+-- Views mapping pggit_v0 schema to pggit tables
+CREATE OR REPLACE VIEW pggit_v0.commit_graph AS
+SELECT
+    c.hash AS commit_sha,
+    c.tree_hash AS tree_sha,
+    c.author,
+    c.committed_at,
+    c.message
+FROM pggit.commits c;
 
-CREATE TABLE IF NOT EXISTS pggit_v0.commit_parents (
-    commit_sha TEXT NOT NULL,
-    parent_sha TEXT NOT NULL,
-    PRIMARY KEY (commit_sha, parent_sha)
-);
+CREATE OR REPLACE VIEW pggit_v0.commit_parents AS
+SELECT
+    c.hash AS commit_sha,
+    c.parent_commit_hash AS parent_sha
+FROM pggit.commits c
+WHERE c.parent_commit_hash IS NOT NULL;
 
-CREATE TABLE IF NOT EXISTS pggit_v0.objects (
-    sha TEXT PRIMARY KEY,
-    type TEXT NOT NULL,
-    size BIGINT NOT NULL DEFAULT 0,
-    content BYTEA,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+CREATE OR REPLACE VIEW pggit_v0.objects AS
+SELECT
+    o.content_hash AS sha,
+    o.object_type AS type,
+    COALESCE(pg_column_size(o.*), 0)::BIGINT AS size,
+    NULL::BYTEA AS content,
+    o.created_at
+FROM pggit.objects o;
 
-CREATE TABLE IF NOT EXISTS pggit_v0.refs (
-    name TEXT PRIMARY KEY,
-    type TEXT NOT NULL DEFAULT 'branch',
-    ref_type TEXT DEFAULT 'branch',
-    target_sha TEXT,
-    commit_sha TEXT
-);
+-- refs: map from branches table
+CREATE OR REPLACE VIEW pggit_v0.refs AS
+SELECT
+    b.name,
+    'branch'::TEXT AS type,
+    'branch'::TEXT AS ref_type,
+    NULL::TEXT AS target_sha,
+    b.head_commit_hash AS commit_sha
+FROM pggit.branches b;
 
+-- tree_entries: no pggit equivalent, keep as empty table
 CREATE TABLE IF NOT EXISTS pggit_v0.tree_entries (
     id SERIAL PRIMARY KEY,
     tree_sha TEXT NOT NULL,

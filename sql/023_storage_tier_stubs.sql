@@ -253,13 +253,8 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION pggit.create_test_branch_with_age(TEXT, INTERVAL, BIGINT) IS
 'Create a test branch with specified age for cold storage testing';
 
--- Storage tier statistics table (if doesn't exist)
-CREATE TABLE IF NOT EXISTS pggit.storage_tier_stats (
-    tier TEXT NOT NULL,
-    bytes_used BIGINT NOT NULL DEFAULT 0,
-    object_count INT NOT NULL DEFAULT 0,
-    last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
+-- Storage tier statistics table is defined in 021_cold_hot_storage.sql (canonical version)
+-- with additional columns: bytes_available, avg_object_size, cache_hit_rate
 
 -- Initialize storage tier stats
 DELETE FROM pggit.storage_tier_stats;

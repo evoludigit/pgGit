@@ -258,76 +258,11 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ============================================================================
--- FUNCTION: pggit.resolve_conflict()
+-- FUNCTION: pggit.resolve_conflict() - REMOVED
 -- ============================================================================
--- Resolve a single conflict in a merge operation
---
--- PARAMETERS:
---   p_merge_id: ID of the merge operation
---   p_table_name: Name of conflicted table
---   p_resolution: 'ours' (keep target) | 'theirs' (use source) | 'custom'
---   p_custom_definition: Custom definition if p_resolution='custom'
-
-CREATE OR REPLACE FUNCTION pggit.resolve_conflict(
-    p_merge_id uuid,
-    p_conflict_id integer,
-    p_resolution text,
-    p_custom_definition text DEFAULT NULL
-)
-RETURNS void AS $$
-DECLARE
-    v_merge_record record;
-    v_unresolved_count integer;
-BEGIN
-    -- Validate merge exists and is awaiting resolution
-    SELECT * INTO v_merge_record
-    FROM pggit.merge_history
-    WHERE id = p_merge_id;
-
-    IF v_merge_record IS NULL THEN
-        RAISE EXCEPTION 'Merge % not found', p_merge_id;
-    END IF;
-
-    IF v_merge_record.status != 'awaiting_resolution' THEN
-        RAISE EXCEPTION 'Merge % is not awaiting resolution (status: %)',
-            p_merge_id, v_merge_record.status;
-    END IF;
-
-    -- Validate resolution type
-    IF p_resolution NOT IN ('ours', 'theirs', 'custom') THEN
-        RAISE EXCEPTION 'Invalid resolution type: %. Use ours, theirs, or custom', p_resolution;
-    END IF;
-
-    -- Update conflict record with resolution
-    UPDATE pggit.merge_conflicts
-    SET
-        resolution_strategy = p_resolution,
-        resolved_value = CASE
-            WHEN p_resolution = 'ours' THEN COALESCE(branch_b_value, '"ours"'::jsonb)
-            WHEN p_resolution = 'theirs' THEN COALESCE(branch_a_value, '"theirs"'::jsonb)
-            WHEN p_resolution = 'custom' THEN to_jsonb(p_custom_definition)
-            ELSE '"unresolved"'::jsonb
-        END,
-        auto_resolved = false,
-        resolved_by = current_user,
-        resolved_at = now()
-    WHERE id = p_conflict_id
-      AND merge_id = p_merge_id::text;
-
-    -- Check if all conflicts are now resolved
-    SELECT COUNT(*) INTO v_unresolved_count
-    FROM pggit.merge_conflicts
-    WHERE merge_id = p_merge_id::text
-      AND resolved_value IS NULL;
-
-    -- If all resolved, mark merge as completed
-    IF v_unresolved_count = 0 THEN
-        PERFORM pggit._complete_merge_after_resolution(p_merge_id);
-    END IF;
-
-    RAISE NOTICE 'resolve_conflict: Conflict % resolved with %', p_conflict_id, p_resolution;
-END;
-$$ LANGUAGE plpgsql;
+-- Superseded by 045_pggit_conflict_resolution_minimal.sql
+-- Kept only: resolve_conflict(TEXT, INTEGER, TEXT) in 009_git_core_implementation.sql
+--            resolve_conflict(UUID, TEXT, TEXT, JSONB) in 045_pggit_conflict_resolution_minimal.sql
 
 -- ============================================================================
 -- FUNCTION: pggit._complete_merge_after_resolution()
@@ -499,7 +434,6 @@ GRANT SELECT, INSERT ON pggit.merge_history TO PUBLIC;
 GRANT SELECT, INSERT ON pggit.merge_conflicts TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.detect_conflicts(text, text) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.merge(text, text, text) TO PUBLIC;
-GRANT EXECUTE ON FUNCTION pggit.resolve_conflict(uuid, integer, text, text) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.get_merge_status(uuid) TO PUBLIC;
 GRANT EXECUTE ON FUNCTION pggit.abort_merge(uuid, text) TO PUBLIC;
 
