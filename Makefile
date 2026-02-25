@@ -1,7 +1,7 @@
 # pgGit Makefile - Minimal Version
 
 EXTENSION = pggit
-DATA = pggit--0.1.3.sql
+DATA = pggit--0.3.0.sql
 REGRESS = 
 
 PG_CONFIG = pg_config
@@ -13,10 +13,77 @@ CURRENT_VERSION := $(shell grep 'version = ' pyproject.toml | head -1 | sed 's/v
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 GIT_REMOTE := origin
 
+# Hex-organized SQL directories
+SQL_HEX_DIRS := sql/0x0xxx_core sql/0x1xxx_ddl sql/0x2xxx_branching sql/0x3xxx_merging \
+                sql/0x4xxx_data sql/0x5xxx_security sql/0x6xxx_monitoring \
+                sql/0x7xxx_performance sql/0x8xxx_utilities sql/0x9xxx_testing \
+                sql/0xAxxx_migration sql/0xBxxx_enterprise sql/0xCxxx_integration
+
 # Test targets
 .PHONY: test test-pgtap test-core test-enterprise test-ai test-podman test-all test-clean install clean lint
+.PHONY: build-hex build-legacy build-check
 # Release targets
 .PHONY: release release-patch release-minor release-major release-check release-dry-run release-help validate-changelog
+
+# ============================================================================
+# Build Targets (Hex Organization)
+# ============================================================================
+
+# Build extension SQL file from hex-organized structure (RECOMMENDED)
+build-hex:
+	@echo "🔨 Building pgGit from hex-organized structure..."
+	@echo "Concatenating SQL files in order..."
+	@cat $(SQL_HEX_DIRS:%=%/*.sql) > pggit--$(CURRENT_VERSION).sql 2>/dev/null || \
+		(for dir in $(SQL_HEX_DIRS); do cat $$dir/*.sql 2>/dev/null; done) > pggit--$(CURRENT_VERSION).sql
+	@echo "✅ Built pggit--$(CURRENT_VERSION).sql"
+	@wc -l pggit--$(CURRENT_VERSION).sql | awk '{print "   Total lines: " $$1}'
+	@grep -c "CREATE.*FUNCTION" pggit--$(CURRENT_VERSION).sql | awk '{print "   Functions: " $$1}'
+	@echo ""
+	@echo "Files included (in order):"
+	@for dir in $(SQL_HEX_DIRS); do \
+		for file in $$dir/*.sql; do \
+			[ -f "$$file" ] && echo "   $$file"; \
+		done; \
+	done
+
+# Legacy build (for backward compatibility)
+build-legacy:
+	@echo "🔨 Building pgGit (legacy mode)..."
+	@echo "WARNING: Using legacy sql/*.sql files"
+	@cat sql/*.sql > pggit--$(CURRENT_VERSION).sql
+	@echo "✅ Built pggit--$(CURRENT_VERSION).sql (legacy)"
+
+# Verify build integrity
+build-check: build-hex
+	@echo "🔍 Verifying build integrity..."
+	@if [ ! -f pggit--$(CURRENT_VERSION).sql ]; then \
+		echo "❌ ERROR: pggit--$(CURRENT_VERSION).sql not found"; \
+		exit 1; \
+	fi
+	@echo "✅ Build file exists"
+	
+	@func_count=$$(grep -c "CREATE.*FUNCTION" pggit--$(CURRENT_VERSION).sql || echo 0); \
+	if [ "$$func_count" -lt 400 ]; then \
+		echo "⚠️  WARNING: Expected ~461 functions, found $$func_count"; \
+	else \
+		echo "✅ Function count: $$func_count"; \
+	fi
+	
+	@if grep -q "TODO\|FIXME" pggit--$(CURRENT_VERSION).sql; then \
+		echo "⚠️  WARNING: Found TODO/FIXME markers in build"; \
+	fi
+	
+	@echo "✅ Build verification complete"
+
+# Install with hex build (default)
+install: build-hex
+	@echo "📦 Installing pgGit extension..."
+	@cp pggit--$(CURRENT_VERSION).sql $(shell $(PG_CONFIG) --sharedir)/extension/ 2>/dev/null || \
+		echo "Note: Manual install - copy pggit--$(CURRENT_VERSION).sql to your PostgreSQL extension directory"
+	@echo "✅ Installation complete"
+	@echo ""
+	@echo "To use in database:"
+	@echo "  psql -c \"CREATE EXTENSION pggit;\""
 
 # Run all tests locally
 test:
@@ -92,8 +159,74 @@ validate-changelog:
 	@echo "Validating CHANGELOG.md..."
 	@./scripts/validate-changelog.sh
 
-# Help for test commands
-test-help:
+# Help for build commands
+build-help:
+	@echo "pgGit Build Commands (Hex Organization):"
+	@echo ""
+	@echo "  make build-hex       - Build from hex-organized structure (RECOMMENDED)"
+	@echo "  make build-legacy    - Build from legacy sql/*.sql files"
+	@echo "  make build-check     - Verify build integrity"
+	@echo "  make install         - Build and install extension"
+	@echo ""
+	@echo "Hex Organization Structure:"
+	@echo "  sql/0x0xxx_core/           - Core schema & infrastructure (12 files)"
+	@echo "  sql/0x1xxx_ddl/            - DDL tracking & triggers (4 files)"
+	@echo "  sql/0x2xxx_branching/      - Branching & version control (5 files)"
+	@echo "  sql/0x3xxx_merging/         - Merging & conflict resolution (6 files)"
+	@echo "  sql/0x4xxx_data/            - Data management & storage (8 files)"
+	@echo "  sql/0x5xxx_security/        - Security, RLS & multi-tenancy (2 files)"
+	@echo "  sql/0x6xxx_monitoring/      - Monitoring & metrics (7 files)"
+	@echo "  sql/0x7xxx_performance/     - Performance optimization (3 files)"
+	@echo "  sql/0x8xxx_utilities/         - Internal helpers (3 files)"
+	@echo "  sql/0x9xxx_testing/          - Testing infrastructure (2 files)"
+	@echo "  sql/0xAxxx_migration/        - Migration scripts (4 files)"
+	@echo "  sql/0xBxxx_enterprise/       - Enterprise features ⭐ CQRS (5 files)"
+	@echo "  sql/0xCxxx_integration/      - Integration & APIs (8 files)"
+	@echo ""
+	@echo "Total: 69 files, ~461 functions, 10-second discovery"
+
+# ============================================================================
+# Hex Organization Helpers
+# ============================================================================
+
+# List all hex-organized SQL files
+list-hex:
+	@echo "📂 Hex-Organized SQL Files:"
+	@echo ""
+	@for dir in $(SQL_HEX_DIRS); do \
+		echo "$$dir:"; \
+		for file in $$dir/*.sql; do \
+			[ -f "$$file" ] && echo "  - $$(basename $$file)"; \
+		done; \
+		echo ""; \
+	done
+
+# Count functions per category
+count-functions:
+	@echo "🔢 Function Count by Category:"
+	@echo ""
+	@for dir in $(SQL_HEX_DIRS); do \
+		count=0; \
+		for file in $$dir/*.sql; do \
+			[ -f "$$file" ] && c=$$(grep -c "CREATE.*FUNCTION" "$$file" 2>/dev/null || echo 0) && count=$$((count + c)); \
+		done; \
+		echo "$$dir: $$count functions"; \
+	done
+	@echo ""
+	@total=$$(grep -c "CREATE.*FUNCTION" pggit--$(CURRENT_VERSION).sql 2>/dev/null || echo 0); \
+	echo "Total: $$total functions"
+
+# Find function by name
+find-function:
+	@if [ -z "$(FUNC)" ]; then \
+		echo "Usage: make find-function FUNC=function_name"; \
+		exit 1; \
+	fi
+	@echo "🔍 Searching for '$(FUNC)'..."
+	@grep -rn "CREATE.*FUNCTION.*$(FUNC)" sql/ 2>/dev/null || echo "Not found"
+
+# Default target help
+help: build-help test-help release-help
 	@echo "pgGit Test Commands:"
 	@echo "  make test          - Run all tests locally"
 	@echo "  make test-core     - Run core functionality tests"
