@@ -1,4 +1,4 @@
--- Integration test: install and uninstall (Phase 1 + overall)
+-- Integration test: install and uninstall
 -- This test verifies the extension installs cleanly and uninstalls completely.
 -- It is run as a standalone script by the CI pipeline, not inside pgTAP.
 

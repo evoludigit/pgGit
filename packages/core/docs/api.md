@@ -150,7 +150,6 @@ remain unresolved.
 
 **Errors:**
 - `Merge M has N unresolved conflict(s)`
-- `Failed to apply DDL for X.Y during merge M: <error>`
 
 ---
 
@@ -163,7 +162,7 @@ not be recorded.
 
 ### `pggit.resume_tracking() → VOID`
 
-Re-enable DDL capture. Always called automatically by `complete_merge`.
+Re-enable DDL capture after `pause_tracking()`.
 
 ---
 

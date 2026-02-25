@@ -1,4 +1,4 @@
--- pgTAP unit tests: merging (Phase 6)
+-- pgTAP unit tests: merging
 
 BEGIN;
 SELECT plan(16);

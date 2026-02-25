@@ -1,4 +1,4 @@
--- pgTAP unit tests: DDL normalization (Phase 2)
+-- pgTAP unit tests: DDL normalization
 
 BEGIN;
 SELECT plan(19);

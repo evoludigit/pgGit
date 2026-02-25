@@ -23,7 +23,7 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION pggit.resume_tracking() IS
-    'Re-enable DDL capture after pause_tracking(). Always called by complete_merge.';
+    'Re-enable DDL capture after pause_tracking().';
 
 -- ---------------------------------------------------------------------------
 -- Branch management (functions 1–6)

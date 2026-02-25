@@ -1,4 +1,4 @@
--- pgTAP unit tests: branching (Phase 4)
+-- pgTAP unit tests: branching
 
 BEGIN;
 SELECT plan(23);

@@ -1,4 +1,4 @@
--- pgTAP unit tests: public API surface (Phase 7 readiness check)
+-- pgTAP unit tests: public API surface
 
 BEGIN;
 SELECT plan(28);

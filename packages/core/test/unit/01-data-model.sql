@@ -1,4 +1,4 @@
--- pgTAP unit tests: data model (Phase 1)
+-- pgTAP unit tests: data model
 -- Tests: schemas, enum types, tables, indexes, bootstrap
 
 BEGIN;

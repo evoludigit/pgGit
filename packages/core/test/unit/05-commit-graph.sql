@@ -1,4 +1,4 @@
--- pgTAP unit tests: commit graph (Phase 5)
+-- pgTAP unit tests: commit graph
 
 BEGIN;
 SELECT plan(18);

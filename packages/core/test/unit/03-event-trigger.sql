@@ -1,4 +1,4 @@
--- pgTAP unit tests: event trigger (Phase 3)
+-- pgTAP unit tests: event trigger
 
 BEGIN;
 SELECT plan(19);
