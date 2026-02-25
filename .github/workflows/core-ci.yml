@@ -1,0 +1,89 @@
+name: core-ci
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "packages/core/**"
+      - ".github/workflows/core-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/core/**"
+
+jobs:
+  test:
+    name: "pgGit core tests (PostgreSQL ${{ matrix.pg }})"
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        pg: ["16"]
+
+    services:
+      postgres:
+        image: postgres:${{ matrix.pg }}
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pggit_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pgTAP
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-${{ matrix.pg }}-pgtap
+
+      - name: Enable pgcrypto and pgTAP
+        run: |
+          psql -h localhost -U postgres -d pggit_test \
+            -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" \
+            -c "CREATE EXTENSION IF NOT EXISTS pgtap;"
+        env:
+          PGPASSWORD: postgres
+
+      - name: Install pggit core
+        run: |
+          make -C packages/core install \
+            PSQL="psql -h localhost -U postgres" \
+            PGDATABASE=pggit_test
+        env:
+          PGPASSWORD: postgres
+
+      - name: Run unit tests
+        run: |
+          make -C packages/core unit \
+            PSQL="psql -h localhost -U postgres" \
+            TEST_DB=pggit_test
+        env:
+          PGPASSWORD: postgres
+
+      - name: Run integration tests
+        run: |
+          make -C packages/core integration \
+            PSQL="psql -h localhost -U postgres" \
+            TEST_DB=pggit_test
+        env:
+          PGPASSWORD: postgres
+
+      - name: Run lint
+        run: make -C packages/core lint
+
+      - name: Test uninstall/reinstall idempotency
+        run: |
+          make -C packages/core uninstall \
+            PSQL="psql -h localhost -U postgres" \
+            PGDATABASE=pggit_test
+          make -C packages/core install \
+            PSQL="psql -h localhost -U postgres" \
+            PGDATABASE=pggit_test
+        env:
+          PGPASSWORD: postgres

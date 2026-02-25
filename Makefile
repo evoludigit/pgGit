@@ -1,12 +1,40 @@
-# pgGit Makefile - Minimal Version
+# pgGit v1.0 — Top-level Makefile
+# Delegates to packages/core for all primary targets.
+# The legacy PGXS-based install is no longer the primary path.
 
-EXTENSION = pggit
-DATA = pggit--0.3.0.sql
-REGRESS = 
+.PHONY: all install uninstall test lint clean legacy-test help
 
-PG_CONFIG = pg_config
-PGXS := $(shell $(PG_CONFIG) --pgxs)
-include $(PGXS)
+PSQL     ?= psql
+TEST_DB  ?= pggit_test
+
+all: install test
+
+install:
+	$(MAKE) -C packages/core install
+
+uninstall:
+	$(MAKE) -C packages/core uninstall
+
+test:
+	$(MAKE) -C packages/core test
+
+lint:
+	$(MAKE) -C packages/core lint
+
+clean:
+	$(MAKE) -C packages/core clean
+
+# Legacy: informational only, does not block CI
+legacy-test:
+	$(MAKE) -C packages/legacy test
+
+help:
+	@echo "Targets: install uninstall test lint clean legacy-test"
+	@echo ""
+	@echo "Variables:"
+	@echo "  PSQL        psql binary (default: psql)"
+	@echo "  PGDATABASE  install target database (default: pggit_dev)"
+	@echo "  TEST_DB     test database (default: pggit_test)"
 
 # Version and release management
 CURRENT_VERSION := $(shell grep 'version = ' pyproject.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
