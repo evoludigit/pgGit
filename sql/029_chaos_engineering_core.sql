@@ -1,5 +1,5 @@
 -- Chaos Engineering: Core pggit functions implementation
--- Phase 2-GREEN: Implement missing functions identified in RED phase
+-- Core function implementations for testing and validation
 
 -- Function: pggit.generate_trinity_id
 -- Generates a unique Trinity ID for commits with high performance

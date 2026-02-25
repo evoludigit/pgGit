@@ -1,10 +1,10 @@
 -- =====================================================
--- pgGit Backup Integration - Phase 1: Metadata Tracking
+-- pgGit Backup Integration - Metadata Tracking
 -- =====================================================
 --
 -- This module provides Git-like tracking of database backups.
--- Phase 1 focuses on metadata tracking only - users manually
--- create backups using external tools, then register them here.
+-- Focuses on metadata tracking - users manually create backups
+-- using external tools, then register them here.
 --
 -- Features:
 -- - Link backups to specific commits
@@ -14,8 +14,9 @@
 -- - Backup dependency tracking (for incremental backups)
 -- - Backup verification records
 --
--- Phase 2 (future): Automated backup execution
--- Phase 3 (future): Recovery workflows
+-- Future enhancements:
+-- - Automated backup execution
+-- - Recovery workflows
 -- =====================================================
 
 -- =====================================================
@@ -121,7 +122,7 @@ CREATE INDEX IF NOT EXISTS idx_backup_tags_name ON pggit.backup_tags(tag_name, t
 -- =====================================================
 
 -- Register a backup that was created externally
--- Phase 1: Users run backup tools manually, then register the backup metadata
+-- Users run backup tools manually, then register the backup metadata
 CREATE OR REPLACE FUNCTION pggit.register_backup(
     p_backup_name TEXT,
     p_backup_type TEXT,

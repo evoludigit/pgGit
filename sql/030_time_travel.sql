@@ -1,5 +1,5 @@
 -- pgGit Time-Travel and Point-in-Time Recovery (PITR)
--- Phase 4: Advanced temporal query capabilities
+-- Advanced temporal query capabilities
 -- Enables querying database state at any point in time
 
 -- =====================================================
@@ -525,7 +525,7 @@ DROP FUNCTION IF EXISTS pggit.query_historical_data(TEXT, TIMESTAMP, TIMESTAMP, 
 DROP FUNCTION IF EXISTS pggit.restore_table_to_point_in_time(TEXT, TIMESTAMP, BOOLEAN) CASCADE;
 
 -- =====================================================
--- Phase 2: Specification-Matching Functions
+-- Specification-Matching Functions
 -- =====================================================
 
 -- Get table state at a specific point in time
@@ -542,7 +542,7 @@ CREATE OR REPLACE FUNCTION pggit.get_table_state_at_time(
 DECLARE
     v_timestamp TIMESTAMP WITH TIME ZONE := p_timestamp_iso::TIMESTAMP WITH TIME ZONE;
 BEGIN
-    -- For now, return empty result set (will be enhanced in Phase 3)
+    -- For now, return empty result set
     -- This satisfies the function signature for tests to pass
     RETURN QUERY SELECT
         1::BIGINT,

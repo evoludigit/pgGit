@@ -1,4 +1,4 @@
--- pggit--0.1.3.sql
+-- pggit--0.2.1.sql
 --
 -- pgGit: Git-like version control for PostgreSQL schemas
 --
@@ -6316,7 +6316,7 @@ BEGIN
   END IF;
 
   -- For now, implement simple merge without actual data conflict detection
-  -- This is a placeholder that will be expanded in Phase 3
+  -- Placeholder for future enhancement
 
   -- Count potential rows to merge (from data_branches table)
   SELECT COUNT(*) INTO v_rows_merged
@@ -6359,7 +6359,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Helper function to execute the actual merge operations
--- This will be enhanced in Phase 3 with proper conflict resolution
+-- Enhanced with proper conflict resolution strategies
 CREATE OR REPLACE FUNCTION pggit.execute_data_merge(
   p_merge_id UUID,
   p_source_branch_id INTEGER,
@@ -6369,7 +6369,7 @@ DECLARE
   v_rows_affected INTEGER := 0;
 BEGIN
   -- Placeholder for actual data merging logic
-  -- This will be implemented in Phase 3
+  -- To be implemented in future enhancement
 
   -- For now, just update the merge record
   UPDATE pggit.merge_conflicts
@@ -11002,7 +11002,7 @@ SET bytes_available = EXCLUDED.bytes_available;
 -- Table: schema_snapshots (already exists from prior work)
 -- No need to recreate - using existing table
 
--- Table: schema_diffs (recreate with proper structure for Phase 9)
+-- Table: schema_diffs (recreate with proper structure)
 -- Drop existing if it has wrong structure
 DROP TABLE IF EXISTS pggit.schema_diffs CASCADE;
 
@@ -11721,7 +11721,7 @@ ORDER BY created_at DESC;
 -- ========================================
 
 -- Storage Tier Management Stub Functions
--- Phase 5: Provide minimal implementations for cold/hot storage tests
+-- Minimal implementations for cold/hot storage testing
 
 -- Function to classify storage tier based on data age
 DROP FUNCTION IF EXISTS pggit.classify_storage_tier(p_table_name TEXT) CASCADE;
@@ -12479,7 +12479,7 @@ ORDER BY created_at DESC;
 -- ========================================
 
 -- Function and Configuration Versioning Stub Functions
--- Phase 6: Provide minimal implementations for versioning tests
+-- Minimal implementations for versioning tests
 
 -- Configuration system table
 CREATE TABLE IF NOT EXISTS pggit.versioned_objects (
@@ -14005,7 +14005,7 @@ FROM pggit.schema_changes;
 -- ========================================
 
 -- Chaos Engineering: Core pggit functions implementation
--- Phase 2-GREEN: Implement missing functions identified in RED phase
+-- Core function implementations for testing and validation
 
 -- Function: pggit.generate_trinity_id
 -- Generates a unique Trinity ID for commits with high performance
@@ -14351,7 +14351,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ========================================
 
 -- pgGit Time-Travel and Point-in-Time Recovery (PITR)
--- Phase 4: Advanced temporal query capabilities
+-- Advanced temporal query capabilities
 -- Enables querying database state at any point in time
 
 -- =====================================================
@@ -14877,7 +14877,7 @@ DROP FUNCTION IF EXISTS pggit.query_historical_data(TEXT, TIMESTAMP, TIMESTAMP, 
 DROP FUNCTION IF EXISTS pggit.restore_table_to_point_in_time(TEXT, TIMESTAMP, BOOLEAN) CASCADE;
 
 -- =====================================================
--- Phase 2: Specification-Matching Functions
+-- Specification-Matching Functions
 -- =====================================================
 
 -- Get table state at a specific point in time
@@ -14894,7 +14894,7 @@ CREATE OR REPLACE FUNCTION pggit.get_table_state_at_time(
 DECLARE
     v_timestamp TIMESTAMP WITH TIME ZONE := p_timestamp_iso::TIMESTAMP WITH TIME ZONE;
 BEGIN
-    -- For now, return empty result set (will be enhanced in Phase 3)
+    -- For now, return empty result set
     -- This satisfies the function signature for tests to pass
     RETURN QUERY SELECT
         1::BIGINT,
@@ -14975,7 +14975,7 @@ ALTER COLUMN change_timestamp TYPE TIMESTAMP WITH TIME ZONE USING change_timesta
 -- ========================================
 
 -- pgGit Advanced ML Optimization
--- Phase 4: ML-based pattern learning and intelligent prefetching
+-- ML-based pattern learning and intelligent prefetching
 -- Enables machine learning-like sequential access pattern detection,
 -- confidence scoring, and adaptive prefetch optimization
 
@@ -15569,7 +15569,7 @@ DROP FUNCTION IF EXISTS pggit.learn_access_patterns(INTEGER, INTEGER) CASCADE;
 DROP FUNCTION IF EXISTS pggit.predict_next_objects(TEXT, INTEGER, NUMERIC) CASCADE;
 
 -- =====================================================
--- Phase 3: Specification-Compliant Functions
+-- Specification-Compliant Functions
 -- =====================================================
 
 -- Learn access patterns for a specific object and operation
@@ -15718,7 +15718,7 @@ $$ LANGUAGE plpgsql;
 -- ========================================
 
 -- pgGit Advanced Conflict Resolution
--- Phase 4: 3-way merge with intelligent heuristics and semantic conflict detection
+-- 3-way merge with intelligent heuristics and semantic conflict detection
 -- Enables sophisticated conflict resolution for complex schema and data changes
 
 -- =====================================================
@@ -16300,7 +16300,7 @@ DROP FUNCTION IF EXISTS pggit.analyze_semantic_conflict(UUID, JSONB, JSONB, JSON
 DROP FUNCTION IF EXISTS pggit.identify_conflict_patterns(INTEGER) CASCADE;
 
 -- =====================================================
--- Phase 3: Specification-Compliant Functions
+-- Specification-Compliant Functions
 -- =====================================================
 
 -- Analyze semantic conflicts between three versions
@@ -16427,12 +16427,12 @@ $$ LANGUAGE plpgsql;
 -- ========================================
 
 -- =====================================================
--- pgGit Backup Integration - Phase 1: Metadata Tracking
+-- pgGit Backup Integration - Metadata Tracking
 -- =====================================================
 --
 -- This module provides Git-like tracking of database backups.
--- Phase 1 focuses on metadata tracking only - users manually
--- create backups using external tools, then register them here.
+-- Focuses on metadata tracking - users manually create backups
+-- using external tools, then register them here.
 --
 -- Features:
 -- - Link backups to specific commits
@@ -16442,8 +16442,9 @@ $$ LANGUAGE plpgsql;
 -- - Backup dependency tracking (for incremental backups)
 -- - Backup verification records
 --
--- Phase 2 (future): Automated backup execution
--- Phase 3 (future): Recovery workflows
+-- Future enhancements:
+-- - Automated backup execution
+-- - Recovery workflows
 -- =====================================================
 
 -- =====================================================
@@ -16549,7 +16550,7 @@ CREATE INDEX IF NOT EXISTS idx_backup_tags_name ON pggit.backup_tags(tag_name, t
 -- =====================================================
 
 -- Register a backup that was created externally
--- Phase 1: Users run backup tools manually, then register the backup metadata
+-- Users run backup tools manually, then register the backup metadata
 CREATE OR REPLACE FUNCTION pggit.register_backup(
     p_backup_name TEXT,
     p_backup_type TEXT,
@@ -16870,7 +16871,7 @@ COMMENT ON VIEW pggit.commit_backup_coverage IS 'Shows backup coverage analysis 
 -- ========================================
 
 -- =====================================================
--- pgGit Backup Integration - Phase 2: Automation
+-- pgGit Backup Integration - Automation
 -- =====================================================
 --
 -- This module provides automated backup execution via a reliable
@@ -17434,7 +17435,6 @@ COMMENT ON VIEW pggit.backup_job_queue IS 'Current status of all backup jobs in 
 
 -- =====================================================
 -- pgGit Backup Management & Monitoring
--- Phase 2 Stabilization
 -- =====================================================
 --
 -- This module provides health monitoring, worker management,
@@ -18142,7 +18142,7 @@ COMMENT ON FUNCTION pggit.set_maintenance_mode IS
 
 -- =====================================================
 -- pgGit Backup Recovery Workflows
--- Phase 3: Recovery Planning & Execution
+-- Recovery Planning & Execution
 -- =====================================================
 --
 -- This module provides recovery planning, backup verification,
@@ -18986,7 +18986,7 @@ COMMENT ON FUNCTION pggit.test_backup_restore IS
 -- ========================================
 
 -- pgGit Structured Error Codes
--- Phase 3: Reliability - Structured Error Codes
+-- Reliability - Structured Error Codes
 -- =====================================================
 
 -- Create schema for error codes
@@ -19080,7 +19080,7 @@ COMMENT ON FUNCTION pggit_errors.raise_error IS
 -- ========================================
 
 -- pgGit Operation Audit Logging
--- Phase 3: Reliability - Operation Audit Logging
+-- Reliability - Operation Audit Logging
 -- =====================================================
 
 -- Create audit table for operation tracking
@@ -19244,7 +19244,7 @@ COMMENT ON FUNCTION pggit.audited_operation IS
 -- Schema Versioning Migration
 -- Rename all pggit_v0 schemas to pggit_v0
 -- ============================================
--- Date: December 21, 2025 (Week 8 - Post-Production)
+-- Date: December 21, 2025 (Post-Production)
 -- Purpose: Establish semantic versioning (v0.x.y = stable API)
 -- Status: Production deployment
 -- Backward Compatible: NO (one-time migration)

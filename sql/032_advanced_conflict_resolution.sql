@@ -1,5 +1,5 @@
 -- pgGit Advanced Conflict Resolution
--- Phase 4: 3-way merge with intelligent heuristics and semantic conflict detection
+-- 3-way merge with intelligent heuristics and semantic conflict detection
 -- Enables sophisticated conflict resolution for complex schema and data changes
 
 -- =====================================================
@@ -581,7 +581,7 @@ DROP FUNCTION IF EXISTS pggit.analyze_semantic_conflict(UUID, JSONB, JSONB, JSON
 DROP FUNCTION IF EXISTS pggit.identify_conflict_patterns(INTEGER) CASCADE;
 
 -- =====================================================
--- Phase 3: Specification-Compliant Functions
+-- Specification-Compliant Functions
 -- =====================================================
 
 -- Analyze semantic conflicts between three versions

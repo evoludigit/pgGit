@@ -1,5 +1,5 @@
 -- pgGit Structured Error Codes
--- Phase 3: Reliability - Structured Error Codes
+-- Reliability - Structured Error Codes
 -- =====================================================
 
 -- Create schema for error codes

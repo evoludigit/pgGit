@@ -1,5 +1,5 @@
 -- pgGit Operation Audit Logging
--- Phase 3: Reliability - Operation Audit Logging
+-- Reliability - Operation Audit Logging
 -- =====================================================
 
 -- Create audit table for operation tracking

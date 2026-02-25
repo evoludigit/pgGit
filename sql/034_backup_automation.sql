@@ -1,5 +1,5 @@
 -- =====================================================
--- pgGit Backup Integration - Phase 2: Automation
+-- pgGit Backup Integration - Automation
 -- =====================================================
 --
 -- This module provides automated backup execution via a reliable

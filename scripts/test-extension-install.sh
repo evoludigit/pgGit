@@ -38,7 +38,7 @@ done
 # Copy project files into the container
 echo "Copying project files..."
 podman cp "$(pwd)/pggit.control" "$CONTAINER_NAME:/tmp/pggit.control"
-podman cp "$(pwd)/pggit--0.1.3.sql" "$CONTAINER_NAME:/tmp/pggit--0.1.3.sql"
+podman cp "$(pwd)/pggit--0.2.1.sql" "$CONTAINER_NAME:/tmp/pggit--0.2.1.sql"
 podman cp "$(pwd)/Makefile" "$CONTAINER_NAME:/tmp/Makefile"
 
 # Install extension files into PostgreSQL's sharedir
@@ -46,7 +46,7 @@ echo "Installing extension files..."
 podman exec "$CONTAINER_NAME" bash -c '
     SHAREDIR=$(pg_config --sharedir)
     cp /tmp/pggit.control "$SHAREDIR/extension/"
-    cp /tmp/pggit--0.1.3.sql "$SHAREDIR/extension/"
+    cp /tmp/pggit--0.2.1.sql "$SHAREDIR/extension/"
     echo "Installed to $SHAREDIR/extension/"
     ls -la "$SHAREDIR/extension/pggit"*
 '

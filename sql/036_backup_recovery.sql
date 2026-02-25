@@ -1,6 +1,6 @@
 -- =====================================================
 -- pgGit Backup Recovery Workflows
--- Phase 3: Recovery Planning & Execution
+-- Recovery Planning & Execution
 -- =====================================================
 --
 -- This module provides recovery planning, backup verification,

@@ -1,5 +1,5 @@
 -- Storage Tier Management Stub Functions
--- Phase 5: Provide minimal implementations for cold/hot storage tests
+-- Minimal implementations for cold/hot storage testing
 
 -- Function to classify storage tier based on data age
 DROP FUNCTION IF EXISTS pggit.classify_storage_tier(p_table_name TEXT) CASCADE;

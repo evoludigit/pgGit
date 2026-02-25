@@ -1,5 +1,5 @@
 -- pgGit Advanced ML Optimization
--- Phase 4: ML-based pattern learning and intelligent prefetching
+-- ML-based pattern learning and intelligent prefetching
 -- Enables machine learning-like sequential access pattern detection,
 -- confidence scoring, and adaptive prefetch optimization
 
@@ -593,7 +593,7 @@ DROP FUNCTION IF EXISTS pggit.learn_access_patterns(INTEGER, INTEGER) CASCADE;
 DROP FUNCTION IF EXISTS pggit.predict_next_objects(TEXT, INTEGER, NUMERIC) CASCADE;
 
 -- =====================================================
--- Phase 3: Specification-Compliant Functions
+-- Specification-Compliant Functions
 -- =====================================================
 
 -- Learn access patterns for a specific object and operation

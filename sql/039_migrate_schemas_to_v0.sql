@@ -2,7 +2,7 @@
 -- Schema Versioning Migration
 -- Rename all pggit_v0 schemas to pggit_v0
 -- ============================================
--- Date: December 21, 2025 (Week 8 - Post-Production)
+-- Date: December 21, 2025 (Post-Production)
 -- Purpose: Establish semantic versioning (v0.x.y = stable API)
 -- Status: Production deployment
 -- Backward Compatible: NO (one-time migration)

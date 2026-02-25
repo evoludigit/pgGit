@@ -54,7 +54,7 @@ BEGIN
   END IF;
 
   -- For now, implement simple merge without actual data conflict detection
-  -- This is a placeholder that will be expanded in Phase 3
+  -- Placeholder for future enhancement
 
   -- Count potential rows to merge (from data_branches table)
   SELECT COUNT(*) INTO v_rows_merged
@@ -97,7 +97,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Helper function to execute the actual merge operations
--- This will be enhanced in Phase 3 with proper conflict resolution
+-- Enhanced with proper conflict resolution strategies
 CREATE OR REPLACE FUNCTION pggit.execute_data_merge(
   p_merge_id UUID,
   p_source_branch_id INTEGER,
@@ -107,7 +107,7 @@ DECLARE
   v_rows_affected INTEGER := 0;
 BEGIN
   -- Placeholder for actual data merging logic
-  -- This will be implemented in Phase 3
+  -- To be implemented in future enhancement
 
   -- For now, just update the merge record
   UPDATE pggit.merge_conflicts

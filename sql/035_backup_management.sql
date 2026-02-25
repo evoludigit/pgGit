@@ -1,6 +1,5 @@
 -- =====================================================
 -- pgGit Backup Management & Monitoring
--- Phase 2 Stabilization
 -- =====================================================
 --
 -- This module provides health monitoring, worker management,

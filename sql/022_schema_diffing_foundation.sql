@@ -9,7 +9,7 @@
 -- Table: schema_snapshots (already exists from prior work)
 -- No need to recreate - using existing table
 
--- Table: schema_diffs (recreate with proper structure for Phase 9)
+-- Table: schema_diffs (recreate with proper structure)
 -- Drop existing if it has wrong structure
 DROP TABLE IF EXISTS pggit.schema_diffs CASCADE;
 

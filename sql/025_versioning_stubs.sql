@@ -1,5 +1,5 @@
 -- Function and Configuration Versioning Stub Functions
--- Phase 6: Provide minimal implementations for versioning tests
+-- Minimal implementations for versioning tests
 
 -- Configuration system table
 CREATE TABLE IF NOT EXISTS pggit.versioned_objects (
