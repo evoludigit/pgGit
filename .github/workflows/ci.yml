@@ -3,17 +3,12 @@ name: ci
 on:
   push:
     branches: ["**"]
-    paths:
-      - "extension/**"
-      - ".github/workflows/core-ci.yml"
   pull_request:
     branches: [main]
-    paths:
-      - "extension/**"
 
 jobs:
   test:
-    name: "pgGit core tests (PostgreSQL ${{ matrix.pg }})"
+    name: "extension (PostgreSQL ${{ matrix.pg }})"
     runs-on: ubuntu-latest
 
     strategy:
@@ -86,4 +81,11 @@ jobs:
             PSQL="psql -h localhost -U postgres" \
             PGDATABASE=pggit_test
         env:
+          PGPASSWORD: postgres
+
+      - name: Run README quickstart check
+        run: tools/quickstart-check.sh pggit_quickstart
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
           PGPASSWORD: postgres
