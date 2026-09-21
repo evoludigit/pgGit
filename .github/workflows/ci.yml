@@ -1,15 +1,15 @@
-name: core-ci
+name: ci
 
 on:
   push:
     branches: ["**"]
     paths:
-      - "packages/core/**"
+      - "extension/**"
       - ".github/workflows/core-ci.yml"
   pull_request:
     branches: [main]
     paths:
-      - "packages/core/**"
+      - "extension/**"
 
 jobs:
   test:
@@ -52,7 +52,7 @@ jobs:
 
       - name: Install pggit core
         run: |
-          make -C packages/core install \
+          make -C extension install \
             PSQL="psql -h localhost -U postgres" \
             PGDATABASE=pggit_test
         env:
@@ -60,7 +60,7 @@ jobs:
 
       - name: Run unit tests
         run: |
-          make -C packages/core unit \
+          make -C extension unit \
             PSQL="psql -h localhost -U postgres" \
             TEST_DB=pggit_test
         env:
@@ -68,21 +68,21 @@ jobs:
 
       - name: Run integration tests
         run: |
-          make -C packages/core integration \
+          make -C extension integration \
             PSQL="psql -h localhost -U postgres" \
             TEST_DB=pggit_test
         env:
           PGPASSWORD: postgres
 
       - name: Run lint
-        run: make -C packages/core lint
+        run: make -C extension lint
 
       - name: Test uninstall/reinstall idempotency
         run: |
-          make -C packages/core uninstall \
+          make -C extension uninstall \
             PSQL="psql -h localhost -U postgres" \
             PGDATABASE=pggit_test
-          make -C packages/core install \
+          make -C extension install \
             PSQL="psql -h localhost -U postgres" \
             PGDATABASE=pggit_test
         env:
