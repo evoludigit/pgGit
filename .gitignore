@@ -38,3 +38,5 @@ Thumbs.db
 # Development
 .ruff_cache/
 .phases/
+# Local
+.pggit/
