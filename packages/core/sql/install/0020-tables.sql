@@ -4,6 +4,7 @@
 -- Table 1: branches
 CREATE TABLE pggit.branches (
     id              BIGSERIAL PRIMARY KEY,
+    tenant_id       UUID,  -- NULL = shared/admin mode (backward compatible)
     name            TEXT NOT NULL,
     parent_id       BIGINT REFERENCES pggit.branches(id),
     status          pggit.branch_status NOT NULL DEFAULT 'active',
@@ -27,9 +28,13 @@ COMMENT ON COLUMN pggit.branches.name IS
 COMMENT ON COLUMN pggit.branches.head_commit_id IS
     'Most recent commit on this branch. NULL until the first commit is made.';
 
+COMMENT ON COLUMN pggit.branches.tenant_id IS
+    'Tenant UUID for multi-tenant isolation. NULL = shared/admin mode.';
+
 -- Table 2: commits
 CREATE TABLE pggit.commits (
     id              BIGSERIAL PRIMARY KEY,
+    tenant_id       UUID,  -- NULL = shared/admin mode (backward compatible)
     branch_id       BIGINT NOT NULL REFERENCES pggit.branches(id),
     parent_id       BIGINT REFERENCES pggit.commits(id),  -- NULL for root commit only
     message         TEXT NOT NULL,
@@ -49,6 +54,9 @@ COMMENT ON TABLE pggit.commits IS
 COMMENT ON COLUMN pggit.commits.parent_id IS
     'NULL only for the initial commit on main. All other commits have a parent.';
 
+COMMENT ON COLUMN pggit.commits.tenant_id IS
+    'Tenant UUID for multi-tenant isolation. NULL = shared/admin mode.';
+
 -- Add deferred FK from branches.head_commit_id to commits
 ALTER TABLE pggit.branches
     ADD CONSTRAINT branches_head_commit_fk
@@ -58,6 +66,7 @@ ALTER TABLE pggit.branches
 -- Table 3: objects — current state per branch
 CREATE TABLE pggit.objects (
     id              BIGSERIAL PRIMARY KEY,
+    tenant_id       UUID,  -- NULL = shared/admin mode (backward compatible)
     branch_id       BIGINT NOT NULL REFERENCES pggit.branches(id),
     schema_name     TEXT NOT NULL,
     object_name     TEXT NOT NULL,
@@ -84,9 +93,13 @@ COMMENT ON COLUMN pggit.objects.content_hash IS
     'SHA-256 hex of normalized DDL text. Populated synchronously by the '
     'event trigger. Never NULL.';
 
+COMMENT ON COLUMN pggit.objects.tenant_id IS
+    'Tenant UUID for multi-tenant isolation. NULL = shared/admin mode.';
+
 -- Table 4: history — append-only audit log
 CREATE TABLE pggit.history (
     id              BIGSERIAL PRIMARY KEY,
+    tenant_id       UUID,  -- NULL = shared/admin mode (backward compatible)
     branch_id       BIGINT NOT NULL REFERENCES pggit.branches(id),
     object_id       BIGINT NOT NULL REFERENCES pggit.objects(id),
     commit_id       BIGINT REFERENCES pggit.commits(id),  -- NULL = uncommitted
@@ -106,9 +119,13 @@ COMMENT ON TABLE pggit.history IS
     'commit_id is NULL for changes made after the last commit (working tree). '
     'Used for audit trail and time-travel queries.';
 
+COMMENT ON COLUMN pggit.history.tenant_id IS
+    'Tenant UUID for multi-tenant isolation. NULL = shared/admin mode.';
+
 -- Table 5: merge_history — one row per merge attempt
 CREATE TABLE pggit.merge_history (
     id                  BIGSERIAL PRIMARY KEY,
+    tenant_id           UUID,  -- NULL = shared/admin mode (backward compatible)
     source_branch_id    BIGINT NOT NULL REFERENCES pggit.branches(id),
     target_branch_id    BIGINT NOT NULL REFERENCES pggit.branches(id),
     lca_commit_id       BIGINT NOT NULL REFERENCES pggit.commits(id),
@@ -127,9 +144,13 @@ COMMENT ON TABLE pggit.merge_history IS
     'One row per merge attempt. Tracks the three-way merge: LCA, source tip, '
     'target tip. result_commit_id set when merge completes successfully.';
 
+COMMENT ON COLUMN pggit.merge_history.tenant_id IS
+    'Tenant UUID for multi-tenant isolation. NULL = shared/admin mode.';
+
 -- Table 6: merge_conflicts — per-object merge outcomes
 CREATE TABLE pggit.merge_conflicts (
     id              BIGSERIAL PRIMARY KEY,
+    tenant_id       UUID,  -- NULL = shared/admin mode (backward compatible)
     merge_id        BIGINT NOT NULL REFERENCES pggit.merge_history(id),
     schema_name     TEXT NOT NULL,
     object_name     TEXT NOT NULL,
@@ -153,3 +174,30 @@ COMMENT ON TABLE pggit.merge_conflicts IS
     'Per-object merge outcome. auto_merged rows need no user action. '
     'conflicted rows must be resolved before merge can complete. '
     'resolved rows have user-provided DDL ready to apply.';
+
+COMMENT ON COLUMN pggit.merge_conflicts.tenant_id IS
+    'Tenant UUID for multi-tenant isolation. NULL = shared/admin mode.';
+
+-- Table 7: tags — lightweight named references to commits
+CREATE TABLE pggit.tags (
+    id              BIGSERIAL PRIMARY KEY,
+    tenant_id       UUID,  -- NULL = shared/admin mode (backward compatible)
+    name            TEXT NOT NULL,
+    commit_id       BIGINT NOT NULL REFERENCES pggit.commits(id),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    CONSTRAINT tags_name_valid
+        CHECK (name ~ '^[a-zA-Z0-9._-]+$'),
+    CONSTRAINT tags_name_unique
+        UNIQUE (name)
+);
+
+COMMENT ON TABLE pggit.tags IS
+    'Lightweight named references to commits, similar to Git tags. '
+    'Tags are global (not branch-specific) and immutable once created.';
+
+COMMENT ON COLUMN pggit.tags.name IS
+    'Tag names: alphanumeric, dots, hyphens only. No slashes.';
+
+COMMENT ON COLUMN pggit.tags.tenant_id IS
+    'Tenant UUID for multi-tenant isolation. NULL = shared/admin mode.';

@@ -548,3 +548,235 @@ $$;
 COMMENT ON FUNCTION pggit.complete_merge(BIGINT) IS
     'Apply all resolved merge changes and create the merge commit. '
     'Fails if any conflicts are still unresolved.';
+
+-- ---------------------------------------------------------------------------
+-- Tagging (functions 15–18)
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION pggit.tag(
+    p_name TEXT,
+    p_commit_id BIGINT DEFAULT NULL
+)
+RETURNS BIGINT
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_commit_id BIGINT;
+    v_new_id    BIGINT;
+BEGIN
+    IF p_name !~ '^[a-zA-Z0-9._-]+$' THEN
+        RAISE EXCEPTION
+            'Invalid tag name "%". Use alphanumeric, dots, hyphens only.', p_name;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM pggit.tags WHERE name = p_name) THEN
+        RAISE EXCEPTION 'Tag "%" already exists', p_name;
+    END IF;
+
+    -- Default to current branch head if commit_id not provided
+    v_commit_id := COALESCE(
+        p_commit_id,
+        (SELECT head_commit_id
+         FROM pggit.branches
+         WHERE name = COALESCE(current_setting('pggit.branch', TRUE), 'main'))
+    );
+
+    IF v_commit_id IS NULL THEN
+        RAISE EXCEPTION 'No commit_id provided and current branch has no commits';
+    END IF;
+
+    -- Verify commit exists
+    IF NOT EXISTS (SELECT 1 FROM pggit.commits WHERE id = v_commit_id) THEN
+        RAISE EXCEPTION 'Commit % does not exist', v_commit_id;
+    END IF;
+
+    INSERT INTO pggit.tags (name, commit_id)
+    VALUES (p_name, v_commit_id)
+    RETURNING id INTO v_new_id;
+
+    RETURN v_new_id;
+END;
+$$;
+
+COMMENT ON FUNCTION pggit.tag(TEXT, BIGINT) IS
+    'Create a lightweight tag pointing to a commit. '
+    'If commit_id is NULL, tags the current branch head.';
+
+CREATE OR REPLACE FUNCTION pggit.untag(p_name TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pggit.tags WHERE name = p_name) THEN
+        RAISE EXCEPTION 'Tag "%" not found', p_name;
+    END IF;
+
+    DELETE FROM pggit.tags WHERE name = p_name;
+END;
+$$;
+
+COMMENT ON FUNCTION pggit.untag(TEXT) IS
+    'Delete a tag. This is a soft-delete pattern — tags can be recreated.';
+
+CREATE OR REPLACE FUNCTION pggit.list_tags()
+RETURNS TABLE (
+    name TEXT,
+    commit_id BIGINT,
+    branch_name TEXT,
+    commit_message TEXT,
+    created_at TIMESTAMPTZ
+)
+LANGUAGE sql
+AS $$
+    SELECT
+        t.name,
+        t.commit_id,
+        b.name AS branch_name,
+        c.message AS commit_message,
+        t.created_at
+    FROM pggit.tags t
+    JOIN pggit.commits c ON c.id = t.commit_id
+    LEFT JOIN pggit.branches b ON b.head_commit_id = t.commit_id
+    ORDER BY t.created_at DESC;
+$$;
+
+COMMENT ON FUNCTION pggit.list_tags() IS
+    'List all tags with commit info. branch_name shows which branch currently '
+    'points to this commit (if any).';
+
+CREATE OR REPLACE FUNCTION pggit.get_commit_by_tag(p_name TEXT)
+RETURNS BIGINT
+LANGUAGE sql
+AS $$
+    SELECT commit_id FROM pggit.tags WHERE name = p_name;
+$$;
+
+COMMENT ON FUNCTION pggit.get_commit_by_tag(TEXT) IS
+    'Get the commit_id associated with a tag. Returns NULL if tag not found.';
+
+-- ---------------------------------------------------------------------------
+-- Monitoring and Metrics (function 19)
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION pggit.metrics_summary()
+RETURNS TABLE (
+    metric_name TEXT,
+    metric_value BIGINT
+)
+LANGUAGE sql
+AS $$
+    SELECT 'branches_total'::TEXT, COUNT(*)::BIGINT FROM pggit.branches
+    UNION ALL
+    SELECT 'branches_active', COUNT(*) FROM pggit.branches WHERE status = 'active'
+    UNION ALL
+    SELECT 'branches_merged', COUNT(*) FROM pggit.branches WHERE status = 'merged'
+    UNION ALL
+    SELECT 'commits_total', COUNT(*) FROM pggit.commits
+    UNION ALL
+    SELECT 'objects_tracked', COUNT(*) FROM pggit.objects WHERE is_deleted = FALSE
+    UNION ALL
+    SELECT 'objects_deleted', COUNT(*) FROM pggit.objects WHERE is_deleted = TRUE
+    UNION ALL
+    SELECT 'tags_total', COUNT(*) FROM pggit.tags
+    UNION ALL
+    SELECT 'merges_total', COUNT(*) FROM pggit.merge_history
+    UNION ALL
+    SELECT 'merges_completed', COUNT(*) FROM pggit.merge_history WHERE status = 'completed'
+    UNION ALL
+    SELECT 'history_entries', COUNT(*) FROM pggit.history;
+$$;
+
+COMMENT ON FUNCTION pggit.metrics_summary() IS
+    'Return key metrics about the pggit installation. Useful for monitoring '
+    'dashboards and health checks.';
+
+-- Monitoring views for detailed inspection
+
+CREATE OR REPLACE VIEW pggit.v_branch_activity AS
+SELECT
+    b.name AS branch_name,
+    b.status,
+    COUNT(DISTINCT c.id) AS commit_count,
+    COUNT(DISTINCT o.id) AS object_count,
+    MAX(c.committed_at) AS last_commit_at,
+    b.created_at
+FROM pggit.branches b
+LEFT JOIN pggit.commits c ON c.branch_id = b.id
+LEFT JOIN pggit.objects o ON o.branch_id = b.id AND o.is_deleted = FALSE
+GROUP BY b.id, b.name, b.status, b.created_at;
+
+COMMENT ON VIEW pggit.v_branch_activity IS
+    'Branch-level activity summary: commits, objects, last activity.';
+
+CREATE OR REPLACE VIEW pggit.v_recent_changes AS
+SELECT
+    h.changed_at,
+    b.name AS branch_name,
+    o.schema_name,
+    o.object_name,
+    h.operation,
+    CASE WHEN h.commit_id IS NULL THEN 'uncommitted' ELSE 'committed' END AS status
+FROM pggit.history h
+JOIN pggit.branches b ON b.id = h.branch_id
+JOIN pggit.objects o ON o.id = h.object_id
+ORDER BY h.changed_at DESC
+LIMIT 100;
+
+COMMENT ON VIEW pggit.v_recent_changes IS
+    'Last 100 DDL changes across all branches, with commit status.';
+
+-- ---------------------------------------------------------------------------
+-- Tenant Management
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION pggit.set_tenant(p_tenant_id UUID)
+RETURNS VOID
+LANGUAGE sql
+AS $$
+    SELECT pggit_internal.set_tenant_id(p_tenant_id);
+$$;
+
+COMMENT ON FUNCTION pggit.set_tenant(UUID) IS
+    'Set the tenant UUID for the current session. All subsequent operations '
+    'will be scoped to this tenant. Pass NULL to enter admin mode (all tenants).';
+
+CREATE OR REPLACE FUNCTION pggit.current_tenant()
+RETURNS UUID
+LANGUAGE sql
+STABLE
+AS $$
+    SELECT pggit_internal.current_tenant_id();
+$$;
+
+COMMENT ON FUNCTION pggit.current_tenant() IS
+    'Get the current tenant UUID for this session. Returns NULL if in admin mode.';
+
+CREATE OR REPLACE FUNCTION pggit.is_tenant_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+AS $$
+    SELECT pggit_internal.is_tenant_admin();
+$$;
+
+COMMENT ON FUNCTION pggit.is_tenant_admin() IS
+    'Check if current user is a tenant admin or in admin mode (no tenant set).';
+
+-- ---------------------------------------------------------------------------
+-- RLS Policy Enforcement (views for tenant-scoped access)
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE VIEW pggit.v_my_branches AS
+SELECT * FROM pggit.branches
+WHERE tenant_id IS NULL OR tenant_id = pggit_internal.current_tenant_id();
+
+COMMENT ON VIEW pggit.v_my_branches IS
+    'Tenant-scoped view of branches. Shows all branches in admin mode, '
+    'or only current tenant branches in tenant mode.';
+
+CREATE OR REPLACE VIEW pggit.v_my_commits AS
+SELECT * FROM pggit.commits
+WHERE tenant_id IS NULL OR tenant_id = pggit_internal.current_tenant_id();
+
+COMMENT ON VIEW pggit.v_my_commits IS
+    'Tenant-scoped view of commits.';

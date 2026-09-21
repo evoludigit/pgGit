@@ -1,7 +1,7 @@
 -- pgTAP unit tests: public API surface
 
 BEGIN;
-SELECT plan(28);
+SELECT plan(45);
 
 -- ---------------------------------------------------------------------------
 -- Function existence checks — all 14 public functions + status view
@@ -25,6 +25,19 @@ SELECT has_function('pggit', 'resolve_conflict',
 SELECT has_function('pggit', 'complete_merge',      ARRAY['bigint']::name[],        'complete_merge exists');
 SELECT has_function('pggit', 'pause_tracking',      ARRAY[]::name[],                'pause_tracking exists');
 SELECT has_function('pggit', 'resume_tracking',     ARRAY[]::name[],                'resume_tracking exists');
+
+-- Tagging functions (4 new)
+SELECT has_function('pggit', 'tag',                 ARRAY['text','bigint']::name[], 'tag exists');
+SELECT has_function('pggit', 'untag',               ARRAY['text']::name[],          'untag exists');
+SELECT has_function('pggit', 'list_tags',           ARRAY[]::name[],                'list_tags exists');
+SELECT has_function('pggit', 'get_commit_by_tag',   ARRAY['text']::name[],          'get_commit_by_tag exists');
+
+-- Monitoring functions (1 new)
+SELECT has_function('pggit', 'metrics_summary',     ARRAY[]::name[],                'metrics_summary exists');
+
+-- Monitoring views (2 new)
+SELECT has_view('pggit', 'v_branch_activity', 'v_branch_activity view exists');
+SELECT has_view('pggit', 'v_recent_changes',  'v_recent_changes view exists');
 
 SELECT has_view('pggit', 'status', 'status view exists');
 
@@ -126,6 +139,71 @@ END;
 $$;
 
 DROP SCHEMA pggit_api_test CASCADE;
+
+-- ---------------------------------------------------------------------------
+-- Tagging smoke tests
+-- ---------------------------------------------------------------------------
+
+-- Create test schema and commit first
+CREATE SCHEMA pggit_tag_test;
+CREATE TABLE pggit_tag_test.test_table (id INT);
+
+-- Get the commit id
+SELECT ok(pggit.commit('test commit for tagging') > 0, 'commit() returns positive id for tagging test');
+
+-- Test tag creation with explicit commit_id
+SELECT ok(pggit.tag('v1.0-test', (SELECT MAX(id) FROM pggit.commits)) > 0, 'tag() returns positive id');
+
+-- Test list_tags
+SELECT ok(
+    EXISTS(SELECT 1 FROM pggit.list_tags() WHERE name = 'v1.0-test'),
+    'list_tags() contains created tag'
+);
+
+-- Test get_commit_by_tag
+SELECT ok(
+    pggit.get_commit_by_tag('v1.0-test') IS NOT NULL,
+    'get_commit_by_tag() returns commit_id'
+);
+
+-- Test untag
+SELECT pggit.untag('v1.0-test');
+SELECT ok(
+    NOT EXISTS(SELECT 1 FROM pggit.list_tags() WHERE name = 'v1.0-test'),
+    'untag() removes the tag'
+);
+
+-- Cleanup
+DROP SCHEMA pggit_tag_test CASCADE;
+
+-- ---------------------------------------------------------------------------
+-- Monitoring smoke tests
+-- ---------------------------------------------------------------------------
+
+SELECT ok(
+    EXISTS(SELECT 1 FROM pggit.metrics_summary() WHERE metric_name = 'branches_total'),
+    'metrics_summary() contains branches_total'
+);
+
+SELECT ok(
+    EXISTS(SELECT 1 FROM pggit.metrics_summary() WHERE metric_name = 'commits_total'),
+    'metrics_summary() contains commits_total'
+);
+
+SELECT ok(
+    EXISTS(SELECT 1 FROM pggit.metrics_summary() WHERE metric_name = 'tags_total'),
+    'metrics_summary() contains tags_total'
+);
+
+SELECT ok(
+    EXISTS(SELECT 1 FROM pggit.v_branch_activity),
+    'v_branch_activity returns rows'
+);
+
+SELECT ok(
+    EXISTS(SELECT 1 FROM pggit.v_recent_changes),
+    'v_recent_changes returns rows'
+);
 
 SELECT finish();
 ROLLBACK;

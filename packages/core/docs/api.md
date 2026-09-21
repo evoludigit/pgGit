@@ -153,6 +153,156 @@ remain unresolved.
 
 ---
 
+## Tagging
+
+### `pggit.tag(name TEXT, commit_id BIGINT DEFAULT NULL) → BIGINT`
+
+Create a lightweight tag pointing to a commit. If `commit_id` is NULL, tags the
+current branch head.
+
+Returns the new tag ID.
+
+**Errors:**
+- `Invalid tag name`: name contains disallowed characters
+- `Tag "X" already exists`
+- `No commit_id provided and current branch has no commits`
+- `Commit X does not exist`
+
+---
+
+### `pggit.untag(name TEXT) → VOID`
+
+Delete a tag. Tags can be recreated later if needed.
+
+**Errors:**
+- `Tag "X" not found`
+
+---
+
+### `pggit.list_tags() → TABLE`
+
+List all tags with commit information:
+- `name TEXT`
+- `commit_id BIGINT`
+- `branch_name TEXT` — which branch currently points to this commit (if any)
+- `commit_message TEXT`
+- `created_at TIMESTAMPTZ`
+
+---
+
+### `pggit.get_commit_by_tag(name TEXT) → BIGINT`
+
+Get the commit_id associated with a tag. Returns NULL if tag not found.
+
+---
+
+## Monitoring
+
+### `pggit.metrics_summary() → TABLE`
+
+Return key metrics about the pggit installation:
+- `metric_name TEXT` — e.g., 'branches_total', 'commits_total'
+- `metric_value BIGINT`
+
+Metrics include:
+- `branches_total`, `branches_active`, `branches_merged`
+- `commits_total`
+- `objects_tracked`, `objects_deleted`
+- `tags_total`
+- `merges_total`, `merges_completed`
+- `history_entries`
+
+---
+
+### `pggit.v_branch_activity` (view)
+
+Branch-level activity summary:
+- `branch_name TEXT`
+- `status pggit.branch_status`
+- `commit_count BIGINT`
+- `object_count BIGINT`
+- `last_commit_at TIMESTAMPTZ`
+- `created_at TIMESTAMPTZ`
+
+---
+
+### `pggit.v_recent_changes` (view)
+
+Last 100 DDL changes across all branches:
+- `changed_at TIMESTAMPTZ`
+- `branch_name TEXT`
+- `schema_name TEXT`
+- `object_name TEXT`
+- `operation TEXT` — 'CREATE', 'ALTER', 'DROP'
+- `status TEXT` — 'committed' or 'uncommitted'
+
+---
+
+## Multi-Tenancy (Row-Level Security)
+
+pgGit supports multi-tenant deployments via PostgreSQL Row-Level Security (RLS).
+Each tenant (typically a SaaS customer) has isolated access to their own branches,
+commits, and objects. The `tenant_id` column on all tables enables this isolation.
+
+### `pggit.set_tenant(tenant_id UUID) → VOID`
+
+Set the tenant UUID for the current session. All subsequent operations will be
+scoped to this tenant. Pass NULL to enter admin mode (access all tenants).
+
+```sql
+-- Set tenant for current session
+SELECT pggit.set_tenant('550e8400-e29b-41d4-a716-446655440000'::UUID);
+
+-- Clear tenant (admin mode)
+SELECT pggit.set_tenant(NULL);
+```
+
+---
+
+### `pggit.current_tenant() → UUID`
+
+Get the current tenant UUID for this session. Returns NULL if in admin mode.
+
+---
+
+### `pggit.is_tenant_admin() → BOOLEAN`
+
+Check if current user is a tenant admin or in admin mode (no tenant set).
+
+---
+
+### `pggit.v_my_branches` (view)
+
+Tenant-scoped view of branches. In admin mode (no tenant set), shows all branches.
+In tenant mode, shows only branches belonging to the current tenant.
+
+---
+
+### `pggit.v_my_commits` (view)
+
+Tenant-scoped view of commits with the same behavior as `v_my_branches`.
+
+---
+
+### Security Model
+
+**Default Behavior**:
+- Every session starts with `tenant_id = NULL` (admin/shared mode)
+- Tables have RLS policies filtering by `current_setting('pggit.tenant_id')`
+- Admin functions bypass RLS using `SECURITY DEFINER`
+
+**Tenant Isolation**:
+- Tenants cannot see other tenants' branches, commits, objects, or history
+- Cross-tenant queries return empty results (not errors)
+- All core tables have `tenant_id` column with RLS policies
+
+**Backward Compatibility**:
+- Existing rows with NULL `tenant_id` are accessible to all (shared/admin rows)
+- Existing installations work unchanged (admin mode by default)
+- New features opt-in via `pggit.set_tenant()`
+
+---
+
 ## Tracking Control
 
 ### `pggit.pause_tracking() → VOID`
@@ -187,6 +337,7 @@ Re-enable DDL capture after `pause_tracking()`.
 | `pggit.history` | Append-only audit log of all DDL events |
 | `pggit.merge_history` | One row per merge attempt |
 | `pggit.merge_conflicts` | Per-object merge classification and resolution |
+| `pggit.tags` | Lightweight named references to commits |
 
 ---
 

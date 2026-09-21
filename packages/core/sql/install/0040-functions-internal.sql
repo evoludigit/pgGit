@@ -52,6 +52,44 @@ COMMENT ON FUNCTION pggit_internal.branch_id(TEXT) IS
     'Convenience: resolve branch name to id. Returns NULL if not found.';
 
 -- ---------------------------------------------------------------------------
+-- Tenant management helpers
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION pggit_internal.current_tenant_id()
+RETURNS UUID
+LANGUAGE sql
+STABLE
+AS $$
+    SELECT NULLIF(current_setting('pggit.tenant_id', TRUE), '')::UUID;
+$$;
+
+COMMENT ON FUNCTION pggit_internal.current_tenant_id() IS
+    'Get the current tenant UUID from session configuration. '
+    'Returns NULL if no tenant set (admin/shared mode).';
+
+CREATE OR REPLACE FUNCTION pggit_internal.set_tenant_id(p_tenant_id UUID)
+RETURNS VOID
+LANGUAGE sql
+AS $$
+    SELECT set_config('pggit.tenant_id', COALESCE(p_tenant_id::TEXT, ''), FALSE);
+$$;
+
+COMMENT ON FUNCTION pggit_internal.set_tenant_id(UUID) IS
+    'Set the tenant ID for the current session. NULL clears the tenant.';
+
+CREATE OR REPLACE FUNCTION pggit_internal.is_tenant_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+AS $$
+    SELECT pg_has_role(current_user, 'pggit_admin', 'MEMBER')
+        OR current_setting('pggit.tenant_id', TRUE) IS NULL;
+$$;
+
+COMMENT ON FUNCTION pggit_internal.is_tenant_admin() IS
+    'Check if current user is a tenant admin or in admin mode (no tenant set).';
+
+-- ---------------------------------------------------------------------------
 -- Tracking pause/resume (used by merge completion)
 -- ---------------------------------------------------------------------------
 
