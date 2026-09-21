@@ -1,0 +1,24 @@
+[package]
+name = "pggit"
+description = "Isolation, verification and attribution for PostgreSQL schemas: a database per branch or agent"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[[bin]]
+name = "pggit"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true }
+pggit-core = { workspace = true }
+
+[lints]
+workspace = true

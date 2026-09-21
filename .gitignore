@@ -40,3 +40,4 @@ Thumbs.db
 .phases/
 # Local
 .pggit/
+target/

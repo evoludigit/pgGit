@@ -1,0 +1,36 @@
+[workspace]
+resolver = "2"
+members = ["crates/pggit-core", "crates/pggit-engine", "crates/pggit", "xtask"]
+
+[workspace.package]
+version = "0.1.0-alpha.0"
+edition = "2021"
+rust-version = "1.95"
+license = "MIT"
+authors = ["Lionel Hamayon"]
+repository = "https://github.com/evoludigit/pgGit"
+homepage = "https://pggit.dev"
+readme = "README.md"
+keywords = ["postgresql", "branching", "schema", "agents", "fraiseql"]
+categories = ["database", "command-line-utilities", "development-tools"]
+
+[workspace.dependencies]
+pggit-core = { path = "crates/pggit-core", version = "0.1.0-alpha.0" }
+pggit-engine = { path = "crates/pggit-engine", version = "0.1.0-alpha.0" }
+clap = { version = "4", features = ["derive"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "deny"
+
+[workspace.lints.clippy]
+# House methodology: deny all + pedantic + cargo, warn nursery.
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+cargo = { level = "deny", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+# Reason: crate and module names carry the pggit prefix by design.
+module_name_repetitions = "allow"
+# Reason: transitive version skew in dependencies is outside our control;
+# denying it would fail CI for upstream churn.
+multiple_crate_versions = "allow"

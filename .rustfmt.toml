@@ -1,0 +1,29 @@
+# Rustfmt configuration, aligned with fraiseql.
+# Unstable options are ignored with a warning on stable toolchains.
+
+brace_style = "SameLineWhere"
+chain_width = 80
+comment_width = 100
+control_brace_style = "AlwaysSameLine"
+edition = "2021"
+enum_discrim_align_threshold = 20
+fn_call_width = 80
+fn_params_layout = "Tall"
+group_imports = "StdExternalCrate"
+hard_tabs = false
+imports_granularity = "Crate"
+match_arm_blocks = true
+match_arm_leading_pipes = "Never"
+match_block_trailing_comma = true
+max_width = 100
+newline_style = "Unix"
+normalize_comments = true
+normalize_doc_attributes = true
+reorder_impl_items = true
+reorder_imports = true
+reorder_modules = true
+struct_field_align_threshold = 20
+style_edition = "2024"
+tab_spaces = 4
+use_small_heuristics = "Default"
+wrap_comments = true

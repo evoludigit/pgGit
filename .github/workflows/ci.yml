@@ -7,6 +7,18 @@ on:
     branches: [main]
 
 jobs:
+  rust:
+    name: rust
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@nextest
+      - run: cargo xtask ci
+
   extension:
     name: "extension (PostgreSQL ${{ matrix.pg }})"
     runs-on: ubuntu-latest

@@ -1,0 +1,8 @@
+# release-plz configuration — https://release-plz.dev/docs/config
+# Publishing to crates.io and GitHub releases are switched on when the first
+# alpha ships; until then the workspace only gets changelog updates.
+
+[workspace]
+publish = false
+git_release_enable = false
+semver_check = false
