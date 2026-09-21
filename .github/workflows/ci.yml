@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  extension:
     name: "extension (PostgreSQL ${{ matrix.pg }})"
     runs-on: ubuntu-latest
 
@@ -29,63 +29,43 @@ jobs:
         ports:
           - 5432:5432
 
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGTAP_VERSION: v1.3.3
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install pgTAP
+      - name: Build pgTAP from source
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y postgresql-${{ matrix.pg }}-pgtap
+          git clone -q --depth 1 --branch "$PGTAP_VERSION" https://github.com/theory/pgtap.git /tmp/pgtap
+          make -C /tmp/pgtap sql/pgtap.sql || make -C /tmp/pgtap
+          test -s /tmp/pgtap/sql/pgtap.sql
 
-      - name: Enable pgcrypto and pgTAP
+      - name: Load pgcrypto and pgTAP into the test database
         run: |
-          psql -h localhost -U postgres -d pggit_test \
-            -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" \
-            -c "CREATE EXTENSION IF NOT EXISTS pgtap;"
-        env:
-          PGPASSWORD: postgres
+          psql -d pggit_test -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+          psql -d pggit_test -v ON_ERROR_STOP=1 -q -f /tmp/pgtap/sql/pgtap.sql
+          psql -d pggit_test -tA -c "SELECT pgtap_version();"
 
-      - name: Install pggit core
-        run: |
-          make -C extension install \
-            PSQL="psql -h localhost -U postgres" \
-            PGDATABASE=pggit_test
-        env:
-          PGPASSWORD: postgres
+      - name: Install extension
+        run: make -C extension install PGDATABASE=pggit_test
 
-      - name: Run unit tests
-        run: |
-          make -C extension unit \
-            PSQL="psql -h localhost -U postgres" \
-            TEST_DB=pggit_test
-        env:
-          PGPASSWORD: postgres
+      - name: Unit tests
+        run: make -C extension unit TEST_DB=pggit_test
 
-      - name: Run integration tests
-        run: |
-          make -C extension integration \
-            PSQL="psql -h localhost -U postgres" \
-            TEST_DB=pggit_test
-        env:
-          PGPASSWORD: postgres
+      - name: Integration tests
+        run: make -C extension integration TEST_DB=pggit_test
 
-      - name: Run lint
+      - name: Lint
         run: make -C extension lint
 
-      - name: Test uninstall/reinstall idempotency
+      - name: Uninstall and reinstall
         run: |
-          make -C extension uninstall \
-            PSQL="psql -h localhost -U postgres" \
-            PGDATABASE=pggit_test
-          make -C extension install \
-            PSQL="psql -h localhost -U postgres" \
-            PGDATABASE=pggit_test
-        env:
-          PGPASSWORD: postgres
+          make -C extension uninstall PGDATABASE=pggit_test
+          make -C extension install PGDATABASE=pggit_test
 
-      - name: Run README quickstart check
+      - name: README quickstart check
         run: tools/quickstart-check.sh pggit_quickstart
-        env:
-          PGHOST: localhost
-          PGUSER: postgres
-          PGPASSWORD: postgres
